@@ -390,42 +390,42 @@ Create workflow storage with tenant partitioning.
 
 #### 9.1 TDD: Workflow storage interface
 
-- [ ] Write tests for WorkflowStorage ABC in `tests/unit/storage/test_workflow_storage.py`
-- [ ] Write tests for abstract methods: save, load, list_all, delete
-- [ ] Write tests that storage is tenant-aware
-- [ ] Create `src/quilt_mcp/storage/workflow_storage.py`
-- [ ] Define WorkflowStorage abstract base class
-- [ ] Define methods for CRUD operations on workflows
-- [ ] Add tenant_id to all method signatures
+- [x] Write tests for WorkflowStorage ABC in `tests/unit/storage/test_workflow_storage.py`
+- [x] Write tests for abstract methods: save, load, list_all, delete
+- [x] Write tests that storage is tenant-aware
+- [x] Create `src/quilt_mcp/storage/workflow_storage.py`
+- [x] Define WorkflowStorage abstract base class
+- [x] Define methods for CRUD operations on workflows
+- [x] Add tenant_id to all method signatures
 
 #### 9.2 TDD: File-based workflow storage
 
-- [ ] Write tests for FileBasedWorkflowStorage in `tests/unit/storage/test_file_storage.py`
-- [ ] Write tests for tenant directory isolation (default: ~/.quilt/workflows/{tenant_id}/)
-- [ ] Write tests for configurable base directory via env (e.g., QUILT_WORKFLOW_DIR)
-- [ ] Write tests that Tenant A cannot access Tenant B's workflows
-- [ ] Write tests for workflow JSON serialization
-- [ ] Write tests for workflow CRUD operations
-- [ ] Create `src/quilt_mcp/storage/file_storage.py`
-- [ ] Implement FileBasedWorkflowStorage with tenant directories and configurable base dir
-- [ ] Implement save, load, list_all, delete methods
-- [ ] Add file system isolation per tenant (safe path joins, prevent traversal)
-- [ ] Add error handling for file operations
+- [x] Write tests for FileBasedWorkflowStorage in `tests/unit/storage/test_file_storage.py`
+- [x] Write tests for tenant directory isolation (default: ~/.quilt/workflows/{tenant_id}/)
+- [x] Write tests for configurable base directory via env (e.g., QUILT_WORKFLOW_DIR)
+- [x] Write tests that Tenant A cannot access Tenant B's workflows
+- [x] Write tests for workflow JSON serialization
+- [x] Write tests for workflow CRUD operations
+- [x] Create `src/quilt_mcp/storage/file_storage.py`
+- [x] Implement FileBasedWorkflowStorage with tenant directories and configurable base dir
+- [x] Implement save, load, list_all, delete methods
+- [x] Add file system isolation per tenant (safe path joins, prevent traversal)
+- [x] Add error handling for file operations
 
 #### 9.3 TDD: Workflow persistence
 
-- [ ] Write tests that workflows survive process restart
-- [ ] Write tests for workflow data consistency
-- [ ] Write tests for concurrent workflow access safety
-- [ ] Verify file-based storage persists correctly
-- [ ] Add file locking if needed for concurrent safety
+- [x] Write tests that workflows survive process restart
+- [x] Write tests for workflow data consistency
+- [x] Write tests for concurrent workflow access safety
+- [x] Verify file-based storage persists correctly
+- [x] Add file locking if needed for concurrent safety
 
 #### 9.4 Verification Checkpoint: Workflow Storage
 
-- [ ] Run linting: `uv run ruff check src/quilt_mcp/storage/`
-- [ ] Run tests: `uv run pytest tests/unit/storage/ -v`
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: implement tenant-isolated workflow storage"`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/storage/`
+- [x] Run tests: `uv run pytest tests/unit/storage/ -v`
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: implement tenant-isolated workflow storage"`
 
 ---
 
@@ -435,40 +435,40 @@ Update workflow service to use tenant-isolated storage.
 
 #### 10.1 TDD: Workflow service with tenant isolation
 
-- [ ] Write tests for WorkflowService in `tests/unit/services/test_workflow_service.py`
-- [ ] Write tests that service accepts tenant_id in constructor
-- [ ] Write tests that service uses tenant-partitioned storage
-- [ ] Write tests that workflow operations only affect tenant's workflows
-- [ ] Update `src/quilt_mcp/services/workflow_service.py` to remove singleton
-- [ ] Remove module-level `_workflows` dictionary
-- [ ] Update constructor to accept tenant_id parameter
-- [ ] Initialize workflow storage with tenant isolation
-- [ ] Update all workflow methods to use storage backend
+- [x] Write tests for WorkflowService in `tests/unit/services/test_workflow_service.py`
+- [x] Write tests that service accepts tenant_id in constructor
+- [x] Write tests that service uses tenant-partitioned storage
+- [x] Write tests that workflow operations only affect tenant's workflows
+- [x] Update `src/quilt_mcp/services/workflow_service.py` to remove singleton
+- [x] Remove module-level `_workflows` dictionary
+- [x] Update constructor to accept tenant_id parameter
+- [x] Initialize workflow storage with tenant isolation
+- [x] Update all workflow methods to use storage backend
 
 #### 10.2 TDD: Workflow CRUD operations
 
-- [ ] Write tests for create_workflow() with tenant isolation
-- [ ] Write tests for get_workflow() with tenant isolation
-- [ ] Write tests for list_workflows() showing only tenant's workflows
-- [ ] Write tests for delete_workflow() with tenant isolation
-- [ ] Write tests that Tenant A cannot see/modify Tenant B's workflows
-- [ ] Implement workflow CRUD methods using storage backend
-- [ ] Ensure all operations are tenant-scoped
+- [x] Write tests for create_workflow() with tenant isolation
+- [x] Write tests for get_workflow() with tenant isolation
+- [x] Write tests for list_workflows() showing only tenant's workflows
+- [x] Write tests for delete_workflow() with tenant isolation
+- [x] Write tests that Tenant A cannot see/modify Tenant B's workflows
+- [x] Implement workflow CRUD methods using storage backend
+- [x] Ensure all operations are tenant-scoped
 
 #### 10.3 TDD: Remove singleton usage
 
-- [ ] Write tests that old singleton accessor no longer works
-- [ ] Write tests that code must use passed-in workflow_service instances
-- [ ] Remove `get_workflow_service()` singleton accessor
-- [ ] Update code that used singleton to accept workflow_service parameter
+- [x] Write tests that old singleton accessor no longer works
+- [x] Write tests that code must use passed-in workflow_service instances
+- [x] Remove `get_workflow_service()` singleton accessor
+- [x] Update code that used singleton to accept workflow_service parameter
 
 #### 10.4 Verification Checkpoint: Workflow Service Refactor
 
-- [ ] Run linting: `uv run ruff check src/quilt_mcp/services/workflow_service.py`
-- [ ] Run tests: `uv run pytest tests/unit/services/test_workflow_service.py -v`
-- [ ] Verify no `_workflows` module-level variable exists
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: refactor workflow service with tenant isolation"`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/services/workflow_service.py`
+- [x] Run tests: `uv run pytest tests/unit/services/test_workflow_service.py -v`
+- [x] Verify no `_workflows` module-level variable exists
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: refactor workflow service with tenant isolation"`
 
 ---
 
@@ -478,40 +478,40 @@ Add workflow service to request context creation.
 
 #### 11.1 TDD: Update RequestContext with workflow service
 
-- [ ] Write tests for RequestContext with workflow_service field
-- [ ] Write tests that workflow_service is required
-- [ ] Write tests for convenience methods accessing workflow service
-- [ ] Update `src/quilt_mcp/context/request_context.py`
-- [ ] Add workflow_service field to RequestContext
-- [ ] Add validation that workflow_service is not None
-- [ ] Add convenience methods for workflow operations
+- [x] Write tests for RequestContext with workflow_service field
+- [x] Write tests that workflow_service is required
+- [x] Write tests for convenience methods accessing workflow service
+- [x] Update `src/quilt_mcp/context/request_context.py`
+- [x] Add workflow_service field to RequestContext
+- [x] Add validation that workflow_service is not None
+- [x] Add convenience methods for workflow operations
 
 #### 11.2 TDD: Update factory to create workflow service
 
-- [ ] Write tests for factory creating workflow service
-- [ ] Write tests that workflow service gets tenant_id from context
-- [ ] Write tests that each context gets fresh workflow service instance
-- [ ] Write tests for error handling in workflow service creation
-- [ ] Update `src/quilt_mcp/context/factory.py`
-- [ ] Implement _create_workflow_service() method
-- [ ] Pass tenant_id to WorkflowService constructor
-- [ ] Add error handling and wrapping
+- [x] Write tests for factory creating workflow service
+- [x] Write tests that workflow service gets tenant_id from context
+- [x] Write tests that each context gets fresh workflow service instance
+- [x] Write tests for error handling in workflow service creation
+- [x] Update `src/quilt_mcp/context/factory.py`
+- [x] Implement _create_workflow_service() method
+- [x] Pass tenant_id to WorkflowService constructor
+- [x] Add error handling and wrapping
 
 #### 11.3 TDD: Update tools to use context workflow service
 
-- [ ] Write tests that tools access workflow service via context
-- [ ] Write tests that tools no longer use singleton accessor
-- [ ] Update workflow tools to use `get_current_context().workflow_service`
-- [ ] Remove singleton accessor calls from tools
-- [ ] Verify tenant isolation in tool operations
+- [x] Write tests that tools access workflow service via context
+- [x] Write tests that tools no longer use singleton accessor
+- [x] Update workflow tools to use `get_current_context().workflow_service`
+- [x] Remove singleton accessor calls from tools
+- [x] Verify tenant isolation in tool operations
 
 #### 11.4 Verification Checkpoint: Workflow Service Integration
 
-- [ ] Run linting: `uv run ruff check src/quilt_mcp/context/ src/quilt_mcp/services/`
-- [ ] Run tests: `uv run pytest tests/unit/context/ tests/unit/services/ -v`
-- [ ] Verify workflow service is created per-request
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: integrate workflow service into request context"`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/context/ src/quilt_mcp/services/`
+- [x] Run tests: `uv run pytest tests/unit/context/ tests/unit/services/ -v`
+- [x] Verify workflow service is created per-request
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: integrate workflow service into request context"`
 
 ---
 
@@ -521,36 +521,36 @@ Validate that workflows are isolated per tenant.
 
 #### 12.1 TDD: Workflow tenant isolation tests
 
-- [ ] Write tests in `tests/integration/test_workflow_isolation.py`
-- [ ] Write tests that Tenant A cannot see Tenant B's workflows
-- [ ] Write tests that workflow names don't collide across tenants
-- [ ] Write tests that workflow operations are tenant-scoped
-- [ ] Write tests that workflow deletion only affects tenant's workflows
-- [ ] Verify all isolation tests pass
+- [x] Write tests in `tests/integration/test_workflow_isolation.py`
+- [x] Write tests that Tenant A cannot see Tenant B's workflows
+- [x] Write tests that workflow names don't collide across tenants
+- [x] Write tests that workflow operations are tenant-scoped
+- [x] Write tests that workflow deletion only affects tenant's workflows
+- [x] Verify all isolation tests pass
 
 #### 12.2 TDD: Workflow persistence tests
 
-- [ ] Write tests for workflow persistence across process restarts
-- [ ] Write tests for workflow data integrity
-- [ ] Write tests that tenant isolation survives restarts
-- [ ] Verify persistence works correctly
+- [x] Write tests for workflow persistence across process restarts
+- [x] Write tests for workflow data integrity
+- [x] Write tests that tenant isolation survives restarts
+- [x] Verify persistence works correctly
 
 #### 12.3 TDD: Concurrent workflow access tests
 
-- [ ] Write tests for concurrent workflow operations
-- [ ] Write tests that User A and User B can modify workflows concurrently
-- [ ] Write tests for race condition safety
-- [ ] Verify concurrent access is safe
+- [x] Write tests for concurrent workflow operations
+- [x] Write tests that User A and User B can modify workflows concurrently
+- [x] Write tests for race condition safety
+- [x] Verify concurrent access is safe
 
 #### 12.4 Verification Checkpoint: Phase 3 Complete
 
-- [ ] Run linting: `uv run ruff check src/quilt_mcp/`
-- [ ] Run full test suite: `uv run pytest -v`
-- [ ] Run integration tests: `uv run pytest tests/integration/test_workflow_isolation.py -v`
-- [ ] Verify no `_workflows` module-level variable exists
-- [ ] Verify MCP server works with tenant-isolated workflows
-- [ ] Commit changes: `git add . && git commit -m "feat: Phase 3 complete - workflow service singleton eliminated"`
-- [ ] Create tag: `git tag phase3-workflow-singleton-eliminated`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/`
+- [x] Run full test suite: `uv run pytest -v`
+- [x] Run integration tests: `uv run pytest tests/integration/test_workflow_isolation.py -v`
+- [x] Verify no `_workflows` module-level variable exists
+- [x] Verify MCP server works with tenant-isolated workflows
+- [x] Commit changes: `git add . && git commit -m "feat: Phase 3 complete - workflow service singleton eliminated"`
+- [x] Create tag: `git tag phase3-workflow-singleton-eliminated`
 
 ---
 
@@ -562,43 +562,43 @@ Enable multitenant mode with tenant extraction and validation.
 
 #### 13.1 TDD: Tenant extraction from authentication
 
-- [ ] Write tests for tenant extraction in `tests/unit/context/test_tenant_extraction.py`
-- [ ] Write tests for extracting tenant_id from JWT token
-- [ ] Write tests for extracting tenant_id from session metadata
-- [ ] Write tests for fallback to environment variable
-- [ ] Write tests for error when tenant_id missing in multitenant mode
-- [ ] Create `src/quilt_mcp/context/tenant_extraction.py`
-- [ ] Implement JWT token decoding for tenant_id
-- [ ] Implement session metadata parsing for tenant_id
-- [ ] Add environment variable fallback
-- [ ] Add validation and error messages
+- [x] Write tests for tenant extraction in `tests/unit/context/test_tenant_extraction.py`
+- [x] Write tests for extracting tenant_id from JWT token
+- [x] Write tests for extracting tenant_id from session metadata
+- [x] Write tests for fallback to environment variable
+- [x] Write tests for error when tenant_id missing in multitenant mode
+- [x] Create `src/quilt_mcp/context/tenant_extraction.py`
+- [x] Implement JWT token decoding for tenant_id
+- [x] Implement session metadata parsing for tenant_id
+- [x] Add environment variable fallback
+- [x] Add validation and error messages
 
 #### 13.2 TDD: Update factory for tenant extraction
 
-- [ ] Write tests for factory extracting tenant from auth_info
-- [ ] Write tests for multitenant mode requiring tenant_id
-- [ ] Write tests for single-user mode using "default" tenant
-- [ ] Write tests for mode-specific validation
-- [ ] Update `src/quilt_mcp/context/factory.py`
-- [ ] Add tenant extraction logic in create_context()
-- [ ] Add mode-specific validation
-- [ ] Add clear error messages for missing tenant_id
+- [x] Write tests for factory extracting tenant from auth_info
+- [x] Write tests for multitenant mode requiring tenant_id
+- [x] Write tests for single-user mode using "default" tenant
+- [x] Write tests for mode-specific validation
+- [x] Update `src/quilt_mcp/context/factory.py`
+- [x] Add tenant extraction logic in create_context()
+- [x] Add mode-specific validation
+- [x] Add clear error messages for missing tenant_id
 
 #### 13.3 TDD: Environment-based mode detection
 
-- [ ] Write tests for QUILT_MULTITENANT_MODE environment variable
-- [ ] Write tests for auto-detection logic
-- [ ] Write tests for explicit mode override
-- [ ] Update factory to read environment variable
-- [ ] Implement auto-detection logic
-- [ ] Document environment variable usage
+- [x] Write tests for QUILT_MULTITENANT_MODE environment variable
+- [x] Write tests for auto-detection logic
+- [x] Write tests for explicit mode override
+- [x] Update factory to read environment variable
+- [x] Implement auto-detection logic
+- [x] Document environment variable usage
 
 #### 13.4 Verification Checkpoint: Multitenant Mode
 
-- [ ] Run linting: `uv run ruff check src/quilt_mcp/context/`
-- [ ] Run tests: `uv run pytest tests/unit/context/test_tenant_extraction.py -v`
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: add multitenant mode support with tenant extraction"`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/context/`
+- [x] Run tests: `uv run pytest tests/unit/context/test_tenant_extraction.py -v`
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: add multitenant mode support with tenant extraction"`
 
 ---
 
@@ -608,48 +608,48 @@ Comprehensive testing for multitenant deployments.
 
 #### 14.1 TDD: Multitenant concurrent request tests
 
-- [ ] Write tests in `tests/integration/test_multitenant.py`
-- [ ] Write tests for 20+ concurrent requests from different tenants
-- [ ] Write tests that each tenant has completely isolated services
-- [ ] Write tests that Tenant A cannot access Tenant B's data
-- [ ] Write tests for credential, permission, and workflow isolation
-- [ ] Verify all multitenant tests pass
+- [x] Write tests in `tests/integration/test_multitenant.py`
+- [x] Write tests for 20+ concurrent requests from different tenants
+- [x] Write tests that each tenant has completely isolated services
+- [x] Write tests that Tenant A cannot access Tenant B's data
+- [x] Write tests for credential, permission, and workflow isolation
+- [x] Verify all multitenant tests pass
 
 #### 14.2 TDD: Single-user mode tests
 
-- [ ] Write tests that single-user mode still works
-- [ ] Write tests that single-user mode doesn't require tenant_id
-- [ ] Write tests that single-user mode uses "default" tenant
-- [ ] Write tests for mode detection and switching
+- [x] Write tests that single-user mode still works
+- [x] Write tests that single-user mode doesn't require tenant_id
+- [x] Write tests that single-user mode uses "default" tenant
+- [x] Write tests for mode detection and switching
 
 #### 14.3 TDD: Load testing
 
-- [ ] Write load tests in `tests/load/test_multitenant_load.py`
-- [ ] Write tests for 100+ concurrent requests across 10 tenants
-- [ ] Write tests measuring performance under load
-- [ ] Write tests for memory usage under sustained load
-- [ ] Write tests that no memory leaks occur
-- [ ] Verify load tests pass and performance is acceptable
+- [x] Write load tests in `tests/load/test_multitenant_load.py`
+- [x] Write tests for 100+ concurrent requests across 10 tenants
+- [x] Write tests measuring performance under load
+- [x] Write tests for memory usage under sustained load
+- [x] Write tests that no memory leaks occur
+- [x] Verify load tests pass and performance is acceptable
 
 #### 14.4 TDD: Security validation
 
-- [ ] Write security tests in `tests/security/test_multitenant_security.py`
-- [ ] Write tests attempting cross-tenant access attacks
-- [ ] Write tests for tenant ID spoofing prevention
-- [ ] Write tests for audit logging with correct tenant context
-- [ ] Write tests that credentials are properly isolated
-- [ ] Verify all security tests pass
+- [x] Write security tests in `tests/security/test_multitenant_security.py`
+- [x] Write tests attempting cross-tenant access attacks
+- [x] Write tests for tenant ID spoofing prevention
+- [x] Write tests for audit logging with correct tenant context
+- [x] Write tests that credentials are properly isolated
+- [x] Verify all security tests pass
 
 #### 14.5 Verification Checkpoint: Phase 4 Complete
 
-- [ ] Run linting: `uv run ruff check src/quilt_mcp/`
-- [ ] Run full test suite: `uv run pytest -v`
-- [ ] Run integration tests: `uv run pytest tests/integration/test_multitenant.py -v`
-- [ ] Run load tests: `uv run pytest tests/load/test_multitenant_load.py -v`
-- [ ] Run security tests: `uv run pytest tests/security/test_multitenant_security.py -v`
-- [ ] Verify MCP server works in both single-user and multitenant modes
-- [ ] Commit changes: `git add . && git commit -m "feat: Phase 4 complete - multitenant deployment support"`
-- [ ] Create tag: `git tag phase4-multitenant-complete`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/`
+- [x] Run full test suite: `uv run pytest -v`
+- [x] Run integration tests: `uv run pytest tests/integration/test_multitenant.py -v`
+- [x] Run load tests: `uv run pytest tests/load/test_multitenant_load.py -v`
+- [x] Run security tests: `uv run pytest tests/security/test_multitenant_security.py -v`
+- [x] Verify MCP server works in both single-user and multitenant modes
+- [x] Commit changes: `git add . && git commit -m "feat: Phase 4 complete - multitenant deployment support"`
+- [x] Create tag: `git tag phase4-multitenant-complete`
 
 ---
 
@@ -659,46 +659,46 @@ Create comprehensive documentation for the new architecture.
 
 ### 15.1 Architecture documentation
 
-- [ ] Document request-scoped service architecture
-- [ ] Document service lifecycle and cleanup
-- [ ] Document tenant isolation guarantees
-- [ ] Document single-user vs multitenant modes
-- [ ] Create architecture diagrams (mermaid)
-- [ ] Document correctness properties
+- [x] Document request-scoped service architecture
+- [x] Document service lifecycle and cleanup
+- [x] Document tenant isolation guarantees
+- [x] Document single-user vs multitenant modes
+- [x] Create architecture diagrams (mermaid)
+- [x] Document correctness properties
 
 ### 15.2 Migration guide
 
-- [ ] Document migration from singleton to request-scoped services
-- [ ] Document phase-by-phase migration process
-- [ ] Document rollback procedures
-- [ ] Document testing strategy for migration
-- [ ] Document common pitfalls and solutions
-- [ ] Document performance considerations
+- [x] Document migration from singleton to request-scoped services
+- [x] Document phase-by-phase migration process
+- [x] Document rollback procedures
+- [x] Document testing strategy for migration
+- [x] Document common pitfalls and solutions
+- [x] Document performance considerations
 
 ### 15.3 Operations guide
 
-- [ ] Document deployment configuration
-- [ ] Document QUILT_MULTITENANT_MODE environment variable
-- [ ] Document monitoring and observability
-- [ ] Document troubleshooting common issues
-- [ ] Document security best practices
-- [ ] Document performance tuning
+- [x] Document deployment configuration
+- [x] Document QUILT_MULTITENANT_MODE environment variable
+- [x] Document monitoring and observability
+- [x] Document troubleshooting common issues
+- [x] Document security best practices
+- [x] Document performance tuning
 
 ### 15.4 API documentation
 
-- [ ] Document RequestContext API
-- [ ] Document RequestContextFactory API
-- [ ] Document context propagation functions
-- [ ] Document service interfaces (AuthService, PermissionDiscoveryService, WorkflowService)
-- [ ] Document error types and handling
-- [ ] Add code examples for common patterns
+- [x] Document RequestContext API
+- [x] Document RequestContextFactory API
+- [x] Document context propagation functions
+- [x] Document service interfaces (AuthService, PermissionDiscoveryService, WorkflowService)
+- [x] Document error types and handling
+- [x] Add code examples for common patterns
 
 ### 15.5 Verification Checkpoint: Documentation
 
-- [ ] Review documentation for completeness
-- [ ] Review documentation for accuracy
-- [ ] Test code examples in documentation
-- [ ] Commit changes: `git add . && git commit -m "docs: add comprehensive documentation for request-scoped services"`
+- [x] Review documentation for completeness
+- [x] Review documentation for accuracy
+- [x] Test code examples in documentation
+- [x] Commit changes: `git add . && git commit -m "docs: add comprehensive documentation for request-scoped services"`
 
 ---
 
