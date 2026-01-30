@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-catalog test-stateless lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-catalog test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -117,15 +117,11 @@ test-mcp-docker: docker-build
 	@uv sync --group test
 	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
 
-# CI mode - runs both local and Docker for comprehensive testing
-test-mcp-ci: docker-build
-	@echo "===🧪 Running MCP server integration tests (CI mode - both local and Docker)..."
+# Test orchestrator - compare stdio vs HTTP+JWT modes
+test-orchestrator: docker-build
+	@echo "===🔬 Running test orchestrator (stdio vs HTTP+JWT)..."
 	@uv sync --group test
-	@echo "\n===📍 Step 1/2: Running local mode tests..."
-	@uv run python scripts/tests/test_mcp.py --local -v
-	@echo "\n===📍 Step 2/2: Running Docker mode tests..."
-	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
-	@echo "\n===✅ Both local and Docker mode tests passed"
+	@uv run python spec/a11-client-testing/18-test-orchestrator.py
 
 # Stateless Deployment Testing (convenience target - included in test-all)
 test-stateless: docker-build
@@ -135,6 +131,24 @@ test-stateless: docker-build
 		export QUILT_DISABLE_CACHE=true && \
 		export PYTHONPATH="src" && \
 		uv run python -m pytest tests/stateless/ -v --tb=short --color=yes
+
+# Stateless MCP Testing with JWT Authentication (using helper scripts)
+test-mcp-stateless: docker-build
+	@echo "🔐 Testing stateless MCP with JWT authentication..."
+	@uv sync --group test
+	@export MCP_CONTAINER_NAME=mcp-stateless-test && \
+		export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+		export MCP_PORT=8002 && \
+		bash scripts/tests/start-stateless-docker.sh && \
+		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
+			--jwt \
+			--role-arn "$(QUILT_TEST_ROLE_ARN)" \
+			--secret "test-secret-key-for-stateless-testing-only" \
+			--tools-test --resources-test \
+			--config scripts/tests/mcp-test.yaml && \
+		bash scripts/tests/stop-stateless-docker.sh) || \
+		(bash scripts/tests/stop-stateless-docker.sh && exit 1)
+	@echo "✅ Stateless JWT testing with catalog authentication completed"
 
 # Code Quality Targets
 lint:

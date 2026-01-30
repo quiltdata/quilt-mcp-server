@@ -110,7 +110,7 @@ jobs:
         run: |
           echo "Validating production image architecture..."
           DOCKER_IMAGE_NAME=quiltdata/mcp \
-            uv run python scripts/docker.py validate \
+            uv run python scripts/docker_manager.py validate \
             --version ${{ needs.build-and-push.outputs.version }} \
             --region us-east-1
         env:

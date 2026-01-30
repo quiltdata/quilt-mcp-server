@@ -64,7 +64,7 @@ class DockerManager:
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
 │  │ Step 1: docker-build (via docker.py)                   │ │
-│  │   → uv run python scripts/docker.py build             │ │
+│  │   → uv run python scripts/docker_manager.py build             │ │
 │  │   → Creates: quilt-mcp:test                           │ │
 │  └────────────────────────────────────────────────────────┘ │
 │                           ↓                                  │
@@ -211,12 +211,12 @@ uv run python scripts/tests/test_mcp.py \
 
 ```bash
 # Test with dev version
-uv run python scripts/docker.py build --version dev
+uv run python scripts/docker_manager.py build --version dev
 uv run python scripts/tests/test_mcp.py --image quilt-mcp:dev
 
 # Test specific git commit
 VERSION=$(git rev-parse --short HEAD)
-uv run python scripts/docker.py build --version $VERSION
+uv run python scripts/docker_manager.py build --version $VERSION
 uv run python scripts/tests/test_mcp.py --image quilt-mcp:$VERSION
 ```
 
@@ -257,11 +257,11 @@ uv run python scripts/tests/test_mcp.py \
 
 ```bash
 # Build for local testing (no registry)
-uv run python scripts/docker.py build [--version VERSION]
+uv run python scripts/docker_manager.py build [--version VERSION]
 # Creates: quilt-mcp:{VERSION}
 
 # Build for production (with registry)
-uv run python scripts/docker.py push --version VERSION
+uv run python scripts/docker_manager.py push --version VERSION
 # Creates: {REGISTRY}/quilt-mcp:{VERSION}
 # Also tags: {REGISTRY}/quilt-mcp:latest
 ```
@@ -614,7 +614,7 @@ curl http://localhost:8765/health
 
 - [make.dev](../../make.dev) - Development workflow
 - [make.deploy](../../make.deploy) - Production build workflow
-- [scripts/docker.py](../../scripts/docker.py) - Docker operations
+- [scripts/docker_manager.py](../../scripts/docker_manager.py) - Docker operations
 - [scripts/tests/test_mcp.py](../../scripts/tests/test_mcp.py) - Test orchestrator
 - [scripts/mcp-list.py](../../scripts/mcp-list.py) - Config generator
 - [Dockerfile](../../Dockerfile) - Container definition

@@ -313,6 +313,7 @@ class TestPermissionDiscoveryEngine:
         assert identity.account_id is not None
         assert len(identity.account_id) == 12  # AWS account IDs are 12 digits
 
+    @pytest.mark.skip(reason="Poorly written test causing confusion - skipping per user request")
     @pytest.mark.integration
     def test_discover_bucket_permissions(self, test_bucket):
         """Test bucket permission discovery with real AWS connection."""
@@ -346,6 +347,7 @@ class TestPermissionDiscoveryEngine:
         if bucket_info.permission_level != PermissionLevel.NO_ACCESS:
             assert bucket_info.can_list is True
 
+    @pytest.mark.skip(reason="Poorly written test causing confusion - skipping per user request")
     @pytest.mark.integration
     def test_discover_bucket_permissions_full_access(self, test_bucket):
         """Test bucket permission discovery with real AWS (integration test)."""
@@ -365,6 +367,7 @@ class TestPermissionDiscoveryEngine:
         # Should have a timestamp
         assert bucket_info.last_checked is not None
 
+    @pytest.mark.skip(reason="Poorly written test causing confusion - skipping per user request")
     @pytest.mark.integration
     def test_discover_bucket_permissions_nonexistent_bucket(self):
         """Test bucket permission discovery with nonexistent bucket (integration test)."""

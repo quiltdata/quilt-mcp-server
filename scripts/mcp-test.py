@@ -12,6 +12,7 @@ This tool is the single source of truth for MCP test execution logic.
 import argparse
 import enum
 import json
+import os
 import subprocess
 import sys
 import time
@@ -22,6 +23,10 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 import yaml
 from jsonschema import validate
+
+# Import JWT helper functions for auto-generation
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'tests'))
+from jwt_helper import generate_test_jwt, validate_quilt3_session_exists
 
 
 class ResourceFailureType(enum.Enum):
@@ -390,7 +395,8 @@ class MCPTester:
         stdin_fd: Optional[int] = None,
         stdout_fd: Optional[int] = None,
         verbose: bool = False,
-        transport: str = "http"
+        transport: str = "http",
+        jwt_token: Optional[str] = None
     ):
         """Initialize MCP tester with specified transport.
 
@@ -401,10 +407,12 @@ class MCPTester:
             stdout_fd: File descriptor for stdout (alternative to process)
             verbose: Enable verbose output
             transport: "http" or "stdio"
+            jwt_token: JWT token for authentication (HTTP transport only)
         """
         self.transport = transport
         self.verbose = verbose
         self.request_id = 1
+        self.jwt_token = jwt_token  # Store for error handling
 
         if transport == "http":
             if not endpoint:
@@ -415,6 +423,14 @@ class MCPTester:
                 'Content-Type': 'application/json',
                 'Accept': 'application/json, text/event-stream'
             })
+
+            # Add JWT authentication if token provided
+            if jwt_token:
+                self._log("JWT authentication enabled", "DEBUG")
+                self.session.headers.update({
+                    'Authorization': f'Bearer {jwt_token}'
+                })
+
             self.process = None
             self.stdin_file = None
             self.stdout_file = None
@@ -448,6 +464,14 @@ class MCPTester:
         prefix = "🔍" if level == "DEBUG" else "ℹ️" if level == "INFO" else "❌"
         print(f"[{timestamp}] {prefix} {message}")
 
+    def _mask_token(self, token: Optional[str]) -> str:
+        """Mask JWT token for safe display (show first and last 4 chars)."""
+        if not token:
+            return "(none)"
+        if len(token) <= 12:
+            return "***"
+        return f"{token[:4]}...{token[-4:]}"
+
     def _make_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make JSON-RPC request using configured transport."""
         if self.transport == "http":
@@ -477,6 +501,33 @@ class MCPTester:
                 json=request_data,
                 timeout=10
             )
+
+            # Special handling for auth errors
+            if response.status_code == 401:
+                if self.jwt_token:
+                    raise Exception(
+                        "Authentication failed: JWT token rejected (invalid or expired)\n"
+                        f"Token preview: {self._mask_token(self.jwt_token)}\n"
+                        "Troubleshooting:\n"
+                        "  - Verify token signature matches server JWT_SECRET\n"
+                        "  - Check token expiration (exp claim)\n"
+                        "  - Ensure token includes required claims (role_arn, etc.)"
+                    )
+                else:
+                    raise Exception(
+                        "Authentication required: Server requires JWT token\n"
+                        "Solution: Pass --jwt-token TOKEN or set MCP_JWT_TOKEN env var"
+                    )
+
+            if response.status_code == 403:
+                raise Exception(
+                    "Authorization failed: Insufficient permissions\n"
+                    f"Token preview: {self._mask_token(self.jwt_token)}\n"
+                    "Troubleshooting:\n"
+                    "  - Verify JWT role_arn has necessary AWS permissions\n"
+                    "  - Check session_tags in token claims"
+                )
+
             response.raise_for_status()
 
             # Handle SSE (Server-Sent Events) response format
@@ -662,7 +713,8 @@ class MCPTester:
         specific_tool: str = None,
         specific_resource: str = None,
         process: Optional[subprocess.Popen] = None,
-        selection_stats: Optional[Dict[str, Any]] = None
+        selection_stats: Optional[Dict[str, Any]] = None,
+        jwt_token: Optional[str] = None
     ) -> bool:
         """Run test suite with tools and/or resources tests, print summary, return success.
 
@@ -687,6 +739,7 @@ class MCPTester:
             specific_resource: Test specific resource only
             process: Running subprocess with stdio pipes (alternative to stdin_fd/stdout_fd)
             selection_stats: Stats from filter_tests_by_idempotence() (optional)
+            jwt_token: JWT token for authentication (HTTP transport only)
 
         Returns:
             True if all tests passed (no failures), False otherwise
@@ -701,7 +754,7 @@ class MCPTester:
         if run_tools:
             # Create ToolsTester instance
             if transport == "http":
-                tester = ToolsTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config)
+                tester = ToolsTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config, jwt_token=jwt_token)
             elif process:
                 tester = ToolsTester(process=process, verbose=verbose, transport=transport, config=config)
             else:
@@ -715,7 +768,7 @@ class MCPTester:
         if run_resources:
             # Create ResourcesTester instance
             if transport == "http":
-                tester = ResourcesTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config)
+                tester = ResourcesTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config, jwt_token=jwt_token)
             elif process:
                 tester = ResourcesTester(process=process, verbose=verbose, transport=transport, config=config)
             else:
@@ -1415,6 +1468,25 @@ Examples:
 
   # stdio mode (typically called by test orchestrator)
   mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4 --tools-test
+
+JWT Authentication:
+  # Auto-generate JWT token (recommended - simplest approach)
+  mcp-test.py http://localhost:8000/mcp --jwt \
+    --role-arn arn:aws:iam::123456789012:role/TestRole \
+    --secret test-secret \
+    --tools-test
+
+  # Using environment variable
+  export MCP_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  mcp-test.py http://localhost:8000/mcp --tools-test
+
+  # Using command-line argument
+  mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..." --tools-test
+
+  # Or generate token separately with jwt_helper
+  python scripts/tests/jwt_helper.py generate --role-arn arn:aws:iam::123456789012:role/TestRole --secret test-secret
+
+For detailed JWT testing documentation, see: docs/JWT_TESTING.md
         """
     )
 
@@ -1452,6 +1524,25 @@ Examples:
 
     # Test options
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+
+    # JWT Authentication (mutually exclusive options)
+    jwt_group = parser.add_mutually_exclusive_group()
+    jwt_group.add_argument("--jwt-token", type=str,
+                       help="JWT token for authentication (HTTP transport only). "
+                            "Alternatively, set MCP_JWT_TOKEN environment variable. "
+                            "⚠️  Prefer env var for production use to avoid token exposure in logs.")
+    jwt_group.add_argument("--jwt", action="store_true",
+                       help="Auto-generate JWT token using jwt_helper library. "
+                            "Requires --role-arn and --secret. "
+                            "Will auto-extract catalog authentication from quilt3 session.")
+
+    # JWT generation parameters (only used with --jwt)
+    parser.add_argument("--role-arn", type=str,
+                       help="AWS IAM role ARN for JWT generation (required with --jwt)")
+    parser.add_argument("--secret", type=str,
+                       help="JWT signing secret (required with --jwt)")
+    parser.add_argument("--jwt-expiry", type=int, default=3600,
+                       help="JWT token expiry in seconds (default: 3600, only with --jwt)")
     parser.add_argument("-t", "--tools-test", action="store_true",
                        help="Run tools test with test configurations")
     parser.add_argument("-T", "--test-tool", metavar="TOOL_NAME",
@@ -1483,13 +1574,62 @@ Examples:
             parser.print_help()
             sys.exit(1)
 
+    # Resolve JWT token
+    jwt_token = None
+
+    if args.jwt:
+        # Auto-generate JWT token using jwt_helper library
+        if transport != "http":
+            print("❌ --jwt only supported for HTTP transport")
+            sys.exit(1)
+
+        if not args.role_arn or not args.secret:
+            print("❌ --jwt requires both --role-arn and --secret")
+            sys.exit(1)
+
+        print("🔐 Auto-generating JWT token with catalog authentication...")
+
+        # Validate quilt3 session exists (jwt_helper needs it for auto-extract)
+        if not validate_quilt3_session_exists():
+            sys.exit(1)
+
+        try:
+            jwt_token = generate_test_jwt(
+                role_arn=args.role_arn,
+                secret=args.secret,
+                expiry_seconds=args.jwt_expiry,
+                auto_extract=True
+            )
+            print("✅ JWT token generated successfully")
+            if args.verbose:
+                # Show masked token for debugging
+                masked = f"{jwt_token[:8]}...{jwt_token[-8:]}" if len(jwt_token) > 16 else "***"
+                print(f"   Token preview: {masked}")
+        except Exception as e:
+            print(f"❌ Failed to generate JWT token: {e}")
+            sys.exit(1)
+    else:
+        # Use provided token (command line takes precedence over env var)
+        jwt_token = args.jwt_token or os.environ.get('MCP_JWT_TOKEN')
+
+        if jwt_token and transport != "http":
+            print("⚠️  Warning: --jwt-token ignored for stdio transport")
+            jwt_token = None
+
+        if jwt_token and args.jwt_token:
+            # Token passed on command line - warn about security
+            print("⚠️  Security Warning: JWT token passed on command line")
+            print("    Prefer using MCP_JWT_TOKEN environment variable")
+            print("    Command-line arguments may be visible in process lists\n")
+
     # Create tester instance
     try:
         if transport == "http":
             tester = MCPTester(
                 endpoint=args.endpoint,
                 verbose=args.verbose,
-                transport="http"
+                transport="http",
+                jwt_token=jwt_token
             )
         else:  # stdio
             tester = MCPTester(
@@ -1548,7 +1688,8 @@ Examples:
                     run_tools=run_tools,
                     run_resources=run_resources,
                     specific_tool=args.test_tool if args.test_tool else None,
-                    specific_resource=args.test_resource if args.test_resource else None
+                    specific_resource=args.test_resource if args.test_resource else None,
+                    jwt_token=jwt_token
                 )
             else:  # stdio
                 success = MCPTester.run_test_suite(
