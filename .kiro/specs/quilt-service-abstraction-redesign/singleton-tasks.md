@@ -180,16 +180,16 @@ Update MCP server to create request contexts for each tool invocation.
 
 #### 4.2 TDD: MCP tool handler integration
 
-- [ ] Write tests for MCP handler with context creation in `tests/unit/server/test_mcp_handler.py`
-- [ ] Write tests that context is created before tool execution
-- [ ] Write tests that context is cleared after tool execution
-- [ ] Write tests that tool execution errors still clean up context
-- [ ] Write tests for auth info extraction from MCP request
-- [ ] Update MCP server tool handler in `src/quilt_mcp/server.py`
-- [ ] Add context factory initialization
-- [ ] Add context creation at start of each tool invocation
-- [ ] Add context cleanup in finally block
-- [ ] Implement auth info extraction from request
+- [x] Write tests for MCP handler with context creation in `tests/unit/server/test_mcp_handler.py`
+- [x] Write tests that context is created before tool execution
+- [x] Write tests that context is cleared after tool execution
+- [x] Write tests that tool execution errors still clean up context
+- [x] Write tests for auth info extraction from MCP request
+- [x] Update MCP server tool handler in `src/quilt_mcp/server.py`
+- [x] Add context factory initialization
+- [x] Add context creation at start of each tool invocation
+- [x] Add context cleanup in finally block
+- [x] Implement auth info extraction from request
 
 #### 4.3 TDD: Update tools to use request context
 

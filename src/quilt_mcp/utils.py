@@ -116,6 +116,11 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     if tool_modules is None:
         tool_modules = get_tool_modules()
 
+    from quilt_mcp.context.factory import RequestContextFactory
+    from quilt_mcp.context.handler import wrap_tool_with_context
+
+    context_factory = RequestContextFactory(mode="auto")
+
     # Tools that are now available as resources MUST be excluded from MCP tool registration
     RESOURCE_AVAILABLE_TOOLS = [
         # Phase 1 - Core Discovery Resources
@@ -177,7 +182,8 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
                 continue
 
             # Register each function as an MCP tool
-            mcp.tool(func)
+            wrapped = wrap_tool_with_context(func, context_factory)
+            mcp.tool(wrapped)
             tools_registered += 1
             if verbose:
                 # Use stderr to avoid interfering with JSON-RPC on stdout
