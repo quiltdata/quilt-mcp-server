@@ -64,6 +64,27 @@ def test_factory_create_context_requires_tenant_in_multitenant_mode():
         factory.create_context()
 
 
+def test_factory_extracts_tenant_from_auth_state(monkeypatch):
+    auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"tenant_id": "tenant-1"})
+    token_handle = push_runtime_context(environment="web-service", auth=auth_state)
+    try:
+        factory = RequestContextFactory(mode="multitenant")
+
+        class _StubAuth:
+            def get_user_identity(self):
+                return {}
+
+        monkeypatch.setattr(factory, "_create_auth_service", lambda: _StubAuth())
+        monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
+        monkeypatch.setattr(factory, "_create_workflow_service", lambda tenant_id: object())
+
+        context = factory.create_context()
+    finally:
+        reset_runtime_context(token_handle)
+
+    assert context.tenant_id == "tenant-1"
+
+
 def test_factory_create_context_sets_default_tenant_in_single_user_mode():
     factory = RequestContextFactory(mode="single-user")
     context = factory.create_context()

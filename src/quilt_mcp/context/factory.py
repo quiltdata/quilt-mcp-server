@@ -7,6 +7,7 @@ import uuid
 from typing import Optional
 
 from quilt_mcp.context.exceptions import ServiceInitializationError, TenantValidationError
+from quilt_mcp.context.tenant_extraction import extract_tenant_id
 from quilt_mcp.context.request_context import RequestContext
 from quilt_mcp.runtime_context import get_runtime_auth
 from quilt_mcp.services.auth_service import AuthService, create_auth_service, get_jwt_mode_enabled
@@ -43,7 +44,9 @@ class RequestContextFactory:
         tenant_id: Optional[str] = None,
         request_id: Optional[str] = None,
     ) -> RequestContext:
-        resolved_tenant = self._resolve_tenant(tenant_id)
+        auth_state = get_runtime_auth()
+        extracted_tenant = extract_tenant_id(auth_state)
+        resolved_tenant = self._resolve_tenant(tenant_id, extracted_tenant)
         resolved_request_id = request_id or str(uuid.uuid4())
 
         try:
@@ -72,11 +75,12 @@ class RequestContextFactory:
             workflow_service=workflow_service,
         )
 
-    def _resolve_tenant(self, tenant_id: Optional[str]) -> str:
+    def _resolve_tenant(self, tenant_id: Optional[str], extracted_tenant: Optional[str]) -> str:
         if self.mode == "multitenant":
-            if not tenant_id:
+            resolved = tenant_id or extracted_tenant
+            if not resolved:
                 raise TenantValidationError(self.mode)
-            return tenant_id
+            return resolved
         if tenant_id is not None:
             raise TenantValidationError(self.mode)
         return "default"
