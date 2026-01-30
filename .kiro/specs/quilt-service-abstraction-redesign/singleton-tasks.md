@@ -67,7 +67,7 @@ Update auth service to be instantiable per-request instead of module-level singl
 - [x] Update `src/quilt_mcp/services/auth_service.py` to remove singleton pattern
 - [x] Remove module-level `_AUTH_SERVICE` variable
 - [x] Define AuthService as abstract base class with required methods
-- [ ] Ensure AuthService can be instantiated multiple times
+- [x] Ensure AuthService can be instantiated multiple times
 
 #### 2.2 TDD: JWTAuthService implementation
 
