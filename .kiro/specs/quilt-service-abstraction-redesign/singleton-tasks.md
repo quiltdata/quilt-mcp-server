@@ -201,11 +201,11 @@ Update MCP server to create request contexts for each tool invocation.
 
 #### 4.4 Verification Checkpoint: MCP Server Integration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/server.py src/quilt_mcp/context/`
-- [ ] Run tests: `pytest tests/unit/server/ -v`
-- [ ] Test MCP server startup with new context creation
-- [ ] Verify context is created and cleaned up correctly
-- [ ] Commit changes: `git add . && git commit -m "feat: integrate request context into MCP server"`
+- [x] Run linting: `ruff check src/quilt_mcp/server.py src/quilt_mcp/context/`
+- [x] Run tests: `pytest tests/unit/server/ -v`
+- [x] Test MCP server startup with new context creation
+- [x] Verify context is created and cleaned up correctly
+- [x] Commit changes: `git add . && git commit -m "feat: integrate request context into MCP server"`
 
 ---
 
