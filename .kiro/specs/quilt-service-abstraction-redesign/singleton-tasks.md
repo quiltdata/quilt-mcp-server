@@ -25,7 +25,7 @@ Create the core request context infrastructure using TDD approach.
 - [x] Write tests for RequestContext in `tests/unit/context/test_request_context.py`
 - [x] Write tests for required field validation (request_id, tenant_id, auth_service)
 - [x] Write tests for is_authenticated property
-- [ ] Write tests for get_boto_session() method
+- [x] Write tests for get_boto_session() method
 - [ ] Write tests that RequestContext rejects missing services
 - [ ] Create `src/quilt_mcp/context/request_context.py` to make tests pass
 - [ ] Implement RequestContext with fields: request_id, tenant_id, user_id, auth_service,

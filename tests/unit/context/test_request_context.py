@@ -73,3 +73,25 @@ def test_request_context_is_authenticated_reflects_auth_service():
 
     assert authenticated.is_authenticated is True
     assert unauthenticated.is_authenticated is False
+
+
+def test_request_context_get_boto_session_delegates_to_auth_service():
+    sentinel = object()
+
+    class StubAuthService:
+        def is_valid(self) -> bool:
+            return True
+
+        def get_boto3_session(self):
+            return sentinel
+
+    context = RequestContext(
+        request_id="req-3",
+        tenant_id="tenant-a",
+        user_id="user-1",
+        auth_service=StubAuthService(),
+        permission_service=object(),
+        workflow_service=object(),
+    )
+
+    assert context.get_boto_session() is sentinel
