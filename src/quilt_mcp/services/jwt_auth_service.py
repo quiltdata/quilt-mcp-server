@@ -60,6 +60,7 @@ class JWTAuthService:
 
     def __init__(self) -> None:
         self._decoder = get_jwt_decoder()
+        self._catalog_configured = False
 
     def get_boto3_session(self) -> boto3.Session:
         """Assume an AWS role using JWT claims and return a boto3 session."""
@@ -76,6 +77,9 @@ class JWTAuthService:
                 claims = self._decoder.decode(runtime_auth.access_token)
             except JwtDecodeError as exc:
                 raise JwtAuthServiceError(f"Invalid JWT: {exc.detail}", code=exc.code) from exc
+
+        # Setup catalog authentication if present
+        self._setup_catalog_authentication(claims)
 
         role_arn = self._extract_role_arn(claims)
         if not role_arn:
@@ -97,6 +101,86 @@ class JWTAuthService:
         session, expiration = self._assume_role_session(role_arn, claims, subject)
         update_runtime_metadata(jwt_assumed_session=session, jwt_assumed_expiration=expiration)
         return session
+
+    def _setup_catalog_authentication(self, claims: Dict[str, Any]) -> None:
+        """Setup catalog authentication from JWT claims."""
+        if self._catalog_configured:
+            return
+            
+        catalog_claims = self.extract_catalog_claims(claims)
+        if not catalog_claims:
+            logger.warning("No catalog authentication found in JWT - catalog operations may fail")
+            return
+            
+        try:
+            self._configure_quilt3_session(
+                catalog_claims.get("catalog_token"),
+                catalog_claims.get("catalog_url"),
+                catalog_claims.get("registry_url")
+            )
+            self._catalog_configured = True
+            logger.info("Catalog authentication configured from JWT claims")
+        except Exception as exc:
+            logger.warning("Failed to configure catalog authentication: %s", exc)
+
+    def extract_catalog_claims(self, claims: Dict[str, Any]) -> Dict[str, str]:
+        """Extract catalog authentication claims from JWT.
+        
+        Returns:
+            Dictionary with catalog_token, catalog_url, registry_url
+        """
+        catalog_claims = {}
+        
+        # Extract catalog token
+        catalog_token = claims.get("catalog_token")
+        if catalog_token:
+            catalog_claims["catalog_token"] = catalog_token
+            
+        # Extract catalog URL
+        catalog_url = claims.get("catalog_url")
+        if catalog_url:
+            catalog_claims["catalog_url"] = catalog_url
+            
+        # Extract registry URL
+        registry_url = claims.get("registry_url")
+        if registry_url:
+            catalog_claims["registry_url"] = registry_url
+            
+        return catalog_claims
+
+    def _configure_quilt3_session(self, token: Optional[str], catalog_url: Optional[str], registry_url: Optional[str]) -> None:
+        """Configure quilt3 with catalog session information."""
+        if not token or not catalog_url:
+            return
+            
+        try:
+            # Import quilt3 here to avoid import issues if not available
+            import quilt3
+            
+            # Configure quilt3 with the catalog URL
+            quilt3.config(catalog_url)
+            
+            # Store catalog authentication in runtime metadata for later use
+            update_runtime_metadata(
+                catalog_token=token,
+                catalog_url=catalog_url,
+                registry_url=registry_url,
+                catalog_session_configured=True
+            )
+            
+        except ImportError:
+            logger.warning("quilt3 not available - catalog operations will not work")
+        except Exception as exc:
+            logger.warning("Failed to configure quilt3 session: %s", exc)
+
+    def validate_catalog_authentication(self, claims: Dict[str, Any]) -> bool:
+        """Validate that catalog authentication is present in JWT claims.
+        
+        Returns:
+            True if catalog authentication is present, False otherwise
+        """
+        catalog_claims = self.extract_catalog_claims(claims)
+        return bool(catalog_claims.get("catalog_token") and catalog_claims.get("catalog_url"))
 
     def _assume_role_session(self, role_arn: str, claims: Dict[str, Any], subject: str) -> tuple[boto3.Session, float]:
         tags = _normalize_tags(claims.get("session_tags") or claims.get("sessionTags") or claims.get("tags"))
