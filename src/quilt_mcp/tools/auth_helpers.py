@@ -12,6 +12,8 @@ from typing import Any, Dict, Literal, Optional
 
 import boto3
 
+from quilt_mcp.context.exceptions import ContextNotAvailableError
+from quilt_mcp.context.propagation import get_current_context
 from quilt_mcp.services.auth_service import AuthServiceError, AuthService, create_auth_service
 from quilt_mcp.services.jwt_auth_service import JwtAuthServiceError
 
@@ -51,7 +53,10 @@ def _build_s3_client(session: boto3.Session) -> Optional[Any]:
 
 def _resolve_auth_service(auth_service: AuthService | None) -> AuthService:
     if auth_service is None:
-        return create_auth_service()
+        try:
+            return get_current_context().auth_service
+        except ContextNotAvailableError:
+            return create_auth_service()
     return auth_service
 
 

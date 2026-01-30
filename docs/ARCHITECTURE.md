@@ -563,6 +563,14 @@ ENV QUILT_JWT_TOKEN=${JWT_TOKEN}
 ENV QUILT_PLATFORM_API_ENDPOINT=${API_ENDPOINT}
 ```
 
+## Request Context Usage Pattern
+
+MCP tools should avoid authentication singletons and resolve auth via request-scoped context:
+
+- Tool helpers read `get_current_context()` to access the request-scoped auth service.
+- `RequestContextFactory` constructs per-request services and is invoked for each tool call.
+- When context is unavailable (non-MCP usage), helpers fall back to `create_auth_service()`.
+
 ## Future Enhancements
 
 ### Planned Features

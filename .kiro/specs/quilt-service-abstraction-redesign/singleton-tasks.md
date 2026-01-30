@@ -193,11 +193,11 @@ Update MCP server to create request contexts for each tool invocation.
 
 #### 4.3 TDD: Update tools to use request context
 
-- [ ] Write tests that tools can access current context via get_current_context()
-- [ ] Write tests that tools get auth service from context
-- [ ] Write tests that tools no longer use singleton accessor
-- [ ] Update all tools to use get_current_context()
-- [ ] Document migration pattern for reference
+- [x] Write tests that tools can access current context via get_current_context()
+- [x] Write tests that tools get auth service from context
+- [x] Write tests that tools no longer use singleton accessor
+- [x] Update all tools to use get_current_context()
+- [x] Document migration pattern for reference
 
 #### 4.4 Verification Checkpoint: MCP Server Integration
 
