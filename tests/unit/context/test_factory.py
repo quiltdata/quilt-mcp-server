@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import gc
 import uuid
+import weakref
 
 import pytest
 
@@ -82,3 +84,35 @@ def test_factory_creates_fresh_auth_service_instances(monkeypatch):
     context_a = factory.create_context()
     context_b = factory.create_context()
     assert context_a.auth_service is not context_b.auth_service
+
+
+def test_factory_service_creation_errors_are_wrapped(monkeypatch):
+    factory = RequestContextFactory(mode="single-user")
+
+    def _boom():
+        raise RuntimeError("nope")
+
+    monkeypatch.setattr(factory, "_create_auth_service", _boom)
+
+    with pytest.raises(ServiceInitializationError) as excinfo:
+        factory.create_context()
+
+    assert excinfo.value.service_name == "AuthService"
+    assert "nope" in excinfo.value.reason
+
+
+def test_factory_service_instances_are_gc_eligible(monkeypatch):
+    factory = RequestContextFactory(mode="single-user")
+
+    class _Sentinel:
+        def get_user_identity(self):
+            return {}
+
+    monkeypatch.setattr(factory, "_create_auth_service", lambda: _Sentinel())
+
+    context = factory.create_context()
+    ref = weakref.ref(context.auth_service)
+    del context
+    gc.collect()
+
+    assert ref() is None

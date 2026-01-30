@@ -145,13 +145,13 @@ Create factory for creating request-scoped service instances.
 
 #### 3.3 TDD: Service instance creation
 
-- [ ] Write tests that verify each context gets new auth service instance
-- [ ] Write tests that verify auth service instances are not shared
-- [ ] Write tests for error handling in service creation
-- [ ] Write tests that service instances are eligible for GC after context deletion
-- [ ] Implement service instance creation without caching
-- [ ] Ensure each create_context() call creates fresh service instances
-- [ ] Add error handling and wrapping for service creation failures
+- [x] Write tests that verify each context gets new auth service instance
+- [x] Write tests that verify auth service instances are not shared
+- [x] Write tests for error handling in service creation
+- [x] Write tests that service instances are eligible for GC after context deletion
+- [x] Implement service instance creation without caching
+- [x] Ensure each create_context() call creates fresh service instances
+- [x] Add error handling and wrapping for service creation failures
 
 #### 3.4 Verification Checkpoint: RequestContextFactory
 
