@@ -6,7 +6,7 @@
 
 ## Summary
 
-Testing with a **real AWS role ARN** confirms our analysis: JWT authentication is working at the HTTP level but **NOT providing real AWS access**. The exact same 4 failures persist, proving this is a real authentication issue, not a test environment problem.
+Testing with a **real AWS role ARN** confirms our analysis: JWT authentication is working at the HTTP level but **NOT providingv
 
 ## Test Results
 
@@ -42,12 +42,14 @@ Error Type: ValidationError
 ## What This Proves
 
 ### ✅ JWT HTTP Authentication Works
+
 - No 401/403 errors
 - JWT token structure is valid
 - Server accepts and processes JWT tokens
 - HTTP-level authentication is functional
 
 ### ❌ AWS Role Assumption Fails
+
 - Real AWS role ARN doesn't provide real AWS access
 - Tools that need AWS credentials still fail
 - Same timeout and empty result patterns
@@ -66,13 +68,17 @@ The issue is in the **JWT → AWS role assumption** process:
 ## Next Investigation Steps
 
 ### 1. Check Server Logs
+
 Look for AWS STS AssumeRole errors:
+
 ```bash
 docker logs mcp-jwt-test | grep -i "assume\|role\|sts\|aws"
 ```
 
 ### 2. Verify Role Trust Policy
+
 The AWS role must trust the entity trying to assume it:
+
 ```json
 {
   "Version": "2012-10-17",
@@ -89,13 +95,17 @@ The AWS role must trust the entity trying to assume it:
 ```
 
 ### 3. Check Role Permissions
+
 The assumed role needs permissions for:
+
 - S3 bucket access (`s3:ListBucket`, `s3:GetObject`)
 - IAM permissions discovery (`iam:ListRoles`, `iam:GetRole`)
 - Search service access (Elasticsearch/OpenSearch)
 
 ### 4. Verify JWT Claims
+
 Ensure JWT contains correct claims:
+
 ```bash
 # Decode the JWT token to verify claims
 python scripts/tests/jwt_helper.py inspect \
@@ -104,7 +114,9 @@ python scripts/tests/jwt_helper.py inspect \
 ```
 
 ### 5. Test Direct Role Assumption
+
 Test if the role can be assumed outside of JWT:
+
 ```bash
 aws sts assume-role \
   --role-arn "$QUILT_TEST_ROLE_ARN" \
@@ -113,7 +125,7 @@ aws sts assume-role \
 
 ## Conclusion
 
-**The JWT authentication implementation has a critical flaw in AWS role assumption.** 
+**The JWT authentication implementation has a critical flaw in AWS role assumption.**
 
 While JWT tokens are properly validated at the HTTP level, they are not successfully providing AWS credentials to the MCP server. This means:
 
