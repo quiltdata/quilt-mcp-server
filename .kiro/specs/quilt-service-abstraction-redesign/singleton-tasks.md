@@ -155,10 +155,10 @@ Create factory for creating request-scoped service instances.
 
 #### 3.4 Verification Checkpoint: RequestContextFactory
 
-- [ ] Run linting: `ruff check src/quilt_mcp/context/`
-- [ ] Run tests: `pytest tests/unit/context/test_factory.py -v`
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: implement RequestContextFactory for auth service"`
+- [x] Run linting: `ruff check src/quilt_mcp/context/`
+- [x] Run tests: `pytest tests/unit/context/test_factory.py -v`
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: implement RequestContextFactory for auth service"`
 
 ---
 
