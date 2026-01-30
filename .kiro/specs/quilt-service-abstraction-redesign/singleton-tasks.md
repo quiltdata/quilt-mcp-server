@@ -85,15 +85,15 @@ Update auth service to be instantiable per-request instead of module-level singl
 
 #### 2.3 TDD: IAMAuthService implementation
 
-- [ ] Write tests for IAMAuthService in `tests/unit/services/test_iam_auth_service.py`
-- [ ] Write tests for quilt3 session config validation
-- [ ] Write tests for boto3 session creation from quilt3 config
-- [ ] Write tests for is_valid() checking session validity
-- [ ] Write tests for get_user_identity() from session
-- [ ] Create or update `src/quilt_mcp/services/iam_auth_service.py` to make tests pass
-- [ ] Implement quilt3 session validation
-- [ ] Implement boto3 session creation from session config
-- [ ] Implement is_valid() and get_user_identity() methods
+- [x] Write tests for IAMAuthService in `tests/unit/services/test_iam_auth_service.py`
+- [x] Write tests for quilt3 session config validation
+- [x] Write tests for boto3 session creation from quilt3 config
+- [x] Write tests for is_valid() checking session validity
+- [x] Write tests for get_user_identity() from session
+- [x] Create or update `src/quilt_mcp/services/iam_auth_service.py` to make tests pass
+- [x] Implement quilt3 session validation
+- [x] Implement boto3 session creation from session config
+- [x] Implement is_valid() and get_user_identity() methods
 
 #### 2.4 TDD: Remove singleton usage in existing code
 
