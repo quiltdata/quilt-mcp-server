@@ -30,9 +30,20 @@ class TenantValidationError(ValueError):
 
     def __init__(self, mode: str, message: str | None = None) -> None:
         if message is None:
-            message = (
-                f"Tenant validation failed for {mode} mode. "
-                "Tenant information is required or forbidden based on the mode."
-            )
+            if mode == "single-user":
+                message = (
+                    "Tenant validation failed for single-user mode. "
+                    "Tenant information must not be provided."
+                )
+            elif mode == "multitenant":
+                message = (
+                    "Tenant validation failed for multitenant mode. "
+                    "Tenant information is required."
+                )
+            else:
+                message = (
+                    f"Tenant validation failed for {mode} mode. "
+                    "Tenant information is required or forbidden based on the mode."
+                )
         super().__init__(message)
         self.mode = mode

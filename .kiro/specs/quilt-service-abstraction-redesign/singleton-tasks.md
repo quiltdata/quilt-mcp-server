@@ -43,7 +43,7 @@ Create the core request context infrastructure using TDD approach.
 - [x] Create `src/quilt_mcp/context/exceptions.py` to make tests pass
 - [x] Implement ContextNotAvailableError with actionable error message
 - [x] Implement ServiceInitializationError with service context
-- [ ] Implement TenantValidationError with mode-specific messages
+- [x] Implement TenantValidationError with mode-specific messages
 
 #### 1.3 Verification Checkpoint: Request Context Foundation
 
