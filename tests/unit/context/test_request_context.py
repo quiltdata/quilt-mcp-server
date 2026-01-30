@@ -44,3 +44,32 @@ def test_request_context_requires_required_fields(
         )
 
     assert expected_message in str(excinfo.value)
+
+
+def test_request_context_is_authenticated_reflects_auth_service():
+    class StubAuthService:
+        def __init__(self, valid: bool) -> None:
+            self._valid = valid
+
+        def is_valid(self) -> bool:
+            return self._valid
+
+    authenticated = RequestContext(
+        request_id="req-1",
+        tenant_id="tenant-a",
+        user_id="user-1",
+        auth_service=StubAuthService(True),
+        permission_service=object(),
+        workflow_service=object(),
+    )
+    unauthenticated = RequestContext(
+        request_id="req-2",
+        tenant_id="tenant-a",
+        user_id=None,
+        auth_service=StubAuthService(False),
+        permission_service=object(),
+        workflow_service=object(),
+    )
+
+    assert authenticated.is_authenticated is True
+    assert unauthenticated.is_authenticated is False
