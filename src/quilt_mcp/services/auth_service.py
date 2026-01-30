@@ -48,7 +48,6 @@ class AuthService(ABC):
         return self.get_session()
 
 
-_AUTH_SERVICE: Optional[AuthService] = None
 _JWT_MODE_ENABLED: Optional[bool] = None
 
 
@@ -68,8 +67,7 @@ def get_jwt_mode_enabled() -> bool:
 
 def reset_auth_service() -> None:
     """Reset cached auth mode/service (used in tests)."""
-    global _AUTH_SERVICE, _JWT_MODE_ENABLED
-    _AUTH_SERVICE = None
+    global _JWT_MODE_ENABLED
     _JWT_MODE_ENABLED = None
 
 
