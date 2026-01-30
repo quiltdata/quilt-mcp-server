@@ -168,15 +168,15 @@ Update MCP server to create request contexts for each tool invocation.
 
 #### 4.1 TDD: Context propagation mechanism
 
-- [ ] Write tests for context propagation in `tests/unit/server/test_context_propagation.py`
-- [ ] Write tests for set_current_context() and get_current_context()
-- [ ] Write tests that context is thread-safe (or async-safe)
-- [ ] Write tests for ContextNotAvailableError when accessed outside request
-- [ ] Write tests that context is cleared after request completes
-- [ ] Create `src/quilt_mcp/context/propagation.py` to make tests pass
-- [ ] Implement thread-local or context variable storage
-- [ ] Implement set_current_context() and get_current_context()
-- [ ] Add proper cleanup in finally blocks
+- [x] Write tests for context propagation in `tests/unit/server/test_context_propagation.py`
+- [x] Write tests for set_current_context() and get_current_context()
+- [x] Write tests that context is thread-safe (or async-safe)
+- [x] Write tests for ContextNotAvailableError when accessed outside request
+- [x] Write tests that context is cleared after request completes
+- [x] Create `src/quilt_mcp/context/propagation.py` to make tests pass
+- [x] Implement thread-local or context variable storage
+- [x] Implement set_current_context() and get_current_context()
+- [x] Add proper cleanup in finally blocks
 
 #### 4.2 TDD: MCP tool handler integration
 
