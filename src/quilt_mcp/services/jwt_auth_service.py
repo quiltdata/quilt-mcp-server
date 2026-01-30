@@ -106,17 +106,17 @@ class JWTAuthService:
         """Setup catalog authentication from JWT claims."""
         if self._catalog_configured:
             return
-            
+
         catalog_claims = self.extract_catalog_claims(claims)
         if not catalog_claims:
             logger.warning("No catalog authentication found in JWT - catalog operations may fail")
             return
-            
+
         try:
             self._configure_quilt3_session(
                 catalog_claims.get("catalog_token"),
                 catalog_claims.get("catalog_url"),
-                catalog_claims.get("registry_url")
+                catalog_claims.get("registry_url"),
             )
             self._catalog_configured = True
             logger.info("Catalog authentication configured from JWT claims")
@@ -125,49 +125,51 @@ class JWTAuthService:
 
     def extract_catalog_claims(self, claims: Dict[str, Any]) -> Dict[str, str]:
         """Extract catalog authentication claims from JWT.
-        
+
         Returns:
             Dictionary with catalog_token, catalog_url, registry_url
         """
         catalog_claims = {}
-        
+
         # Extract catalog token
         catalog_token = claims.get("catalog_token")
         if catalog_token:
             catalog_claims["catalog_token"] = catalog_token
-            
+
         # Extract catalog URL
         catalog_url = claims.get("catalog_url")
         if catalog_url:
             catalog_claims["catalog_url"] = catalog_url
-            
+
         # Extract registry URL
         registry_url = claims.get("registry_url")
         if registry_url:
             catalog_claims["registry_url"] = registry_url
-            
+
         return catalog_claims
 
-    def _configure_quilt3_session(self, token: Optional[str], catalog_url: Optional[str], registry_url: Optional[str]) -> None:
+    def _configure_quilt3_session(
+        self, token: Optional[str], catalog_url: Optional[str], registry_url: Optional[str]
+    ) -> None:
         """Configure quilt3 with catalog session information."""
         if not token or not catalog_url:
             return
-            
+
         try:
             # Import quilt3 here to avoid import issues if not available
             import quilt3
-            
+
             # Configure quilt3 with the catalog URL
             quilt3.config(catalog_url)
-            
+
             # Store catalog authentication in runtime metadata for later use
             update_runtime_metadata(
                 catalog_token=token,
                 catalog_url=catalog_url,
                 registry_url=registry_url,
-                catalog_session_configured=True
+                catalog_session_configured=True,
             )
-            
+
         except ImportError:
             logger.warning("quilt3 not available - catalog operations will not work")
         except Exception as exc:
@@ -175,7 +177,7 @@ class JWTAuthService:
 
     def validate_catalog_authentication(self, claims: Dict[str, Any]) -> bool:
         """Validate that catalog authentication is present in JWT claims.
-        
+
         Returns:
             True if catalog authentication is present, False otherwise
         """

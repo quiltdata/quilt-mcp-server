@@ -3,6 +3,7 @@
 **Date:** 2026-01-30
 **Status:** 🔴 Critical architectural problem identified
 **Context:** Root cause of search_catalog 401 errors in HTTP/JWT mode
+**Code Reference:** [src/quilt_mcp/services/quilt_service.py](../../src/quilt_mcp/services/quilt_service.py)
 
 ---
 
@@ -31,6 +32,7 @@ This isn't an "implementation is incomplete" problem.
 ### The Interface is Bound to quilt3 Types
 
 QuiltService returns quilt3-specific objects:
+
 - Sessions (requests.Session from quilt3.session)
 - Package objects (quilt3.Package instances)
 - URLs pointing to quilt3 endpoints
@@ -40,6 +42,7 @@ Tools expect these quilt3 types and call quilt3 methods on them.
 ### Platform/GraphQL Has No Equivalent
 
 Platform operations work fundamentally differently:
+
 - No session objects to return
 - No Package class instances
 - Different endpoint URLs
@@ -49,12 +52,14 @@ Platform operations work fundamentally differently:
 ### You Cannot Retrofit This
 
 You cannot make `get_session()` return "either a quilt3 session or something GraphQL-ish" because:
+
 - The return type is `requests.Session` (quilt3-specific)
 - Tools expect to use session methods
 - Tools expect quilt3 authentication patterns
 - There is no "session" concept in direct GraphQL calls
 
 You cannot make `browse_package()` return "either a quilt3.Package or JSON" because:
+
 - The return type is `quilt3.Package` (quilt3-specific)
 - Tools call `.fetch()`, `.keys()`, and other quilt3 methods
 - Platform returns different data structures
@@ -67,6 +72,7 @@ You cannot make `browse_package()` return "either a quilt3.Package or JSON" beca
 ### What HTTP/JWT Mode Needs
 
 Operations in HTTP/JWT mode need to:
+
 - Make GraphQL queries with JWT Bearer tokens
 - Use platform-native APIs
 - Work without filesystem access (no ~/.quilt/)
@@ -75,6 +81,7 @@ Operations in HTTP/JWT mode need to:
 ### What QuiltService Provides
 
 QuiltService provides:
+
 - Access to quilt3.session (file-based)
 - quilt3.Package objects
 - quilt3-specific patterns
@@ -98,6 +105,7 @@ The goal was to make quilt3 easier to use by centralizing it.
 The goal was NOT to hide whether you're using quilt3 at all.
 
 **Result:**
+
 - Tools are "isolated from quilt3 dependencies" (no direct imports)
 - But tools are NOT isolated from quilt3 concepts
 - The service is a **dependency injection wrapper**, not an **abstraction layer**
@@ -115,6 +123,7 @@ Tools → QuiltService → quilt3 library
 QuiltService makes quilt3 easier to access but doesn't hide it.
 
 Tools know they're working with:
+
 - quilt3 sessions
 - quilt3 Package objects
 - quilt3 patterns
@@ -126,11 +135,13 @@ Tools → DomainService → [Backend A | Backend B]
 ```
 
 Tools work with domain concepts:
+
 - "Search for packages"
 - "Browse package contents"
 - "List buckets"
 
 Service decides which backend to use:
+
 - Backend A: quilt3 library (stdio mode)
 - Backend B: Platform GraphQL (HTTP mode)
 
@@ -158,11 +169,13 @@ The document analysis suggested:
 This is technically true but misleading.
 
 **The real issue:** QuiltService's interface cannot USE JWT credentials because:
+
 - It's designed to return quilt3 sessions
 - quilt3 sessions come from ~/.quilt/ files
 - There's nowhere to "inject" JWT into a quilt3-shaped interface
 
 You'd need to:
+
 1. Change what QuiltService returns (breaking all tools)
 2. Add GraphQL implementations (new code paths)
 3. Make tools work with both types (massive refactor)
@@ -184,6 +197,7 @@ The `search_catalog` 401 error happens because:
 **But fixing search alone doesn't solve the problem.**
 
 Every catalog operation has the same issue:
+
 - browse_package
 - list_packages
 - get_bucket_list
@@ -201,11 +215,13 @@ Any approach must address the fundamental issue:
 **QuiltService's interface binds tools to quilt3 primitives.**
 
 You cannot:
+
 - Add JWT support to the current interface
 - Implement GraphQL alongside quilt3 with the current interface
 - Support dual modes with the current interface
 
 You must either:
+
 - Change the interface (breaking change for all tools)
 - Create a new interface (leaving old tools broken)
 - Accept that HTTP/JWT mode cannot use these operations
@@ -231,16 +247,19 @@ And changing the interface means touching every tool that uses it.
 ## Conclusion
 
 The problem is NOT:
+
 - ❌ "JWT credentials aren't wired up"
 - ❌ "Mode detection is missing"
 - ❌ "GraphQL implementation is incomplete"
 
 The problem IS:
+
 - ✅ **The interface was designed at the wrong abstraction layer**
 
 QuiltService provides quilt3 primitives when it should provide domain operations.
 
 This makes it architecturally impossible to support platform/GraphQL without either:
+
 1. Breaking the interface (massive refactor)
 2. Creating parallel systems (technical debt)
 3. Abandoning HTTP/JWT mode for catalog operations (feature loss)
