@@ -42,7 +42,7 @@ Create the core request context infrastructure using TDD approach.
 - [x] Write tests for TenantValidationError for single-user vs multitenant modes
 - [x] Create `src/quilt_mcp/context/exceptions.py` to make tests pass
 - [x] Implement ContextNotAvailableError with actionable error message
-- [ ] Implement ServiceInitializationError with service context
+- [x] Implement ServiceInitializationError with service context
 - [ ] Implement TenantValidationError with mode-specific messages
 
 #### 1.3 Verification Checkpoint: Request Context Foundation
