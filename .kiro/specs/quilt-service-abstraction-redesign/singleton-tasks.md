@@ -105,11 +105,11 @@ Update auth service to be instantiable per-request instead of module-level singl
 
 #### 2.5 Verification Checkpoint: Auth Service Refactor
 
-- [ ] Run linting: `ruff check src/quilt_mcp/services/`
-- [ ] Run tests: `pytest tests/unit/services/test_*auth*.py -v`
-- [ ] Verify no module-level `_AUTH_SERVICE` variable exists
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: refactor auth service to remove singleton pattern"`
+- [x] Run linting: `ruff check src/quilt_mcp/services/`
+- [x] Run tests: `pytest tests/unit/services/test_*auth*.py -v`
+- [x] Verify no module-level `_AUTH_SERVICE` variable exists
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: refactor auth service to remove singleton pattern"`
 
 ---
 
