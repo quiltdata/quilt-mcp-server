@@ -569,10 +569,25 @@ token = generate_test_jwt(
 
 - [ ] Add `test-stateless-mcp` target to make.dev
 - [ ] Generate test JWT token using jwt_helper.py
-- [ ] Start Docker container with `MCP_REQUIRE_JWT=true`
+- [ ] Start Docker container with **IDENTICAL constraints as test-stateless**
 - [ ] Run mcp-test.py with generated JWT token
 - [ ] Test both tools and resources
 - [ ] Report results
+
+**⚠️ Critical Requirement**: The Docker container MUST use the exact same stateless deployment constraints as `test-stateless` validates:
+
+- `--read-only` - Read-only root filesystem
+- `--security-opt=no-new-privileges:true` - Prevent privilege escalation  
+- `--cap-drop=ALL` - Drop all capabilities
+- `--tmpfs=/tmp:size=100M,mode=1777` - Tmpfs for temporary storage
+- `--tmpfs=/run:size=10M,mode=755` - Tmpfs for runtime files
+- `--memory=512m --memory-swap=512m` - Memory limits
+- `--cpu-quota=100000 --cpu-period=100000` - CPU limits (1.0 CPU)
+- `QUILT_DISABLE_CACHE=true` - Disable caching
+- `HOME=/tmp` - Redirect home directory to tmpfs
+- `QUILT_MCP_STATELESS_MODE=true` - Enable stateless mode checks
+
+**Rationale**: If `test-stateless-mcp` runs with different constraints than `test-stateless` validates, it tests the wrong deployment context and provides false confidence about production readiness.
 
 **Files to modify**:
 
@@ -586,16 +601,31 @@ test-stateless-mcp: docker-build
  @echo "Step 1: Generating test JWT token..."
  @JWT_TOKEN=$$(uv run python scripts/tests/jwt_helper.py generate \
   --role-arn "arn:aws:iam::123456789012:role/TestRole" \
-  --secret "test-secret-key" \
+  --secret "test-secret-key-for-stateless-testing-only" \
   --expiry 3600) && \
- echo "Step 2: Starting Docker container in JWT mode..." && \
+ echo "Step 2: Starting Docker container with SAME constraints as test-stateless..." && \
  docker run -d --name mcp-jwt-test \
+  --read-only \
+  --security-opt=no-new-privileges:true \
+  --cap-drop=ALL \
+  --tmpfs=/tmp:size=100M,mode=1777 \
+  --tmpfs=/run:size=10M,mode=755 \
+  --memory=512m \
+  --memory-swap=512m \
+  --cpu-quota=100000 \
+  --cpu-period=100000 \
   -e MCP_REQUIRE_JWT=true \
-  -e MCP_JWT_SECRET="test-secret-key" \
+  -e MCP_JWT_SECRET="test-secret-key-for-stateless-testing-only" \
+  -e QUILT_DISABLE_CACHE=true \
+  -e HOME=/tmp \
+  -e LOG_LEVEL=DEBUG \
   -e QUILT_MCP_STATELESS_MODE=true \
+  -e FASTMCP_TRANSPORT=http \
+  -e FASTMCP_HOST=0.0.0.0 \
+  -e FASTMCP_PORT=8000 \
   -p 8002:8000 \
   quilt-mcp:test && \
- sleep 2 && \
+ sleep 3 && \
  echo "Step 3: Running mcp-test.py with JWT..." && \
  uv run python scripts/mcp-test.py http://localhost:8002/mcp \
   --jwt-token "$$JWT_TOKEN" \
@@ -943,12 +973,27 @@ test-stateless-mcp: docker-build
     @echo "🔐 Testing stateless MCP with JWT authentication..."
     @JWT_TOKEN=$$(uv run python scripts/tests/jwt_helper.py generate \
         --role-arn "arn:aws:iam::123456789012:role/TestRole" \
-        --secret "test-secret-key" \
+        --secret "test-secret-key-for-stateless-testing-only" \
         --expiry 3600) && \
     docker run -d --name mcp-jwt-test \
+        --read-only \
+        --security-opt=no-new-privileges:true \
+        --cap-drop=ALL \
+        --tmpfs=/tmp:size=100M,mode=1777 \
+        --tmpfs=/run:size=10M,mode=755 \
+        --memory=512m \
+        --memory-swap=512m \
+        --cpu-quota=100000 \
+        --cpu-period=100000 \
         -e MCP_REQUIRE_JWT=true \
-        -e MCP_JWT_SECRET="test-secret-key" \
+        -e MCP_JWT_SECRET="test-secret-key-for-stateless-testing-only" \
+        -e QUILT_DISABLE_CACHE=true \
+        -e HOME=/tmp \
+        -e LOG_LEVEL=DEBUG \
         -e QUILT_MCP_STATELESS_MODE=true \
+        -e FASTMCP_TRANSPORT=http \
+        -e FASTMCP_HOST=0.0.0.0 \
+        -e FASTMCP_PORT=8000 \
         -e AWS_REGION=us-east-1 \
         -p 8002:8000 \
         quilt-mcp:test && \
