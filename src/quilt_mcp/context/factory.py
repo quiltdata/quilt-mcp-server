@@ -13,6 +13,8 @@ from quilt_mcp.services.auth_service import AuthService, create_auth_service, ge
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
 from quilt_mcp.services.permissions_service import PermissionDiscoveryService
+from quilt_mcp.services.workflow_service import WorkflowService
+from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
 
 
 def _parse_bool(value: str | None, *, default: bool = False) -> bool:
@@ -93,4 +95,5 @@ class RequestContextFactory:
         return PermissionDiscoveryService(auth_service)
 
     def _create_workflow_service(self, tenant_id: str):
-        return object()
+        storage = FileBasedWorkflowStorage()
+        return WorkflowService(tenant_id=tenant_id, storage=storage)

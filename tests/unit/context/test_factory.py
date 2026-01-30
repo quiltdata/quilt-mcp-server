@@ -159,3 +159,44 @@ def test_factory_permission_service_instances_are_not_shared(monkeypatch):
     context_b = factory.create_context()
 
     assert context_a.permission_service is not context_b.permission_service
+
+
+def test_factory_creates_workflow_service_with_tenant(monkeypatch):
+    factory = RequestContextFactory(mode="single-user")
+
+    class _SentinelAuth:
+        def get_user_identity(self):
+            return {}
+
+    monkeypatch.setattr(factory, "_create_auth_service", lambda: _SentinelAuth())
+    monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
+
+    calls = []
+
+    def _create_workflow_service(tenant_id: str):
+        calls.append(tenant_id)
+        return object()
+
+    monkeypatch.setattr(factory, "_create_workflow_service", _create_workflow_service)
+
+    context = factory.create_context()
+
+    assert context.workflow_service is not None
+    assert calls == ["default"]
+
+
+def test_factory_workflow_service_instances_are_not_shared(monkeypatch):
+    factory = RequestContextFactory(mode="single-user")
+
+    class _SentinelAuth:
+        def get_user_identity(self):
+            return {}
+
+    monkeypatch.setattr(factory, "_create_auth_service", lambda: _SentinelAuth())
+    monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
+    monkeypatch.setattr(factory, "_create_workflow_service", lambda tenant_id: object())
+
+    context_a = factory.create_context()
+    context_b = factory.create_context()
+
+    assert context_a.workflow_service is not context_b.workflow_service

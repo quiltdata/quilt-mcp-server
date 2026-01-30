@@ -41,3 +41,51 @@ class RequestContext:
 
     def check_bucket_access(self, bucket: str, operations: list[str] | None = None):
         return self.permission_service.check_bucket_access(bucket=bucket, operations=operations)
+
+    def create_workflow(self, workflow_id: str, name: str, description: str = "", metadata: dict[str, Any] | None = None):
+        return self.workflow_service.create_workflow(
+            workflow_id=workflow_id,
+            name=name,
+            description=description,
+            metadata=metadata,
+        )
+
+    def add_workflow_step(
+        self,
+        workflow_id: str,
+        step_id: str,
+        description: str,
+        step_type: str = "manual",
+        dependencies: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ):
+        return self.workflow_service.add_step(
+            workflow_id=workflow_id,
+            step_id=step_id,
+            description=description,
+            step_type=step_type,
+            dependencies=dependencies,
+            metadata=metadata,
+        )
+
+    def update_workflow_step(
+        self,
+        workflow_id: str,
+        step_id: str,
+        status: str,
+        result: dict[str, Any] | None = None,
+        error_message: str | None = None,
+    ):
+        return self.workflow_service.update_step(
+            workflow_id=workflow_id,
+            step_id=step_id,
+            status=status,
+            result=result,
+            error_message=error_message,
+        )
+
+    def get_workflow_status(self, workflow_id: str):
+        return self.workflow_service.get_status(workflow_id)
+
+    def list_workflows(self):
+        return self.workflow_service.list_all()

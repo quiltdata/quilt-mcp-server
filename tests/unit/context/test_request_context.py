@@ -129,6 +129,79 @@ def test_request_context_permission_helpers_delegate():
     ]
 
 
+def test_request_context_workflow_helpers_delegate():
+    class StubWorkflowService:
+        def __init__(self):
+            self.calls = []
+
+        def create_workflow(self, **kwargs):
+            self.calls.append(("create_workflow", kwargs))
+            return {"success": True}
+
+        def add_step(self, **kwargs):
+            self.calls.append(("add_step", kwargs))
+            return {"success": True}
+
+        def update_step(self, **kwargs):
+            self.calls.append(("update_step", kwargs))
+            return {"success": True}
+
+        def get_status(self, workflow_id: str):
+            self.calls.append(("get_status", workflow_id))
+            return {"success": True}
+
+        def list_all(self):
+            self.calls.append(("list_all", None))
+            return {"success": True}
+
+    workflow_service = StubWorkflowService()
+
+    context = RequestContext(
+        request_id="req-6",
+        tenant_id="tenant-a",
+        user_id="user-1",
+        auth_service=object(),
+        permission_service=object(),
+        workflow_service=workflow_service,
+    )
+
+    assert context.create_workflow("wf-1", "Test") == {"success": True}
+    assert context.add_workflow_step("wf-1", "step-1", "desc") == {"success": True}
+    assert context.update_workflow_step("wf-1", "step-1", "completed") == {"success": True}
+    assert context.get_workflow_status("wf-1") == {"success": True}
+    assert context.list_workflows() == {"success": True}
+
+    assert workflow_service.calls == [
+        (
+            "create_workflow",
+            {"workflow_id": "wf-1", "name": "Test", "description": "", "metadata": None},
+        ),
+        (
+            "add_step",
+            {
+                "workflow_id": "wf-1",
+                "step_id": "step-1",
+                "description": "desc",
+                "step_type": "manual",
+                "dependencies": None,
+                "metadata": None,
+            },
+        ),
+        (
+            "update_step",
+            {
+                "workflow_id": "wf-1",
+                "step_id": "step-1",
+                "status": "completed",
+                "result": None,
+                "error_message": None,
+            },
+        ),
+        ("get_status", "wf-1"),
+        ("list_all", None),
+    ]
+
+
 @pytest.mark.parametrize(
     ("permission_service", "workflow_service", "expected_message"),
     [
