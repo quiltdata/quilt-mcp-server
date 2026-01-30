@@ -27,7 +27,7 @@ RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-build docker-push docker-push-dev docker-validate docker-tools
+.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-check docker-build docker-push docker-push-dev docker-validate docker-tools
 
 # Check for required tools
 check-tools:
