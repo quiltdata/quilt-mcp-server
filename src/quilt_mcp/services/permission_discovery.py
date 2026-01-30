@@ -60,7 +60,7 @@ class UserIdentity(NamedTuple):
 class AWSPermissionDiscovery:
     """AWS permission discovery and caching engine."""
 
-    def __init__(self, cache_ttl: int = 3600):
+    def __init__(self, cache_ttl: int = 3600, *, session: Optional[boto3.Session] = None):
         """Initialize the permission discovery engine.
 
         Args:
@@ -75,27 +75,27 @@ class AWSPermissionDiscovery:
 
         # Initialize AWS clients
         try:
-            # Prefer Quilt3-provided STS-backed session, if logged in
-            session = None
-            try:
-                disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
-                # If quilt3 is mocked in tests, always allow using it regardless of env flag
+            if session is None:
+                # Prefer Quilt3-provided STS-backed session, if logged in
                 try:
-                    is_quilt3_mock = "unittest.mock" in type(quilt3).__module__
+                    disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
+                    # If quilt3 is mocked in tests, always allow using it regardless of env flag
+                    try:
+                        is_quilt3_mock = "unittest.mock" in type(quilt3).__module__
+                    except Exception:
+                        is_quilt3_mock = False
+                    if (
+                        (not disable_quilt3_session or is_quilt3_mock)
+                        and hasattr(quilt3, "logged_in")
+                        and quilt3.logged_in()
+                    ):
+                        if hasattr(quilt3, "get_boto3_session"):
+                            session = quilt3.get_boto3_session()
                 except Exception:
-                    is_quilt3_mock = False
-                if (
-                    (not disable_quilt3_session or is_quilt3_mock)
-                    and hasattr(quilt3, "logged_in")
-                    and quilt3.logged_in()
-                ):
-                    if hasattr(quilt3, "get_boto3_session"):
-                        session = quilt3.get_boto3_session()
-            except Exception:
-                session = None
+                    session = None
 
             if session is not None:
-                logger.info("Using Quilt3-backed boto3 session for permission discovery")
+                logger.info("Using provided boto3 session for permission discovery")
                 self.sts_client = session.client("sts")
                 self.iam_client = session.client("iam")
                 self.s3_client = session.client("s3")

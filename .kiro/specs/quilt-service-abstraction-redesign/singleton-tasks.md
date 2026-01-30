@@ -270,41 +270,41 @@ Update permission service to be instantiable per-request.
 
 #### 6.1 TDD: Permission service initialization
 
-- [ ] Write tests for PermissionDiscoveryService in `tests/unit/services/test_permission_service.py`
-- [ ] Write tests that service accepts AuthService in constructor
-- [ ] Write tests that service initializes AWS clients from auth service session
-- [ ] Write tests that service has request-scoped cache (not shared)
-- [ ] Write tests that multiple instances have isolated caches
-- [ ] Update `src/quilt_mcp/services/permissions_service.py` to remove singleton
-- [ ] Remove module-level `_permission_discovery` variable
-- [ ] Update constructor to accept AuthService parameter
-- [ ] Initialize AWS clients from auth service's boto3 session
-- [ ] Ensure cache is instance variable (not module-level)
+- [x] Write tests for PermissionDiscoveryService in `tests/unit/services/test_permission_service.py`
+- [x] Write tests that service accepts AuthService in constructor
+- [x] Write tests that service initializes AWS clients from auth service session
+- [x] Write tests that service has request-scoped cache (not shared)
+- [x] Write tests that multiple instances have isolated caches
+- [x] Update `src/quilt_mcp/services/permissions_service.py` to remove singleton
+- [x] Remove module-level `_permission_discovery` variable
+- [x] Update constructor to accept AuthService parameter
+- [x] Initialize AWS clients from auth service's boto3 session
+- [x] Ensure cache is instance variable (not module-level)
 
 #### 6.2 TDD: Permission cache isolation
 
-- [ ] Write tests that cache is not shared between instances
-- [ ] Write tests that cache TTL is per-instance
-- [ ] Write tests that cache invalidation doesn't affect other instances
-- [ ] Write tests for cache key generation
-- [ ] Verify cache implementation uses instance variables
-- [ ] Add tests for cache eviction and expiration
+- [x] Write tests that cache is not shared between instances
+- [x] Write tests that cache TTL is per-instance
+- [x] Write tests that cache invalidation doesn't affect other instances
+- [x] Write tests for cache key generation
+- [x] Verify cache implementation uses instance variables
+- [x] Add tests for cache eviction and expiration
 
 #### 6.3 TDD: Remove singleton usage
 
-- [ ] Write tests that old singleton accessor no longer works
-- [ ] Write tests that code must use passed-in permission_service instances
-- [ ] Remove `get_permission_discovery()` singleton accessor
-- [ ] Update code that used singleton to accept permission_service parameter
-- [ ] Add deprecation warnings if needed
+- [x] Write tests that old singleton accessor no longer works
+- [x] Write tests that code must use passed-in permission_service instances
+- [x] Remove `get_permission_discovery()` singleton accessor
+- [x] Update code that used singleton to accept permission_service parameter
+- [x] Add deprecation warnings if needed
 
 #### 6.4 Verification Checkpoint: Permission Service Refactor
 
-- [ ] Run linting: `ruff check src/quilt_mcp/services/permissions_service.py`
-- [ ] Run tests: `pytest tests/unit/services/test_permission_service.py -v`
-- [ ] Verify no `_permission_discovery` module-level variable exists
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: refactor permission service to remove singleton"`
+- [x] Run linting: `ruff check src/quilt_mcp/services/permissions_service.py`
+- [x] Run tests: `pytest tests/unit/services/test_permission_service.py -v`
+- [x] Verify no `_permission_discovery` module-level variable exists
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: refactor permission service to remove singleton"`
 
 ---
 

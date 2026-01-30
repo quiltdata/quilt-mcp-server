@@ -12,140 +12,94 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from quilt_mcp.services.permission_discovery import (
-    AWSPermissionDiscovery,
-    PermissionLevel,
-)
+from quilt_mcp.services.permission_discovery import AWSPermissionDiscovery, PermissionLevel
+from quilt_mcp.services.auth_service import AuthService, create_auth_service
 from quilt_mcp.utils import format_error_response
 
 logger = logging.getLogger(__name__)
 
-_permission_discovery: Optional[AWSPermissionDiscovery] = None
+class PermissionDiscoveryService:
+    """Request-scoped permission discovery service."""
+
+    def __init__(self, auth_service: AuthService, *, cache_ttl: int = 3600) -> None:
+        session = auth_service.get_boto3_session()
+        self._discovery = AWSPermissionDiscovery(cache_ttl=cache_ttl, session=session)
+
+    def discover_permissions(
+        self,
+        check_buckets: Optional[List[str]] = None,
+        include_cross_account: bool = False,
+        force_refresh: bool = False,
+    ) -> Dict[str, Any]:
+        return _discover_permissions(
+            self._discovery,
+            check_buckets=check_buckets,
+            include_cross_account=include_cross_account,
+            force_refresh=force_refresh,
+        )
+
+    def check_bucket_access(self, bucket: str, operations: Optional[List[str]] = None) -> Dict[str, Any]:
+        return _check_bucket_access(self._discovery, bucket=bucket, operations=operations)
+
+    def bucket_recommendations_get(
+        self,
+        source_bucket: Optional[str] = None,
+        operation_type: str = "package_creation",
+        user_context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        return _bucket_recommendations_get(
+            self._discovery,
+            source_bucket=source_bucket,
+            operation_type=operation_type,
+            user_context=user_context,
+        )
 
 
-def get_permission_discovery() -> AWSPermissionDiscovery:
-    """Return the singleton :class:`AWSPermissionDiscovery` instance."""
-    global _permission_discovery
-    if _permission_discovery is None:
-        _permission_discovery = AWSPermissionDiscovery()
-    return _permission_discovery
+def _resolve_permission_service(
+    permission_service: Optional[PermissionDiscoveryService],
+    auth_service: Optional[AuthService],
+) -> PermissionDiscoveryService:
+    if permission_service is not None:
+        return permission_service
+    return PermissionDiscoveryService(auth_service or create_auth_service())
 
 
 def discover_permissions(
     check_buckets: Optional[List[str]] = None,
     include_cross_account: bool = False,
     force_refresh: bool = False,
+    *,
+    permission_service: Optional[PermissionDiscoveryService] = None,
+    auth_service: Optional[AuthService] = None,
 ) -> Dict[str, Any]:
     """Discover AWS permissions for the current principal."""
     try:
-        discovery = get_permission_discovery()
-
-        if force_refresh:
-            discovery.clear_cache()
-
-        identity = discovery.discover_user_identity()
-
-        if check_buckets:
-            bucket_permissions = []
-            for bucket_name in check_buckets:
-                try:
-                    bucket_info = discovery.discover_bucket_permissions(bucket_name)
-                    bucket_permissions.append(bucket_info._asdict())
-                except Exception as exc:  # pragma: no cover - defensive logging
-                    logger.warning("Failed to check bucket %s: %s", bucket_name, exc)
-                    bucket_permissions.append(
-                        {
-                            "name": bucket_name,
-                            "permission_level": PermissionLevel.NO_ACCESS.value,
-                            "error_message": str(exc),
-                        }
-                    )
-        else:
-            accessible_buckets = discovery.discover_accessible_buckets(include_cross_account)
-            bucket_permissions = [bucket._asdict() for bucket in accessible_buckets]
-
-        categorized_buckets: Dict[str, List[Dict[str, Any]]] = {
-            "full_access": [],
-            "read_write": [],
-            "read_only": [],
-            "list_only": [],
-            "no_access": [],
-        }
-
-        for bucket in bucket_permissions:
-            permission_level = bucket.get("permission_level")
-            if isinstance(permission_level, PermissionLevel):
-                permission_level = permission_level.value
-
-            category = str(permission_level).lower()
-            if category in categorized_buckets:
-                categorized_buckets[category].append(bucket)
-
-        recommendations = _generate_bucket_recommendations(bucket_permissions, identity)
-        cache_stats = discovery.get_cache_stats()
-
-        return {
-            "success": True,
-            "user_identity": identity._asdict(),
-            "bucket_permissions": bucket_permissions,
-            "categorized_buckets": categorized_buckets,
-            "recommendations": recommendations,
-            "cache_stats": cache_stats,
-            "discovery_timestamp": datetime.now(timezone.utc).isoformat(),
-            "total_buckets_checked": len(bucket_permissions),
-        }
+        service = _resolve_permission_service(permission_service, auth_service)
+        return service.discover_permissions(
+            check_buckets=check_buckets,
+            include_cross_account=include_cross_account,
+            force_refresh=force_refresh,
+        )
 
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.error("Error discovering AWS permissions: %s", exc)
         return format_error_response(f"Failed to discover AWS permissions: {exc}")
 
 
-def check_bucket_access(bucket: str, operations: Optional[List[str]] = None) -> Dict[str, Any]:
+def check_bucket_access(
+    bucket: str,
+    operations: Optional[List[str]] = None,
+    *,
+    permission_service: Optional[PermissionDiscoveryService] = None,
+    auth_service: Optional[AuthService] = None,
+) -> Dict[str, Any]:
     """Check the caller's access to ``bucket``."""
     if operations is None:
         operations = ["read", "write", "list"]
 
     try:
-        discovery = get_permission_discovery()
-
-        bucket_info = discovery.discover_bucket_permissions(bucket)
-        operation_results = discovery.test_bucket_operations(bucket, operations)
-
-        guidance: List[str] = []
-        if bucket_info.permission_level == PermissionLevel.READ_ONLY:
-            guidance.append(
-                "This bucket appears to be read-only. Consider using a different bucket for package creation."
-            )
-        elif bucket_info.permission_level == PermissionLevel.LIST_ONLY:
-            guidance.append(
-                "Limited access detected. You can see bucket contents but may not be able to read or write files."
-            )
-        elif bucket_info.permission_level == PermissionLevel.NO_ACCESS:
-            guidance.append("No access detected. Check your AWS permissions or verify the bucket name.")
-
-        if bucket_info.can_write:
-            guidance.append("✅ This bucket can be used for Quilt package creation.")
-        else:
-            guidance.append("❌ This bucket cannot be used for Quilt package creation (no write access).")
-
-        return {
-            "success": True,
-            "bucket_name": bucket,
-            "permission_level": bucket_info.permission_level.value,
-            "access_summary": {
-                "can_read": bucket_info.can_read,
-                "can_write": bucket_info.can_write,
-                "can_list": bucket_info.can_list,
-            },
-            "operation_tests": operation_results,
-            "bucket_region": bucket_info.region,
-            "last_checked": bucket_info.last_checked.isoformat(),
-            "error_message": bucket_info.error_message,
-            "guidance": guidance,
-            "quilt_compatible": bucket_info.can_write,
-            "recommended_for_packages": bucket_info.permission_level
-            in {PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE},
-        }
+        service = _resolve_permission_service(permission_service, auth_service)
+        return service.check_bucket_access(bucket=bucket, operations=operations)
 
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.error("Error checking bucket access for %s: %s", bucket, exc)
@@ -156,36 +110,165 @@ def bucket_recommendations_get(
     source_bucket: Optional[str] = None,
     operation_type: str = "package_creation",
     user_context: Optional[Dict[str, Any]] = None,
+    *,
+    permission_service: Optional[PermissionDiscoveryService] = None,
+    auth_service: Optional[AuthService] = None,
 ) -> Dict[str, Any]:
     """Return context-aware bucket recommendations."""
     try:
-        discovery = get_permission_discovery()
-        accessible_buckets = discovery.discover_accessible_buckets()
-
-        writable_buckets = [
-            bucket
-            for bucket in accessible_buckets
-            if bucket.can_write
-            and bucket.permission_level in (PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE)
-        ]
-
-        recommendations = _generate_smart_recommendations(
-            writable_buckets, source_bucket, operation_type, user_context
+        service = _resolve_permission_service(permission_service, auth_service)
+        return service.bucket_recommendations_get(
+            source_bucket=source_bucket,
+            operation_type=operation_type,
+            user_context=user_context,
         )
-
-        return {
-            "success": True,
-            "operation_type": operation_type,
-            "source_bucket": source_bucket,
-            "recommendations": recommendations,
-            "total_writable_buckets": len(writable_buckets),
-            "total_accessible_buckets": len(accessible_buckets),
-            "recommendation_timestamp": datetime.now(timezone.utc).isoformat(),
-        }
 
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.error("Error generating bucket recommendations: %s", exc)
         return format_error_response(f"Failed to generate recommendations: {exc}")
+
+
+def _discover_permissions(
+    discovery: AWSPermissionDiscovery,
+    *,
+    check_buckets: Optional[List[str]],
+    include_cross_account: bool,
+    force_refresh: bool,
+) -> Dict[str, Any]:
+    if force_refresh:
+        discovery.clear_cache()
+
+    identity = discovery.discover_user_identity()
+
+    if check_buckets:
+        bucket_permissions = []
+        for bucket_name in check_buckets:
+            try:
+                bucket_info = discovery.discover_bucket_permissions(bucket_name)
+                bucket_permissions.append(bucket_info._asdict())
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.warning("Failed to check bucket %s: %s", bucket_name, exc)
+                bucket_permissions.append(
+                    {
+                        "name": bucket_name,
+                        "permission_level": PermissionLevel.NO_ACCESS.value,
+                        "error_message": str(exc),
+                    }
+                )
+    else:
+        accessible_buckets = discovery.discover_accessible_buckets(include_cross_account)
+        bucket_permissions = [bucket._asdict() for bucket in accessible_buckets]
+
+    categorized_buckets: Dict[str, List[Dict[str, Any]]] = {
+        "full_access": [],
+        "read_write": [],
+        "read_only": [],
+        "list_only": [],
+        "no_access": [],
+    }
+
+    for bucket in bucket_permissions:
+        permission_level = bucket.get("permission_level")
+        if isinstance(permission_level, PermissionLevel):
+            permission_level = permission_level.value
+
+        category = str(permission_level).lower()
+        if category in categorized_buckets:
+            categorized_buckets[category].append(bucket)
+
+    recommendations = _generate_bucket_recommendations(bucket_permissions, identity)
+    cache_stats = discovery.get_cache_stats()
+
+    return {
+        "success": True,
+        "user_identity": identity._asdict(),
+        "bucket_permissions": bucket_permissions,
+        "categorized_buckets": categorized_buckets,
+        "recommendations": recommendations,
+        "cache_stats": cache_stats,
+        "discovery_timestamp": datetime.now(timezone.utc).isoformat(),
+        "total_buckets_checked": len(bucket_permissions),
+    }
+
+
+def _check_bucket_access(
+    discovery: AWSPermissionDiscovery,
+    *,
+    bucket: str,
+    operations: Optional[List[str]],
+) -> Dict[str, Any]:
+    if operations is None:
+        operations = ["read", "write", "list"]
+
+    bucket_info = discovery.discover_bucket_permissions(bucket)
+    operation_results = discovery.test_bucket_operations(bucket, operations)
+
+    guidance: List[str] = []
+    if bucket_info.permission_level == PermissionLevel.READ_ONLY:
+        guidance.append(
+            "This bucket appears to be read-only. Consider using a different bucket for package creation."
+        )
+    elif bucket_info.permission_level == PermissionLevel.LIST_ONLY:
+        guidance.append(
+            "Limited access detected. You can see bucket contents but may not be able to read or write files."
+        )
+    elif bucket_info.permission_level == PermissionLevel.NO_ACCESS:
+        guidance.append("No access detected. Check your AWS permissions or verify the bucket name.")
+
+    if bucket_info.can_write:
+        guidance.append("✅ This bucket can be used for Quilt package creation.")
+    else:
+        guidance.append("❌ This bucket cannot be used for Quilt package creation (no write access).")
+
+    return {
+        "success": True,
+        "bucket_name": bucket,
+        "permission_level": bucket_info.permission_level.value,
+        "access_summary": {
+            "can_read": bucket_info.can_read,
+            "can_write": bucket_info.can_write,
+            "can_list": bucket_info.can_list,
+        },
+        "operation_tests": operation_results,
+        "bucket_region": bucket_info.region,
+        "last_checked": bucket_info.last_checked.isoformat(),
+        "error_message": bucket_info.error_message,
+        "guidance": guidance,
+        "quilt_compatible": bucket_info.can_write,
+        "recommended_for_packages": bucket_info.permission_level
+        in {PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE},
+    }
+
+
+def _bucket_recommendations_get(
+    discovery: AWSPermissionDiscovery,
+    *,
+    source_bucket: Optional[str],
+    operation_type: str,
+    user_context: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    accessible_buckets = discovery.discover_accessible_buckets()
+
+    writable_buckets = [
+        bucket
+        for bucket in accessible_buckets
+        if bucket.can_write
+        and bucket.permission_level in (PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE)
+    ]
+
+    recommendations = _generate_smart_recommendations(
+        writable_buckets, source_bucket, operation_type, user_context
+    )
+
+    return {
+        "success": True,
+        "operation_type": operation_type,
+        "source_bucket": source_bucket,
+        "recommendations": recommendations,
+        "total_writable_buckets": len(writable_buckets),
+        "total_accessible_buckets": len(accessible_buckets),
+        "recommendation_timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def _generate_bucket_recommendations(bucket_permissions: List[Dict[str, Any]], identity) -> Dict[str, List[str]]:
