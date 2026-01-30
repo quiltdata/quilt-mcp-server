@@ -649,14 +649,17 @@ def packages_list(
                 ],
             )
 
-        # Normalize registry and pass to QuiltService.list_packages(), then apply filtering
+        # Normalize registry and use QuiltOps.search_packages() for listing
         normalized_registry = _normalize_registry(registry)
-        # Suppress stdout during list_packages to avoid JSON-RPC interference
+        # Suppress stdout during search_packages to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+        from ..ops.factory import QuiltOpsFactory
 
-        quilt_service = QuiltService()
+        quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
-            pkgs = list(quilt_service.list_packages(registry=normalized_registry))  # Convert generator to list
+            # Use empty query to list all packages, then extract names from Package_Info objects
+            package_infos = quilt_ops.search_packages(query="", registry=normalized_registry)
+            pkgs = [pkg_info.name for pkg_info in package_infos]
 
         # Apply prefix filtering if specified
         if prefix:
@@ -793,10 +796,38 @@ def package_browse(
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+        from ..ops.factory import QuiltOpsFactory
 
-        quilt_service = QuiltService()
+        quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
-            pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
+            # Use QuiltOps.browse_content() to get Content_Info objects
+            content_infos = quilt_ops.browse_content(package_name, registry=normalized_registry, path="")
+
+            # For compatibility, we need to create a mock package-like object
+            # that the rest of the function can work with
+            class MockPackage:
+                def __init__(self, content_infos):
+                    self._content_infos = content_infos
+                    self._keys = [info.path for info in content_infos]
+                    self.meta = {}  # Empty metadata for now
+
+                def keys(self):
+                    return self._keys
+
+                def __getitem__(self, key):
+                    # Find the content info for this key
+                    for info in self._content_infos:
+                        if info.path == key:
+                            # Create a mock entry object
+                            class MockEntry:
+                                def __init__(self, content_info):
+                                    self.size = content_info.size
+                                    self.hash = "unknown"  # Content_Info doesn't have hash
+                                    self.physical_key = f"s3://{content_info.path}"  # Simplified
+                            return MockEntry(info)
+                    raise KeyError(f"Key {key} not found")
+
+            pkg = MockPackage(content_infos)
 
     except Exception as e:
         return ErrorResponse(
