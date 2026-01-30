@@ -62,7 +62,7 @@ Update auth service to be instantiable per-request instead of module-level singl
 
 - [x] Write tests for AuthService ABC in `tests/unit/services/test_auth_service.py`
 - [x] Write tests for abstract method requirements (get_session, is_valid, get_user_identity)
-- [ ] Write tests that instantiation is possible (not a singleton)
+- [x] Write tests that instantiation is possible (not a singleton)
 - [ ] Write tests for session caching within a single instance
 - [ ] Update `src/quilt_mcp/services/auth_service.py` to remove singleton pattern
 - [ ] Remove module-level `_AUTH_SERVICE` variable
