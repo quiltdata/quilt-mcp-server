@@ -23,7 +23,7 @@ Create the core request context infrastructure using TDD approach.
 #### 1.1 TDD: RequestContext dataclass
 
 - [x] Write tests for RequestContext in `tests/unit/context/test_request_context.py`
-- [ ] Write tests for required field validation (request_id, tenant_id, auth_service)
+- [x] Write tests for required field validation (request_id, tenant_id, auth_service)
 - [ ] Write tests for is_authenticated property
 - [ ] Write tests for get_boto_session() method
 - [ ] Write tests that RequestContext rejects missing services
