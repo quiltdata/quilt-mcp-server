@@ -427,8 +427,21 @@ test_tools:
             type: object
       required:
       - content
-  # discover_permissions: SKIPPED - poorly scoped diagnostic tool
-  # Should be pre-flight check, not critical test that can fail JWT validation
+  discover_permissions:
+    description: Discover AWS permissions for the current principal.
+    effect: none
+    arguments:
+      check_buckets:
+      - quilt-ernest-staging
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
   generate_package_visualizations:
     description: Generate comprehensive visualizations for the package - Quilt summary
       file generation tasks
