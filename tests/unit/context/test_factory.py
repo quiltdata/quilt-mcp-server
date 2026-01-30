@@ -36,6 +36,14 @@ def test_factory_create_context_uses_jwt_auth(monkeypatch):
     auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"sub": "user-1"})
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:
+        class _StubPermissionService:
+            def __init__(self, auth_service):
+                self.auth_service = auth_service
+
+        monkeypatch.setattr(
+            "quilt_mcp.context.factory.PermissionDiscoveryService",
+            _StubPermissionService,
+        )
         factory = RequestContextFactory(mode="single-user")
         context = factory.create_context()
     finally:
@@ -109,6 +117,7 @@ def test_factory_service_instances_are_gc_eligible(monkeypatch):
             return {}
 
     monkeypatch.setattr(factory, "_create_auth_service", lambda: _Sentinel())
+    monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
 
     context = factory.create_context()
     ref = weakref.ref(context.auth_service)
@@ -116,3 +125,37 @@ def test_factory_service_instances_are_gc_eligible(monkeypatch):
     gc.collect()
 
     assert ref() is None
+
+
+def test_factory_creates_permission_service_with_auth_service(monkeypatch):
+    class _StubPermissionService:
+        def __init__(self, auth_service):
+            self.auth_service = auth_service
+
+    monkeypatch.setattr(
+        "quilt_mcp.context.factory.PermissionDiscoveryService",
+        _StubPermissionService,
+    )
+
+    factory = RequestContextFactory(mode="single-user")
+    context = factory.create_context()
+
+    assert isinstance(context.permission_service, _StubPermissionService)
+    assert context.permission_service.auth_service is context.auth_service
+
+
+def test_factory_permission_service_instances_are_not_shared(monkeypatch):
+    class _StubPermissionService:
+        def __init__(self, auth_service):
+            self.auth_service = auth_service
+
+    monkeypatch.setattr(
+        "quilt_mcp.context.factory.PermissionDiscoveryService",
+        _StubPermissionService,
+    )
+
+    factory = RequestContextFactory(mode="single-user")
+    context_a = factory.create_context()
+    context_b = factory.create_context()
+
+    assert context_a.permission_service is not context_b.permission_service

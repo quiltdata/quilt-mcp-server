@@ -97,6 +97,38 @@ def test_request_context_get_boto_session_delegates_to_auth_service():
     assert context.get_boto_session() is sentinel
 
 
+def test_request_context_permission_helpers_delegate():
+    class StubPermissionService:
+        def __init__(self):
+            self.calls = []
+
+        def discover_permissions(self, **kwargs):
+            self.calls.append(("discover_permissions", kwargs))
+            return {"success": True}
+
+        def check_bucket_access(self, **kwargs):
+            self.calls.append(("check_bucket_access", kwargs))
+            return {"success": True}
+
+    permission_service = StubPermissionService()
+
+    context = RequestContext(
+        request_id="req-5",
+        tenant_id="tenant-a",
+        user_id="user-1",
+        auth_service=object(),
+        permission_service=permission_service,
+        workflow_service=object(),
+    )
+
+    assert context.discover_permissions() == {"success": True}
+    assert context.check_bucket_access("bucket", operations=["read"]) == {"success": True}
+    assert permission_service.calls == [
+        ("discover_permissions", {}),
+        ("check_bucket_access", {"bucket": "bucket", "operations": ["read"]}),
+    ]
+
+
 @pytest.mark.parametrize(
     ("permission_service", "workflow_service", "expected_message"),
     [

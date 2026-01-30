@@ -35,3 +35,9 @@ class RequestContext:
 
     def get_boto_session(self):
         return self.auth_service.get_boto3_session()
+
+    def discover_permissions(self, **kwargs):
+        return self.permission_service.discover_permissions(**kwargs)
+
+    def check_bucket_access(self, bucket: str, operations: list[str] | None = None):
+        return self.permission_service.check_bucket_access(bucket=bucket, operations=operations)

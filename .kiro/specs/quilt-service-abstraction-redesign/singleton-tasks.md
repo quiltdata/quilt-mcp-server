@@ -314,39 +314,39 @@ Add permission service to request context creation.
 
 #### 7.1 TDD: Update RequestContext with permission service
 
-- [ ] Write tests for RequestContext with permission_service field
-- [ ] Write tests that permission_service is required
-- [ ] Write tests for convenience methods accessing permission service
-- [ ] Update `src/quilt_mcp/context/request_context.py`
-- [ ] Add permission_service field to RequestContext
-- [ ] Add validation that permission_service is not None
-- [ ] Add convenience methods for permission checks
+- [x] Write tests for RequestContext with permission_service field
+- [x] Write tests that permission_service is required
+- [x] Write tests for convenience methods accessing permission service
+- [x] Update `src/quilt_mcp/context/request_context.py`
+- [x] Add permission_service field to RequestContext
+- [x] Add validation that permission_service is not None
+- [x] Add convenience methods for permission checks
 
 #### 7.2 TDD: Update factory to create permission service
 
-- [ ] Write tests for factory creating permission service
-- [ ] Write tests that permission service gets auth service from context
-- [ ] Write tests that each context gets fresh permission service instance
-- [ ] Write tests for error handling in permission service creation
-- [ ] Update `src/quilt_mcp/context/factory.py`
-- [ ] Implement _create_permission_service() method
-- [ ] Pass auth_service to PermissionDiscoveryService constructor
-- [ ] Add error handling and wrapping
+- [x] Write tests for factory creating permission service
+- [x] Write tests that permission service gets auth service from context
+- [x] Write tests that each context gets fresh permission service instance
+- [x] Write tests for error handling in permission service creation
+- [x] Update `src/quilt_mcp/context/factory.py`
+- [x] Implement _create_permission_service() method
+- [x] Pass auth_service to PermissionDiscoveryService constructor
+- [x] Add error handling and wrapping
 
 #### 7.3 TDD: Update tools to use context permission service
 
-- [ ] Write tests that tools access permission service via context
-- [ ] Write tests that tools no longer use singleton accessor
-- [ ] Update all tools to use `get_current_context().permission_service`
-- [ ] Remove singleton accessor calls from tools
+- [x] Write tests that tools access permission service via context
+- [x] Write tests that tools no longer use singleton accessor
+- [x] Update all tools to use `get_current_context().permission_service`
+- [x] Remove singleton accessor calls from tools
 
 #### 7.4 Verification Checkpoint: Permission Service Integration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/context/ src/quilt_mcp/services/`
-- [ ] Run tests: `pytest tests/unit/context/ tests/unit/services/ -v`
-- [ ] Verify permission service is created per-request
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: integrate permission service into request context"`
+- [x] Run linting: `ruff check src/quilt_mcp/context/ src/quilt_mcp/services/`
+- [x] Run tests: `pytest tests/unit/context/ tests/unit/services/ -v`
+- [x] Verify permission service is created per-request
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: integrate permission service into request context"`
 
 ---
 

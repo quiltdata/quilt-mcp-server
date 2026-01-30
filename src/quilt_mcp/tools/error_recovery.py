@@ -10,10 +10,19 @@ from datetime import datetime, timezone
 import functools
 import time
 
+from ..context.exceptions import ContextNotAvailableError
+from ..context.propagation import get_current_context
 from ..utils import format_error_response
 from ..models.responses import HealthCheckSuccess
 
 logger = logging.getLogger(__name__)
+
+
+def _current_permission_service():
+    try:
+        return get_current_context().permission_service
+    except ContextNotAvailableError:
+        return None
 
 
 def _with_fallback_internal(
@@ -359,7 +368,10 @@ def _check_permissions_discovery() -> Dict[str, Any]:
     try:
         from quilt_mcp.services.permissions_service import discover_permissions as aws_permissions_discover
 
-        result = aws_permissions_discover(force_refresh=False)
+        result = aws_permissions_discover(
+            force_refresh=False,
+            permission_service=_current_permission_service(),
+        )
         if not result.get("success"):
             raise Exception(result.get("error", "Permissions discovery failed"))
         return {"accessible_buckets": len(result.get("bucket_permissions", []))}

@@ -14,6 +14,8 @@ from pydantic import Field
 # Rationale: MCP server should not manage default bucket state
 # LLM clients provide explicit bucket parameters based on conversation context
 from .quilt_summary import create_quilt_summary_files
+from ..context.exceptions import ContextNotAvailableError
+from ..context.propagation import get_current_context
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 from ..services.quilt_service import QuiltService
 from ..utils import format_error_response, generate_signed_url, get_s3_client, validate_package_name
@@ -38,6 +40,13 @@ from ..models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _current_permission_service():
+    try:
+        return get_current_context().permission_service
+    except ContextNotAvailableError:
+        return None
 
 # Initialize service
 quilt_service = QuiltService()
@@ -1896,7 +1905,9 @@ def package_create_from_s3(
             # Try to get smart recommendations based on actual permissions
             try:
                 recommendations = bucket_recommendations_get(
-                    source_bucket=source_bucket, operation_type="package_creation"
+                    source_bucket=source_bucket,
+                    operation_type="package_creation",
+                    permission_service=_current_permission_service(),
                 )
 
                 if recommendations.get("success") and recommendations.get("recommendations", {}).get(
@@ -1919,7 +1930,10 @@ def package_create_from_s3(
         # Validate target registry permissions
         target_bucket_name = resolved_target_registry.replace("s3://", "")
         try:
-            access_check = check_bucket_access(target_bucket_name)
+            access_check = check_bucket_access(
+                target_bucket_name,
+                permission_service=_current_permission_service(),
+            )
             if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
                 return PackageCreateFromS3Error(
                     error="Cannot create package in target registry",

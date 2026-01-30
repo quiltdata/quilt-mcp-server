@@ -12,6 +12,7 @@ from quilt_mcp.runtime_context import get_runtime_auth
 from quilt_mcp.services.auth_service import AuthService, create_auth_service, get_jwt_mode_enabled
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
+from quilt_mcp.services.permissions_service import PermissionDiscoveryService
 
 
 def _parse_bool(value: str | None, *, default: bool = False) -> bool:
@@ -89,7 +90,7 @@ class RequestContextFactory:
         return IAMAuthService()
 
     def _create_permission_service(self, auth_service: AuthService):
-        return object()
+        return PermissionDiscoveryService(auth_service)
 
     def _create_workflow_service(self, tenant_id: str):
         return object()
