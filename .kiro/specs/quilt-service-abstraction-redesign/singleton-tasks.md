@@ -356,19 +356,19 @@ Validate that permission caches are isolated per request.
 
 #### 8.1 TDD: Permission cache isolation tests
 
-- [ ] Write tests in `tests/integration/test_permission_isolation.py`
-- [ ] Write tests that User A's cached permissions not visible to User B
-- [ ] Write tests that concurrent permission checks are isolated
-- [ ] Write tests that cache TTL is per-instance
-- [ ] Write tests that User A's cache invalidation doesn't affect User B
-- [ ] Verify all isolation tests pass
+- [x] Write tests in `tests/integration/test_permission_isolation.py`
+- [x] Write tests that User A's cached permissions not visible to User B
+- [x] Write tests that concurrent permission checks are isolated
+- [x] Write tests that cache TTL is per-instance
+- [x] Write tests that User A's cache invalidation doesn't affect User B
+- [x] Verify all isolation tests pass
 
 #### 8.2 TDD: Permission check correctness tests
 
-- [ ] Write tests that permission checks use correct user's credentials
-- [ ] Write tests that AWS API calls use correct boto3 session
-- [ ] Write tests for audit logging with correct user identity
-- [ ] Verify permission checks are correct per user
+- [x] Write tests that permission checks use correct user's credentials
+- [x] Write tests that AWS API calls use correct boto3 session
+- [x] Write tests for audit logging with correct user identity
+- [x] Verify permission checks are correct per user
 
 #### 8.3 Verification Checkpoint: Phase 2 Complete
 
