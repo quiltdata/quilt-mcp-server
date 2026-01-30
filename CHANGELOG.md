@@ -8,6 +8,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **JWT Authentication Support for Testing**: Complete JWT authentication integration for mcp-test.py (#a11-client-testing)
+  - Added JWT token support to `mcp-test.py` for testing stateless MCP deployments
+  - New `scripts/tests/jwt_helper.py` utility for generating HS256 JWT tokens for testing
+  - JWT token can be provided via `--jwt-token` argument or `MCP_JWT_TOKEN` environment variable
+  - Added `QUILT_TEST_ROLE_ARN` environment variable for real AWS role testing
+  - Comprehensive test suite with unit and integration tests for JWT authentication flow
+
+- **Enhanced MCP Protocol Testing**: Improved MCP protocol compliance testing
+  - Unskipped and enhanced MCP protocol compliance tests
+  - Better error handling and validation for protocol testing
+  - Reorganized JWT client testing specifications into dedicated a11-client-testing directory
+
+### Changed
+
+- **Development Environment**: Enhanced IDE support and development workflow
+  - Added `.vscode/` and `.kiro/` directories to .gitignore for better IDE integration
+  - Fixed make target environment variable syntax for `QUILT_TEST_ROLE_ARN`
+  - Added docker-check to .PHONY targets in Makefile
+
+### Fixed
+
+- **JWT Testing Infrastructure**: Resolved JWT authentication testing issues
+  - Fixed JWT testing with real AWS role ARN integration
+  - Improved error messages and troubleshooting for JWT authentication failures
+  - Enhanced test reliability for stateless MCP deployments
+
+### Documentation
+
+- **JWT Testing Guide**: Comprehensive documentation for JWT authentication testing
+  - Added `docs/JWT_TESTING.md` with complete JWT testing workflow
+  - Detailed instructions for token generation and testing procedures
+  - Troubleshooting guide for common JWT authentication issues
+  - Reorganized client testing specifications for better organization
+
 ## [0.10.1] - 2026-01-29
 
 ### Fixed
