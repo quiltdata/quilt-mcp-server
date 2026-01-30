@@ -684,7 +684,7 @@ Clear error messages guide LLM clients when registry is missing.
   - Production Docker builds must happen in CI on amd64 runners
 
 - **Dynamic AWS Account Detection**: Eliminated hardcoded account IDs
-  - `scripts/docker.py` uses AWS STS to detect account and region dynamically
+  - `scripts/docker_manager.py` uses AWS STS to detect account and region dynamically
   - `make docker-tools` uses STS for ECR authentication
   - Logs detected AWS account and region for visibility (not redacted in CI)
   - Works correctly across different AWS accounts in CI/CD
