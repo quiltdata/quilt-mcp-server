@@ -97,11 +97,11 @@ Update auth service to be instantiable per-request instead of module-level singl
 
 #### 2.4 TDD: Remove singleton usage in existing code
 
-- [ ] Write tests that verify singleton accessor is removed
-- [ ] Write tests that verify code must use passed-in auth_service instances
-- [ ] Remove `get_auth_service()` singleton accessor function
-- [ ] Remove module-level `_AUTH_SERVICE` variable
-- [ ] Update all code that used singleton to accept auth_service parameter
+- [x] Write tests that verify singleton accessor is removed
+- [x] Write tests that verify code must use passed-in auth_service instances
+- [x] Remove `get_auth_service()` singleton accessor function
+- [x] Remove module-level `_AUTH_SERVICE` variable
+- [x] Update all code that used singleton to accept auth_service parameter
 
 #### 2.5 Verification Checkpoint: Auth Service Refactor
 

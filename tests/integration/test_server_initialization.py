@@ -226,9 +226,9 @@ class TestQuiltServiceRemoval:
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     # Test that auth service initialization works
-                    from quilt_mcp.services.auth_service import get_auth_service
+                    from quilt_mcp.services.auth_service import create_auth_service
                     
-                    auth_service = get_auth_service()
+                    auth_service = create_auth_service()
                     assert auth_service is not None
                     
                     # Auth service should work without QuiltService

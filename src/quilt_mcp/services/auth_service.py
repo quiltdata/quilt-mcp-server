@@ -79,8 +79,8 @@ def _validate_jwt_mode() -> None:
         raise AuthServiceError(str(exc), code="jwt_config_error") from exc
 
 
-def get_auth_service() -> AuthService:
-    """Return a new auth service instance for the configured mode."""
+def create_auth_service() -> AuthService:
+    """Create a new auth service instance for the configured mode."""
     if get_jwt_mode_enabled():
         _validate_jwt_mode()
         logger.info("Authentication mode selected: JWT")

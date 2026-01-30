@@ -339,10 +339,10 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
     # Validate auth configuration early so startup fails fast.
     try:
-        from quilt_mcp.services.auth_service import get_auth_service
+        from quilt_mcp.services.auth_service import create_auth_service
         from quilt_mcp.ops.factory import QuiltOpsFactory
 
-        get_auth_service()
+        create_auth_service()
 
         # Also validate that QuiltOps can be created (Phase 1: quilt3 only)
         # This ensures that the abstraction layer is properly configured

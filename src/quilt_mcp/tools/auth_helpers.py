@@ -12,7 +12,7 @@ from typing import Any, Dict, Literal, Optional
 
 import boto3
 
-from quilt_mcp.services.auth_service import AuthServiceError, AuthServiceProtocol, get_auth_service
+from quilt_mcp.services.auth_service import AuthServiceError, AuthService, create_auth_service
 from quilt_mcp.services.jwt_auth_service import JwtAuthServiceError
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,13 @@ def _build_s3_client(session: boto3.Session) -> Optional[Any]:
         return session.client("s3")
     except Exception as exc:  # pragma: no cover - unexpected boto3 failure
         logger.error("Failed to build s3 client from session: %s", exc)
-        return None
+    return None
+
+
+def _resolve_auth_service(auth_service: AuthService | None) -> AuthService:
+    if auth_service is None:
+        return create_auth_service()
+    return auth_service
 
 
 def _base_authorization(
@@ -54,8 +60,9 @@ def _base_authorization(
     tool_args: Dict[str, Any],
     *,
     require_s3: bool,
+    auth_service: AuthService | None = None,
 ) -> AuthorizationContext:
-    auth_service: AuthServiceProtocol = get_auth_service()
+    auth_service = _resolve_auth_service(auth_service)
     try:
         session = auth_service.get_boto3_session()
     except (AuthServiceError, JwtAuthServiceError) as exc:
@@ -88,9 +95,14 @@ def _base_authorization(
     )
 
 
-def check_s3_authorization(tool_name: str, tool_args: Optional[Dict[str, Any]] = None) -> AuthorizationContext:
+def check_s3_authorization(
+    tool_name: str,
+    tool_args: Optional[Dict[str, Any]] = None,
+    *,
+    auth_service: AuthService | None = None,
+) -> AuthorizationContext:
     """Return S3 authorization context for bucket-oriented tools."""
-    context = _base_authorization(tool_name, tool_args or {}, require_s3=True)
+    context = _base_authorization(tool_name, tool_args or {}, require_s3=True, auth_service=auth_service)
     if not context.authorized and context.error:
         logger.debug("S3 authorization failed for %s: %s", tool_name, context.error)
     return context
@@ -99,9 +111,11 @@ def check_s3_authorization(tool_name: str, tool_args: Optional[Dict[str, Any]] =
 def check_package_authorization(
     tool_name: str,
     tool_args: Optional[Dict[str, Any]] = None,
+    *,
+    auth_service: AuthService | None = None,
 ) -> AuthorizationContext:
     """Return authorization context for package/GraphQL tools."""
-    context = _base_authorization(tool_name, tool_args or {}, require_s3=False)
+    context = _base_authorization(tool_name, tool_args or {}, require_s3=False, auth_service=auth_service)
     if not context.authorized and context.error:
         logger.debug("Package authorization failed for %s: %s", tool_name, context.error)
     return context

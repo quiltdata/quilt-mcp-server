@@ -8,7 +8,7 @@ import pytest
 
 from quilt_mcp.services.auth_service import (
     AuthServiceError,
-    get_auth_service,
+    create_auth_service,
     get_jwt_mode_enabled,
     reset_auth_service,
 )
@@ -21,7 +21,7 @@ def test_default_mode_is_iam(monkeypatch):
     reset_auth_service()
 
     assert get_jwt_mode_enabled() is False
-    service = get_auth_service()
+    service = create_auth_service()
     assert isinstance(service, IAMAuthService)
 
 
@@ -32,7 +32,7 @@ def test_jwt_mode_requires_secret(monkeypatch):
     reset_auth_service()
 
     with pytest.raises(AuthServiceError):
-        get_auth_service()
+        create_auth_service()
 
 
 def test_jwt_mode_enabled(monkeypatch):
@@ -40,7 +40,7 @@ def test_jwt_mode_enabled(monkeypatch):
     monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
     reset_auth_service()
 
-    service = get_auth_service()
+    service = create_auth_service()
     assert isinstance(service, JWTAuthService)
 
 
@@ -48,11 +48,11 @@ def test_mode_switching_resets_service(monkeypatch):
     monkeypatch.setenv("MCP_REQUIRE_JWT", "true")
     monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
     reset_auth_service()
-    assert isinstance(get_auth_service(), JWTAuthService)
+    assert isinstance(create_auth_service(), JWTAuthService)
 
     monkeypatch.setenv("MCP_REQUIRE_JWT", "false")
     reset_auth_service()
-    assert isinstance(get_auth_service(), IAMAuthService)
+    assert isinstance(create_auth_service(), IAMAuthService)
 
 
 def test_logs_auth_mode(monkeypatch, caplog):
@@ -60,6 +60,12 @@ def test_logs_auth_mode(monkeypatch, caplog):
     reset_auth_service()
 
     with caplog.at_level("INFO"):
-        _ = get_auth_service()
+        _ = create_auth_service()
 
     assert any("Authentication mode selected: IAM" in record.message for record in caplog.records)
+
+
+def test_get_auth_service_removed():
+    import quilt_mcp.services.auth_service as auth_service
+
+    assert not hasattr(auth_service, "get_auth_service")
