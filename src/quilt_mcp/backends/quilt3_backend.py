@@ -44,6 +44,12 @@ class Quilt3_Backend(QuiltOps):
     def _validate_session(self, session_config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the quilt3 session configuration.
 
+        Performs comprehensive validation of the session configuration including:
+        - Basic structure validation
+        - Session accessibility checks
+        - Registry format validation (if present)
+        - Detailed error reporting for troubleshooting
+
         Args:
             session_config: Session configuration to validate
 
@@ -51,18 +57,133 @@ class Quilt3_Backend(QuiltOps):
             Validated session configuration
 
         Raises:
-            AuthenticationError: If session is invalid
+            AuthenticationError: If session is invalid with specific error details
         """
+        logger.debug("Starting session validation")
+        
+        # Basic structure validation
         if not session_config:
-            raise AuthenticationError("Invalid quilt3 session: session configuration is empty")
+            logger.error("Session validation failed: empty configuration")
+            raise AuthenticationError(
+                "Invalid quilt3 session: session configuration is empty. "
+                "Please ensure you have a valid quilt3 session by running 'quilt3 login' "
+                "or provide a valid session configuration."
+            )
 
+        # Log session validation attempt (without sensitive data)
+        logger.debug(f"Validating session with keys: {list(session_config.keys())}")
+
+        try:
+            # Validate session accessibility
+            self._validate_session_accessibility()
+            
+            # Validate session structure if registry is provided
+            if 'registry' in session_config:
+                self._validate_registry_format(session_config['registry'])
+            
+            logger.debug("Session validation completed successfully")
+            return session_config
+            
+        except AuthenticationError:
+            # Re-raise authentication errors as-is
+            raise
+        except Exception as e:
+            logger.error(f"Session validation failed with unexpected error: {str(e)}")
+            # Provide more specific error messages based on error type
+            error_message = self._format_session_error(e)
+            raise AuthenticationError(f"Invalid quilt3 session: {error_message}")
+
+    def _validate_session_accessibility(self) -> None:
+        """Validate that the quilt3 session is accessible and functional.
+        
+        Raises:
+            AuthenticationError: If session cannot be accessed
+        """
         try:
             # Attempt to validate session by checking if we can access session info
             if hasattr(quilt3.session, 'get_session_info'):
-                quilt3.session.get_session_info()
-            return session_config
+                session_info = quilt3.session.get_session_info()
+                logger.debug("Session accessibility check passed")
+                
+                # Additional validation: ensure session info is not empty
+                if session_info is None:
+                    raise AuthenticationError("Session info is None - session may be corrupted")
+            else:
+                logger.debug("get_session_info not available, skipping accessibility check")
+                
         except Exception as e:
-            raise AuthenticationError(f"Invalid quilt3 session: {str(e)}")
+            logger.error(f"Session accessibility check failed: {str(e)}")
+            raise
+
+    def _validate_registry_format(self, registry: str) -> None:
+        """Validate the format of the registry URL.
+        
+        Args:
+            registry: Registry URL to validate
+            
+        Raises:
+            AuthenticationError: If registry format is invalid
+        """
+        if not registry:
+            raise AuthenticationError("Registry URL is empty")
+            
+        if not isinstance(registry, str):
+            raise AuthenticationError(f"Registry must be a string, got {type(registry).__name__}")
+            
+        # Basic S3 URL format validation
+        if not registry.startswith('s3://'):
+            logger.warning(f"Registry URL does not start with 's3://': {registry}")
+            # Don't fail here as some configurations might use different formats
+            
+        # Check for obviously malformed URLs
+        if registry == 's3://':
+            raise AuthenticationError("Registry URL is incomplete: missing bucket name")
+            
+        logger.debug(f"Registry format validation passed: {registry}")
+
+    def _format_session_error(self, error: Exception) -> str:
+        """Format session validation errors with helpful context.
+        
+        Args:
+            error: The original error
+            
+        Returns:
+            Formatted error message with troubleshooting guidance
+        """
+        error_str = str(error)
+        error_type = type(error).__name__
+        
+        # Provide specific guidance based on error type
+        if isinstance(error, (TimeoutError, ConnectionError)):
+            return (
+                f"{error_str}. This may indicate network connectivity issues. "
+                "Please check your internet connection and try again."
+            )
+        elif isinstance(error, PermissionError):
+            return (
+                f"{error_str}. This indicates insufficient permissions. "
+                "Please check your AWS credentials and permissions."
+            )
+        elif "403" in error_str or "Forbidden" in error_str:
+            return (
+                f"{error_str}. Access forbidden - please check your authentication credentials "
+                "and ensure you have permission to access the registry."
+            )
+        elif "401" in error_str or "Unauthorized" in error_str:
+            return (
+                f"{error_str}. Authentication failed - please run 'quilt3 login' to refresh "
+                "your credentials."
+            )
+        elif "expired" in error_str.lower() or "token" in error_str.lower():
+            return (
+                f"{error_str}. Your session may have expired. "
+                "Please run 'quilt3 login' to refresh your credentials."
+            )
+        else:
+            return (
+                f"{error_str}. Please ensure you have a valid quilt3 session by running "
+                "'quilt3 login' or check your session configuration."
+            )
 
     def search_packages(self, query: str, registry: str) -> List[Package_Info]:
         """Search for packages matching query.
@@ -276,13 +397,13 @@ class Quilt3_Backend(QuiltOps):
             self._validate_package_fields(quilt3_package)
 
             # Handle missing or None tags
-            tags = self._normalize_tags(quilt3_package.tags)
+            tags = self._normalize_tags(getattr(quilt3_package, 'tags', None))
 
             # Handle datetime conversion
             modified_date = self._normalize_package_datetime(quilt3_package.modified)
 
             # Handle optional description
-            description = self._normalize_description(quilt3_package.description)
+            description = self._normalize_description(getattr(quilt3_package, 'description', None))
 
             package_info = Package_Info(
                 name=quilt3_package.name,
@@ -380,9 +501,17 @@ class Quilt3_Backend(QuiltOps):
             # Validate required fields
             self._validate_bucket_fields(bucket_name, bucket_data)
 
-            # Normalize bucket data fields
-            region = self._normalize_string_field(bucket_data.get('region', ''))
-            access_level = self._normalize_string_field(bucket_data.get('access_level', ''))
+            # Normalize bucket data fields with reasonable defaults
+            region = bucket_data.get('region', 'unknown')
+            if not region:  # Handle empty strings
+                region = 'unknown'
+            region = self._normalize_string_field(region)
+            
+            access_level = bucket_data.get('access_level', 'unknown')
+            if not access_level:  # Handle empty strings
+                access_level = 'unknown'
+            access_level = self._normalize_string_field(access_level)
+            
             created_date = self._normalize_datetime(bucket_data.get('created_date'))
 
             bucket_info = Bucket_Info(

@@ -206,8 +206,9 @@ class TestQuilt3BackendStructure:
 class TestQuilt3BackendPackageOperations:
     """Test package-related operations in Quilt3_Backend."""
 
+    @patch('quilt3.search_util.search_api')
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_search_packages_with_mocked_quilt3_search(self, mock_quilt3):
+    def test_search_packages_with_mocked_quilt3_search(self, mock_quilt3, mock_search_api):
         """Test search_packages() with mocked quilt3.search() calls."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
@@ -215,15 +216,42 @@ class TestQuilt3BackendPackageOperations:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Mock quilt3.search response
-        mock_package = Mock()
-        mock_package.name = "test/package"
-        mock_package.description = "Test package"
-        mock_package.tags = ["test", "data"]
-        mock_package.modified = datetime(2024, 1, 1, 12, 0, 0)
-        mock_package.registry = "s3://test-registry"
-        mock_package.bucket = "test-bucket"
-        mock_package.top_hash = "abc123"
+        # Mock search_api response
+        mock_search_api.return_value = {
+            "hits": {
+                "hits": [
+                    {
+                        "_source": {
+                            "ptr_name": "test/package",
+                            "description": "Test package",
+                            "tags": ["test", "data"],
+                            "ptr_last_modified": "2024-01-01T12:00:00",
+                            "top_hash": "abc123"
+                        }
+                    }
+                ]
+            }
+        }
+
+        # Execute
+        result = backend.search_packages("test query", "s3://test-registry")
+
+        # Verify
+        assert len(result) == 1
+        assert isinstance(result[0], Package_Info)
+        assert result[0].name == "test/package"
+        assert result[0].description == "Test package"
+        assert result[0].tags == ["test", "data"]
+        assert result[0].registry == "s3://test-registry"
+        assert result[0].bucket == "test-registry"
+        assert result[0].top_hash == "abc123"
+
+        # Verify search_api was called correctly
+        mock_search_api.assert_called_once()
+        call_kwargs = mock_search_api.call_args.kwargs
+        assert "query" in call_kwargs
+        assert "index" in call_kwargs
+        assert call_kwargs["index"] == "test-registry_packages"
 
     @patch('quilt3.search_util.search_api')
     def test_search_packages_with_mocked_search_api(self, mock_search_api):
@@ -1298,7 +1326,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
 
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
     def test_transform_package_with_missing_optional_attributes(self, mock_quilt3):
-        """Test _transform_package() handles missing optional attributes by raising appropriate errors."""
+        """Test _transform_package() handles missing optional attributes gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
@@ -1318,15 +1346,17 @@ class TestQuilt3BackendMissingNullFieldHandling:
         if hasattr(mock_package, 'tags'):
             delattr(mock_package, 'tags')
 
-        # The current implementation raises BackendError when attributes are missing
-        # This is the actual behavior we need to test
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_package(mock_package)
+        # Should handle missing optional attributes gracefully by using getattr with defaults
+        result = backend._transform_package(mock_package)
 
-        error_message = str(exc_info.value)
-        assert "transformation failed" in error_message.lower()
-        # The error should be about missing attributes (tags in this case)
-        assert any(attr in error_message.lower() for attr in ['tags', 'description'])
+        assert isinstance(result, Package_Info)
+        assert result.name == "minimal/package"
+        assert result.description is None  # Should handle missing description gracefully
+        assert result.tags == []  # Should handle missing tags gracefully
+        assert result.modified_date == "2024-01-01T12:00:00"
+        assert result.registry == "s3://test-registry"
+        assert result.bucket == "test-bucket"
+        assert result.top_hash == "abc123"
 
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
     def test_transform_package_with_null_optional_fields(self, mock_quilt3):
@@ -1705,6 +1735,17 @@ class TestQuilt3BackendMissingNullFieldHandling:
         assert result.access_level == "read-only"
         assert result.created_date is None  # Should default to None for missing field
 
+        # Test with completely empty bucket data (should use defaults)
+        bucket_data_empty = {}
+        
+        result_empty = backend._transform_bucket("empty-bucket", bucket_data_empty)
+        
+        assert isinstance(result_empty, Bucket_Info)
+        assert result_empty.name == "empty-bucket"
+        assert result_empty.region == "unknown"  # Should default to "unknown"
+        assert result_empty.access_level == "unknown"  # Should default to "unknown"
+        assert result_empty.created_date is None  # Should default to None
+
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
     def test_transform_bucket_with_null_optional_fields(self, mock_quilt3):
         """Test _transform_bucket() handles null/None values in optional fields."""
@@ -1713,15 +1754,14 @@ class TestQuilt3BackendMissingNullFieldHandling:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test various null/None scenarios for optional fields
-        # Note: The Bucket_Info domain object has validation that prevents empty strings for required fields
-        null_scenarios = [
+        # Test scenarios that should now work due to improved null handling
+        working_scenarios = [
             {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': None},
             {'region': 'us-west-2', 'access_level': 'read-only', 'created_date': None},
             {'region': 'eu-west-1', 'access_level': 'admin', 'created_date': ""},
         ]
 
-        for i, scenario in enumerate(null_scenarios):
+        for i, scenario in enumerate(working_scenarios):
             bucket_name = f"null-bucket-{i}"
             bucket_data = scenario
 
@@ -1751,13 +1791,21 @@ class TestQuilt3BackendMissingNullFieldHandling:
             bucket_name = f"failing-bucket-{i}"
             bucket_data = scenario
 
-            with pytest.raises(BackendError) as exc_info:
-                backend._transform_bucket(bucket_name, bucket_data)
-
-            error_message = str(exc_info.value)
-            assert "transformation failed" in error_message.lower()
-            # Should contain validation error about empty fields
-            assert any(field in error_message.lower() for field in ['region', 'access_level', 'empty'])
+            # These should now work because None and empty strings are converted to "unknown"
+            result = backend._transform_bucket(bucket_name, bucket_data)
+            assert isinstance(result, Bucket_Info)
+            assert result.name == bucket_name
+            
+            # None and empty strings should be converted to "unknown"
+            if scenario['region'] is None or scenario['region'] == "":
+                assert result.region == "unknown"
+            else:
+                assert result.region == scenario['region']
+                
+            if scenario['access_level'] is None or scenario['access_level'] == "":
+                assert result.access_level == "unknown"
+            else:
+                assert result.access_level == scenario['access_level']
 
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
     def test_transform_bucket_with_missing_required_fields(self, mock_quilt3):
@@ -1808,52 +1856,201 @@ class TestQuilt3BackendMissingNullFieldHandling:
         bucket_name = "empty-data-bucket"
         bucket_data = {}
 
-        # Empty bucket data will result in empty region, which violates Bucket_Info validation
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_bucket(bucket_name, bucket_data)
-
-        error_message = str(exc_info.value)
-        assert "region field cannot be empty" in error_message.lower()
+        # Empty bucket data will now work because we provide "unknown" defaults
+        result = backend._transform_bucket(bucket_name, bucket_data)
+        
+        assert isinstance(result, Bucket_Info)
+        assert result.name == bucket_name
+        assert result.region == "unknown"  # Should default to "unknown"
+        assert result.access_level == "unknown"  # Should default to "unknown"
+        assert result.created_date is None  # Should default to None
 
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_edge_case_attribute_access_patterns(self, mock_quilt3):
-        """Test transformation handles various attribute access patterns and edge cases."""
+    def test_transform_package_provides_reasonable_defaults(self, mock_quilt3):
+        """Test _transform_package() provides reasonable defaults for missing/null fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test package with attributes that raise exceptions when accessed
-        class ProblematicPackage:
-            def __init__(self):
-                self.name = "problematic/package"
-                self.registry = "s3://test-registry"
-                self.bucket = "test-bucket"
-                self.top_hash = "abc123"
-                self.modified = datetime(2024, 1, 1, 12, 0, 0)
+        # Test with various combinations of missing/null optional fields
+        test_cases = [
+            {
+                'name': 'test-defaults-1',
+                'description': None,
+                'tags': None,
+                'expected_description': None,
+                'expected_tags': []
+            },
+            {
+                'name': 'test-defaults-2', 
+                'description': '',
+                'tags': [],
+                'expected_description': '',
+                'expected_tags': []
+            },
+            {
+                'name': 'test-defaults-3',
+                'description': 'Valid description',
+                'tags': ['tag1', 'tag2'],
+                'expected_description': 'Valid description',
+                'expected_tags': ['tag1', 'tag2']
+            }
+        ]
 
-            @property
-            def description(self):
-                # This property raises an exception when accessed
-                raise AttributeError("Description access failed")
+        for case in test_cases:
+            mock_package = Mock()
+            mock_package.name = case['name']
+            mock_package.description = case['description']
+            mock_package.tags = case['tags']
+            mock_package.modified = datetime(2024, 1, 1, 12, 0, 0)
+            mock_package.registry = "s3://test-registry"
+            mock_package.bucket = "test-bucket"
+            mock_package.top_hash = "abc123"
 
-            @property
-            def tags(self):
-                # This property returns an unexpected type
-                return {"not": "a list"}
+            result = backend._transform_package(mock_package)
 
-        problematic_package = ProblematicPackage()
-
-        # Should handle attribute access exceptions by raising BackendError
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_package(problematic_package)
-
-        error_message = str(exc_info.value)
-        assert "transformation failed" in error_message.lower()
-        assert "description access failed" in error_message.lower()
+            assert isinstance(result, Package_Info)
+            assert result.name == case['name']
+            assert result.description == case['expected_description']
+            assert result.tags == case['expected_tags']
+            assert result.modified_date == "2024-01-01T12:00:00"
 
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_transform_package_with_mock_package_elasticsearch_format(self, mock_quilt3):
+    def test_transform_content_provides_reasonable_defaults(self, mock_quilt3):
+        """Test _transform_content() provides reasonable defaults for missing/null fields."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test with various combinations of missing/null optional fields
+        test_cases = [
+            {
+                'name': 'file1.txt',
+                'size': None,
+                'modified': None,
+                'is_dir': None,
+                'expected_size': None,
+                'expected_modified': None,
+                'expected_type': 'file'
+            },
+            {
+                'name': 'file2.txt',
+                'size': 0,
+                'modified': datetime(2024, 1, 1, 12, 0, 0),
+                'is_dir': False,
+                'expected_size': 0,
+                'expected_modified': '2024-01-01T12:00:00',
+                'expected_type': 'file'
+            },
+            {
+                'name': 'directory/',
+                'size': None,
+                'modified': None,
+                'is_dir': True,
+                'expected_size': None,
+                'expected_modified': None,
+                'expected_type': 'directory'
+            }
+        ]
+
+        for case in test_cases:
+            mock_entry = Mock()
+            mock_entry.name = case['name']
+            mock_entry.size = case['size']
+            mock_entry.modified = case['modified']
+            mock_entry.is_dir = case['is_dir']
+
+            result = backend._transform_content(mock_entry)
+
+            assert isinstance(result, Content_Info)
+            assert result.path == case['name']
+            assert result.size == case['expected_size']
+            assert result.modified_date == case['expected_modified']
+            assert result.type == case['expected_type']
+            assert result.download_url is None
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_bucket_provides_reasonable_defaults(self, mock_quilt3):
+        """Test _transform_bucket() provides reasonable defaults for missing/null fields."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test with various combinations of missing/null optional fields
+        test_cases = [
+            {
+                'bucket_name': 'test-bucket-1',
+                'bucket_data': {'region': 'us-east-1', 'access_level': 'read-only'},
+                'expected_region': 'us-east-1',
+                'expected_access_level': 'read-only',
+                'expected_created_date': None
+            },
+            {
+                'bucket_name': 'test-bucket-2',
+                'bucket_data': {'region': 'us-west-2', 'access_level': 'admin', 'created_date': '2024-01-01'},
+                'expected_region': 'us-west-2',
+                'expected_access_level': 'admin',
+                'expected_created_date': '2024-01-01'
+            },
+            {
+                'bucket_name': 'test-bucket-3',
+                'bucket_data': {'region': 'eu-central-1', 'access_level': 'read-write', 'created_date': None},
+                'expected_region': 'eu-central-1',
+                'expected_access_level': 'read-write',
+                'expected_created_date': None
+            }
+        ]
+
+        for case in test_cases:
+            result = backend._transform_bucket(case['bucket_name'], case['bucket_data'])
+
+            assert isinstance(result, Bucket_Info)
+            assert result.name == case['bucket_name']
+            assert result.region == case['expected_region']
+            assert result.access_level == case['expected_access_level']
+            assert result.created_date == case['expected_created_date']
+
+        # Test cases that should now work because empty strings are converted to "unknown"
+        edge_cases = [
+            {
+                'bucket_name': 'edge-case-bucket-1',
+                'bucket_data': {'region': '', 'access_level': 'read-only'},  # Empty region -> "unknown"
+                'expected_region': 'unknown',
+                'expected_access_level': 'read-only',
+                'expected_created_date': None
+            },
+            {
+                'bucket_name': 'edge-case-bucket-2', 
+                'bucket_data': {'region': 'us-east-1', 'access_level': ''},  # Empty access_level -> "unknown"
+                'expected_region': 'us-east-1',
+                'expected_access_level': 'unknown',
+                'expected_created_date': None
+            }
+        ]
+
+        for case in edge_cases:
+            result = backend._transform_bucket(case['bucket_name'], case['bucket_data'])
+            
+            assert isinstance(result, Bucket_Info)
+            assert result.name == case['bucket_name']
+            assert result.region == case['expected_region']
+            assert result.access_level == case['expected_access_level']
+            assert result.created_date == case['expected_created_date']
+
+        # Test case with completely empty bucket data (should use defaults)
+        result_empty = backend._transform_bucket("empty-bucket", {})
+        
+        assert isinstance(result_empty, Bucket_Info)
+        assert result_empty.name == "empty-bucket"
+        assert result_empty.region == "unknown"  # Should default to "unknown"
+        assert result_empty.access_level == "unknown"  # Should default to "unknown"
+        assert result_empty.created_date is None  # Should default to None
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_edge_case_attribute_access_patterns(self, mock_quilt3):
         """Test _transform_package() works with mock objects created from Elasticsearch responses."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
@@ -11313,3 +11510,522 @@ class TestQuilt3BackendMockBucketTransformation:
         assert result.region == "ca-central-1"
         assert result.access_level == "admin"
         assert result.created_date == "2024-02-01T12:00:00Z"
+
+
+class TestQuilt3BackendTransformationErrorHandling:
+    """Test error handling in transformation logic for _transform_package, _transform_content, and _transform_bucket methods."""
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_package_error_handling_with_invalid_objects(self, mock_quilt3):
+        """Test _transform_package() error handling with completely invalid objects."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test with None object - this triggers validation error, not transformation error
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_package(None)
+        
+        error_message = str(exc_info.value)
+        assert "quilt3 backend package validation failed" in error_message.lower()
+        assert "missing required field" in error_message.lower()
+
+        # Test with object that doesn't have required attributes (use object() instead of Mock())
+        invalid_package = object()
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_package(invalid_package)
+        
+        error_message = str(exc_info.value)
+        assert "missing required field" in error_message.lower()
+        assert "name" in error_message.lower()
+
+        # Test with object having None required fields (validation error)
+        invalid_package = Mock()
+        invalid_package.name = None
+        invalid_package.registry = "s3://test-registry"
+        invalid_package.bucket = "test-bucket"
+        invalid_package.top_hash = "abc123"
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_package(invalid_package)
+        
+        error_message = str(exc_info.value)
+        assert "required field 'name' is none" in error_message.lower()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_package_error_handling_with_transformation_failures(self, mock_quilt3):
+        """Test _transform_package() error handling when transformation logic fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test with invalid datetime that causes transformation error
+        invalid_package = Mock()
+        invalid_package.name = "test/package"
+        invalid_package.description = "Test package"
+        invalid_package.tags = ["test"]
+        invalid_package.modified = "invalid-date"  # This will trigger ValueError in _normalize_package_datetime
+        invalid_package.registry = "s3://test-registry"
+        invalid_package.bucket = "test-bucket"
+        invalid_package.top_hash = "abc123"
+
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_package(invalid_package)
+
+        error_message = str(exc_info.value)
+        assert "quilt3 backend package transformation failed" in error_message.lower()
+        assert "invalid date format" in error_message.lower()
+
+        # Verify error context is preserved
+        error_context = exc_info.value.context
+        assert error_context['package_name'] == "test/package"
+        assert error_context['package_type'] == "Mock"
+        assert 'available_attributes' in error_context
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_package_error_handling_with_domain_object_creation_failure(self, mock_quilt3):
+        """Test _transform_package() error handling when Package_Info creation fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Create valid mock package
+        valid_package = Mock()
+        valid_package.name = "test/package"
+        valid_package.description = "Test package"
+        valid_package.tags = ["test"]
+        valid_package.modified = datetime(2024, 1, 1, 12, 0, 0)
+        valid_package.registry = "s3://test-registry"
+        valid_package.bucket = "test-bucket"
+        valid_package.top_hash = "abc123"
+
+        # Mock Package_Info to fail during creation
+        with patch('quilt_mcp.backends.quilt3_backend.Package_Info', side_effect=ValueError("Domain validation failed")):
+            with pytest.raises(BackendError) as exc_info:
+                backend._transform_package(valid_package)
+
+            error_message = str(exc_info.value)
+            assert "quilt3 backend package transformation failed" in error_message.lower()
+            assert "domain validation failed" in error_message.lower()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_content_error_handling_with_invalid_objects(self, mock_quilt3):
+        """Test _transform_content() error handling with completely invalid objects."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test with None object - this triggers validation error, not transformation error
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_content(None)
+        
+        error_message = str(exc_info.value)
+        assert "quilt3 backend content transformation failed" in error_message.lower()
+        assert "missing name" in error_message.lower()
+
+        # Test with object that doesn't have name attribute (use object() instead of Mock())
+        invalid_entry = object()
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_content(invalid_entry)
+        
+        error_message = str(exc_info.value)
+        assert "missing name" in error_message.lower()
+
+        # Test with object having None name field (validation error)
+        invalid_entry = Mock()
+        invalid_entry.name = None
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_content(invalid_entry)
+        
+        error_message = str(exc_info.value)
+        assert "missing name" in error_message.lower()
+
+        # Test with object having empty name field (validation error)
+        invalid_entry = Mock()
+        invalid_entry.name = ""
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_content(invalid_entry)
+        
+        error_message = str(exc_info.value)
+        assert "empty name" in error_message.lower()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_content_error_handling_with_transformation_failures(self, mock_quilt3):
+        """Test _transform_content() error handling when transformation logic fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test with invalid datetime that causes transformation error
+        invalid_entry = Mock()
+        invalid_entry.name = "test/file.txt"
+        invalid_entry.size = 1024
+        invalid_entry.modified = "invalid-date"  # This will trigger ValueError in _normalize_datetime
+        invalid_entry.is_dir = False
+
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_content(invalid_entry)
+
+        error_message = str(exc_info.value)
+        assert "quilt3 backend content transformation failed" in error_message.lower()
+        assert "invalid date format" in error_message.lower()
+
+        # Verify error context is preserved
+        error_context = exc_info.value.context
+        assert error_context['entry_name'] == "test/file.txt"
+        assert error_context['entry_type'] == "Mock"
+        assert 'available_attributes' in error_context
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_content_error_handling_with_domain_object_creation_failure(self, mock_quilt3):
+        """Test _transform_content() error handling when Content_Info creation fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Create valid mock content entry
+        valid_entry = Mock()
+        valid_entry.name = "test/file.txt"
+        valid_entry.size = 1024
+        valid_entry.modified = datetime(2024, 1, 1, 12, 0, 0)
+        valid_entry.is_dir = False
+
+        # Mock Content_Info to fail during creation
+        with patch('quilt_mcp.backends.quilt3_backend.Content_Info', side_effect=ValueError("Domain validation failed")):
+            with pytest.raises(BackendError) as exc_info:
+                backend._transform_content(valid_entry)
+
+            error_message = str(exc_info.value)
+            assert "quilt3 backend content transformation failed" in error_message.lower()
+            assert "domain validation failed" in error_message.lower()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_content_error_handling_with_attribute_access_errors(self, mock_quilt3):
+        """Test _transform_content() error handling when attribute access fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Create mock that raises exception when accessing attributes
+        class ProblematicEntry:
+            def __init__(self):
+                self.name = "test/file.txt"
+            
+            @property
+            def size(self):
+                raise RuntimeError("Size access failed")
+            
+            @property
+            def modified(self):
+                raise RuntimeError("Modified access failed")
+            
+            @property
+            def is_dir(self):
+                raise RuntimeError("is_dir access failed")
+
+        problematic_entry = ProblematicEntry()
+
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_content(problematic_entry)
+
+        error_message = str(exc_info.value)
+        assert "quilt3 backend content transformation failed" in error_message.lower()
+        # Should contain one of the attribute access errors
+        assert any(error in error_message.lower() for error in ["size access failed", "modified access failed", "is_dir access failed"])
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_bucket_error_handling_with_invalid_inputs(self, mock_quilt3):
+        """Test _transform_bucket() error handling with completely invalid inputs."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test with None bucket name
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket(None, {'region': 'us-east-1', 'access_level': 'read-write'})
+        
+        error_message = str(exc_info.value)
+        assert "missing name" in error_message.lower()
+
+        # Test with empty bucket name
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket("", {'region': 'us-east-1', 'access_level': 'read-write'})
+        
+        error_message = str(exc_info.value)
+        assert "missing name" in error_message.lower()
+
+        # Test with None bucket data
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket("test-bucket", None)
+        
+        error_message = str(exc_info.value)
+        assert "bucket_data is none" in error_message.lower()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_bucket_error_handling_with_missing_required_fields(self, mock_quilt3):
+        """Test _transform_bucket() error handling with missing required fields."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # The current implementation uses .get() with defaults, so missing fields don't cause errors
+        # Let's test with completely invalid bucket_data structure that will cause transformation errors
+        
+        # Test with non-dict bucket_data that will cause attribute errors
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket("test-bucket", "invalid-string-data")
+        
+        error_message = str(exc_info.value)
+        assert "quilt3 backend bucket transformation failed" in error_message.lower()
+
+        # Test with bucket_data that has .get() method but raises errors
+        class ProblematicData:
+            def get(self, key, default=None):
+                raise RuntimeError(f"Cannot access {key}")
+            
+            def keys(self):
+                return ['region', 'access_level']
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket("test-bucket", ProblematicData())
+        
+        error_message = str(exc_info.value)
+        assert "quilt3 backend bucket transformation failed" in error_message.lower()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_bucket_error_handling_with_transformation_failures(self, mock_quilt3):
+        """Test _transform_bucket() error handling when transformation logic fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test with invalid datetime that causes transformation error
+        bucket_data = {
+            'region': 'us-east-1',
+            'access_level': 'read-write',
+            'created_date': "invalid-date"  # This will trigger ValueError in _normalize_datetime
+        }
+
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket("test-bucket", bucket_data)
+
+        error_message = str(exc_info.value)
+        assert "quilt3 backend bucket transformation failed" in error_message.lower()
+        assert "invalid date format" in error_message.lower()
+
+        # Verify error context is preserved
+        error_context = exc_info.value.context
+        assert error_context['bucket_name'] == "test-bucket"
+        assert error_context['bucket_data_type'] == "dict"
+        assert 'bucket_data_keys' in error_context
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_bucket_error_handling_with_domain_object_creation_failure(self, mock_quilt3):
+        """Test _transform_bucket() error handling when Bucket_Info creation fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Create valid bucket data
+        bucket_data = {
+            'region': 'us-east-1',
+            'access_level': 'read-write',
+            'created_date': '2024-01-01T12:00:00Z'
+        }
+
+        # Mock Bucket_Info to fail during creation
+        with patch('quilt_mcp.backends.quilt3_backend.Bucket_Info', side_effect=ValueError("Domain validation failed")):
+            with pytest.raises(BackendError) as exc_info:
+                backend._transform_bucket("test-bucket", bucket_data)
+
+            error_message = str(exc_info.value)
+            assert "quilt3 backend bucket transformation failed" in error_message.lower()
+            assert "domain validation failed" in error_message.lower()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transform_bucket_error_handling_with_data_access_errors(self, mock_quilt3):
+        """Test _transform_bucket() error handling when bucket data access fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Create mock that raises exception when accessing data
+        class ProblematicBucketData:
+            def get(self, key, default=None):
+                raise RuntimeError(f"Data access failed for key: {key}")
+            
+            def keys(self):
+                return ['region', 'access_level']
+            
+            def __getitem__(self, key):
+                raise RuntimeError(f"Data access failed for key: {key}")
+
+        problematic_data = ProblematicBucketData()
+
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket("test-bucket", problematic_data)
+
+        error_message = str(exc_info.value)
+        assert "quilt3 backend bucket transformation failed" in error_message.lower()
+        assert "data access failed" in error_message.lower()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transformation_error_messages_include_backend_context(self, mock_quilt3):
+        """Test that all transformation error messages include proper backend context."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test package transformation error context (validation error for None)
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_package(None)
+        
+        error_message = str(exc_info.value)
+        assert "quilt3 backend" in error_message.lower()
+        assert any(phrase in error_message.lower() for phrase in ["validation failed", "transformation failed"])
+
+        # Test content transformation error context (validation error for None)
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_content(None)
+        
+        error_message = str(exc_info.value)
+        assert "quilt3 backend" in error_message.lower()
+        assert "transformation failed" in error_message.lower()
+
+        # Test bucket transformation error context
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket(None, {})
+        
+        error_message = str(exc_info.value)
+        assert "quilt3 backend" in error_message.lower()
+        # This might be validation error, so check for either
+        assert any(phrase in error_message.lower() for phrase in ["transformation failed", "validation failed"])
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transformation_error_context_preservation(self, mock_quilt3):
+        """Test that transformation errors preserve context information for debugging."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test package transformation error context
+        invalid_package = Mock()
+        invalid_package.name = "test/package"
+        invalid_package.description = "Test package"
+        invalid_package.tags = ["test"]
+        invalid_package.modified = "invalid-date"
+        invalid_package.registry = "s3://test-registry"
+        invalid_package.bucket = "test-bucket"
+        invalid_package.top_hash = "abc123"
+
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_package(invalid_package)
+
+        # Verify error context contains debugging information
+        error_context = exc_info.value.context
+        assert 'package_name' in error_context
+        assert 'package_type' in error_context
+        assert 'available_attributes' in error_context
+        assert error_context['package_name'] == "test/package"
+        assert error_context['package_type'] == "Mock"
+
+        # Test content transformation error context
+        invalid_entry = Mock()
+        invalid_entry.name = "test/file.txt"
+        invalid_entry.modified = "invalid-date"
+
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_content(invalid_entry)
+
+        error_context = exc_info.value.context
+        assert 'entry_name' in error_context
+        assert 'entry_type' in error_context
+        assert 'available_attributes' in error_context
+        assert error_context['entry_name'] == "test/file.txt"
+        assert error_context['entry_type'] == "Mock"
+
+        # Test bucket transformation error context
+        bucket_data = {
+            'region': 'us-east-1',
+            'access_level': 'read-write',
+            'created_date': "invalid-date"
+        }
+
+        with pytest.raises(BackendError) as exc_info:
+            backend._transform_bucket("test-bucket", bucket_data)
+
+        error_context = exc_info.value.context
+        assert 'bucket_name' in error_context
+        assert 'bucket_data_type' in error_context
+        assert 'bucket_data_keys' in error_context
+        assert error_context['bucket_name'] == "test-bucket"
+        assert error_context['bucket_data_type'] == "dict"
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transformation_error_handling_with_appropriate_exceptions(self, mock_quilt3):
+        """Test that transformation methods raise appropriate BackendError exceptions."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # All transformation errors should be BackendError, not generic Exception
+        with pytest.raises(BackendError):
+            backend._transform_package(None)
+
+        with pytest.raises(BackendError):
+            backend._transform_content(None)
+
+        with pytest.raises(BackendError):
+            backend._transform_bucket(None, {})
+
+        # Verify that BackendError is the specific exception type, not a parent class
+        try:
+            backend._transform_package(None)
+        except Exception as e:
+            assert type(e).__name__ == "BackendError"
+            assert hasattr(e, 'context')  # BackendError should have context attribute
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_transformation_error_handling_with_clear_error_messages(self, mock_quilt3):
+        """Test that transformation errors provide clear, actionable error messages."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test that error messages are descriptive and include the operation that failed
+        error_scenarios = [
+            (lambda: backend._transform_package(None), "failed"),  # Could be validation or transformation
+            (lambda: backend._transform_content(None), "transformation failed"),
+            (lambda: backend._transform_bucket(None, {}), "failed"),  # Could be validation or transformation
+        ]
+
+        for operation, expected_phrase in error_scenarios:
+            with pytest.raises(BackendError) as exc_info:
+                operation()
+            
+            error_message = str(exc_info.value).lower()
+            assert "quilt3 backend" in error_message
+            assert expected_phrase in error_message
+            # Error message should not be empty or generic
+            assert len(error_message) > 20  # Reasonable minimum length for descriptive error
+            assert "error" in error_message or "failed" in error_message
