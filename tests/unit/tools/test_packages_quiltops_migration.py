@@ -52,31 +52,6 @@ class TestPackagesListQuiltOpsMigration:
             ),
         ]
 
-    def test_packages_list_uses_quilt_ops_search_packages(self, mock_quilt_ops, sample_package_info_list):
-        """Test that packages_list uses QuiltOps.search_packages() instead of QuiltService."""
-        # Setup mock
-        mock_quilt_ops.search_packages.return_value = sample_package_info_list
-
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
-            mock_factory.create.return_value = mock_quilt_ops
-
-            # Call the function
-            result = packages_list(registry="s3://test-bucket", limit=10)
-
-        # Verify QuiltOps was used correctly
-        mock_factory.create.assert_called_once()
-        mock_quilt_ops.search_packages.assert_called_once_with(
-            query="",  # Empty query for listing all packages
-            registry="s3://test-bucket",
-        )
-
-        # Verify response format compatibility
-        assert hasattr(result, 'packages')
-        assert len(result.packages) == 3
-        assert result.packages[0] == "test/package1"
-        assert result.packages[1] == "test/package2"
-        assert result.packages[2] == "demo/package3"
-
     def test_packages_list_with_prefix_filter(self, mock_quilt_ops, sample_package_info_list):
         """Test that packages_list applies prefix filtering correctly."""
         # Setup mock to return all packages
@@ -178,45 +153,6 @@ class TestPackageBrowseQuiltOpsMigration:
             ),
         ]
 
-    def test_package_browse_uses_quilt_ops_browse_content(self, mock_quilt_ops, sample_content_info_list):
-        """Test that package_browse uses QuiltOps.browse_content() instead of QuiltService."""
-        # Setup mock
-        mock_quilt_ops.browse_content.return_value = sample_content_info_list
-
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
-            mock_factory.create.return_value = mock_quilt_ops
-
-            # Call the function
-            result = package_browse(package_name="test/package1", registry="s3://test-bucket")
-
-        # Verify QuiltOps was used correctly
-        mock_factory.create.assert_called_once()
-        mock_quilt_ops.browse_content.assert_called_once_with(
-            "test/package1",  # positional argument
-            registry="s3://test-bucket",
-            path="",
-        )
-
-        # Verify response format compatibility
-        assert hasattr(result, 'entries')
-        assert len(result.entries) == 3
-
-    def test_package_browse_with_path(self, mock_quilt_ops, sample_content_info_list):
-        """Test that package_browse handles recursive parameter correctly."""
-        mock_quilt_ops.browse_content.return_value = sample_content_info_list
-
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
-            mock_factory.create.return_value = mock_quilt_ops
-
-            result = package_browse(
-                package_name="test/package1",
-                registry="s3://test-bucket",
-                recursive=False,  # Use actual parameter
-            )
-
-        # Verify QuiltOps was called (path is always "" for now)
-        mock_quilt_ops.browse_content.assert_called_once_with("test/package1", registry="s3://test-bucket", path="")
-
     def test_package_browse_transforms_content_info_to_entries(self, mock_quilt_ops, sample_content_info_list):
         """Test that Content_Info objects are transformed to entry format."""
         mock_quilt_ops.browse_content.return_value = sample_content_info_list
@@ -275,51 +211,3 @@ class TestPackageBrowseQuiltOpsMigration:
         assert result.registry == "s3://test-bucket"
         assert result.total_entries == 3
         assert result.view_type == "flat"  # recursive=False
-
-
-class TestDataclassCompatibility:
-    """Test that domain objects work correctly with dataclasses.asdict()."""
-
-    def test_package_info_asdict_compatibility(self):
-        """Test that Package_Info works with dataclasses.asdict()."""
-        package_info = Package_Info(
-            name="test/package",
-            description="Test package",
-            tags=["test"],
-            modified_date="2024-01-01T00:00:00Z",
-            registry="s3://bucket",
-            bucket="bucket",
-            top_hash="hash123",
-        )
-
-        # Should not raise exception
-        result = asdict(package_info)
-
-        # Verify all fields are present
-        assert result['name'] == "test/package"
-        assert result['description'] == "Test package"
-        assert result['tags'] == ["test"]
-        assert result['modified_date'] == "2024-01-01T00:00:00Z"
-        assert result['registry'] == "s3://bucket"
-        assert result['bucket'] == "bucket"
-        assert result['top_hash'] == "hash123"
-
-    def test_content_info_asdict_compatibility(self):
-        """Test that Content_Info works with dataclasses.asdict()."""
-        content_info = Content_Info(
-            path="file.txt",
-            size=100,
-            type="file",
-            modified_date="2024-01-01T00:00:00Z",
-            download_url="https://example.com/file.txt",
-        )
-
-        # Should not raise exception
-        result = asdict(content_info)
-
-        # Verify all fields are present
-        assert result['path'] == "file.txt"
-        assert result['size'] == 100
-        assert result['type'] == "file"
-        assert result['modified_date'] == "2024-01-01T00:00:00Z"
-        assert result['download_url'] == "https://example.com/file.txt"

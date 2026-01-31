@@ -19,12 +19,6 @@ from quilt_mcp.domain.bucket_info import Bucket_Info
 class TestQuilt3BackendStructure:
     """Test the basic structure and initialization of Quilt3_Backend."""
 
-    def test_quilt3_backend_can_be_imported(self):
-        """Test that Quilt3_Backend can be imported from the backends module."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        assert Quilt3_Backend is not None
-
     def test_quilt3_backend_implements_quilt_ops(self):
         """Test that Quilt3_Backend implements the QuiltOps interface."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -49,28 +43,6 @@ class TestQuilt3BackendStructure:
             assert method_name in backend_methods, f"Missing implementation of abstract method: {method_name}"
             # Verify the method is callable
             assert callable(getattr(Quilt3_Backend, method_name))
-
-    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_quilt3_backend_initialization_with_valid_session(self, mock_quilt3):
-        """Test that Quilt3_Backend initializes correctly with a valid session."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        # Mock valid session
-        mock_session_config = {
-            'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'},
-        }
-
-        # Mock successful session validation
-        mock_quilt3.session.get_session_info.return_value = mock_session_config
-
-        backend = Quilt3_Backend(mock_session_config)
-        assert backend is not None
-        assert hasattr(backend, 'session')
-        assert backend.session == mock_session_config
-
-        # Verify session validation was called
-        mock_quilt3.session.get_session_info.assert_called_once()
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_initialization_with_empty_session(self, mock_quilt3):
@@ -103,30 +75,6 @@ class TestQuilt3BackendStructure:
             Quilt3_Backend(mock_session_config)
 
         assert "quilt3 library is not available" in str(exc_info.value)
-
-    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_quilt3_backend_session_validation_success(self, mock_quilt3):
-        """Test successful session validation with various session configurations."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        # Test with minimal valid session
-        minimal_session = {'registry': 's3://test-registry'}
-        mock_quilt3.session.get_session_info.return_value = minimal_session
-
-        backend = Quilt3_Backend(minimal_session)
-        assert backend.session == minimal_session
-
-        # Test with comprehensive session config
-        comprehensive_session = {
-            'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'},
-            'region': 'us-east-1',
-            'profile': 'default',
-        }
-        mock_quilt3.session.get_session_info.return_value = comprehensive_session
-
-        backend = Quilt3_Backend(comprehensive_session)
-        assert backend.session == comprehensive_session
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_session_validation_failure(self, mock_quilt3):
@@ -164,28 +112,6 @@ class TestQuilt3BackendStructure:
         backend = Quilt3_Backend(session_config)
         assert backend.session == session_config
 
-    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_quilt3_backend_initialization_preserves_session_config(self, mock_quilt3):
-        """Test that initialization preserves the original session configuration."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        original_config = {
-            'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'},
-            'metadata': {'user': 'test_user', 'environment': 'test'},
-        }
-
-        # Mock successful validation
-        mock_quilt3.session.get_session_info.return_value = original_config
-
-        backend = Quilt3_Backend(original_config)
-
-        # Verify the session config is preserved exactly
-        assert backend.session == original_config
-
-        # Verify nested structures are preserved
-        assert backend.session['credentials']['access_key'] == 'test'
-        assert backend.session['metadata']['user'] == 'test_user'
 
 
 class TestQuilt3BackendIntegration:

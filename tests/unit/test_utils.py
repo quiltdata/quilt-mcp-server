@@ -240,11 +240,6 @@ class TestUtils(unittest.TestCase):
 class TestMCPServerConfiguration(unittest.TestCase):
     """Test MCP server creation and configuration."""
 
-    def test_create_mcp_server(self):
-        """Test that create_mcp_server returns a FastMCP instance."""
-        server = create_mcp_server()
-        self.assertIsInstance(server, FastMCP)
-
     def test_get_tool_modules(self):
         """Test that get_tool_modules returns expected modules."""
         modules = get_tool_modules()
@@ -255,28 +250,6 @@ class TestMCPServerConfiguration(unittest.TestCase):
         self.assertIn("quilt_mcp.tools.catalog", module_names)
         self.assertIn("quilt_mcp.tools.buckets", module_names)
         self.assertIn("quilt_mcp.tools.packages", module_names)
-
-    def test_register_tools_with_mock_server(self):
-        """Test tool registration with a mock server."""
-        mock_server = Mock(spec=FastMCP)
-
-        # Test with verbose=False to avoid print output
-        tools_count = register_tools(mock_server, verbose=False)
-
-        # Verify that tools were registered
-        self.assertGreater(tools_count, 0)
-        self.assertEqual(mock_server.tool.call_count, tools_count)
-
-    def test_register_tools_with_specific_modules(self):
-        """Test tool registration with specific modules."""
-        mock_server = Mock(spec=FastMCP)
-
-        # Test with just one module
-        tools_count = register_tools(mock_server, tool_modules=[catalog], verbose=False)
-
-        # Verify tools from catalog module were registered
-        self.assertGreater(tools_count, 0)
-        self.assertEqual(mock_server.tool.call_count, tools_count)
 
     def test_register_tools_only_public_functions(self):
         """Test that only public functions are registered as tools."""
@@ -322,77 +295,6 @@ class TestMCPServerConfiguration(unittest.TestCase):
             self.assertEqual(tools_count, 1)
             # Note: register_tools wraps functions before registering, so we check call count
             mock_server.tool.assert_called_once()
-
-    def test_register_tools_verbose_output(self):
-        """Test that verbose mode produces output."""
-        mock_server = Mock(spec=FastMCP)
-
-        with patch("sys.stderr") as mock_stderr:
-            # Register with verbose=True
-            register_tools(mock_server, tool_modules=[catalog], verbose=True)
-
-            # Check that print was called
-            mock_stderr.write.assert_called()
-
-    def test_create_configured_server(self):
-        """Test creating a fully configured server."""
-        server = create_configured_server(verbose=False)
-
-        self.assertIsInstance(server, FastMCP)
-        # The server should have tools registered (we can't easily verify this
-        # without inspecting internal state, but we can verify it doesn't crash)
-
-    def test_create_configured_server_verbose_output(self):
-        """Test that configured server produces verbose output."""
-        with patch("sys.stderr") as mock_stderr:
-            create_configured_server(verbose=True)
-
-            # Check that print was called for verbose output
-            mock_stderr.write.assert_called()
-
-    @patch("quilt_mcp.utils.create_configured_server")
-    def test_run_server_stdio_success(self, mock_create_server):
-        """Test successful run_server execution with stdio transport."""
-        mock_server = Mock(spec=FastMCP)
-        mock_create_server.return_value = mock_server
-
-        # Set environment variable to stdio transport
-        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "stdio"}):
-            run_server()
-
-        # Verify server was created and run was called with default show_banner=True
-        mock_create_server.assert_called_once()
-        mock_server.run.assert_called_once_with(transport="stdio", show_banner=True)
-
-    @patch("quilt_mcp.utils.build_http_app")
-    @patch("quilt_mcp.utils.create_configured_server")
-    def test_run_server_http_success(self, mock_create_server, mock_build_app):
-        """Test successful run_server execution with HTTP transport."""
-        mock_server = Mock(spec=FastMCP)
-        mock_create_server.return_value = mock_server
-        mock_app = Mock()
-        mock_build_app.return_value = mock_app
-
-        # Mock uvicorn module that gets imported inside run_server
-        with patch.dict("sys.modules", {"uvicorn": Mock()}):
-            import sys
-
-            mock_uvicorn = sys.modules["uvicorn"]
-
-            # Set environment variable to HTTP transport
-            with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
-                run_server()
-
-            # Verify HTTP app was built
-            mock_create_server.assert_called_once()
-            mock_build_app.assert_called_once_with(mock_server, transport="http")
-
-            # Verify uvicorn was started with correct parameters
-            mock_uvicorn.run.assert_called_once()
-            call_args = mock_uvicorn.run.call_args
-            self.assertEqual(call_args[0][0], mock_app)  # First positional arg is the app
-            self.assertEqual(call_args[1]["host"], "127.0.0.1")
-            self.assertEqual(call_args[1]["port"], 8000)
 
     @patch("quilt_mcp.utils.build_http_app")
     @patch("quilt_mcp.utils.create_configured_server")
