@@ -806,37 +806,12 @@ def package_browse(
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils import suppress_stdout
         from ..ops.factory import QuiltOpsFactory
+        from dataclasses import asdict
 
         quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
-            # Use QuiltOps.browse_content() to get Content_Info objects
+            # Use QuiltOps.browse_content() to get Content_Info objects directly
             content_infos = quilt_ops.browse_content(package_name, registry=normalized_registry, path="")
-
-            # For compatibility, we need to create a mock package-like object
-            # that the rest of the function can work with
-            class MockPackage:
-                def __init__(self, content_infos):
-                    self._content_infos = content_infos
-                    self._keys = [info.path for info in content_infos]
-                    self.meta = {}  # Empty metadata for now
-
-                def keys(self):
-                    return self._keys
-
-                def __getitem__(self, key):
-                    # Find the content info for this key
-                    for info in self._content_infos:
-                        if info.path == key:
-                            # Create a mock entry object
-                            class MockEntry:
-                                def __init__(self, content_info):
-                                    self.size = content_info.size
-                                    self.hash = "unknown"  # Content_Info doesn't have hash
-                                    self.physical_key = f"s3://{content_info.path}"  # Simplified
-                            return MockEntry(info)
-                    raise KeyError(f"Key {key} not found")
-
-            pkg = MockPackage(content_infos)
 
     except Exception as e:
         return ErrorResponse(
@@ -853,30 +828,24 @@ def package_browse(
             ],
         )
 
-    # Get detailed information about each entry
+    # Process Content_Info objects directly instead of using MockPackage
     entries = []
     file_tree: dict[str, Any] | None = {} if recursive else None
-    keys = list(pkg.keys())
     total_size = 0
     file_types = set()
 
     # Apply top limit if specified
-    if top > 0:
-        keys = keys[:top]
+    content_list = content_infos[:top] if top > 0 else content_infos
 
-    for logical_key in keys:
+    for content_info in content_list:
         try:
-            entry = pkg[logical_key]
-
-            # Get file information
-            file_size = getattr(entry, "size", None)
-            file_hash = str(getattr(entry, "hash", ""))
-            physical_key = str(entry.physical_key) if hasattr(entry, "physical_key") else None
+            logical_key = content_info.path
+            file_size = content_info.size
+            is_directory = content_info.type == "directory"
 
             # Determine file type and properties
-            file_ext = logical_key.split(".")[-1].lower() if "." in logical_key else "unknown"
+            file_ext = logical_key.split(".")[-1].lower() if "." in logical_key and not is_directory else "unknown"
             file_types.add(file_ext)
-            is_directory = logical_key.endswith("/") or file_size is None
 
             # Track total size
             if file_size:
@@ -884,46 +853,24 @@ def package_browse(
 
             entry_data = {
                 "logical_key": logical_key,
-                "physical_key": physical_key,
+                "physical_key": None,  # Will be set below if available
                 "size": file_size,
                 "size_human": _format_file_size(file_size) if file_size else None,
-                "hash": file_hash,
+                "hash": "unknown",  # Content_Info doesn't provide hash
                 "file_type": file_ext,
                 "is_directory": is_directory,
             }
 
-            # Add enhanced file info if requested
-            if include_file_info and physical_key and physical_key.startswith("s3://"):
-                try:
-                    # Try to get additional S3 metadata
-                    import boto3
+            # Add enhanced file info if requested and we have a download URL
+            if include_file_info and content_info.download_url:
+                entry_data["physical_key"] = content_info.download_url
+                if content_info.modified_date:
+                    entry_data["last_modified"] = content_info.modified_date
 
-                    from ..utils import get_s3_client
-
-                    s3_client = get_s3_client()
-                    bucket_name = physical_key.split("/")[2]
-                    object_key = "/".join(physical_key.split("/")[3:])
-
-                    obj_info = s3_client.head_object(Bucket=bucket_name, Key=object_key)
-                    entry_data.update(
-                        {
-                            "last_modified": str(obj_info.get("LastModified")),
-                            "content_type": obj_info.get("ContentType"),
-                            "storage_class": obj_info.get("StorageClass", "STANDARD"),
-                        }
-                    )
-                except Exception:
-                    # Don't fail if we can't get additional info
-                    pass
-
-            # Add S3 URI and signed URL if this is an S3 object
-            if physical_key and physical_key.startswith("s3://"):
-                entry_data["s3_uri"] = physical_key
-
-                if include_signed_urls:
-                    signed_url = generate_signed_url(physical_key)
-                    if signed_url:
-                        entry_data["download_url"] = signed_url
+            # Add download URL if available and requested
+            if include_signed_urls and content_info.download_url:
+                entry_data["download_url"] = content_info.download_url
+                entry_data["s3_uri"] = content_info.download_url
 
             entries.append(entry_data)
 
@@ -935,7 +882,7 @@ def package_browse(
             # Include entry with error info
             entries.append(
                 {
-                    "logical_key": logical_key,
+                    "logical_key": content_info.path if hasattr(content_info, 'path') else "unknown",
                     "physical_key": None,
                     "size": None,
                     "hash": "",
@@ -953,13 +900,9 @@ def package_browse(
         total_directories=len([e for e in entries if e.get("is_directory", False)]),
     )
 
-    # Get package metadata if available
+    # Get package metadata - for now, we don't have metadata from Content_Info
+    # This could be enhanced in the future by adding a get_package_info() call
     pkg_metadata = None
-    try:
-        pkg_metadata = dict(pkg.meta) if hasattr(pkg, "meta") else None
-    except Exception:
-        # Don't fail if we can't get metadata
-        pass
 
     return PackageBrowseSuccess(
         package_name=package_name,

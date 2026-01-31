@@ -185,7 +185,7 @@ Migrate existing MCP tools from QuiltService to QuiltOps. Use existing tests to 
 
 **Files to update:** `src/quilt_mcp/tools/packages.py`
 
-- [ ] Migrate `packages_list()`: Replace `quilt_service.list_packages()` → `QuiltOps.search_packages()`
+- [x] Migrate `packages_list()`: Replace `quilt_service.list_packages()` → `QuiltOps.search_packages()`
 - [ ] Migrate `package_browse()`: Replace `quilt_service.browse_package()` → `QuiltOps.browse_content()`
 - [ ] Migrate `package_diff()`: Use `QuiltOps.browse_content()` for both packages
 - [ ] Update response formatting to use `dataclasses.asdict()` on domain objects
