@@ -14,9 +14,11 @@ from typing import Any, Dict, List, Optional
 
 from quilt_mcp.services.permission_discovery import AWSPermissionDiscovery, PermissionLevel
 from quilt_mcp.services.auth_service import AuthService, create_auth_service
+from quilt_mcp.context.request_context import RequestContext
 from quilt_mcp.utils import format_error_response
 
 logger = logging.getLogger(__name__)
+
 
 class PermissionDiscoveryService:
     """Request-scoped permission discovery service."""
@@ -55,27 +57,16 @@ class PermissionDiscoveryService:
         )
 
 
-def _resolve_permission_service(
-    permission_service: Optional[PermissionDiscoveryService],
-    auth_service: Optional[AuthService],
-) -> PermissionDiscoveryService:
-    if permission_service is not None:
-        return permission_service
-    return PermissionDiscoveryService(auth_service or create_auth_service())
-
-
 def discover_permissions(
     check_buckets: Optional[List[str]] = None,
     include_cross_account: bool = False,
     force_refresh: bool = False,
     *,
-    permission_service: Optional[PermissionDiscoveryService] = None,
-    auth_service: Optional[AuthService] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Discover AWS permissions for the current principal."""
     try:
-        service = _resolve_permission_service(permission_service, auth_service)
-        return service.discover_permissions(
+        return context.permission_service.discover_permissions(  # type: ignore[no-any-return]
             check_buckets=check_buckets,
             include_cross_account=include_cross_account,
             force_refresh=force_refresh,
@@ -90,16 +81,14 @@ def check_bucket_access(
     bucket: str,
     operations: Optional[List[str]] = None,
     *,
-    permission_service: Optional[PermissionDiscoveryService] = None,
-    auth_service: Optional[AuthService] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Check the caller's access to ``bucket``."""
     if operations is None:
         operations = ["read", "write", "list"]
 
     try:
-        service = _resolve_permission_service(permission_service, auth_service)
-        return service.check_bucket_access(bucket=bucket, operations=operations)
+        return context.permission_service.check_bucket_access(bucket=bucket, operations=operations)  # type: ignore[no-any-return]
 
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.error("Error checking bucket access for %s: %s", bucket, exc)
@@ -111,13 +100,11 @@ def bucket_recommendations_get(
     operation_type: str = "package_creation",
     user_context: Optional[Dict[str, Any]] = None,
     *,
-    permission_service: Optional[PermissionDiscoveryService] = None,
-    auth_service: Optional[AuthService] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Return context-aware bucket recommendations."""
     try:
-        service = _resolve_permission_service(permission_service, auth_service)
-        return service.bucket_recommendations_get(
+        return context.permission_service.bucket_recommendations_get(  # type: ignore[no-any-return]
             source_bucket=source_bucket,
             operation_type=operation_type,
             user_context=user_context,
@@ -205,9 +192,7 @@ def _check_bucket_access(
 
     guidance: List[str] = []
     if bucket_info.permission_level == PermissionLevel.READ_ONLY:
-        guidance.append(
-            "This bucket appears to be read-only. Consider using a different bucket for package creation."
-        )
+        guidance.append("This bucket appears to be read-only. Consider using a different bucket for package creation.")
     elif bucket_info.permission_level == PermissionLevel.LIST_ONLY:
         guidance.append(
             "Limited access detected. You can see bucket contents but may not be able to read or write files."
@@ -252,13 +237,10 @@ def _bucket_recommendations_get(
     writable_buckets = [
         bucket
         for bucket in accessible_buckets
-        if bucket.can_write
-        and bucket.permission_level in (PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE)
+        if bucket.can_write and bucket.permission_level in (PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE)
     ]
 
-    recommendations = _generate_smart_recommendations(
-        writable_buckets, source_bucket, operation_type, user_context
-    )
+    recommendations = _generate_smart_recommendations(writable_buckets, source_bucket, operation_type, user_context)
 
     return {
         "success": True,

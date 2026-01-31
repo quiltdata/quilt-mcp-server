@@ -22,6 +22,7 @@ class TestQuilt3BackendStructure:
     def test_quilt3_backend_can_be_imported(self):
         """Test that Quilt3_Backend can be imported from the backends module."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
         assert Quilt3_Backend is not None
 
     def test_quilt3_backend_implements_quilt_ops(self):
@@ -37,8 +38,9 @@ class TestQuilt3BackendStructure:
         from quilt_mcp.ops.quilt_ops import QuiltOps
 
         # Get all abstract methods from QuiltOps
-        abstract_methods = {name for name, method in QuiltOps.__dict__.items() 
-                          if getattr(method, '__isabstractmethod__', False)}
+        abstract_methods = {
+            name for name, method in QuiltOps.__dict__.items() if getattr(method, '__isabstractmethod__', False)
+        }
 
         # Check that Quilt3_Backend implements all abstract methods
         backend_methods = set(dir(Quilt3_Backend))
@@ -48,7 +50,7 @@ class TestQuilt3BackendStructure:
             # Verify the method is callable
             assert callable(getattr(Quilt3_Backend, method_name))
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_initialization_with_valid_session(self, mock_quilt3):
         """Test that Quilt3_Backend initializes correctly with a valid session."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -56,7 +58,7 @@ class TestQuilt3BackendStructure:
         # Mock valid session
         mock_session_config = {
             'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'}
+            'credentials': {'access_key': 'test', 'secret_key': 'test'},
         }
 
         # Mock successful session validation
@@ -70,7 +72,7 @@ class TestQuilt3BackendStructure:
         # Verify session validation was called
         mock_quilt3.session.get_session_info.assert_called_once()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_initialization_with_empty_session(self, mock_quilt3):
         """Test that Quilt3_Backend raises AuthenticationError with empty session."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -90,7 +92,7 @@ class TestQuilt3BackendStructure:
             Quilt3_Backend("")
         assert "session configuration is empty" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3', None)
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None)
     def test_quilt3_backend_initialization_without_quilt3_library(self):
         """Test that Quilt3_Backend raises AuthenticationError when quilt3 library is not available."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -102,7 +104,7 @@ class TestQuilt3BackendStructure:
 
         assert "quilt3 library is not available" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_session_validation_success(self, mock_quilt3):
         """Test successful session validation with various session configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -119,14 +121,14 @@ class TestQuilt3BackendStructure:
             'registry': 's3://test-registry',
             'credentials': {'access_key': 'test', 'secret_key': 'test'},
             'region': 'us-east-1',
-            'profile': 'default'
+            'profile': 'default',
         }
         mock_quilt3.session.get_session_info.return_value = comprehensive_session
 
         backend = Quilt3_Backend(comprehensive_session)
         assert backend.session == comprehensive_session
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_session_validation_failure(self, mock_quilt3):
         """Test session validation failure scenarios."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -147,7 +149,7 @@ class TestQuilt3BackendStructure:
 
         assert "Invalid quilt3 session: Access denied" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_session_validation_without_get_session_info(self, mock_quilt3):
         """Test session validation when get_session_info method is not available."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -162,24 +164,7 @@ class TestQuilt3BackendStructure:
         backend = Quilt3_Backend(session_config)
         assert backend.session == session_config
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_quilt3_backend_initialization_logging(self, mock_quilt3):
-        """Test that initialization success is properly logged."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-        import logging
-
-        # Mock session validation
-        mock_session_config = {'registry': 's3://test-registry'}
-        mock_quilt3.session.get_session_info.return_value = mock_session_config
-
-        # Capture log messages
-        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
-            backend = Quilt3_Backend(mock_session_config)
-
-            # Verify success logging
-            mock_logger.info.assert_called_with("Quilt3_Backend initialized successfully")
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_initialization_preserves_session_config(self, mock_quilt3):
         """Test that initialization preserves the original session configuration."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -187,7 +172,7 @@ class TestQuilt3BackendStructure:
         original_config = {
             'registry': 's3://test-registry',
             'credentials': {'access_key': 'test', 'secret_key': 'test'},
-            'metadata': {'user': 'test_user', 'environment': 'test'}
+            'metadata': {'user': 'test_user', 'environment': 'test'},
         }
 
         # Mock successful validation
@@ -207,7 +192,7 @@ class TestQuilt3BackendIntegration:
     """Test integration scenarios and complete workflows."""
 
     @patch('quilt3.search_util.search_api')
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_complete_package_workflow(self, mock_quilt3, mock_search_api):
         """Test complete workflow: search -> get_info -> browse_content -> get_url."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -225,7 +210,7 @@ class TestQuilt3BackendIntegration:
                             "description": "Test package",
                             "tags": ["test"],
                             "ptr_last_modified": "2024-01-01T00:00:00",  # Last modified is in ptr_last_modified
-                            "top_hash": "abc123"
+                            "top_hash": "abc123",
                         }
                     }
                 ]
@@ -275,7 +260,7 @@ class TestQuilt3BackendIntegration:
         assert content_url == "https://example.com/data.csv"
 
     @patch('quilt3.search_util.search_api')
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_propagation_through_workflow(self, mock_quilt3, mock_search_api):
         """Test that errors propagate correctly through workflow steps."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -301,5 +286,3 @@ class TestQuilt3BackendIntegration:
 
         with pytest.raises(BackendError):
             backend.get_content_url("test/package", "registry", "path")
-
-

@@ -18,6 +18,7 @@ class TestQuiltOpsFactoryStructure:
     def test_quilt_ops_factory_can_be_imported(self):
         """Test that QuiltOpsFactory can be imported from the ops module."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+
         assert QuiltOpsFactory is not None
 
     def test_quilt_ops_factory_has_create_method(self):
@@ -48,7 +49,7 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
         # Mock valid session
         mock_session_info = {
             'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'}
+            'credentials': {'access_key': 'test', 'secret_key': 'test'},
         }
         mock_quilt3.session.get_session_info.return_value = mock_session_info
 
@@ -57,6 +58,7 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
 
         # Verify
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
         assert isinstance(result, Quilt3_Backend)
         mock_quilt3.session.get_session_info.assert_called_once()
 
@@ -134,6 +136,7 @@ class TestQuiltOpsFactorySessionValidation:
 
         # Should return a Quilt3_Backend instance (validation happens in backend)
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
         assert isinstance(result, Quilt3_Backend)
 
     @patch('quilt_mcp.ops.factory.quilt3')
@@ -144,7 +147,7 @@ class TestQuiltOpsFactorySessionValidation:
         # Mock session with specific data
         mock_session_info = {
             'registry': 's3://custom-registry',
-            'credentials': {'access_key': 'custom_key', 'secret_key': 'custom_secret'}
+            'credentials': {'access_key': 'custom_key', 'secret_key': 'custom_secret'},
         }
         mock_quilt3.session.get_session_info.return_value = mock_session_info
 
@@ -195,9 +198,7 @@ class TestQuiltOpsFactoryErrorHandling:
 
         error_message = str(exc_info.value)
         # Should provide specific steps user can take
-        assert any(keyword in error_message.lower() for keyword in [
-            "login", "session", "quilt3", "authentication"
-        ])
+        assert any(keyword in error_message.lower() for keyword in ["login", "session", "quilt3", "authentication"])
 
     @patch('quilt_mcp.ops.factory.quilt3')
     def test_error_handling_preserves_original_exception_context(self, mock_quilt3):
@@ -265,6 +266,7 @@ class TestQuiltOpsFactoryPhase1Scope:
 
         # Verify only Quilt3_Backend is created
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
         assert isinstance(result, Quilt3_Backend)
         assert type(result).__name__ == 'Quilt3_Backend'
 
@@ -290,10 +292,7 @@ class TestQuiltOpsFactorySessionDetection:
         from quilt_mcp.ops.factory import QuiltOpsFactory
 
         # Mock valid session
-        valid_session = {
-            'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'}
-        }
+        valid_session = {'registry': 's3://test-registry', 'credentials': {'access_key': 'test', 'secret_key': 'test'}}
         mock_quilt3.session.get_session_info.return_value = valid_session
 
         # Execute
@@ -469,7 +468,7 @@ class TestQuiltOpsFactorySessionDetection:
             'credentials': {
                 'access_key': 'AKIAIOSFODNN7EXAMPLE',
                 'secret_key': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-                'session_token': 'temporary-token'
+                'session_token': 'temporary-token',
             },
             'region': 'us-west-2',
             'profile': 'production',
@@ -477,13 +476,9 @@ class TestQuiltOpsFactorySessionDetection:
                 'user': 'test-user',
                 'environment': 'production',
                 'created_at': '2024-01-01T12:00:00Z',
-                'nested': {
-                    'deep': {
-                        'structure': 'value'
-                    }
-                }
+                'nested': {'deep': {'structure': 'value'}},
             },
-            'custom_fields': ['field1', 'field2', 'field3']
+            'custom_fields': ['field1', 'field2', 'field3'],
         }
 
         mock_quilt3.session.get_session_info.return_value = complex_session
@@ -508,7 +503,7 @@ class TestQuiltOpsFactorySessionDetection:
             'registry': 's3://performance-test',
             'large_metadata': {f'key_{i}': f'value_{i}' * 100 for i in range(1000)},
             'large_list': [f'item_{i}' for i in range(10000)],
-            'large_string': 'X' * 100000
+            'large_string': 'X' * 100000,
         }
 
         mock_quilt3.session.get_session_info.return_value = large_session
@@ -535,7 +530,7 @@ class TestQuiltOpsFactoryIntegration:
         # Mock valid session
         mock_session_info = {
             'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'}
+            'credentials': {'access_key': 'test', 'secret_key': 'test'},
         }
         mock_quilt3.session.get_session_info.return_value = mock_session_info
 

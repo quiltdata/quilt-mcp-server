@@ -14,7 +14,7 @@ class QuiltOps(ABC):
     """Domain-driven abstraction for Quilt operations.
 
     This abstract base class defines the interface for backend-agnostic Quilt operations.
-    It provides domain-driven methods that work with Quilt concepts rather than 
+    It provides domain-driven methods that work with Quilt concepts rather than
     backend-specific types, enabling MCP tools to remain functional regardless of
     the underlying backend implementation (quilt3 library or Platform GraphQL).
 
@@ -299,7 +299,7 @@ class QuiltOps(ABC):
             registry: Registry URL to list packages from
 
         Returns:
-            List of package names in "user/package" format
+            List[str]: List of package names in "user/package" format
 
         Raises:
             AuthenticationError: When authentication credentials are invalid or missing

@@ -93,3 +93,26 @@ class NotFoundError(Exception):
         """
         super().__init__(message)
         self.context = context or {}
+
+
+class PermissionError(Exception):
+    """Exception raised when user lacks permission for operation.
+
+    This exception is raised when the user doesn't have sufficient permissions
+    to perform the requested operation, such as creating packages, accessing
+    admin functions, or reading restricted content.
+
+    Attributes:
+        context: Dictionary containing permission-specific error details
+                such as required permissions, user role, and resource access level.
+    """
+
+    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
+        """Initialize PermissionError with message and optional context.
+
+        Args:
+            message: Human-readable error message
+            context: Optional dictionary with error details for debugging
+        """
+        super().__init__(message)
+        self.context = context or {}

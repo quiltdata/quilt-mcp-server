@@ -56,10 +56,4 @@ class Content_Info:
 
     def __hash__(self) -> int:
         """Custom hash implementation for hashable dataclass."""
-        return hash((
-            self.path,
-            self.size,
-            self.type,
-            self.modified_date,
-            self.download_url
-        ))
+        return hash((self.path, self.size, self.type, self.modified_date, self.download_url))

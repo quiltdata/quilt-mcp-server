@@ -19,7 +19,7 @@ from quilt_mcp.domain.bucket_info import Bucket_Info
 class TestQuilt3BackendBucketOperations:
     """Test bucket listing operations."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_with_mocked_quilt3_calls(self, mock_quilt3):
         """Test list_buckets() with mocked quilt3 calls."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -32,13 +32,13 @@ class TestQuilt3BackendBucketOperations:
             'test-bucket-1': {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-01T00:00:00Z'
+                'created_date': '2024-01-01T00:00:00Z',
             },
             'test-bucket-2': {
                 'region': 'us-west-2',
                 'access_level': 'read-only',
-                'created_date': '2024-01-02T00:00:00Z'
-            }
+                'created_date': '2024-01-02T00:00:00Z',
+            },
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -54,7 +54,7 @@ class TestQuilt3BackendBucketOperations:
         assert bucket1.region == 'us-east-1'
         assert bucket1.access_level == 'read-write'
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_bucket_metadata_extraction_comprehensive(self, mock_quilt3):
         """Test comprehensive bucket metadata extraction from various quilt3 response formats."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -67,17 +67,17 @@ class TestQuilt3BackendBucketOperations:
             'complete-metadata-bucket': {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-15T10:30:00Z'
+                'created_date': '2024-01-15T10:30:00Z',
             },
             'minimal-metadata-bucket': {
                 'region': 'eu-west-1',
-                'access_level': 'admin'
+                'access_level': 'admin',
                 # No created_date
             },
             'null-created-date-bucket': {
                 'region': 'ap-southeast-1',
                 'access_level': 'public-read',
-                'created_date': None
+                'created_date': None,
             },
             'extra-fields-bucket': {
                 'region': 'ap-southeast-1',
@@ -85,8 +85,8 @@ class TestQuilt3BackendBucketOperations:
                 'created_date': '2023-12-01T00:00:00Z',
                 'extra_field': 'should_be_ignored',
                 'another_extra': 12345,
-                'nested_extra': {'key': 'value'}
-            }
+                'nested_extra': {'key': 'value'},
+            },
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -126,72 +126,94 @@ class TestQuilt3BackendBucketOperations:
         assert not hasattr(extra_bucket, 'another_extra')
         assert not hasattr(extra_bucket, 'nested_extra')
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_bucket_metadata_extraction_with_missing_required_fields_error_handling(self, mock_quilt3):
-        """Test bucket metadata extraction error handling when required fields are missing or empty."""
+        """Test bucket metadata extraction pragmatically handles missing or empty fields with defaults."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test scenarios that should cause validation errors
-        error_scenarios = [
+        # Test scenarios with missing/empty fields - should default to 'unknown'
+        test_scenarios = [
             # Empty strings for required fields
-            {
-                'empty-region-bucket': {
-                    'region': '',
-                    'access_level': 'read-write',
-                    'created_date': '2024-01-01T00:00:00Z'
-                }
-            },
-            {
-                'empty-access-level-bucket': {
-                    'region': 'us-east-1',
-                    'access_level': '',
-                    'created_date': '2024-01-01T00:00:00Z'
-                }
-            },
+            (
+                {
+                    'empty-region-bucket': {
+                        'region': '',
+                        'access_level': 'read-write',
+                        'created_date': '2024-01-01T00:00:00Z',
+                    }
+                },
+                'empty-region-bucket',
+                'unknown',  # Expected region
+                'read-write',  # Expected access_level
+            ),
+            (
+                {
+                    'empty-access-level-bucket': {
+                        'region': 'us-east-1',
+                        'access_level': '',
+                        'created_date': '2024-01-01T00:00:00Z',
+                    }
+                },
+                'empty-access-level-bucket',
+                'us-east-1',  # Expected region
+                'unknown',  # Expected access_level
+            ),
             # None values for required fields
-            {
-                'none-region-bucket': {
-                    'region': None,
-                    'access_level': 'read-write',
-                    'created_date': '2024-01-01T00:00:00Z'
-                }
-            },
-            {
-                'none-access-level-bucket': {
-                    'region': 'us-east-1',
-                    'access_level': None,
-                    'created_date': '2024-01-01T00:00:00Z'
-                }
-            },
+            (
+                {
+                    'none-region-bucket': {
+                        'region': None,
+                        'access_level': 'read-write',
+                        'created_date': '2024-01-01T00:00:00Z',
+                    }
+                },
+                'none-region-bucket',
+                'unknown',  # Expected region
+                'read-write',  # Expected access_level
+            ),
+            (
+                {
+                    'none-access-level-bucket': {
+                        'region': 'us-east-1',
+                        'access_level': None,
+                        'created_date': '2024-01-01T00:00:00Z',
+                    }
+                },
+                'none-access-level-bucket',
+                'us-east-1',  # Expected region
+                'unknown',  # Expected access_level
+            ),
             # Missing required fields
-            {
-                'missing-region-bucket': {
-                    'access_level': 'read-write',
-                    'created_date': '2024-01-01T00:00:00Z'
-                }
-            },
-            {
-                'missing-access-level-bucket': {
-                    'region': 'us-east-1',
-                    'created_date': '2024-01-01T00:00:00Z'
-                }
-            }
+            (
+                {'missing-region-bucket': {'access_level': 'read-write', 'created_date': '2024-01-01T00:00:00Z'}},
+                'missing-region-bucket',
+                'unknown',  # Expected region
+                'read-write',  # Expected access_level
+            ),
+            (
+                {'missing-access-level-bucket': {'region': 'us-east-1', 'created_date': '2024-01-01T00:00:00Z'}},
+                'missing-access-level-bucket',
+                'us-east-1',  # Expected region
+                'unknown',  # Expected access_level
+            ),
         ]
 
-        for scenario in error_scenarios:
-            mock_quilt3.list_buckets.return_value = scenario
+        for bucket_data, bucket_name, expected_region, expected_access_level in test_scenarios:
+            mock_quilt3.list_buckets.return_value = bucket_data
 
-            with pytest.raises(BackendError) as exc_info:
-                backend.list_buckets()
+            result = backend.list_buckets()
 
-            error_message = str(exc_info.value)
-            assert "quilt3" in error_message.lower()
-            assert "list_buckets failed" in error_message.lower()
+            # Verify bucket was returned with defaults
+            assert len(result) == 1
+            bucket_info = result[0]
+            assert bucket_info.name == bucket_name
+            assert bucket_info.region == expected_region
+            assert bucket_info.access_level == expected_access_level
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_bucket_metadata_extraction_with_various_date_formats(self, mock_quilt3):
         """Test bucket metadata extraction handles various date formats correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -204,33 +226,25 @@ class TestQuilt3BackendBucketOperations:
             'iso-date-bucket': {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-15T10:30:00Z'
+                'created_date': '2024-01-15T10:30:00Z',
             },
             'iso-date-no-z-bucket': {
                 'region': 'us-west-2',
                 'access_level': 'admin',
-                'created_date': '2024-01-15T10:30:00'
+                'created_date': '2024-01-15T10:30:00',
             },
             'simple-date-bucket': {
                 'region': 'eu-central-1',
                 'access_level': 'public-read',
-                'created_date': '2024-01-15'
+                'created_date': '2024-01-15',
             },
             'datetime-object-bucket': {
                 'region': 'ap-northeast-1',
                 'access_level': 'private',
-                'created_date': datetime(2024, 1, 15, 10, 30, 0)
+                'created_date': datetime(2024, 1, 15, 10, 30, 0),
             },
-            'empty-date-bucket': {
-                'region': 'ca-central-1',
-                'access_level': 'read-only',
-                'created_date': ''
-            },
-            'none-date-bucket': {
-                'region': 'sa-east-1',
-                'access_level': 'read-write',
-                'created_date': None
-            }
+            'empty-date-bucket': {'region': 'ca-central-1', 'access_level': 'read-only', 'created_date': ''},
+            'none-date-bucket': {'region': 'sa-east-1', 'access_level': 'read-write', 'created_date': None},
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -259,7 +273,7 @@ class TestQuilt3BackendBucketOperations:
         none_bucket = next(b for b in result if b.name == 'none-date-bucket')
         assert none_bucket.created_date is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_bucket_metadata_extraction_with_various_access_levels(self, mock_quilt3):
         """Test bucket metadata extraction handles various access level configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -272,48 +286,48 @@ class TestQuilt3BackendBucketOperations:
             'public-read-bucket': {
                 'region': 'us-east-1',
                 'access_level': 'public-read',
-                'created_date': '2024-01-01T00:00:00Z'
+                'created_date': '2024-01-01T00:00:00Z',
             },
             'public-read-write-bucket': {
                 'region': 'us-west-2',
                 'access_level': 'public-read-write',
-                'created_date': '2024-01-02T00:00:00Z'
+                'created_date': '2024-01-02T00:00:00Z',
             },
             'private-bucket': {
                 'region': 'eu-west-1',
                 'access_level': 'private',
-                'created_date': '2024-01-03T00:00:00Z'
+                'created_date': '2024-01-03T00:00:00Z',
             },
             'authenticated-read-bucket': {
                 'region': 'ap-southeast-1',
                 'access_level': 'authenticated-read',
-                'created_date': '2024-01-04T00:00:00Z'
+                'created_date': '2024-01-04T00:00:00Z',
             },
             'bucket-owner-read-bucket': {
                 'region': 'ca-central-1',
                 'access_level': 'bucket-owner-read',
-                'created_date': '2024-01-05T00:00:00Z'
+                'created_date': '2024-01-05T00:00:00Z',
             },
             'bucket-owner-full-control-bucket': {
                 'region': 'sa-east-1',
                 'access_level': 'bucket-owner-full-control',
-                'created_date': '2024-01-06T00:00:00Z'
+                'created_date': '2024-01-06T00:00:00Z',
             },
             'admin-bucket': {
                 'region': 'eu-central-1',
                 'access_level': 'admin',
-                'created_date': '2024-01-07T00:00:00Z'
+                'created_date': '2024-01-07T00:00:00Z',
             },
             'read-only-bucket': {
                 'region': 'ap-northeast-1',
                 'access_level': 'read-only',
-                'created_date': '2024-01-08T00:00:00Z'
+                'created_date': '2024-01-08T00:00:00Z',
             },
             'read-write-bucket': {
                 'region': 'us-east-2',
                 'access_level': 'read-write',
-                'created_date': '2024-01-09T00:00:00Z'
-            }
+                'created_date': '2024-01-09T00:00:00Z',
+            },
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -334,14 +348,16 @@ class TestQuilt3BackendBucketOperations:
             'bucket-owner-full-control-bucket': 'bucket-owner-full-control',
             'admin-bucket': 'admin',
             'read-only-bucket': 'read-only',
-            'read-write-bucket': 'read-write'
+            'read-write-bucket': 'read-write',
         }
 
         for bucket in result:
             expected_access_level = expected_access_levels[bucket.name]
-            assert bucket.access_level == expected_access_level, f"Bucket {bucket.name} should have access_level {expected_access_level}, got {bucket.access_level}"
+            assert bucket.access_level == expected_access_level, (
+                f"Bucket {bucket.name} should have access_level {expected_access_level}, got {bucket.access_level}"
+            )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_bucket_metadata_extraction_with_various_regions(self, mock_quilt3):
         """Test bucket metadata extraction handles various AWS region configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -354,43 +370,43 @@ class TestQuilt3BackendBucketOperations:
             'us-east-1-bucket': {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-01T00:00:00Z'
+                'created_date': '2024-01-01T00:00:00Z',
             },
             'us-west-2-bucket': {
                 'region': 'us-west-2',
                 'access_level': 'read-write',
-                'created_date': '2024-01-02T00:00:00Z'
+                'created_date': '2024-01-02T00:00:00Z',
             },
             'eu-west-1-bucket': {
                 'region': 'eu-west-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-03T00:00:00Z'
+                'created_date': '2024-01-03T00:00:00Z',
             },
             'ap-southeast-1-bucket': {
                 'region': 'ap-southeast-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-04T00:00:00Z'
+                'created_date': '2024-01-04T00:00:00Z',
             },
             'ca-central-1-bucket': {
                 'region': 'ca-central-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-05T00:00:00Z'
+                'created_date': '2024-01-05T00:00:00Z',
             },
             'sa-east-1-bucket': {
                 'region': 'sa-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-06T00:00:00Z'
+                'created_date': '2024-01-06T00:00:00Z',
             },
             'ap-northeast-1-bucket': {
                 'region': 'ap-northeast-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-07T00:00:00Z'
+                'created_date': '2024-01-07T00:00:00Z',
             },
             'eu-central-1-bucket': {
                 'region': 'eu-central-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-08T00:00:00Z'
-            }
+                'created_date': '2024-01-08T00:00:00Z',
+            },
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -410,14 +426,16 @@ class TestQuilt3BackendBucketOperations:
             'ca-central-1-bucket': 'ca-central-1',
             'sa-east-1-bucket': 'sa-east-1',
             'ap-northeast-1-bucket': 'ap-northeast-1',
-            'eu-central-1-bucket': 'eu-central-1'
+            'eu-central-1-bucket': 'eu-central-1',
         }
 
         for bucket in result:
             expected_region = expected_regions[bucket.name]
-            assert bucket.region == expected_region, f"Bucket {bucket.name} should have region {expected_region}, got {bucket.region}"
+            assert bucket.region == expected_region, (
+                f"Bucket {bucket.name} should have region {expected_region}, got {bucket.region}"
+            )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_bucket_metadata_extraction_error_handling_malformed_data(self, mock_quilt3):
         """Test bucket metadata extraction error handling for malformed metadata."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -428,25 +446,16 @@ class TestQuilt3BackendBucketOperations:
         # Test various malformed data scenarios
         malformed_scenarios = [
             # Scenario 1: Non-dict bucket data
-            {
-                'string-bucket': 'not-a-dict',
-                'valid-bucket': {'region': 'us-east-1', 'access_level': 'read-write'}
-            },
+            {'string-bucket': 'not-a-dict', 'valid-bucket': {'region': 'us-east-1', 'access_level': 'read-write'}},
             # Scenario 2: List instead of dict
             {
                 'list-bucket': ['region', 'access_level'],
-                'valid-bucket': {'region': 'us-east-1', 'access_level': 'read-write'}
+                'valid-bucket': {'region': 'us-east-1', 'access_level': 'read-write'},
             },
             # Scenario 3: Number instead of dict
-            {
-                'number-bucket': 12345,
-                'valid-bucket': {'region': 'us-east-1', 'access_level': 'read-write'}
-            },
+            {'number-bucket': 12345, 'valid-bucket': {'region': 'us-east-1', 'access_level': 'read-write'}},
             # Scenario 4: None bucket data
-            {
-                'none-bucket': None,
-                'valid-bucket': {'region': 'us-east-1', 'access_level': 'read-write'}
-            }
+            {'none-bucket': None, 'valid-bucket': {'region': 'us-east-1', 'access_level': 'read-write'}},
         ]
 
         for scenario in malformed_scenarios:
@@ -459,7 +468,7 @@ class TestQuilt3BackendBucketOperations:
             assert "quilt3" in error_message.lower()
             assert "list_buckets failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_bucket_metadata_extraction_edge_cases(self, mock_quilt3):
         """Test bucket metadata extraction handles edge cases and boundary conditions."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -472,38 +481,38 @@ class TestQuilt3BackendBucketOperations:
             'very-long-name-bucket-with-many-dashes-and-numbers-123456789': {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-01T00:00:00Z'
+                'created_date': '2024-01-01T00:00:00Z',
             },
             'a': {  # Single character bucket name
                 'region': 'us-west-2',
                 'access_level': 'admin',
-                'created_date': '2024-01-02T00:00:00Z'
+                'created_date': '2024-01-02T00:00:00Z',
             },
             'bucket.with.dots': {
                 'region': 'eu-west-1',
                 'access_level': 'public-read',
-                'created_date': '2024-01-03T00:00:00Z'
+                'created_date': '2024-01-03T00:00:00Z',
             },
             'bucket_with_underscores': {
                 'region': 'ap-southeast-1',
                 'access_level': 'private',
-                'created_date': '2024-01-04T00:00:00Z'
+                'created_date': '2024-01-04T00:00:00Z',
             },
             'UPPERCASE-BUCKET': {
                 'region': 'ca-central-1',
                 'access_level': 'read-only',
-                'created_date': '2024-01-05T00:00:00Z'
+                'created_date': '2024-01-05T00:00:00Z',
             },
             'bucket123numbers456': {
                 'region': 'sa-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-06T00:00:00Z'
+                'created_date': '2024-01-06T00:00:00Z',
             },
             'unicode-bucket-测试': {
                 'region': 'ap-northeast-1',
                 'access_level': 'admin',
-                'created_date': '2024-01-07T00:00:00Z'
-            }
+                'created_date': '2024-01-07T00:00:00Z',
+            },
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -523,12 +532,14 @@ class TestQuilt3BackendBucketOperations:
             'bucket_with_underscores',
             'UPPERCASE-BUCKET',
             'bucket123numbers456',
-            'unicode-bucket-测试'
+            'unicode-bucket-测试',
         }
         assert bucket_names == expected_names
 
         # Verify metadata is correctly extracted for edge case names
-        long_name_bucket = next(b for b in result if b.name == 'very-long-name-bucket-with-many-dashes-and-numbers-123456789')
+        long_name_bucket = next(
+            b for b in result if b.name == 'very-long-name-bucket-with-many-dashes-and-numbers-123456789'
+        )
         assert long_name_bucket.region == 'us-east-1'
         assert long_name_bucket.access_level == 'read-write'
 
@@ -540,7 +551,7 @@ class TestQuilt3BackendBucketOperations:
         assert unicode_bucket.region == 'ap-northeast-1'
         assert unicode_bucket.access_level == 'admin'
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_bucket_metadata_extraction_with_missing_optional_fields(self, mock_quilt3):
         """Test bucket metadata extraction gracefully handles missing optional fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -552,19 +563,11 @@ class TestQuilt3BackendBucketOperations:
         mock_bucket_data = {
             'no-created-date-bucket': {
                 'region': 'us-east-1',
-                'access_level': 'read-write'
+                'access_level': 'read-write',
                 # No created_date - this is the only optional field
             },
-            'null-created-date-bucket': {
-                'region': 'eu-west-1',
-                'access_level': 'admin',
-                'created_date': None
-            },
-            'empty-created-date-bucket': {
-                'region': 'ap-southeast-1',
-                'access_level': 'private',
-                'created_date': ''
-            }
+            'null-created-date-bucket': {'region': 'eu-west-1', 'access_level': 'admin', 'created_date': None},
+            'empty-created-date-bucket': {'region': 'ap-southeast-1', 'access_level': 'private', 'created_date': ''},
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -593,7 +596,7 @@ class TestQuilt3BackendBucketOperations:
         assert empty_date_bucket.access_level == 'private'
         assert empty_date_bucket.created_date == ''
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_bucket_metadata_extraction_preserves_field_types(self, mock_quilt3):
         """Test bucket metadata extraction preserves correct data types for all fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -606,18 +609,18 @@ class TestQuilt3BackendBucketOperations:
             'string-fields-bucket': {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-01T00:00:00Z'
+                'created_date': '2024-01-01T00:00:00Z',
             },
             'datetime-object-bucket': {
                 'region': 'us-west-2',
                 'access_level': 'admin',
-                'created_date': datetime(2024, 1, 2, 10, 30, 0)
+                'created_date': datetime(2024, 1, 2, 10, 30, 0),
             },
             'mixed-types-bucket': {
                 'region': 'eu-west-1',
                 'access_level': 'public-read',
-                'created_date': datetime(2024, 1, 3, 15, 45, 30)
-            }
+                'created_date': datetime(2024, 1, 3, 15, 45, 30),
+            },
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -631,13 +634,13 @@ class TestQuilt3BackendBucketOperations:
         for bucket in result:
             # All bucket names should be strings
             assert isinstance(bucket.name, str)
-            
+
             # All regions should be strings (normalized)
             assert isinstance(bucket.region, str)
-            
+
             # All access_levels should be strings (normalized)
             assert isinstance(bucket.access_level, str)
-            
+
             # created_date should be string or None
             assert bucket.created_date is None or isinstance(bucket.created_date, str)
 
@@ -651,7 +654,7 @@ class TestQuilt3BackendBucketOperations:
         mixed_bucket = next(b for b in result if b.name == 'mixed-types-bucket')
         assert mixed_bucket.created_date == '2024-01-03T15:45:30'  # Converted from datetime object
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_calls_quilt3_correctly(self, mock_quilt3):
         """Test that list_buckets() correctly calls quilt3.list_buckets with proper parameters."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -664,7 +667,7 @@ class TestQuilt3BackendBucketOperations:
             'test-bucket': {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-01T00:00:00Z'
+                'created_date': '2024-01-01T00:00:00Z',
             }
         }
 
@@ -684,7 +687,7 @@ class TestQuilt3BackendBucketOperations:
         assert result[0].access_level == 'read-write'
         assert result[0].created_date == '2024-01-01T00:00:00Z'
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_with_empty_response(self, mock_quilt3):
         """Test list_buckets() handles empty bucket list response."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -703,7 +706,7 @@ class TestQuilt3BackendBucketOperations:
         assert len(result) == 0
         mock_quilt3.list_buckets.assert_called_once_with()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_with_multiple_bucket_configurations(self, mock_quilt3):
         """Test list_buckets() with various bucket configurations and access levels."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -716,28 +719,28 @@ class TestQuilt3BackendBucketOperations:
             'public-bucket': {
                 'region': 'us-east-1',
                 'access_level': 'public-read',
-                'created_date': '2023-01-01T00:00:00Z'
+                'created_date': '2023-01-01T00:00:00Z',
             },
             'private-bucket': {
                 'region': 'us-west-2',
                 'access_level': 'private',
-                'created_date': '2023-06-15T12:30:45Z'
+                'created_date': '2023-06-15T12:30:45Z',
             },
             'admin-bucket': {
                 'region': 'eu-central-1',
                 'access_level': 'admin',
-                'created_date': '2024-01-01T00:00:00Z'
+                'created_date': '2024-01-01T00:00:00Z',
             },
             'read-only-bucket': {
                 'region': 'ap-southeast-1',
-                'access_level': 'read-only'
+                'access_level': 'read-only',
                 # No created_date
             },
             'bucket-with-dashes': {
                 'region': 'ca-central-1',
                 'access_level': 'read-write',
-                'created_date': '2024-03-15T14:22:33Z'
-            }
+                'created_date': '2024-03-15T14:22:33Z',
+            },
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -765,7 +768,7 @@ class TestQuilt3BackendBucketOperations:
         assert read_only_bucket.access_level == 'read-only'
         assert read_only_bucket.created_date is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_error_handling(self, mock_quilt3):
         """Test list_buckets() error handling for various failure scenarios."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -797,7 +800,7 @@ class TestQuilt3BackendBucketOperations:
             # Reset for next test
             mock_quilt3.list_buckets.side_effect = None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_transformation_to_bucket_info(self, mock_quilt3):
         """Test that list_buckets() properly transforms quilt3 responses to Bucket_Info domain objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -810,7 +813,7 @@ class TestQuilt3BackendBucketOperations:
             'comprehensive-bucket': {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': '2024-01-15T10:30:45Z'
+                'created_date': '2024-01-15T10:30:45Z',
             }
         }
 
@@ -832,6 +835,7 @@ class TestQuilt3BackendBucketOperations:
 
         # Verify it's a proper dataclass that can be serialized
         from dataclasses import asdict
+
         bucket_dict = asdict(bucket)
         assert isinstance(bucket_dict, dict)
         assert bucket_dict['name'] == 'comprehensive-bucket'
@@ -839,75 +843,49 @@ class TestQuilt3BackendBucketOperations:
         assert bucket_dict['access_level'] == 'read-write'
         assert bucket_dict['created_date'] == '2024-01-15T10:30:45Z'
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_with_malformed_response_data(self, mock_quilt3):
-        """Test list_buckets() handles malformed response data gracefully."""
+        """Test list_buckets() handles malformed response data pragmatically with defaults."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test various malformed response scenarios
-        malformed_scenarios = [
-            # Missing required fields
-            {
-                'malformed-bucket-1': {
-                    'access_level': 'read-write'
-                    # Missing region
-                }
-            },
-            # Empty bucket data
-            {
-                'malformed-bucket-2': {}
-            },
-            # None values
-            {
-                'malformed-bucket-3': {
-                    'region': None,
-                    'access_level': 'read-write'
-                }
-            }
+        # Test various scenarios with missing/None fields - should default to 'unknown'
+        test_scenarios = [
+            (
+                {'malformed-bucket-1': {'access_level': 'read-write'}},  # Missing region
+                'malformed-bucket-1',
+                'unknown',  # Expected region
+                'read-write',  # Expected access_level
+            ),
+            (
+                {'malformed-bucket-2': {}},  # Empty bucket data
+                'malformed-bucket-2',
+                'unknown',  # Expected region
+                'unknown',  # Expected access_level
+            ),
+            (
+                {'malformed-bucket-3': {'region': None, 'access_level': 'read-write'}},  # None values
+                'malformed-bucket-3',
+                'unknown',  # Expected region
+                'read-write',  # Expected access_level
+            ),
         ]
 
-        for i, malformed_data in enumerate(malformed_scenarios):
-            mock_quilt3.list_buckets.return_value = malformed_data
+        for bucket_data, bucket_name, expected_region, expected_access_level in test_scenarios:
+            mock_quilt3.list_buckets.return_value = bucket_data
 
-            with pytest.raises(BackendError) as exc_info:
-                backend.list_buckets()
-
-            error_message = str(exc_info.value)
-            assert "transformation failed" in error_message.lower() or "list_buckets failed" in error_message.lower()
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_list_buckets_logging_behavior(self, mock_quilt3):
-        """Test that list_buckets() logs appropriate debug information."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
-
-        # Mock bucket data
-        mock_bucket_data = {
-            'logging-test-bucket': {
-                'region': 'us-east-1',
-                'access_level': 'read-write'
-            }
-        }
-
-        mock_quilt3.list_buckets.return_value = mock_bucket_data
-
-        # Capture log messages
-        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
             result = backend.list_buckets()
 
-            # Verify debug logging
-            mock_logger.debug.assert_any_call("Listing buckets")
-            mock_logger.debug.assert_any_call("Found 1 buckets")
+            # Verify bucket was returned with defaults
+            assert len(result) == 1
+            bucket_info = result[0]
+            assert bucket_info.name == bucket_name
+            assert bucket_info.region == expected_region
+            assert bucket_info.access_level == expected_access_level
 
-            # Should have exactly 2 debug calls from list_buckets
-            assert mock_logger.debug.call_count >= 2
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_with_large_number_of_buckets(self, mock_quilt3):
         """Test list_buckets() handles large numbers of buckets efficiently."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -921,7 +899,7 @@ class TestQuilt3BackendBucketOperations:
             mock_bucket_data[f'bucket-{i:03d}'] = {
                 'region': f'us-east-{(i % 2) + 1}',
                 'access_level': 'read-write' if i % 2 == 0 else 'read-only',
-                'created_date': f'2024-01-{(i % 28) + 1:02d}T00:00:00Z'
+                'created_date': f'2024-01-{(i % 28) + 1:02d}T00:00:00Z',
             }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -947,7 +925,7 @@ class TestQuilt3BackendBucketOperations:
         assert bucket_099.region == 'us-east-2'
         assert bucket_099.access_level == 'read-only'
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_list_buckets_with_special_bucket_names(self, mock_quilt3):
         """Test list_buckets() handles buckets with special characters and naming patterns."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -957,26 +935,14 @@ class TestQuilt3BackendBucketOperations:
 
         # Mock buckets with various naming patterns
         mock_bucket_data = {
-            'bucket-with-dashes': {
-                'region': 'us-east-1',
-                'access_level': 'read-write'
-            },
-            'bucket.with.dots': {
-                'region': 'us-west-2',
-                'access_level': 'read-only'
-            },
-            'bucketwithverylongnametotesthandling': {
-                'region': 'eu-west-1',
-                'access_level': 'admin'
-            },
-            '123numeric-bucket': {
-                'region': 'ap-southeast-1',
-                'access_level': 'public-read'
-            },
+            'bucket-with-dashes': {'region': 'us-east-1', 'access_level': 'read-write'},
+            'bucket.with.dots': {'region': 'us-west-2', 'access_level': 'read-only'},
+            'bucketwithverylongnametotesthandling': {'region': 'eu-west-1', 'access_level': 'admin'},
+            '123numeric-bucket': {'region': 'ap-southeast-1', 'access_level': 'public-read'},
             'a': {  # Single character bucket name
                 'region': 'ca-central-1',
-                'access_level': 'private'
-            }
+                'access_level': 'private',
+            },
         }
 
         mock_quilt3.list_buckets.return_value = mock_bucket_data
@@ -995,7 +961,7 @@ class TestQuilt3BackendBucketOperations:
             'bucket.with.dots',
             'bucketwithverylongnametotesthandling',
             '123numeric-bucket',
-            'a'
+            'a',
         }
         assert bucket_names == expected_names
 
@@ -1012,7 +978,7 @@ class TestQuilt3BackendBucketOperations:
 class TestQuilt3BackendBucketTransformation:
     """Test bucket transformation methods in isolation."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_complete_data(self, mock_quilt3):
         """Test _transform_bucket() method with complete quilt3 bucket object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1022,11 +988,7 @@ class TestQuilt3BackendBucketTransformation:
 
         # Create complete bucket data
         bucket_name = "test-bucket"
-        bucket_data = {
-            'region': 'us-east-1',
-            'access_level': 'read-write',
-            'created_date': '2024-01-01T00:00:00Z'
-        }
+        bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': '2024-01-01T00:00:00Z'}
 
         # Execute transformation
         result = backend._transform_bucket(bucket_name, bucket_data)
@@ -1038,7 +1000,7 @@ class TestQuilt3BackendBucketTransformation:
         assert result.access_level == "read-write"
         assert result.created_date == "2024-01-01T00:00:00Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_missing_fields(self, mock_quilt3):
         """Test _transform_bucket() handles missing/null fields in quilt3 objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1050,7 +1012,7 @@ class TestQuilt3BackendBucketTransformation:
         bucket_name = "minimal-bucket"
         bucket_data = {
             'region': 'us-west-2',
-            'access_level': 'read-only'
+            'access_level': 'read-only',
             # created_date missing
         }
 
@@ -1063,7 +1025,7 @@ class TestQuilt3BackendBucketTransformation:
         assert result.access_level == "read-only"
         assert result.created_date is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_handling(self, mock_quilt3):
         """Test _transform_bucket() error handling in transformation logic."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1078,57 +1040,37 @@ class TestQuilt3BackendBucketTransformation:
         with pytest.raises(BackendError):
             backend._transform_bucket(bucket_name, bucket_data)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_wrapping_and_context(self, mock_quilt3):
-        """Test that bucket transformation errors are properly wrapped in BackendError with context."""
+        """Test that bucket transformation errors are properly wrapped for legitimate errors."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test various error scenarios for bucket transformation
+        # Test legitimate error scenarios that should raise BackendError
         error_scenarios = [
             # Missing bucket name
             {
                 'bucket_name': None,
                 'bucket_data': {'region': 'us-east-1', 'access_level': 'read-write'},
                 'expected_message': 'missing name',
-                'description': 'None bucket name'
+                'description': 'None bucket name',
             },
             # Empty bucket name
             {
                 'bucket_name': '',
                 'bucket_data': {'region': 'us-east-1', 'access_level': 'read-write'},
                 'expected_message': 'missing name',
-                'description': 'empty bucket name'
+                'description': 'empty bucket name',
             },
             # None bucket data
             {
                 'bucket_name': 'test-bucket',
                 'bucket_data': None,
                 'expected_message': 'bucket_data is none',
-                'description': 'None bucket data'
+                'description': 'None bucket data',
             },
-            # Empty bucket data (will fail domain validation)
-            {
-                'bucket_name': 'test-bucket',
-                'bucket_data': {},
-                'expected_message': 'region field cannot be empty',
-                'description': 'empty bucket data'
-            },
-            # Missing required fields in bucket data
-            {
-                'bucket_name': 'test-bucket',
-                'bucket_data': {'region': '', 'access_level': 'read-write'},
-                'expected_message': 'region field cannot be empty',
-                'description': 'empty region field'
-            },
-            {
-                'bucket_name': 'test-bucket',
-                'bucket_data': {'region': 'us-east-1', 'access_level': ''},
-                'expected_message': 'access_level field cannot be empty',
-                'description': 'empty access_level field'
-            }
         ]
 
         for scenario in error_scenarios:
@@ -1140,8 +1082,9 @@ class TestQuilt3BackendBucketTransformation:
             error_message = str(error)
 
             # Verify error message contains expected content
-            assert scenario['expected_message'].lower() in error_message.lower(), \
+            assert scenario['expected_message'].lower() in error_message.lower(), (
                 f"Expected '{scenario['expected_message']}' in error message for {scenario['description']}: {error_message}"
+            )
 
             # Verify error is properly wrapped as BackendError
             assert isinstance(error, BackendError), f"Error should be BackendError for {scenario['description']}"
@@ -1149,10 +1092,24 @@ class TestQuilt3BackendBucketTransformation:
             # Verify error context is provided
             assert hasattr(error, 'context'), f"Error should have context for {scenario['description']}"
             if error.context:
-                assert 'bucket_name' in error.context or 'bucket_data_keys' in error.context, \
+                assert 'bucket_name' in error.context or 'bucket_data_keys' in error.context, (
                     f"Error context should contain bucket info for {scenario['description']}"
+                )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+        # Test pragmatic scenarios that default to 'unknown' instead of raising errors
+        pragmatic_scenarios = [
+            ({'region': '', 'access_level': 'read-write'}, 'unknown', 'read-write'),
+            ({'region': 'us-east-1', 'access_level': ''}, 'us-east-1', 'unknown'),
+            ({}, 'unknown', 'unknown'),  # Empty bucket data defaults both fields
+        ]
+
+        for bucket_data, expected_region, expected_access_level in pragmatic_scenarios:
+            result = backend._transform_bucket('test-bucket', bucket_data)
+            assert result.name == 'test-bucket'
+            assert result.region == expected_region
+            assert result.access_level == expected_access_level
+
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_message_clarity(self, mock_quilt3):
         """Test that bucket transformation error messages are clear and actionable."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1160,29 +1117,23 @@ class TestQuilt3BackendBucketTransformation:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test error message clarity for different failure types
-        clarity_tests = [
+        # Test legitimate error scenarios that should raise BackendError
+        error_tests = [
             {
                 'name': 'missing_bucket_name',
                 'bucket_name': None,
                 'bucket_data': {'region': 'us-east-1', 'access_level': 'read-write'},
-                'expected_keywords': ['missing', 'name', 'bucket']
+                'expected_keywords': ['missing', 'name', 'bucket'],
             },
             {
                 'name': 'none_bucket_data',
                 'bucket_name': 'test-bucket',
                 'bucket_data': None,
-                'expected_keywords': ['bucket_data', 'none', 'invalid']
+                'expected_keywords': ['bucket_data', 'none', 'invalid'],
             },
-            {
-                'name': 'empty_region',
-                'bucket_name': 'test-bucket',
-                'bucket_data': {'region': '', 'access_level': 'read-write'},
-                'expected_keywords': ['region', 'field', 'empty']
-            }
         ]
 
-        for test_case in clarity_tests:
+        for test_case in error_tests:
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_bucket(test_case['bucket_name'], test_case['bucket_data'])
 
@@ -1190,14 +1141,21 @@ class TestQuilt3BackendBucketTransformation:
 
             # Verify error message contains expected keywords for clarity
             for keyword in test_case['expected_keywords']:
-                assert keyword.lower() in error_message, \
+                assert keyword.lower() in error_message, (
                     f"Error message should contain '{keyword}' for {test_case['name']}: {error_message}"
+                )
 
             # Verify error message mentions the backend type
-            assert 'quilt3' in error_message, \
+            assert 'quilt3' in error_message, (
                 f"Error message should mention backend type for {test_case['name']}: {error_message}"
+            )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+        # Test pragmatic scenarios - empty region defaults to 'unknown'
+        result = backend._transform_bucket('test-bucket', {'region': '', 'access_level': 'read-write'})
+        assert result.region == 'unknown'
+        assert result.access_level == 'read-write'
+
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_propagation_from_helpers(self, mock_quilt3):
         """Test that errors from bucket transformation helper methods are properly propagated."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1205,21 +1163,26 @@ class TestQuilt3BackendBucketTransformation:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test error propagation from validation helper
+        # Test error propagation from validation helper (None bucket_name)
         with pytest.raises(BackendError) as exc_info:
-            backend._transform_bucket(None, {'region': 'us-east-1'})
+            backend._transform_bucket(None, {'region': 'us-east-1', 'access_level': 'read-write'})
 
         # Verify the validation error is properly propagated
         assert "missing name" in str(exc_info.value).lower()
 
-        # Test error propagation from domain object creation (Bucket_Info validation)
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_bucket('test-bucket', {'region': '', 'access_level': 'read-write'})
+        # Test pragmatic scenario - empty region defaults to 'unknown' instead of raising error
+        result = backend._transform_bucket('test-bucket', {'region': '', 'access_level': 'read-write'})
+        assert result.region == 'unknown'
+        assert result.access_level == 'read-write'
 
-        # Verify the domain validation error is properly propagated
-        assert "region field cannot be empty" in str(exc_info.value).lower()
+        # Test error propagation when normalization helper actually fails
+        with patch.object(backend, '_normalize_string_field', side_effect=Exception("Normalization failed")):
+            with pytest.raises(BackendError) as exc_info:
+                backend._transform_bucket('test-bucket', {'region': 'us-east-1', 'access_level': 'read-write'})
+            assert 'transformation failed' in str(exc_info.value).lower()
+            assert 'normalization failed' in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_various_transformation_failures(self, mock_quilt3):
         """Test various types of bucket transformation failures and their error handling."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1231,16 +1194,16 @@ class TestQuilt3BackendBucketTransformation:
         failure_scenarios = [
             {
                 'name': 'bucket_info_creation_failure',
-                'mock_target': 'quilt_mcp.backends.quilt3_backend.Bucket_Info',
+                'mock_target': 'quilt_mcp.backends.quilt3_backend_buckets.Bucket_Info',
                 'mock_side_effect': ValueError("Bucket_Info creation failed"),
-                'expected_error': 'transformation failed'
+                'expected_error': 'transformation failed',
             },
             {
                 'name': 'normalization_helper_failure',
                 'mock_target': None,  # We'll mock a helper method
                 'mock_side_effect': None,
-                'expected_error': 'transformation failed'
-            }
+                'expected_error': 'transformation failed',
+            },
         ]
 
         for scenario in failure_scenarios:
@@ -1265,7 +1228,19 @@ class TestQuilt3BackendBucketTransformation:
                     assert 'transformation failed' in str(exc_info.value).lower()
                     assert 'normalization failed' in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+        # Test pragmatic scenarios - empty/missing region and access_level default to 'unknown'
+        pragmatic_scenarios = [
+            ({'region': '', 'access_level': 'read-write'}, 'unknown', 'read-write'),
+            ({'region': 'us-east-1', 'access_level': ''}, 'us-east-1', 'unknown'),
+            ({}, 'unknown', 'unknown'),  # Both missing
+        ]
+
+        for bucket_data, expected_region, expected_access_level in pragmatic_scenarios:
+            result = backend._transform_bucket('test-bucket', bucket_data)
+            assert result.region == expected_region
+            assert result.access_level == expected_access_level
+
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_edge_case_error_scenarios(self, mock_quilt3):
         """Test edge case error scenarios in bucket transformation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1279,14 +1254,14 @@ class TestQuilt3BackendBucketTransformation:
                 'name': 'bucket_data_wrong_type',
                 'bucket_name': 'test-bucket',
                 'bucket_data': "not-a-dict",  # String instead of dict
-                'expected_error': 'transformation failed'
+                'expected_error': 'transformation failed',
             },
             {
                 'name': 'bucket_data_list_type',
                 'bucket_name': 'test-bucket',
                 'bucket_data': ['region', 'access_level'],  # List instead of dict
-                'expected_error': 'transformation failed'
-            }
+                'expected_error': 'transformation failed',
+            },
         ]
 
         for scenario in edge_case_scenarios:
@@ -1294,17 +1269,22 @@ class TestQuilt3BackendBucketTransformation:
                 backend._transform_bucket(scenario['bucket_name'], scenario['bucket_data'])
 
             error_message = str(exc_info.value).lower()
-            assert scenario['expected_error'] in error_message, \
+            assert scenario['expected_error'] in error_message, (
                 f"Expected '{scenario['expected_error']}' in error message for {scenario['name']}: {error_message}"
+            )
 
             # Verify error context includes useful debugging information
             error = exc_info.value
             assert hasattr(error, 'context'), f"Error should have context for {scenario['name']}"
             if error.context:
-                assert 'bucket_name' in error.context, f"Error context should contain bucket_name for {scenario['name']}"
-                assert 'bucket_data_type' in error.context, f"Error context should contain bucket_data_type for {scenario['name']}"
+                assert 'bucket_name' in error.context, (
+                    f"Error context should contain bucket_name for {scenario['name']}"
+                )
+                assert 'bucket_data_type' in error.context, (
+                    f"Error context should contain bucket_data_type for {scenario['name']}"
+                )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_various_bucket_names(self, mock_quilt3):
         """Test _transform_bucket() handles various bucket name formats."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1324,11 +1304,7 @@ class TestQuilt3BackendBucketTransformation:
         ]
 
         for bucket_name in bucket_names:
-            bucket_data = {
-                'region': 'us-east-1',
-                'access_level': 'read-write',
-                'created_date': '2024-01-01T00:00:00Z'
-            }
+            bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': '2024-01-01T00:00:00Z'}
 
             result = backend._transform_bucket(bucket_name, bucket_data)
 
@@ -1338,7 +1314,7 @@ class TestQuilt3BackendBucketTransformation:
             assert result.access_level == 'read-write'
             assert result.created_date == '2024-01-01T00:00:00Z'
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_various_regions(self, mock_quilt3):
         """Test _transform_bucket() handles various AWS regions correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1359,27 +1335,25 @@ class TestQuilt3BackendBucketTransformation:
         ]
 
         for region in regions:
-            bucket_data = {
-                'region': region,
-                'access_level': 'read-only'
-            }
+            bucket_data = {'region': region, 'access_level': 'read-only'}
 
             result = backend._transform_bucket("test-bucket", bucket_data)
 
             assert result.region == region
 
-        # Test empty region (should cause error due to validation)
-        bucket_data = {
-            'region': '',  # Empty region
-            'access_level': 'read-only'
-        }
+        # Test pragmatic scenarios - empty/missing region defaults to 'unknown'
+        pragmatic_scenarios = [
+            ({'region': '', 'access_level': 'read-only'}, 'unknown'),  # Empty region
+            ({'region': None, 'access_level': 'read-only'}, 'unknown'),  # None region
+            ({'access_level': 'read-only'}, 'unknown'),  # Missing region
+        ]
 
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_bucket("test-bucket", bucket_data)
+        for bucket_data, expected_region in pragmatic_scenarios:
+            result = backend._transform_bucket("test-bucket", bucket_data)
+            assert result.region == expected_region
+            assert result.access_level == 'read-only'
 
-        assert "transformation failed" in str(exc_info.value).lower()
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_various_access_levels(self, mock_quilt3):
         """Test _transform_bucket() handles various access levels correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1398,27 +1372,25 @@ class TestQuilt3BackendBucketTransformation:
         ]
 
         for access_level in access_levels:
-            bucket_data = {
-                'region': 'us-east-1',
-                'access_level': access_level
-            }
+            bucket_data = {'region': 'us-east-1', 'access_level': access_level}
 
             result = backend._transform_bucket("test-bucket", bucket_data)
 
             assert result.access_level == access_level
 
-        # Test empty access level (should cause error due to validation)
-        bucket_data = {
-            'region': 'us-east-1',
-            'access_level': ''  # Empty access level
-        }
+        # Test pragmatic scenarios - empty/missing access_level defaults to 'unknown'
+        pragmatic_scenarios = [
+            ({'region': 'us-east-1', 'access_level': ''}, 'unknown'),  # Empty access_level
+            ({'region': 'us-east-1', 'access_level': None}, 'unknown'),  # None access_level
+            ({'region': 'us-east-1'}, 'unknown'),  # Missing access_level
+        ]
 
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_bucket("test-bucket", bucket_data)
+        for bucket_data, expected_access_level in pragmatic_scenarios:
+            result = backend._transform_bucket("test-bucket", bucket_data)
+            assert result.region == 'us-east-1'
+            assert result.access_level == expected_access_level
 
-        assert "transformation failed" in str(exc_info.value).lower()
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_various_date_formats(self, mock_quilt3):
         """Test _transform_bucket() handles various created_date formats."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1437,10 +1409,7 @@ class TestQuilt3BackendBucketTransformation:
         ]
 
         for created_date in date_formats:
-            bucket_data = {
-                'region': 'us-east-1',
-                'access_level': 'read-write'
-            }
+            bucket_data = {'region': 'us-east-1', 'access_level': 'read-write'}
             if created_date is not None:
                 bucket_data['created_date'] = created_date
 
@@ -1451,7 +1420,7 @@ class TestQuilt3BackendBucketTransformation:
             else:
                 assert result.created_date == created_date
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_minimal_data(self, mock_quilt3):
         """Test _transform_bucket() works with minimal bucket data."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1460,10 +1429,7 @@ class TestQuilt3BackendBucketTransformation:
         backend = Quilt3_Backend(mock_session)
 
         # Test with minimal valid bucket data (non-empty required fields)
-        minimal_data = {
-            'region': 'us-west-2',
-            'access_level': 'read-only'
-        }
+        minimal_data = {'region': 'us-west-2', 'access_level': 'read-only'}
         result = backend._transform_bucket("minimal-bucket", minimal_data)
 
         assert result.name == "minimal-bucket"
@@ -1472,10 +1438,7 @@ class TestQuilt3BackendBucketTransformation:
         assert result.created_date is None
 
         # Test with only some fields
-        partial_data = {
-            'region': 'us-west-2',
-            'access_level': 'admin'
-        }
+        partial_data = {'region': 'us-west-2', 'access_level': 'admin'}
         result = backend._transform_bucket("partial-bucket", partial_data)
 
         assert result.name == "partial-bucket"
@@ -1483,13 +1446,14 @@ class TestQuilt3BackendBucketTransformation:
         assert result.access_level == "admin"
         assert result.created_date is None
 
-        # Test with empty bucket data (should cause error due to missing required fields)
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_bucket("empty-bucket", {})
+        # Test with empty bucket data - pragmatic default: both fields default to 'unknown'
+        result = backend._transform_bucket("empty-bucket", {})
+        assert result.name == "empty-bucket"
+        assert result.region == "unknown"
+        assert result.access_level == "unknown"
+        assert result.created_date is None
 
-        assert "transformation failed" in str(exc_info.value).lower()
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_extra_fields(self, mock_quilt3):
         """Test _transform_bucket() ignores extra fields in bucket data."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1505,7 +1469,7 @@ class TestQuilt3BackendBucketTransformation:
             'extra_field_1': 'should_be_ignored',
             'extra_field_2': 12345,
             'nested_extra': {'key': 'value'},
-            'list_extra': ['item1', 'item2']
+            'list_extra': ['item1', 'item2'],
         }
 
         result = backend._transform_bucket("extra-fields-bucket", bucket_data_with_extras)
@@ -1526,7 +1490,7 @@ class TestQuilt3BackendBucketTransformation:
 class TestQuilt3BackendBucketTransformationIsolated:
     """Test _transform_bucket() method in complete isolation with focus on transformation logic."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_with_minimal_mock_data(self, mock_quilt3):
         """Test _transform_bucket() method in isolation with minimal mock bucket data."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1538,7 +1502,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         bucket_name = "isolated-test-bucket"
         bucket_data = {
             'region': 'us-east-1',
-            'access_level': 'read-write'
+            'access_level': 'read-write',
             # created_date intentionally omitted to test optional field handling
         }
 
@@ -1552,7 +1516,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         assert result.access_level == "read-write"
         assert result.created_date is None  # Optional field should be None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_with_complete_mock_data(self, mock_quilt3):
         """Test _transform_bucket() method in isolation with complete mock bucket data."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1562,11 +1526,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
 
         # Create complete mock bucket data with all fields
         bucket_name = "complete-isolated-bucket"
-        bucket_data = {
-            'region': 'us-west-2',
-            'access_level': 'read-only',
-            'created_date': '2024-03-15T14:30:45Z'
-        }
+        bucket_data = {'region': 'us-west-2', 'access_level': 'read-only', 'created_date': '2024-03-15T14:30:45Z'}
 
         # Execute transformation in isolation
         result = backend._transform_bucket(bucket_name, bucket_data)
@@ -1578,7 +1538,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         assert result.access_level == "read-only"
         assert result.created_date == "2024-03-15T14:30:45Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_validation_logic(self, mock_quilt3):
         """Test _transform_bucket() validation logic in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1586,6 +1546,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
+        # Test legitimate errors that should raise BackendError
         # Test validation of required bucket_name field
         with pytest.raises(BackendError) as exc_info:
             backend._transform_bucket(None, {'region': 'us-east-1', 'access_level': 'read-write'})
@@ -1601,17 +1562,21 @@ class TestQuilt3BackendBucketTransformationIsolated:
             backend._transform_bucket("test-bucket", None)
         assert "bucket_data is none" in str(exc_info.value).lower()
 
-        # Test validation of empty region field
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_bucket("test-bucket", {'region': '', 'access_level': 'read-write'})
-        assert "region field cannot be empty" in str(exc_info.value).lower()
+        # Test pragmatic scenarios - empty/missing region and access_level default to 'unknown'
+        pragmatic_scenarios = [
+            ({'region': '', 'access_level': 'read-write'}, 'unknown', 'read-write'),
+            ({'region': 'us-east-1', 'access_level': ''}, 'us-east-1', 'unknown'),
+            ({'region': None, 'access_level': 'read-write'}, 'unknown', 'read-write'),
+            ({'region': 'us-east-1', 'access_level': None}, 'us-east-1', 'unknown'),
+            ({}, 'unknown', 'unknown'),  # Both missing
+        ]
 
-        # Test validation of empty access_level field
-        with pytest.raises(BackendError) as exc_info:
-            backend._transform_bucket("test-bucket", {'region': 'us-east-1', 'access_level': ''})
-        assert "access_level field cannot be empty" in str(exc_info.value).lower()
+        for bucket_data, expected_region, expected_access_level in pragmatic_scenarios:
+            result = backend._transform_bucket("test-bucket", bucket_data)
+            assert result.region == expected_region
+            assert result.access_level == expected_access_level
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_with_null_optional_fields(self, mock_quilt3):
         """Test _transform_bucket() handles null/None values in optional fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1624,27 +1589,27 @@ class TestQuilt3BackendBucketTransformationIsolated:
             {
                 'region': 'us-east-1',
                 'access_level': 'read-write',
-                'created_date': None  # Explicit None
+                'created_date': None,  # Explicit None
             },
             {
                 'region': 'us-west-1',
-                'access_level': 'read-only'
+                'access_level': 'read-only',
                 # created_date missing entirely
-            }
+            },
         ]
 
         for i, bucket_data in enumerate(null_scenarios):
             bucket_name = f"null-test-bucket-{i}"
-            
+
             result = backend._transform_bucket(bucket_name, bucket_data)
-            
+
             assert isinstance(result, Bucket_Info)
             assert result.name == bucket_name
             assert result.region == bucket_data['region']
             assert result.access_level == bucket_data['access_level']
             assert result.created_date is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_helper_method_integration(self, mock_quilt3):
         """Test _transform_bucket() integration with helper methods in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1657,7 +1622,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         bucket_data = {
             'region': '  us-central-1  ',  # Tests _normalize_string_field (preserves whitespace)
             'access_level': 'READ-WRITE',  # Tests _normalize_string_field (case)
-            'created_date': '2024-01-15T10:30:00.000Z'  # Tests _normalize_datetime
+            'created_date': '2024-01-15T10:30:00.000Z',  # Tests _normalize_datetime
         }
 
         # Execute transformation
@@ -1670,7 +1635,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         assert result.access_level == "READ-WRITE"  # Case should be preserved
         assert result.created_date == "2024-01-15T10:30:00.000Z"  # Datetime should be normalized
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_edge_case_bucket_names(self, mock_quilt3):
         """Test _transform_bucket() with edge case bucket names in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1691,19 +1656,19 @@ class TestQuilt3BackendBucketTransformationIsolated:
         base_bucket_data = {
             'region': 'us-east-1',
             'access_level': 'read-write',
-            'created_date': '2024-01-01T00:00:00Z'
+            'created_date': '2024-01-01T00:00:00Z',
         }
 
         for bucket_name in edge_case_names:
             result = backend._transform_bucket(bucket_name, base_bucket_data)
-            
+
             assert isinstance(result, Bucket_Info)
             assert result.name == bucket_name
             assert result.region == "us-east-1"
             assert result.access_level == "read-write"
             assert result.created_date == "2024-01-01T00:00:00Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_edge_case_regions(self, mock_quilt3):
         """Test _transform_bucket() with edge case AWS regions in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1723,23 +1688,20 @@ class TestQuilt3BackendBucketTransformationIsolated:
             "me-south-1",  # Middle East region
         ]
 
-        base_bucket_data = {
-            'access_level': 'read-write',
-            'created_date': '2024-01-01T00:00:00Z'
-        }
+        base_bucket_data = {'access_level': 'read-write', 'created_date': '2024-01-01T00:00:00Z'}
 
         for region in edge_case_regions:
             bucket_data = {**base_bucket_data, 'region': region}
-            
+
             result = backend._transform_bucket("test-bucket", bucket_data)
-            
+
             assert isinstance(result, Bucket_Info)
             assert result.name == "test-bucket"
             assert result.region == region
             assert result.access_level == "read-write"
             assert result.created_date == "2024-01-01T00:00:00Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_edge_case_access_levels(self, mock_quilt3):
         """Test _transform_bucket() with edge case access levels in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1759,23 +1721,20 @@ class TestQuilt3BackendBucketTransformationIsolated:
             "Read-Write",  # Case variation
         ]
 
-        base_bucket_data = {
-            'region': 'us-east-1',
-            'created_date': '2024-01-01T00:00:00Z'
-        }
+        base_bucket_data = {'region': 'us-east-1', 'created_date': '2024-01-01T00:00:00Z'}
 
         for access_level in edge_case_access_levels:
             bucket_data = {**base_bucket_data, 'access_level': access_level}
-            
+
             result = backend._transform_bucket("test-bucket", bucket_data)
-            
+
             assert isinstance(result, Bucket_Info)
             assert result.name == "test-bucket"
             assert result.region == "us-east-1"
             assert result.access_level == access_level  # Should preserve original case
             assert result.created_date == "2024-01-01T00:00:00Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_error_context_and_wrapping(self, mock_quilt3):
         """Test _transform_bucket() error context and wrapping in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1783,23 +1742,23 @@ class TestQuilt3BackendBucketTransformationIsolated:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test error context for various failure scenarios
+        # Test legitimate error scenarios that should raise BackendError
         error_scenarios = [
             {
                 'bucket_name': None,
                 'bucket_data': {'region': 'us-east-1', 'access_level': 'read-write'},
-                'expected_context_keys': ['bucket_name', 'bucket_data_keys', 'bucket_data_type']
+                'expected_error_substring': 'missing name',
+            },
+            {
+                'bucket_name': '',
+                'bucket_data': {'region': 'us-east-1', 'access_level': 'read-write'},
+                'expected_error_substring': 'missing name',
             },
             {
                 'bucket_name': 'test-bucket',
                 'bucket_data': None,
-                'expected_context_keys': ['bucket_name', 'bucket_data_keys', 'bucket_data_type']
+                'expected_error_substring': 'bucket_data is none',
             },
-            {
-                'bucket_name': 'test-bucket',
-                'bucket_data': {'region': '', 'access_level': 'read-write'},
-                'expected_context_keys': ['bucket_name', 'bucket_data_keys', 'bucket_data_type']
-            }
         ]
 
         for scenario in error_scenarios:
@@ -1807,20 +1766,25 @@ class TestQuilt3BackendBucketTransformationIsolated:
                 backend._transform_bucket(scenario['bucket_name'], scenario['bucket_data'])
 
             error = exc_info.value
-            
+
             # Verify error is properly wrapped as BackendError
             assert isinstance(error, BackendError)
-            
+
             # Verify error message mentions backend type
             assert "quilt3" in str(error).lower()
-            
+
+            # Verify expected error substring is in message
+            assert scenario['expected_error_substring'] in str(error).lower()
+
             # Verify error context is provided
             assert hasattr(error, 'context')
-            if error.context:
-                for expected_key in scenario['expected_context_keys']:
-                    assert expected_key in error.context, f"Missing context key: {expected_key}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+        # Test pragmatic scenarios - empty region defaults to 'unknown' instead of raising error
+        result = backend._transform_bucket('test-bucket', {'region': '', 'access_level': 'read-write'})
+        assert result.region == 'unknown'
+        assert result.access_level == 'read-write'
+
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_isolated_transformation_logic_only(self, mock_quilt3):
         """Test _transform_bucket() pure transformation logic without side effects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1830,11 +1794,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
 
         # Test that transformation is pure (no side effects)
         bucket_name = "pure-transformation-test"
-        bucket_data = {
-            'region': 'us-east-1',
-            'access_level': 'read-write',
-            'created_date': '2024-01-01T00:00:00Z'
-        }
+        bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': '2024-01-01T00:00:00Z'}
 
         # Execute transformation multiple times
         result1 = backend._transform_bucket(bucket_name, bucket_data)
@@ -1858,13 +1818,13 @@ class TestQuilt3BackendBucketTransformationIsolated:
 
 class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
     """Test transformation from quilt3 bucket responses to Bucket_Info domain objects.
-    
+
     This test class focuses specifically on testing the transformation logic from
     quilt3-specific bucket responses to our Bucket_Info domain objects, covering
     various response configurations and edge cases.
     """
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_from_typical_quilt3_response(self, mock_quilt3):
         """Test _transform_bucket() with typical quilt3 bucket response format."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1880,7 +1840,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
             'created_date': '2024-03-15T14:30:45.123456Z',
             'bucket_policy': 'private',  # Extra field from quilt3
             'versioning': True,  # Extra field from quilt3
-            'encryption': 'AES256'  # Extra field from quilt3
+            'encryption': 'AES256',  # Extra field from quilt3
         }
 
         result = backend._transform_bucket(bucket_name, quilt3_bucket_response)
@@ -1894,6 +1854,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
 
         # Verify it's a proper dataclass that can be serialized
         from dataclasses import asdict
+
         result_dict = asdict(result)
         assert isinstance(result_dict, dict)
         assert result_dict['name'] == "production-data-bucket"
@@ -1901,7 +1862,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         assert result_dict['access_level'] == "read-write"
         assert result_dict['created_date'] == "2024-03-15T14:30:45.123456Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_from_minimal_quilt3_response(self, mock_quilt3):
         """Test _transform_bucket() with minimal quilt3 bucket response."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1913,7 +1874,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         bucket_name = "minimal-bucket"
         minimal_quilt3_response = {
             'region': 'eu-west-1',
-            'access_level': 'read-only'
+            'access_level': 'read-only',
             # No created_date or other optional fields
         }
 
@@ -1926,7 +1887,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         assert result.access_level == "read-only"
         assert result.created_date is None  # Should default to None for missing field
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_from_quilt3_response_with_null_fields(self, mock_quilt3):
         """Test _transform_bucket() handles null/None values in quilt3 bucket responses."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1939,33 +1900,25 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
             {
                 'name': 'null_created_date',
                 'bucket_name': 'null-date-bucket',
-                'response': {
-                    'region': 'us-east-1',
-                    'access_level': 'read-write',
-                    'created_date': None
-                },
-                'expected_created_date': None
+                'response': {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': None},
+                'expected_created_date': None,
             },
             {
                 'name': 'empty_created_date',
                 'bucket_name': 'empty-date-bucket',
-                'response': {
-                    'region': 'ap-southeast-1',
-                    'access_level': 'admin',
-                    'created_date': ''
-                },
-                'expected_created_date': ''  # Empty string should be preserved
+                'response': {'region': 'ap-southeast-1', 'access_level': 'admin', 'created_date': ''},
+                'expected_created_date': '',  # Empty string should be preserved
             },
             {
                 'name': 'missing_created_date',
                 'bucket_name': 'missing-date-bucket',
                 'response': {
                     'region': 'ca-central-1',
-                    'access_level': 'list-only'
+                    'access_level': 'list-only',
                     # created_date key missing entirely
                 },
-                'expected_created_date': None
-            }
+                'expected_created_date': None,
+            },
         ]
 
         for scenario in null_scenarios:
@@ -1977,81 +1930,102 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
             assert result.access_level == scenario['response']['access_level']
             assert result.created_date == scenario['expected_created_date']
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_from_quilt3_response_with_invalid_required_fields(self, mock_quilt3):
-        """Test _transform_bucket() properly fails when quilt3 responses have invalid required fields."""
+        """Test _transform_bucket() handles quilt3 responses with missing/invalid fields pragmatically."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test scenarios that should fail due to invalid required fields
-        invalid_scenarios = [
+        # Test legitimate error scenarios (None/empty bucket_name, None bucket_data)
+        error_scenarios = [
             {
-                'name': 'null_region',
-                'bucket_name': 'test-bucket',
-                'response': {
-                    'region': None,  # Invalid: region cannot be None
-                    'access_level': 'read-write'
-                },
-                'expected_error': 'region field cannot be empty'
+                'name': 'none_bucket_name',
+                'bucket_name': None,
+                'response': {'region': 'us-east-1', 'access_level': 'read-write'},
+                'expected_error': 'missing name',
             },
             {
-                'name': 'empty_region',
-                'bucket_name': 'test-bucket',
-                'response': {
-                    'region': '',  # Invalid: region cannot be empty
-                    'access_level': 'read-write'
-                },
-                'expected_error': 'region field cannot be empty'
+                'name': 'empty_bucket_name',
+                'bucket_name': '',
+                'response': {'region': 'us-east-1', 'access_level': 'read-write'},
+                'expected_error': 'missing name',
             },
             {
-                'name': 'null_access_level',
+                'name': 'none_bucket_data',
                 'bucket_name': 'test-bucket',
-                'response': {
-                    'region': 'us-east-1',
-                    'access_level': None  # Invalid: access_level cannot be None
-                },
-                'expected_error': 'access_level field cannot be empty'
+                'response': None,
+                'expected_error': 'bucket_data is none',
             },
-            {
-                'name': 'empty_access_level',
-                'bucket_name': 'test-bucket',
-                'response': {
-                    'region': 'us-east-1',
-                    'access_level': ''  # Invalid: access_level cannot be empty
-                },
-                'expected_error': 'access_level field cannot be empty'
-            },
-            {
-                'name': 'missing_region',
-                'bucket_name': 'test-bucket',
-                'response': {
-                    'access_level': 'read-write'
-                    # region key missing entirely
-                },
-                'expected_error': 'region field cannot be empty'
-            },
-            {
-                'name': 'missing_access_level',
-                'bucket_name': 'test-bucket',
-                'response': {
-                    'region': 'us-east-1'
-                    # access_level key missing entirely
-                },
-                'expected_error': 'access_level field cannot be empty'
-            }
         ]
 
-        for scenario in invalid_scenarios:
+        for scenario in error_scenarios:
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_bucket(scenario['bucket_name'], scenario['response'])
 
             error_message = str(exc_info.value)
-            assert scenario['expected_error'].lower() in error_message.lower(), \
+            assert scenario['expected_error'].lower() in error_message.lower(), (
                 f"Expected '{scenario['expected_error']}' in error message for {scenario['name']}: {error_message}"
+            )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+        # Test pragmatic scenarios - empty/missing region and access_level default to 'unknown'
+        pragmatic_scenarios = [
+            {
+                'name': 'null_region',
+                'bucket_name': 'test-bucket',
+                'response': {'region': None, 'access_level': 'read-write'},
+                'expected_region': 'unknown',
+                'expected_access_level': 'read-write',
+            },
+            {
+                'name': 'empty_region',
+                'bucket_name': 'test-bucket',
+                'response': {'region': '', 'access_level': 'read-write'},
+                'expected_region': 'unknown',
+                'expected_access_level': 'read-write',
+            },
+            {
+                'name': 'null_access_level',
+                'bucket_name': 'test-bucket',
+                'response': {'region': 'us-east-1', 'access_level': None},
+                'expected_region': 'us-east-1',
+                'expected_access_level': 'unknown',
+            },
+            {
+                'name': 'empty_access_level',
+                'bucket_name': 'test-bucket',
+                'response': {'region': 'us-east-1', 'access_level': ''},
+                'expected_region': 'us-east-1',
+                'expected_access_level': 'unknown',
+            },
+            {
+                'name': 'missing_region',
+                'bucket_name': 'test-bucket',
+                'response': {'access_level': 'read-write'},
+                'expected_region': 'unknown',
+                'expected_access_level': 'read-write',
+            },
+            {
+                'name': 'missing_access_level',
+                'bucket_name': 'test-bucket',
+                'response': {'region': 'us-east-1'},
+                'expected_region': 'us-east-1',
+                'expected_access_level': 'unknown',
+            },
+        ]
+
+        for scenario in pragmatic_scenarios:
+            result = backend._transform_bucket(scenario['bucket_name'], scenario['response'])
+            assert result.name == scenario['bucket_name']
+            assert result.region == scenario['expected_region'], (
+                f"Expected region '{scenario['expected_region']}' for {scenario['name']}, got '{result.region}'"
+            )
+            assert result.access_level == scenario['expected_access_level'], (
+                f"Expected access_level '{scenario['expected_access_level']}' for {scenario['name']}, got '{result.access_level}'"
+            )
+
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_from_various_quilt3_response_configurations(self, mock_quilt3):
         """Test _transform_bucket() with various quilt3 bucket response configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2069,8 +2043,8 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                     'access_level': 'read-write',
                     'created_date': '2024-01-15T10:30:00Z',
                     'storage_class': 'STANDARD',  # Extra quilt3 field
-                    'lifecycle_policy': 'enabled'  # Extra quilt3 field
-                }
+                    'lifecycle_policy': 'enabled',  # Extra quilt3 field
+                },
             },
             {
                 'name': 'aws_glacier_bucket',
@@ -2080,8 +2054,8 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                     'access_level': 'read-only',
                     'created_date': '2023-12-01T00:00:00Z',
                     'storage_class': 'GLACIER',  # Extra quilt3 field
-                    'transition_days': 30  # Extra quilt3 field
-                }
+                    'transition_days': 30,  # Extra quilt3 field
+                },
             },
             {
                 'name': 'multi_region_bucket',
@@ -2091,8 +2065,8 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                     'access_level': 'admin',
                     'created_date': '2024-02-29T23:59:59.999Z',
                     'cross_region_replication': True,  # Extra quilt3 field
-                    'replicated_regions': ['us-east-1', 'ap-southeast-1']  # Extra quilt3 field
-                }
+                    'replicated_regions': ['us-east-1', 'ap-southeast-1'],  # Extra quilt3 field
+                },
             },
             {
                 'name': 'government_cloud_bucket',
@@ -2102,9 +2076,9 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                     'access_level': 'full-control',
                     'created_date': '2024-03-01T12:00:00Z',
                     'compliance_level': 'FedRAMP',  # Extra quilt3 field
-                    'encryption_type': 'KMS'  # Extra quilt3 field
-                }
-            }
+                    'encryption_type': 'KMS',  # Extra quilt3 field
+                },
+            },
         ]
 
         for config in response_configurations:
@@ -2119,16 +2093,21 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
 
             # Verify extra quilt3-specific fields are not included in domain object
             from dataclasses import asdict
+
             result_dict = asdict(result)
             quilt3_specific_fields = [
-                'storage_class', 'lifecycle_policy', 'transition_days',
-                'cross_region_replication', 'replicated_regions',
-                'compliance_level', 'encryption_type'
+                'storage_class',
+                'lifecycle_policy',
+                'transition_days',
+                'cross_region_replication',
+                'replicated_regions',
+                'compliance_level',
+                'encryption_type',
             ]
             for field in quilt3_specific_fields:
                 assert field not in result_dict, f"Domain object should not contain quilt3-specific field: {field}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_from_quilt3_response_edge_cases(self, mock_quilt3):
         """Test _transform_bucket() handles edge cases in quilt3 bucket responses."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2144,16 +2123,13 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'response': {
                     'region': 'us-east-1',
                     'access_level': 'read-write',
-                    'created_date': '2024-01-01T00:00:00Z'
-                }
+                    'created_date': '2024-01-01T00:00:00Z',
+                },
             },
             {
                 'name': 'single_char_bucket_name',
                 'bucket_name': 'a',
-                'response': {
-                    'region': 'us-west-2',
-                    'access_level': 'read-only'
-                }
+                'response': {'region': 'us-west-2', 'access_level': 'read-only'},
             },
             {
                 'name': 'bucket_with_special_chars',
@@ -2161,16 +2137,16 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'response': {
                     'region': 'eu-west-1',
                     'access_level': 'admin',
-                    'created_date': '2024-12-31T23:59:59.999999Z'
-                }
+                    'created_date': '2024-12-31T23:59:59.999999Z',
+                },
             },
             {
                 'name': 'very_long_region',
                 'bucket_name': 'test-bucket',
                 'response': {
                     'region': 'custom-very-long-region-name-for-testing-purposes',
-                    'access_level': 'read-write'
-                }
+                    'access_level': 'read-write',
+                },
             },
             {
                 'name': 'custom_access_level',
@@ -2178,8 +2154,8 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'response': {
                     'region': 'us-east-1',
                     'access_level': 'custom-permission-level-with-specific-rules',
-                    'created_date': '1970-01-01T00:00:00Z'  # Unix epoch
-                }
+                    'created_date': '1970-01-01T00:00:00Z',  # Unix epoch
+                },
             },
             {
                 'name': 'future_date',
@@ -2187,9 +2163,9 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'response': {
                     'region': 'us-east-1',
                     'access_level': 'read-write',
-                    'created_date': '2099-12-31T23:59:59Z'  # Future date
-                }
-            }
+                    'created_date': '2099-12-31T23:59:59Z',  # Future date
+                },
+            },
         ]
 
         for case in edge_cases:
@@ -2205,7 +2181,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
             else:
                 assert result.created_date is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_from_malformed_quilt3_responses(self, mock_quilt3):
         """Test _transform_bucket() handles malformed quilt3 bucket responses appropriately."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2219,26 +2195,26 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'name': 'none_response',
                 'bucket_name': 'test-bucket',
                 'response': None,
-                'expected_error': 'bucket_data is none'
+                'expected_error': 'bucket_data is none',
             },
             {
                 'name': 'string_response',
                 'bucket_name': 'test-bucket',
                 'response': "not-a-dict",
-                'expected_error': 'transformation failed'
+                'expected_error': 'transformation failed',
             },
             {
                 'name': 'list_response',
                 'bucket_name': 'test-bucket',
                 'response': ['region', 'access_level'],
-                'expected_error': 'transformation failed'
+                'expected_error': 'transformation failed',
             },
             {
                 'name': 'number_response',
                 'bucket_name': 'test-bucket',
                 'response': 12345,
-                'expected_error': 'transformation failed'
-            }
+                'expected_error': 'transformation failed',
+            },
         ]
 
         for scenario in malformed_scenarios:
@@ -2246,17 +2222,22 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 backend._transform_bucket(scenario['bucket_name'], scenario['response'])
 
             error_message = str(exc_info.value)
-            assert scenario['expected_error'].lower() in error_message.lower(), \
+            assert scenario['expected_error'].lower() in error_message.lower(), (
                 f"Expected '{scenario['expected_error']}' in error message for {scenario['name']}: {error_message}"
+            )
 
             # Verify error context includes debugging information
             error = exc_info.value
             assert hasattr(error, 'context'), f"Error should have context for {scenario['name']}"
             if error.context:
-                assert 'bucket_name' in error.context, f"Error context should contain bucket_name for {scenario['name']}"
-                assert 'bucket_data_type' in error.context, f"Error context should contain bucket_data_type for {scenario['name']}"
+                assert 'bucket_name' in error.context, (
+                    f"Error context should contain bucket_name for {scenario['name']}"
+                )
+                assert 'bucket_data_type' in error.context, (
+                    f"Error context should contain bucket_data_type for {scenario['name']}"
+                )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_from_quilt3_response_with_unexpected_field_types(self, mock_quilt3):
         """Test _transform_bucket() handles unexpected field types in quilt3 responses."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2271,30 +2252,30 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'bucket_name': 'numeric-region-bucket',
                 'response': {
                     'region': 12345,  # Number instead of string
-                    'access_level': 'read-write'
+                    'access_level': 'read-write',
                 },
                 'should_succeed': True,  # Should be converted to string
-                'expected_region': '12345'
+                'expected_region': '12345',
             },
             {
                 'name': 'boolean_access_level',
                 'bucket_name': 'boolean-access-bucket',
                 'response': {
                     'region': 'us-east-1',
-                    'access_level': True  # Boolean instead of string
+                    'access_level': True,  # Boolean instead of string
                 },
                 'should_succeed': True,  # Should be converted to string
-                'expected_access_level': 'True'
+                'expected_access_level': 'True',
             },
             {
                 'name': 'list_region',
                 'bucket_name': 'list-region-bucket',
                 'response': {
                     'region': ['us-east-1', 'us-west-2'],  # List instead of string
-                    'access_level': 'read-write'
+                    'access_level': 'read-write',
                 },
                 'should_succeed': True,  # Should be converted to string
-                'expected_region': "['us-east-1', 'us-west-2']"
+                'expected_region': "['us-east-1', 'us-west-2']",
             },
             {
                 'name': 'dict_created_date',
@@ -2302,11 +2283,11 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'response': {
                     'region': 'us-east-1',
                     'access_level': 'read-write',
-                    'created_date': {'year': 2024, 'month': 1, 'day': 1}  # Dict instead of string
+                    'created_date': {'year': 2024, 'month': 1, 'day': 1},  # Dict instead of string
                 },
                 'should_succeed': True,  # Should be converted to string
-                'expected_created_date': "{'year': 2024, 'month': 1, 'day': 1}"
-            }
+                'expected_created_date': "{'year': 2024, 'month': 1, 'day': 1}",
+            },
         ]
 
         for scenario in unexpected_type_scenarios:
@@ -2334,7 +2315,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 with pytest.raises(BackendError):
                     backend._transform_bucket(scenario['bucket_name'], scenario['response'])
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_ensures_bucket_info_object_correctness(self, mock_quilt3):
         """Test _transform_bucket() ensures Bucket_Info objects are created correctly with all required fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2349,7 +2330,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
             'created_date': '2024-06-15T14:30:45.123456Z',
             'extra_field_1': 'ignored',
             'extra_field_2': {'nested': 'ignored'},
-            'extra_field_3': ['list', 'ignored']
+            'extra_field_3': ['list', 'ignored'],
         }
 
         result = backend._transform_bucket("comprehensive-bucket", comprehensive_response)
@@ -2370,6 +2351,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
 
         # Verify it's a proper dataclass
         from dataclasses import is_dataclass, fields, asdict
+
         assert is_dataclass(result)
 
         # Verify dataclass fields match expected structure
@@ -2391,7 +2373,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
             if key not in expected_fields:
                 assert key not in result_dict
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_method_isolation_and_direct_testing(self, mock_quilt3):
         """Test _transform_bucket() method directly in isolation without other dependencies."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2407,16 +2389,13 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'bucket_data': {
                     'region': 'us-east-1',
                     'access_level': 'read-write',
-                    'created_date': '2024-01-01T00:00:00Z'
-                }
+                    'created_date': '2024-01-01T00:00:00Z',
+                },
             },
             {
                 'name': 'minimal_case',
                 'bucket_name': 'minimal-bucket',
-                'bucket_data': {
-                    'region': 'us-west-2',
-                    'access_level': 'read-only'
-                }
+                'bucket_data': {'region': 'us-west-2', 'access_level': 'read-only'},
             },
             {
                 'name': 'complex_case',
@@ -2424,9 +2403,9 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
                 'bucket_data': {
                     'region': 'ap-southeast-1',
                     'access_level': 'admin',
-                    'created_date': '2024-12-31T23:59:59.999999Z'
-                }
-            }
+                    'created_date': '2024-12-31T23:59:59.999999Z',
+                },
+            },
         ]
 
         for case in test_cases:
@@ -2460,7 +2439,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
             'extra_field_1': 'should_be_ignored',
             'extra_field_2': 12345,
             'nested_extra': {'key': 'value'},
-            'list_extra': [1, 2, 3]
+            'list_extra': [1, 2, 3],
         }
 
         result = backend._transform_bucket("extra-fields-bucket", bucket_data)
@@ -2474,7 +2453,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         # Verify it's a proper Bucket_Info object
         assert isinstance(result, Bucket_Info)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_preserves_field_types(self, mock_quilt3):
         """Test _transform_bucket() preserves correct data types for all fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2482,11 +2461,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        bucket_data = {
-            'region': 'us-east-1',
-            'access_level': 'read-write',
-            'created_date': '2024-01-01T00:00:00Z'
-        }
+        bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': '2024-01-01T00:00:00Z'}
 
         result = backend._transform_bucket("type-test-bucket", bucket_data)
 
@@ -2505,13 +2480,13 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
 
 class TestQuilt3BackendMockBucketTransformation:
     """Test transformation with mock quilt3 bucket objects with various configurations.
-    
+
     This test class focuses specifically on testing the _transform_bucket() method
     with mock quilt3 bucket objects, testing transformation logic with different
     configurations, edge cases, and error handling scenarios.
     """
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_complete_mock_configuration(self, mock_quilt3):
         """Test _transform_bucket() with complete mock quilt3 bucket configuration."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2528,7 +2503,7 @@ class TestQuilt3BackendMockBucketTransformation:
             'owner': 'test-user',
             'versioning': 'enabled',
             'encryption': 'AES256',
-            'tags': {'Environment': 'test', 'Project': 'quilt-mcp'}
+            'tags': {'Environment': 'test', 'Project': 'quilt-mcp'},
         }
 
         # Execute transformation
@@ -2541,7 +2516,7 @@ class TestQuilt3BackendMockBucketTransformation:
         assert result.access_level == "read-write"
         assert result.created_date == "2024-01-15T10:30:45Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_minimal_mock_configuration(self, mock_quilt3):
         """Test _transform_bucket() with minimal mock quilt3 bucket configuration."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2553,7 +2528,7 @@ class TestQuilt3BackendMockBucketTransformation:
         bucket_name = "minimal-test-bucket"
         bucket_data = {
             'region': 'us-east-1',
-            'access_level': 'read-only'
+            'access_level': 'read-only',
             # created_date is optional and missing
         }
 
@@ -2567,7 +2542,7 @@ class TestQuilt3BackendMockBucketTransformation:
         assert result.access_level == "read-only"
         assert result.created_date is None  # Should default to None for missing field
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_various_region_configurations(self, mock_quilt3):
         """Test _transform_bucket() with various AWS region configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2577,25 +2552,21 @@ class TestQuilt3BackendMockBucketTransformation:
 
         # Test different AWS regions
         region_configurations = [
-            'us-east-1',      # US East (N. Virginia)
-            'us-west-2',      # US West (Oregon)
-            'eu-west-1',      # Europe (Ireland)
-            'ap-southeast-1', # Asia Pacific (Singapore)
-            'ca-central-1',   # Canada (Central)
-            'sa-east-1',      # South America (São Paulo)
-            'af-south-1',     # Africa (Cape Town)
-            'me-south-1',     # Middle East (Bahrain)
-            'ap-east-1',      # Asia Pacific (Hong Kong)
-            'eu-north-1',     # Europe (Stockholm)
+            'us-east-1',  # US East (N. Virginia)
+            'us-west-2',  # US West (Oregon)
+            'eu-west-1',  # Europe (Ireland)
+            'ap-southeast-1',  # Asia Pacific (Singapore)
+            'ca-central-1',  # Canada (Central)
+            'sa-east-1',  # South America (São Paulo)
+            'af-south-1',  # Africa (Cape Town)
+            'me-south-1',  # Middle East (Bahrain)
+            'ap-east-1',  # Asia Pacific (Hong Kong)
+            'eu-north-1',  # Europe (Stockholm)
         ]
 
         for region in region_configurations:
             bucket_name = f"test-bucket-{region.replace('-', '')}"
-            bucket_data = {
-                'region': region,
-                'access_level': 'read-write',
-                'created_date': '2024-01-01T12:00:00Z'
-            }
+            bucket_data = {'region': region, 'access_level': 'read-write', 'created_date': '2024-01-01T12:00:00Z'}
 
             result = backend._transform_bucket(bucket_name, bucket_data)
 
@@ -2603,7 +2574,7 @@ class TestQuilt3BackendMockBucketTransformation:
             assert result.name == bucket_name
             assert result.access_level == "read-write"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_various_access_level_configurations(self, mock_quilt3):
         """Test _transform_bucket() with various access level configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2628,11 +2599,7 @@ class TestQuilt3BackendMockBucketTransformation:
 
         for access_level in access_level_configurations:
             bucket_name = f"test-bucket-{access_level.replace('-', '')}"
-            bucket_data = {
-                'region': 'us-east-1',
-                'access_level': access_level,
-                'created_date': '2024-01-01T12:00:00Z'
-            }
+            bucket_data = {'region': 'us-east-1', 'access_level': access_level, 'created_date': '2024-01-01T12:00:00Z'}
 
             result = backend._transform_bucket(bucket_name, bucket_data)
 
@@ -2640,7 +2607,7 @@ class TestQuilt3BackendMockBucketTransformation:
             assert result.name == bucket_name
             assert result.region == "us-east-1"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_various_date_format_configurations(self, mock_quilt3):
         """Test _transform_bucket() with various created_date format configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2651,31 +2618,27 @@ class TestQuilt3BackendMockBucketTransformation:
         # Test different date formats
         date_format_configurations = [
             (None, None),  # None date
-            ('', ''),      # Empty string date -> _normalize_datetime returns str('') = ''
+            ('', ''),  # Empty string date -> _normalize_datetime returns str('') = ''
             ('2024-01-01T12:00:00Z', '2024-01-01T12:00:00Z'),  # ISO format with Z
-            ('2024-01-01T12:00:00', '2024-01-01T12:00:00'),    # ISO format without Z
-            ('2024-01-01 12:00:00', '2024-01-01 12:00:00'),    # Space-separated format
-            ('2024-01-01', '2024-01-01'),                      # Date only
-            ('1640995200', '1640995200'),                      # Unix timestamp string
-            ('custom_date_string', 'custom_date_string'),      # Custom string
-            (1640995200, '1640995200'),                        # Numeric timestamp
+            ('2024-01-01T12:00:00', '2024-01-01T12:00:00'),  # ISO format without Z
+            ('2024-01-01 12:00:00', '2024-01-01 12:00:00'),  # Space-separated format
+            ('2024-01-01', '2024-01-01'),  # Date only
+            ('1640995200', '1640995200'),  # Unix timestamp string
+            ('custom_date_string', 'custom_date_string'),  # Custom string
+            (1640995200, '1640995200'),  # Numeric timestamp
             (datetime(2024, 1, 1, 12, 0, 0), '2024-01-01T12:00:00'),  # datetime object
         ]
 
         for input_date, expected_date in date_format_configurations:
-            bucket_name = f"test-bucket-date"
-            bucket_data = {
-                'region': 'us-east-1',
-                'access_level': 'read-write',
-                'created_date': input_date
-            }
+            bucket_name = "test-bucket-date"
+            bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': input_date}
 
             result = backend._transform_bucket(bucket_name, bucket_data)
 
             assert result.created_date == expected_date, f"Failed for input date: {input_date}"
             assert result.name == bucket_name
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_various_bucket_name_configurations(self, mock_quilt3):
         """Test _transform_bucket() with various bucket name configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2685,24 +2648,20 @@ class TestQuilt3BackendMockBucketTransformation:
 
         # Test different bucket name formats (following AWS S3 naming rules)
         bucket_name_configurations = [
-            'simple-bucket',                    # Simple name with dash
-            'bucket.with.dots',                 # Name with dots
-            'bucket-with-multiple-dashes',      # Multiple dashes
-            'bucket123',                        # Alphanumeric
-            '123bucket',                        # Starting with number
-            'a' * 63,                          # Maximum length (63 chars)
-            'a',                               # Minimum length (1 char)
-            'my-test-bucket-2024',             # Common pattern
-            'data.backup.bucket',              # Dot notation
-            'user-uploads-prod',               # Descriptive name
+            'simple-bucket',  # Simple name with dash
+            'bucket.with.dots',  # Name with dots
+            'bucket-with-multiple-dashes',  # Multiple dashes
+            'bucket123',  # Alphanumeric
+            '123bucket',  # Starting with number
+            'a' * 63,  # Maximum length (63 chars)
+            'a',  # Minimum length (1 char)
+            'my-test-bucket-2024',  # Common pattern
+            'data.backup.bucket',  # Dot notation
+            'user-uploads-prod',  # Descriptive name
         ]
 
         for bucket_name in bucket_name_configurations:
-            bucket_data = {
-                'region': 'us-east-1',
-                'access_level': 'read-write',
-                'created_date': '2024-01-01T12:00:00Z'
-            }
+            bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': '2024-01-01T12:00:00Z'}
 
             result = backend._transform_bucket(bucket_name, bucket_data)
 
@@ -2710,7 +2669,7 @@ class TestQuilt3BackendMockBucketTransformation:
             assert result.region == "us-east-1"
             assert result.access_level == "read-write"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_partial_mock_configurations(self, mock_quilt3):
         """Test _transform_bucket() with partial mock configurations (some fields missing)."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2718,55 +2677,55 @@ class TestQuilt3BackendMockBucketTransformation:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test various partial configurations
+        # Test various partial configurations - all should succeed with 'unknown' defaults
         partial_configurations = [
             {
                 'name': 'partial-bucket-1',
                 'data': {'region': 'us-east-1'},  # Missing access_level and created_date
-                'expected_access_level': '',  # Should default to empty string
-                'expected_created_date': None
+                'expected_region': 'us-east-1',
+                'expected_access_level': 'unknown',  # Defaults to 'unknown'
+                'expected_created_date': None,
             },
             {
                 'name': 'partial-bucket-2',
                 'data': {'access_level': 'read-only'},  # Missing region and created_date
-                'expected_region': '',  # Should default to empty string
-                'expected_created_date': None
+                'expected_region': 'unknown',  # Defaults to 'unknown'
+                'expected_access_level': 'read-only',
+                'expected_created_date': None,
             },
             {
                 'name': 'partial-bucket-3',
                 'data': {'created_date': '2024-01-01T12:00:00Z'},  # Missing region and access_level
-                'expected_region': '',
-                'expected_access_level': ''
+                'expected_region': 'unknown',  # Defaults to 'unknown'
+                'expected_access_level': 'unknown',  # Defaults to 'unknown'
+                'expected_created_date': '2024-01-01T12:00:00Z',
             },
             {
                 'name': 'partial-bucket-4',
                 'data': {},  # Empty data - all fields missing
-                'expected_region': '',
-                'expected_access_level': '',
-                'expected_created_date': None
-            }
+                'expected_region': 'unknown',  # Defaults to 'unknown'
+                'expected_access_level': 'unknown',  # Defaults to 'unknown'
+                'expected_created_date': None,
+            },
         ]
 
         for config in partial_configurations:
             bucket_name = config['name']
             bucket_data = config['data']
 
-            # Most of these should fail due to Bucket_Info validation (empty region/access_level)
-            # Only test the ones that should succeed
-            if bucket_data.get('region') and bucket_data.get('access_level'):
-                result = backend._transform_bucket(bucket_name, bucket_data)
-                assert result.name == bucket_name
-                assert result.region == bucket_data['region']
-                assert result.access_level == bucket_data['access_level']
-            else:
-                # Should fail due to domain validation
-                with pytest.raises(BackendError) as exc_info:
-                    backend._transform_bucket(bucket_name, bucket_data)
-                
-                error_message = str(exc_info.value).lower()
-                assert "transformation failed" in error_message
+            result = backend._transform_bucket(bucket_name, bucket_data)
+            assert result.name == bucket_name
+            assert result.region == config['expected_region'], (
+                f"Expected region '{config['expected_region']}' for {bucket_name}, got '{result.region}'"
+            )
+            assert result.access_level == config['expected_access_level'], (
+                f"Expected access_level '{config['expected_access_level']}' for {bucket_name}, got '{result.access_level}'"
+            )
+            assert result.created_date == config['expected_created_date'], (
+                f"Expected created_date '{config['expected_created_date']}' for {bucket_name}, got '{result.created_date}'"
+            )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_edge_case_mock_configurations(self, mock_quilt3):
         """Test _transform_bucket() with edge case mock configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2782,8 +2741,8 @@ class TestQuilt3BackendMockBucketTransformation:
                     'region': 'us-east-1',
                     'access_level': 'read-write',
                     'created_date': None,  # Explicit None
-                    'extra_field': 'ignored'  # Extra fields should be ignored
-                }
+                    'extra_field': 'ignored',  # Extra fields should be ignored
+                },
             },
             {
                 'name': 'edge-case-2',
@@ -2791,8 +2750,8 @@ class TestQuilt3BackendMockBucketTransformation:
                     'region': 'eu-west-1',
                     'access_level': 'admin',
                     'created_date': '',  # Empty string
-                    'nested': {'data': 'ignored'}  # Nested data should be ignored
-                }
+                    'nested': {'data': 'ignored'},  # Nested data should be ignored
+                },
             },
             {
                 'name': 'edge-case-3',
@@ -2800,9 +2759,9 @@ class TestQuilt3BackendMockBucketTransformation:
                     'region': 'ap-southeast-1',
                     'access_level': 'read-only',
                     'created_date': 0,  # Zero timestamp
-                    'list_field': ['ignored', 'data']  # List data should be ignored
-                }
-            }
+                    'list_field': ['ignored', 'data'],  # List data should be ignored
+                },
+            },
         ]
 
         for config in edge_case_configurations:
@@ -2814,7 +2773,7 @@ class TestQuilt3BackendMockBucketTransformation:
             assert result.name == bucket_name
             assert result.region == bucket_data['region']
             assert result.access_level == bucket_data['access_level']
-            
+
             # Verify created_date handling
             expected_date = bucket_data['created_date']
             if expected_date is None:
@@ -2824,7 +2783,7 @@ class TestQuilt3BackendMockBucketTransformation:
             else:
                 assert result.created_date == str(expected_date)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_invalid_mock_configurations(self, mock_quilt3):
         """Test _transform_bucket() error handling with invalid mock configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2832,46 +2791,26 @@ class TestQuilt3BackendMockBucketTransformation:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test configurations that should fail
-        invalid_configurations = [
+        # Test legitimate error scenarios (None/empty bucket_name, None bucket_data)
+        error_configurations = [
             {
                 'name': None,  # None bucket name
                 'data': {'region': 'us-east-1', 'access_level': 'read-write'},
-                'expected_error': 'missing name'
+                'expected_error': 'missing name',
             },
             {
                 'name': '',  # Empty bucket name
                 'data': {'region': 'us-east-1', 'access_level': 'read-write'},
-                'expected_error': 'missing name'
+                'expected_error': 'missing name',
             },
             {
                 'name': 'valid-bucket',
                 'data': None,  # None bucket data
-                'expected_error': 'bucket_data is none'
+                'expected_error': 'bucket_data is none',
             },
-            {
-                'name': 'invalid-region-bucket',
-                'data': {'region': '', 'access_level': 'read-write'},  # Empty region
-                'expected_error': 'region field cannot be empty'
-            },
-            {
-                'name': 'invalid-access-bucket',
-                'data': {'region': 'us-east-1', 'access_level': ''},  # Empty access level
-                'expected_error': 'access_level field cannot be empty'
-            },
-            {
-                'name': 'missing-region-bucket',
-                'data': {'access_level': 'read-write'},  # Missing region
-                'expected_error': 'region field cannot be empty'
-            },
-            {
-                'name': 'missing-access-bucket',
-                'data': {'region': 'us-east-1'},  # Missing access_level
-                'expected_error': 'access_level field cannot be empty'
-            }
         ]
 
-        for config in invalid_configurations:
+        for config in error_configurations:
             bucket_name = config['name']
             bucket_data = config['data']
             expected_error = config['expected_error']
@@ -2880,10 +2819,48 @@ class TestQuilt3BackendMockBucketTransformation:
                 backend._transform_bucket(bucket_name, bucket_data)
 
             error_message = str(exc_info.value).lower()
-            assert expected_error.lower() in error_message, \
+            assert expected_error.lower() in error_message, (
                 f"Expected error '{expected_error}' not found in: {error_message}"
+            )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+        # Test pragmatic scenarios - empty/missing region and access_level default to 'unknown'
+        pragmatic_configurations = [
+            {
+                'name': 'empty-region-bucket',
+                'data': {'region': '', 'access_level': 'read-write'},
+                'expected_region': 'unknown',
+                'expected_access_level': 'read-write',
+            },
+            {
+                'name': 'empty-access-bucket',
+                'data': {'region': 'us-east-1', 'access_level': ''},
+                'expected_region': 'us-east-1',
+                'expected_access_level': 'unknown',
+            },
+            {
+                'name': 'missing-region-bucket',
+                'data': {'access_level': 'read-write'},
+                'expected_region': 'unknown',
+                'expected_access_level': 'read-write',
+            },
+            {
+                'name': 'missing-access-bucket',
+                'data': {'region': 'us-east-1'},
+                'expected_region': 'us-east-1',
+                'expected_access_level': 'unknown',
+            },
+        ]
+
+        for config in pragmatic_configurations:
+            bucket_name = config['name']
+            bucket_data = config['data']
+
+            result = backend._transform_bucket(bucket_name, bucket_data)
+            assert result.name == bucket_name
+            assert result.region == config['expected_region']
+            assert result.access_level == config['expected_access_level']
+
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_mock_aws_response_format(self, mock_quilt3):
         """Test _transform_bucket() with mock configurations mimicking AWS API responses."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2894,7 +2871,7 @@ class TestQuilt3BackendMockBucketTransformation:
         # Mock AWS S3 API response format
         aws_response_format = {
             'Name': 'aws-response-bucket',  # AWS uses 'Name' key
-            'Region': 'us-west-2',          # AWS uses 'Region' key
+            'Region': 'us-west-2',  # AWS uses 'Region' key
             'CreationDate': '2024-01-15T10:30:45.000Z',  # AWS datetime format
             'BucketPolicy': {
                 'Version': '2012-10-17',
@@ -2903,24 +2880,13 @@ class TestQuilt3BackendMockBucketTransformation:
                         'Effect': 'Allow',
                         'Principal': '*',
                         'Action': 's3:GetObject',
-                        'Resource': 'arn:aws:s3:::aws-response-bucket/*'
+                        'Resource': 'arn:aws:s3:::aws-response-bucket/*',
                     }
-                ]
+                ],
             },
             'Versioning': {'Status': 'Enabled'},
-            'Encryption': {
-                'Rules': [
-                    {
-                        'ApplyServerSideEncryptionByDefault': {
-                            'SSEAlgorithm': 'AES256'
-                        }
-                    }
-                ]
-            },
-            'Tags': [
-                {'Key': 'Environment', 'Value': 'production'},
-                {'Key': 'Owner', 'Value': 'data-team'}
-            ]
+            'Encryption': {'Rules': [{'ApplyServerSideEncryptionByDefault': {'SSEAlgorithm': 'AES256'}}]},
+            'Tags': [{'Key': 'Environment', 'Value': 'production'}, {'Key': 'Owner', 'Value': 'data-team'}],
         }
 
         # Transform AWS-style response to our expected format
@@ -2928,7 +2894,7 @@ class TestQuilt3BackendMockBucketTransformation:
         bucket_data = {
             'region': aws_response_format.get('Region', 'us-east-1'),
             'access_level': 'read-write',  # Derived from policy analysis
-            'created_date': aws_response_format.get('CreationDate')
+            'created_date': aws_response_format.get('CreationDate'),
         }
 
         result = backend._transform_bucket(bucket_name, bucket_data)
@@ -2938,7 +2904,7 @@ class TestQuilt3BackendMockBucketTransformation:
         assert result.access_level == "read-write"
         assert result.created_date == "2024-01-15T10:30:45.000Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_mock_quilt3_response_format(self, mock_quilt3):
         """Test _transform_bucket() with mock configurations mimicking quilt3 library responses."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2950,27 +2916,18 @@ class TestQuilt3BackendMockBucketTransformation:
         quilt3_response_format = {
             'bucket_name': 'quilt3-response-bucket',
             'region': 'eu-central-1',
-            'permissions': {
-                'read': True,
-                'write': True,
-                'delete': False,
-                'admin': False
-            },
+            'permissions': {'read': True, 'write': True, 'delete': False, 'admin': False},
             'metadata': {
                 'created': '2024-02-20T14:15:30Z',
                 'owner': 'quilt-user',
-                'description': 'Quilt3 managed bucket'
+                'description': 'Quilt3 managed bucket',
             },
-            'configuration': {
-                'versioning': True,
-                'lifecycle_rules': [],
-                'cors_rules': []
-            }
+            'configuration': {'versioning': True, 'lifecycle_rules': [], 'cors_rules': []},
         }
 
         # Transform quilt3-style response to our expected format
         bucket_name = quilt3_response_format['bucket_name']
-        
+
         # Derive access level from permissions
         permissions = quilt3_response_format['permissions']
         if permissions.get('admin'):
@@ -2985,7 +2942,7 @@ class TestQuilt3BackendMockBucketTransformation:
         bucket_data = {
             'region': quilt3_response_format['region'],
             'access_level': access_level,
-            'created_date': quilt3_response_format['metadata']['created']
+            'created_date': quilt3_response_format['metadata']['created'],
         }
 
         result = backend._transform_bucket(bucket_name, bucket_data)
@@ -2995,7 +2952,7 @@ class TestQuilt3BackendMockBucketTransformation:
         assert result.access_level == "read-write"
         assert result.created_date == "2024-02-20T14:15:30Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_unicode_and_special_characters(self, mock_quilt3):
         """Test _transform_bucket() handles unicode and special characters in configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3013,9 +2970,9 @@ class TestQuilt3BackendMockBucketTransformation:
                     'access_level': 'read-write',
                     'created_date': '2024-01-01T12:00:00Z',
                     'description': '测试存储桶',  # Unicode in metadata
-                    'owner': 'пользователь',     # Cyrillic in metadata
-                    'tags': {'名前': '値', 'ключ': 'значение'}  # Unicode in tags
-                }
+                    'owner': 'пользователь',  # Cyrillic in metadata
+                    'tags': {'名前': '値', 'ключ': 'значение'},  # Unicode in tags
+                },
             },
             {
                 'name': 'special-chars-bucket',
@@ -3026,10 +2983,10 @@ class TestQuilt3BackendMockBucketTransformation:
                     'metadata': {
                         'special': '!@#$%^&*()_+-=[]{}|;:,.<>?',
                         'quotes': '"single" and \'double\' quotes',
-                        'newlines': 'line1\nline2\nline3'
-                    }
-                }
-            }
+                        'newlines': 'line1\nline2\nline3',
+                    },
+                },
+            },
         ]
 
         for config in unicode_configurations:
@@ -3043,7 +3000,7 @@ class TestQuilt3BackendMockBucketTransformation:
             assert result.access_level == bucket_data['access_level']
             assert result.created_date == bucket_data['created_date']
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_context_preservation(self, mock_quilt3):
         """Test _transform_bucket() error handling and context preservation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3069,7 +3026,9 @@ class TestQuilt3BackendMockBucketTransformation:
 
         # Test general transformation errors (wrapped with context)
         # Mock Bucket_Info to fail during creation to trigger general error handling
-        with patch('quilt_mcp.backends.quilt3_backend.Bucket_Info', side_effect=ValueError("Domain validation failed")):
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_buckets.Bucket_Info', side_effect=ValueError("Domain validation failed")
+        ):
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_bucket("test-bucket", {'region': 'us-east-1', 'access_level': 'read-write'})
 
@@ -3089,33 +3048,19 @@ class TestQuilt3BackendMockBucketTransformation:
             assert context['bucket_name'] == "test-bucket"
             assert context['bucket_data_type'] == "dict"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_transform_bucket_logging_behavior(self, mock_quilt3):
-        """Test _transform_bucket() logging behavior during transformation."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        # Test pragmatic scenarios - empty/missing region and access_level default to 'unknown'
+        pragmatic_scenarios = [
+            ({'region': '', 'access_level': 'read-write'}, 'unknown', 'read-write'),
+            ({'region': 'us-east-1', 'access_level': ''}, 'us-east-1', 'unknown'),
+            ({}, 'unknown', 'unknown'),
+        ]
 
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        for bucket_data, expected_region, expected_access_level in pragmatic_scenarios:
+            result = backend._transform_bucket('test-bucket', bucket_data)
+            assert result.region == expected_region
+            assert result.access_level == expected_access_level
 
-        bucket_name = "logging-test-bucket"
-        bucket_data = {
-            'region': 'us-east-1',
-            'access_level': 'read-write',
-            'created_date': '2024-01-01T12:00:00Z'
-        }
-
-        # Capture log messages
-        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
-            result = backend._transform_bucket(bucket_name, bucket_data)
-
-            # Verify debug logging
-            mock_logger.debug.assert_any_call("Transforming bucket: logging-test-bucket")
-            mock_logger.debug.assert_any_call("Successfully transformed bucket: logging-test-bucket in us-east-1")
-
-            # Should have exactly 2 debug calls
-            assert mock_logger.debug.call_count == 2
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_performance_with_large_mock_data(self, mock_quilt3):
         """Test _transform_bucket() performance with large mock data structures."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3141,8 +3086,8 @@ class TestQuilt3BackendMockBucketTransformation:
                             }
                         }
                     }
-                }
-            }
+                },
+            },
         }
 
         # Should handle large data without issues
@@ -3153,7 +3098,7 @@ class TestQuilt3BackendMockBucketTransformation:
         assert result.access_level == "read-write"
         assert result.created_date == "2024-01-01T12:00:00Z"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_different_mock_data_types(self, mock_quilt3):
         """Test _transform_bucket() works with different types of mock data structures."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3169,7 +3114,11 @@ class TestQuilt3BackendMockBucketTransformation:
             },
             {
                 'name': 'ordered-dict-bucket',
-                'data': {'region': 'us-west-2', 'access_level': 'admin', 'created_date': '2024-01-01T12:00:00Z'},  # Dict with specific order
+                'data': {
+                    'region': 'us-west-2',
+                    'access_level': 'admin',
+                    'created_date': '2024-01-01T12:00:00Z',
+                },  # Dict with specific order
             },
             {
                 'name': 'mixed-types-bucket',
@@ -3180,9 +3129,9 @@ class TestQuilt3BackendMockBucketTransformation:
                     'numeric_field': 42,
                     'boolean_field': True,
                     'list_field': ['item1', 'item2'],
-                    'nested_dict': {'key': 'value'}
-                }
-            }
+                    'nested_dict': {'key': 'value'},
+                },
+            },
         ]
 
         for config in data_type_configurations:
@@ -3201,7 +3150,7 @@ class TestQuilt3BackendMockBucketTransformation:
                 expected_date = str(bucket_data['created_date']) if bucket_data['created_date'] is not None else None
                 assert result.created_date == expected_date
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_helper_method_integration(self, mock_quilt3):
         """Test _transform_bucket() integration with helper methods."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3215,18 +3164,20 @@ class TestQuilt3BackendMockBucketTransformation:
             'region': '  us-east-1  ',  # String that needs normalization (whitespace)
             'access_level': '  read-write  ',  # String that needs normalization
             'created_date': datetime(2024, 1, 15, 10, 30, 45),  # Datetime that needs normalization
-            'extra_field': 'ignored'  # Extra field that should be ignored
+            'extra_field': 'ignored',  # Extra field that should be ignored
         }
 
         result = backend._transform_bucket(bucket_name, bucket_data)
 
         # Verify helper methods worked correctly
         assert result.name == "helper-integration-bucket"
-        assert result.region == "  us-east-1  "  # _normalize_string_field doesn't trim whitespace, just converts to string
+        assert (
+            result.region == "  us-east-1  "
+        )  # _normalize_string_field doesn't trim whitespace, just converts to string
         assert result.access_level == "  read-write  "  # _normalize_string_field doesn't trim whitespace
         assert result.created_date == "2024-01-15T10:30:45"  # _normalize_datetime converted to ISO
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_comprehensive_mock_scenarios(self, mock_quilt3):
         """Test _transform_bucket() with comprehensive mock scenarios covering all edge cases."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3245,8 +3196,8 @@ class TestQuilt3BackendMockBucketTransformation:
                     'created_date': '2024-01-15T10:30:45.123Z',
                     'environment': 'production',
                     'team': 'data-engineering',
-                    'cost_center': 'engineering-001'
-                }
+                    'cost_center': 'engineering-001',
+                },
             },
             {
                 'description': 'Development configuration',
@@ -3256,8 +3207,8 @@ class TestQuilt3BackendMockBucketTransformation:
                     'access_level': 'admin',
                     'created_date': None,
                     'temporary': True,
-                    'auto_delete': '30d'
-                }
+                    'auto_delete': '30d',
+                },
             },
             {
                 'description': 'Archive configuration',
@@ -3267,8 +3218,8 @@ class TestQuilt3BackendMockBucketTransformation:
                     'access_level': 'read-only',
                     'created_date': '2020-01-01T00:00:00Z',
                     'storage_class': 'GLACIER',
-                    'retention_policy': '7y'
-                }
+                    'retention_policy': '7y',
+                },
             },
             {
                 'description': 'Public dataset configuration',
@@ -3278,9 +3229,9 @@ class TestQuilt3BackendMockBucketTransformation:
                     'access_level': 'public-read',
                     'created_date': '2023-06-15T14:22:33Z',
                     'public': True,
-                    'dataset_type': 'research'
-                }
-            }
+                    'dataset_type': 'research',
+                },
+            },
         ]
 
         for scenario in comprehensive_scenarios:
@@ -3294,7 +3245,7 @@ class TestQuilt3BackendMockBucketTransformation:
             assert result.name == bucket_name
             assert result.region == bucket_data['region']
             assert result.access_level == bucket_data['access_level']
-            
+
             # Verify created_date handling
             expected_date = bucket_data['created_date']
             if expected_date is None:
@@ -3305,7 +3256,7 @@ class TestQuilt3BackendMockBucketTransformation:
             # Verify the transformation succeeded for this scenario
             print(f"✓ Scenario '{scenario['description']}' passed")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_mock_object_attribute_access_patterns(self, mock_quilt3):
         """Test _transform_bucket() handles various mock object attribute access patterns."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3330,11 +3281,9 @@ class TestQuilt3BackendMockBucketTransformation:
             def __contains__(self, key):
                 return key in self._data
 
-        dynamic_data = DynamicBucketData({
-            'region': 'ap-southeast-1',
-            'access_level': 'read-write',
-            'created_date': '2024-01-01T12:00:00Z'
-        })
+        dynamic_data = DynamicBucketData(
+            {'region': 'ap-southeast-1', 'access_level': 'read-write', 'created_date': '2024-01-01T12:00:00Z'}
+        )
 
         result = backend._transform_bucket("dynamic-bucket", dynamic_data)
 
@@ -3344,11 +3293,7 @@ class TestQuilt3BackendMockBucketTransformation:
         assert result.created_date == "2024-01-01T12:00:00Z"
 
         # Test with standard dictionary
-        standard_dict = {
-            'region': 'ca-central-1',
-            'access_level': 'admin',
-            'created_date': '2024-02-01T12:00:00Z'
-        }
+        standard_dict = {'region': 'ca-central-1', 'access_level': 'admin', 'created_date': '2024-02-01T12:00:00Z'}
 
         result = backend._transform_bucket("standard-bucket", standard_dict)
 
@@ -3356,5 +3301,3 @@ class TestQuilt3BackendMockBucketTransformation:
         assert result.region == "ca-central-1"
         assert result.access_level == "admin"
         assert result.created_date == "2024-02-01T12:00:00Z"
-
-

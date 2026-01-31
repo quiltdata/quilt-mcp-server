@@ -88,7 +88,7 @@ class QuiltOpsFactory:
             session_info = quilt3.session.get_session_info()
             if session_info:
                 logger.debug("Found valid quilt3 session")
-                return session_info
+                return session_info  # type: ignore[no-any-return]
             else:
                 logger.debug("No quilt3 session found")
                 return None

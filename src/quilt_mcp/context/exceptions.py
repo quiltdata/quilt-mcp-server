@@ -9,8 +9,7 @@ class ContextNotAvailableError(RuntimeError):
     def __init__(self, message: str | None = None) -> None:
         if message is None:
             message = (
-                "Request context is not available. Ensure you are calling this "
-                "inside an active MCP request handler."
+                "Request context is not available. Ensure you are calling this inside an active MCP request handler."
             )
         super().__init__(message)
 
@@ -31,15 +30,9 @@ class TenantValidationError(ValueError):
     def __init__(self, mode: str, message: str | None = None) -> None:
         if message is None:
             if mode == "single-user":
-                message = (
-                    "Tenant validation failed for single-user mode. "
-                    "Tenant information must not be provided."
-                )
+                message = "Tenant validation failed for single-user mode. Tenant information must not be provided."
             elif mode == "multitenant":
-                message = (
-                    "Tenant validation failed for multitenant mode. "
-                    "Tenant information is required."
-                )
+                message = "Tenant validation failed for multitenant mode. Tenant information is required."
             else:
                 message = (
                     f"Tenant validation failed for {mode} mode. "

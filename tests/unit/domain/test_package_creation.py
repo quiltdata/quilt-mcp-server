@@ -16,9 +16,9 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url="https://test.quiltdata.com/b/test-registry-bucket/packages/user/test-package",
             file_count=5,
-            success=True
+            success=True,
         )
-        
+
         assert result.package_name == "user/test-package"
         assert result.top_hash == "abc123def456"
         assert result.registry == "s3://test-registry-bucket"
@@ -34,9 +34,9 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url=None,
             file_count=3,
-            success=True
+            success=True,
         )
-        
+
         assert result.catalog_url is None
         assert result.package_name == "user/test-package"
         assert result.success is True
@@ -49,9 +49,9 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url=None,
             file_count=0,
-            success=False
+            success=False,
         )
-        
+
         assert result.success is False
         assert result.top_hash == ""
         assert result.file_count == 0
@@ -66,7 +66,7 @@ class TestPackageCreationResult:
                 registry="s3://test-registry-bucket",
                 catalog_url=None,
                 file_count=5,
-                success=True
+                success=True,
             )
 
     def test_package_creation_result_validation_invalid_package_name_format(self):
@@ -78,7 +78,7 @@ class TestPackageCreationResult:
                 registry="s3://test-registry-bucket",
                 catalog_url=None,
                 file_count=5,
-                success=True
+                success=True,
             )
 
     def test_package_creation_result_validation_empty_registry(self):
@@ -90,7 +90,7 @@ class TestPackageCreationResult:
                 registry="",
                 catalog_url=None,
                 file_count=5,
-                success=True
+                success=True,
             )
 
     def test_package_creation_result_validation_invalid_registry_format(self):
@@ -102,7 +102,7 @@ class TestPackageCreationResult:
                 registry="invalid-registry",
                 catalog_url=None,
                 file_count=5,
-                success=True
+                success=True,
             )
 
     def test_package_creation_result_validation_negative_file_count(self):
@@ -114,7 +114,7 @@ class TestPackageCreationResult:
                 registry="s3://test-registry-bucket",
                 catalog_url=None,
                 file_count=-1,
-                success=True
+                success=True,
             )
 
     def test_package_creation_result_validation_success_true_requires_top_hash(self):
@@ -126,7 +126,7 @@ class TestPackageCreationResult:
                 registry="s3://test-registry-bucket",
                 catalog_url=None,
                 file_count=5,
-                success=True
+                success=True,
             )
 
     def test_package_creation_result_validation_success_true_requires_positive_file_count(self):
@@ -138,7 +138,7 @@ class TestPackageCreationResult:
                 registry="s3://test-registry-bucket",
                 catalog_url=None,
                 file_count=0,
-                success=True
+                success=True,
             )
 
     def test_package_creation_result_immutable(self):
@@ -149,9 +149,9 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url=None,
             file_count=5,
-            success=True
+            success=True,
         )
-        
+
         with pytest.raises(FrozenInstanceError):
             result.package_name = "user/other-package"
 
@@ -163,27 +163,27 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url="https://test.quiltdata.com/b/test-registry-bucket/packages/user/test-package",
             file_count=5,
-            success=True
+            success=True,
         )
-        
+
         result2 = Package_Creation_Result(
             package_name="user/test-package",
             top_hash="abc123def456",
             registry="s3://test-registry-bucket",
             catalog_url="https://test.quiltdata.com/b/test-registry-bucket/packages/user/test-package",
             file_count=5,
-            success=True
+            success=True,
         )
-        
+
         result3 = Package_Creation_Result(
             package_name="user/different-package",
             top_hash="abc123def456",
             registry="s3://test-registry-bucket",
             catalog_url=None,
             file_count=5,
-            success=True
+            success=True,
         )
-        
+
         assert result1 == result2
         assert result1 != result3
 
@@ -195,9 +195,9 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url="https://test.quiltdata.com/b/test-registry-bucket/packages/user/test-package",
             file_count=5,
-            success=True
+            success=True,
         )
-        
+
         str_repr = str(result)
         assert "user/test-package" in str_repr
         assert "abc123def456" in str_repr
@@ -208,9 +208,9 @@ class TestPackageCreationResult:
         valid_urls = [
             "https://example.quiltdata.com/b/bucket/packages/user/package",
             "https://catalog.example.com/b/my-bucket/packages/org/dataset",
-            None  # None should be allowed
+            None,  # None should be allowed
         ]
-        
+
         for url in valid_urls:
             result = Package_Creation_Result(
                 package_name="user/test-package",
@@ -218,7 +218,7 @@ class TestPackageCreationResult:
                 registry="s3://test-registry-bucket",
                 catalog_url=url,
                 file_count=5,
-                success=True
+                success=True,
             )
             assert result.catalog_url == url
 
@@ -232,10 +232,10 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url=None,
             file_count=1,
-            success=True
+            success=True,
         )
         assert result.package_name == long_name
-        
+
         # Test with very long top_hash
         long_hash = "a" * 64  # SHA-256 length
         result = Package_Creation_Result(
@@ -244,10 +244,10 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url=None,
             file_count=1,
-            success=True
+            success=True,
         )
         assert result.top_hash == long_hash
-        
+
         # Test with large file count
         result = Package_Creation_Result(
             package_name="user/test-package",
@@ -255,6 +255,6 @@ class TestPackageCreationResult:
             registry="s3://test-registry-bucket",
             catalog_url=None,
             file_count=10000,
-            success=True
+            success=True,
         )
         assert result.file_count == 10000

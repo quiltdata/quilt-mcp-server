@@ -30,16 +30,16 @@ class TestPackagesListQuiltOpsMigration:
                 modified_date="2024-01-15T10:30:00Z",
                 registry="s3://test-bucket",
                 bucket="test-bucket",
-                top_hash="abc123"
+                top_hash="abc123",
             ),
             Package_Info(
-                name="test/package2", 
+                name="test/package2",
                 description="Test package 2",
                 tags=["test", "analysis"],
                 modified_date="2024-01-16T11:45:00Z",
                 registry="s3://test-bucket",
                 bucket="test-bucket",
-                top_hash="def456"
+                top_hash="def456",
             ),
             Package_Info(
                 name="demo/package3",
@@ -48,8 +48,8 @@ class TestPackagesListQuiltOpsMigration:
                 modified_date="2024-01-17T09:15:00Z",
                 registry="s3://test-bucket",
                 bucket="test-bucket",
-                top_hash="ghi789"
-            )
+                top_hash="ghi789",
+            ),
         ]
 
     def test_packages_list_uses_quilt_ops_search_packages(self, mock_quilt_ops, sample_package_info_list):
@@ -59,7 +59,7 @@ class TestPackagesListQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
+
             # Call the function
             result = packages_list(registry="s3://test-bucket", limit=10)
 
@@ -67,7 +67,7 @@ class TestPackagesListQuiltOpsMigration:
         mock_factory.create.assert_called_once()
         mock_quilt_ops.search_packages.assert_called_once_with(
             query="",  # Empty query for listing all packages
-            registry="s3://test-bucket"
+            registry="s3://test-bucket",
         )
 
         # Verify response format compatibility
@@ -84,15 +84,12 @@ class TestPackagesListQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
+
             # Call with prefix filter
             result = packages_list(registry="s3://test-bucket", prefix="test", limit=10)
 
         # Verify QuiltOps was called
-        mock_quilt_ops.search_packages.assert_called_once_with(
-            query="",
-            registry="s3://test-bucket"
-        )
+        mock_quilt_ops.search_packages.assert_called_once_with(query="", registry="s3://test-bucket")
 
         # Verify prefix filtering is applied to results
         assert hasattr(result, 'packages')
@@ -111,14 +108,14 @@ class TestPackagesListQuiltOpsMigration:
                 modified_date="2024-01-01T00:00:00Z",
                 registry="s3://bucket",
                 bucket="bucket",
-                top_hash="hash123"
+                top_hash="hash123",
             )
         ]
         mock_quilt_ops.search_packages.return_value = package_infos
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
+
             result = packages_list(registry="s3://bucket")
 
         # Verify transformation to package names
@@ -131,7 +128,7 @@ class TestPackagesListQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
+
             result = packages_list(registry="s3://test-bucket")
 
         # Verify error response format is maintained
@@ -144,7 +141,7 @@ class TestPackagesListQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
+
             result = packages_list(registry="s3://test-bucket", limit=5, prefix="test")
 
         # Verify all expected response fields are present
@@ -173,26 +170,12 @@ class TestPackageBrowseQuiltOpsMigration:
         """Sample Content_Info objects for testing."""
         return [
             Content_Info(
-                path="file1.txt",
-                size=100,
-                type="file",
-                modified_date="2024-01-15T10:30:00Z",
-                download_url=None
+                path="file1.txt", size=100, type="file", modified_date="2024-01-15T10:30:00Z", download_url=None
             ),
+            Content_Info(path="data/", size=None, type="directory", modified_date=None, download_url=None),
             Content_Info(
-                path="data/",
-                size=None,
-                type="directory",
-                modified_date=None,
-                download_url=None
+                path="data/file2.csv", size=250, type="file", modified_date="2024-01-16T11:45:00Z", download_url=None
             ),
-            Content_Info(
-                path="data/file2.csv",
-                size=250,
-                type="file", 
-                modified_date="2024-01-16T11:45:00Z",
-                download_url=None
-            )
         ]
 
     def test_package_browse_uses_quilt_ops_browse_content(self, mock_quilt_ops, sample_content_info_list):
@@ -202,19 +185,16 @@ class TestPackageBrowseQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
+
             # Call the function
-            result = package_browse(
-                package_name="test/package1",
-                registry="s3://test-bucket"
-            )
+            result = package_browse(package_name="test/package1", registry="s3://test-bucket")
 
         # Verify QuiltOps was used correctly
         mock_factory.create.assert_called_once()
         mock_quilt_ops.browse_content.assert_called_once_with(
             "test/package1",  # positional argument
             registry="s3://test-bucket",
-            path=""
+            path="",
         )
 
         # Verify response format compatibility
@@ -227,19 +207,15 @@ class TestPackageBrowseQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
+
             result = package_browse(
                 package_name="test/package1",
                 registry="s3://test-bucket",
-                recursive=False  # Use actual parameter
+                recursive=False,  # Use actual parameter
             )
 
         # Verify QuiltOps was called (path is always "" for now)
-        mock_quilt_ops.browse_content.assert_called_once_with(
-            "test/package1",
-            registry="s3://test-bucket", 
-            path=""
-        )
+        mock_quilt_ops.browse_content.assert_called_once_with("test/package1", registry="s3://test-bucket", path="")
 
     def test_package_browse_transforms_content_info_to_entries(self, mock_quilt_ops, sample_content_info_list):
         """Test that Content_Info objects are transformed to entry format."""
@@ -247,20 +223,17 @@ class TestPackageBrowseQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
-            result = package_browse(
-                package_name="test/package1",
-                registry="s3://test-bucket"
-            )
+
+            result = package_browse(package_name="test/package1", registry="s3://test-bucket")
 
         # Verify transformation to entry format
         assert len(result.entries) == 3
-        
+
         # Check first entry (file) - entries use logical_key not path
         entry1 = result.entries[0]
         assert entry1['logical_key'] == "file1.txt"
         assert entry1['size'] == 100
-        
+
         # Check second entry (directory)
         entry2 = result.entries[1]
         assert entry2['logical_key'] == "data/"
@@ -273,11 +246,8 @@ class TestPackageBrowseQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
-            result = package_browse(
-                package_name="nonexistent/package",
-                registry="s3://test-bucket"
-            )
+
+            result = package_browse(package_name="nonexistent/package", registry="s3://test-bucket")
 
         # Verify error response format is maintained - check the cause field
         assert hasattr(result, 'error')
@@ -290,12 +260,8 @@ class TestPackageBrowseQuiltOpsMigration:
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
-            
-            result = package_browse(
-                package_name="test/package1",
-                registry="s3://test-bucket",
-                recursive=False
-            )
+
+            result = package_browse(package_name="test/package1", registry="s3://test-bucket", recursive=False)
 
         # Verify all expected response fields are present
         assert hasattr(result, 'entries')
@@ -323,12 +289,12 @@ class TestDataclassCompatibility:
             modified_date="2024-01-01T00:00:00Z",
             registry="s3://bucket",
             bucket="bucket",
-            top_hash="hash123"
+            top_hash="hash123",
         )
 
         # Should not raise exception
         result = asdict(package_info)
-        
+
         # Verify all fields are present
         assert result['name'] == "test/package"
         assert result['description'] == "Test package"
@@ -345,12 +311,12 @@ class TestDataclassCompatibility:
             size=100,
             type="file",
             modified_date="2024-01-01T00:00:00Z",
-            download_url="https://example.com/file.txt"
+            download_url="https://example.com/file.txt",
         )
 
         # Should not raise exception
         result = asdict(content_info)
-        
+
         # Verify all fields are present
         assert result['path'] == "file.txt"
         assert result['size'] == 100

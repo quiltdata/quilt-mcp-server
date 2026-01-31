@@ -39,7 +39,7 @@ def wrap_tool_with_context(func: Callable[..., Any], factory: RequestContextFact
             finally:
                 reset_current_context(token)
 
-        _async_wrapper.__signature__ = inspect.signature(func)
+        _async_wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
         return _async_wrapper
 
     @wraps(func)
@@ -51,5 +51,5 @@ def wrap_tool_with_context(func: Callable[..., Any], factory: RequestContextFact
         finally:
             reset_current_context(token)
 
-    _wrapper.__signature__ = inspect.signature(func)
+    _wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
     return _wrapper

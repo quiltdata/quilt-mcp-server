@@ -30,9 +30,7 @@ def test_request_context_stores_fields():
         ("req-1", "tenant-a", None, "auth_service"),
     ],
 )
-def test_request_context_requires_required_fields(
-    request_id, tenant_id, auth_service, expected_message
-):
+def test_request_context_requires_required_fields(request_id, tenant_id, auth_service, expected_message):
     with pytest.raises(TypeError) as excinfo:
         RequestContext(
             request_id=request_id,
@@ -209,9 +207,7 @@ def test_request_context_workflow_helpers_delegate():
         (object(), None, "workflow_service"),
     ],
 )
-def test_request_context_rejects_missing_services(
-    permission_service, workflow_service, expected_message
-):
+def test_request_context_rejects_missing_services(permission_service, workflow_service, expected_message):
     with pytest.raises(TypeError) as excinfo:
         RequestContext(
             request_id="req-4",

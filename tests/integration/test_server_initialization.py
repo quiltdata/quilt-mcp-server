@@ -1,9 +1,12 @@
 """Integration tests for MCP server initialization with QuiltOps."""
 
+import logging
 import pytest
 from unittest.mock import patch, MagicMock
 import os
 import sys
+
+logger = logging.getLogger(__name__)
 
 from quilt_mcp.utils import create_configured_server
 from quilt_mcp.ops.factory import QuiltOpsFactory
@@ -18,7 +21,7 @@ class TestMCPServerInitialization:
         """Test that MCP server initializes successfully with valid quilt3 session."""
         # Mock a valid quilt3 session
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
@@ -46,14 +49,14 @@ class TestMCPServerInitialization:
     def test_quilt_ops_factory_integration_in_server(self):
         """Test that QuiltOpsFactory is properly integrated into the server."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     # Test that QuiltOpsFactory can create instances
                     quilt_ops = QuiltOpsFactory.create()
                     assert quilt_ops is not None
-                    
+
                     # Test that server can be created
                     server = create_configured_server(verbose=False)
                     assert server is not None
@@ -65,19 +68,19 @@ class TestMCPServerInitialization:
             # QuiltOpsFactory should raise AuthenticationError
             with pytest.raises(AuthenticationError) as exc_info:
                 QuiltOpsFactory.create()
-            
+
             assert "No valid authentication found" in str(exc_info.value)
             assert "quilt3 login" in str(exc_info.value)
 
     def test_server_initialization_without_quilt_service_references(self):
         """Test that server initialization doesn't reference QuiltService."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     server = create_configured_server(verbose=False)
-                    
+
                     # Check that server doesn't have any QuiltService references
                     # This is a basic check - more thorough checks will be in unit tests
                     server_str = str(server)
@@ -87,13 +90,13 @@ class TestMCPServerInitialization:
     def test_server_initialization_verbose_output(self, mock_stderr):
         """Test that server initialization produces expected verbose output."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     server = create_configured_server(verbose=True)
                     assert server is not None
-                    
+
                     # Check that verbose output was produced (calls to print with file=sys.stderr)
                     assert mock_stderr.write.called or any(
                         'Registered tool:' in str(call) for call in mock_stderr.write.call_args_list
@@ -102,12 +105,12 @@ class TestMCPServerInitialization:
     def test_server_initialization_with_environment_variables(self):
         """Test server initialization respects environment variables."""
         mock_session = MagicMock()
-        
+
         # Test with different transport settings
         original_transport = os.environ.get('FASTMCP_TRANSPORT')
         try:
             os.environ['FASTMCP_TRANSPORT'] = 'stdio'
-            
+
             with patch('quilt3.logged_in', return_value=True):
                 with patch('quilt3.session.get_session', return_value=mock_session):
                     with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
@@ -128,14 +131,15 @@ class TestQuiltOpsFactoryIntegration:
     def test_factory_creates_quilt3_backend_with_valid_session(self):
         """Test that factory creates Quilt3_Backend with valid session."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     quilt_ops = QuiltOpsFactory.create()
-                    
+
                     # Should be a Quilt3_Backend instance
                     from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
                     assert isinstance(quilt_ops, Quilt3_Backend)
 
     def test_factory_error_message_quality(self):
@@ -143,7 +147,7 @@ class TestQuiltOpsFactoryIntegration:
         with patch('quilt3.logged_in', return_value=False):
             with pytest.raises(AuthenticationError) as exc_info:
                 QuiltOpsFactory.create()
-            
+
             error_msg = str(exc_info.value)
             # Should contain helpful instructions
             assert "quilt3 login" in error_msg
@@ -156,24 +160,24 @@ class TestQuiltOpsFactoryIntegration:
         with patch('quilt_mcp.ops.factory.quilt3', None):
             with pytest.raises(AuthenticationError) as exc_info:
                 QuiltOpsFactory.create()
-            
+
             error_msg = str(exc_info.value)
             assert "authentication" in error_msg.lower()
 
     def test_factory_logging_behavior(self):
         """Test that factory produces appropriate log messages."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     with patch('quilt_mcp.ops.factory.logger') as mock_logger:
                         quilt_ops = QuiltOpsFactory.create()
-                        
+
                         # Should log successful creation
                         mock_logger.info.assert_called()
                         mock_logger.debug.assert_called()
-                        
+
                         # Check for expected log messages
                         log_calls = [str(call) for call in mock_logger.info.call_args_list]
                         assert any("Quilt3_Backend" in call for call in log_calls)
@@ -186,33 +190,34 @@ class TestQuiltServiceRemoval:
     def test_server_initialization_does_not_import_quilt_service(self):
         """Test that server initialization doesn't import QuiltService."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     # Track imports during server creation
                     import sys
+
                     original_modules = set(sys.modules.keys())
-                    
+
                     server = create_configured_server(verbose=False)
                     assert server is not None
-                    
+
                     # Check that QuiltService wasn't imported during server creation
                     new_modules = set(sys.modules.keys()) - original_modules
                     quilt_service_modules = [m for m in new_modules if 'quilt_service' in m.lower()]
-                    
+
                     # If QuiltService modules were imported, they should not be used in server init
                     # This is a basic check - the real validation is in the code structure
 
     def test_server_tools_do_not_reference_quilt_service_directly(self):
         """Test that server tools don't directly reference QuiltService in their initialization."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     server = create_configured_server(verbose=False)
-                    
+
                     # Check that server object doesn't contain QuiltService references
                     # This is a basic string-based check
                     server_repr = repr(server)
@@ -221,46 +226,46 @@ class TestQuiltServiceRemoval:
     def test_auth_service_initialization_without_quilt_service(self):
         """Test that auth service can initialize without QuiltService dependency."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     # Test that auth service initialization works
                     from quilt_mcp.services.auth_service import create_auth_service
-                    
+
                     auth_service = create_auth_service()
                     assert auth_service is not None
-                    
+
                     # Auth service should work without QuiltService
                     # This validates that the dependency injection has been updated
 
     def test_server_startup_validation_uses_quilt_ops_factory(self):
         """Test that server startup validation uses QuiltOpsFactory instead of QuiltService."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     # Mock the QuiltOpsFactory to track its usage
                     with patch('quilt_mcp.ops.factory.QuiltOpsFactory.create') as mock_create:
                         mock_create.return_value = MagicMock()
-                        
+
                         # Server creation should validate auth using QuiltOpsFactory
                         server = create_configured_server(verbose=False)
                         assert server is not None
-                        
+
                         # The factory should be used during server initialization
                         # (This might be called during auth service validation)
 
     def test_no_quilt_service_in_dependency_container(self):
         """Test that QuiltService is not present in any dependency injection container."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     server = create_configured_server(verbose=False)
-                    
+
                     # Check that no QuiltService instances are created during server init
                     # This is validated by the successful creation without QuiltService imports
                     assert server is not None
@@ -273,22 +278,23 @@ class TestDependencyInjection:
     def test_tools_can_receive_quilt_ops_instances(self):
         """Test that tools can work with QuiltOps instances when provided."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     # Create QuiltOps instance
                     quilt_ops = QuiltOpsFactory.create()
                     assert quilt_ops is not None
-                    
+
                     # Verify it's the correct type
                     from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
                     assert isinstance(quilt_ops, Quilt3_Backend)
 
     def test_tools_use_quilt_ops_factory_instead_of_direct_instantiation(self):
         """Test that migrated tools use QuiltOpsFactory instead of direct QuiltService instantiation."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
@@ -296,7 +302,7 @@ class TestDependencyInjection:
                     with patch('quilt_mcp.ops.factory.QuiltOpsFactory.create') as mock_create:
                         mock_quilt_ops = MagicMock()
                         mock_create.return_value = mock_quilt_ops
-                        
+
                         # Test that tools that have been migrated use the factory
                         # This is a basic test - specific tool tests would be more detailed
                         quilt_ops = QuiltOpsFactory.create()
@@ -306,48 +312,48 @@ class TestDependencyInjection:
     def test_no_quilt_service_in_dependency_resolution(self):
         """Test that dependency resolution doesn't involve QuiltService."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     # Create server and verify no QuiltService is involved in dependency resolution
                     server = create_configured_server(verbose=False)
                     assert server is not None
-                    
+
                     # The fact that server creation succeeds without QuiltService imports
                     # validates that dependency resolution works without QuiltService
 
     def test_quilt_ops_factory_provides_consistent_instances(self):
         """Test that QuiltOpsFactory provides consistent QuiltOps instances."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     # Create multiple instances
                     quilt_ops1 = QuiltOpsFactory.create()
                     quilt_ops2 = QuiltOpsFactory.create()
-                    
+
                     # Both should be valid QuiltOps instances
                     assert quilt_ops1 is not None
                     assert quilt_ops2 is not None
-                    
+
                     # Both should be the same type
-                    assert type(quilt_ops1) == type(quilt_ops2)
+                    assert type(quilt_ops1) is type(quilt_ops2)
 
     def test_tools_receive_domain_objects_not_quilt3_objects(self):
         """Test that tools receive domain objects (Package_Info, Content_Info) instead of quilt3 objects."""
         mock_session = MagicMock()
-        
+
         with patch('quilt3.logged_in', return_value=True):
             with patch('quilt3.session.get_session', return_value=mock_session):
                 with patch('quilt3.session.get_registry_url', return_value='s3://test-registry'):
                     quilt_ops = QuiltOpsFactory.create()
-                    
+
                     # Mock the backend methods to return domain objects
                     from quilt_mcp.domain.package_info import Package_Info
                     from quilt_mcp.domain.content_info import Content_Info
-                    
+
                     mock_package_info = Package_Info(
                         name="test/package",
                         description="Test package",
@@ -355,23 +361,19 @@ class TestDependencyInjection:
                         modified_date="2024-01-01T00:00:00Z",
                         registry="s3://test-registry",
                         bucket="test-bucket",
-                        top_hash="abc123"
+                        top_hash="abc123",
                     )
-                    
+
                     mock_content_info = Content_Info(
-                        path="test.txt",
-                        size=100,
-                        type="file",
-                        modified_date="2024-01-01T00:00:00Z",
-                        download_url=None
+                        path="test.txt", size=100, type="file", modified_date="2024-01-01T00:00:00Z", download_url=None
                     )
-                    
+
                     # Verify that QuiltOps methods return domain objects
                     with patch.object(quilt_ops, 'search_packages', return_value=[mock_package_info]):
                         with patch.object(quilt_ops, 'browse_content', return_value=[mock_content_info]):
                             packages = quilt_ops.search_packages("test", "s3://test-registry")
                             content = quilt_ops.browse_content("test/package", "s3://test-registry")
-                            
+
                             assert len(packages) == 1
                             assert isinstance(packages[0], Package_Info)
                             assert len(content) == 1
@@ -387,21 +389,21 @@ class TestCodeCleanup:
         import ast
         import os
         from pathlib import Path
-        
+
         tools_dir = Path("src/quilt_mcp/tools")
         quilt3_importing_tools = []
-        
+
         for tool_file in tools_dir.glob("*.py"):
             if tool_file.name.startswith("__"):
                 continue
-                
+
             try:
                 with open(tool_file, 'r') as f:
                     content = f.read()
-                
+
                 # Parse the AST to find imports
                 tree = ast.parse(content)
-                
+
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Import):
                         for alias in node.names:
@@ -410,18 +412,19 @@ class TestCodeCleanup:
                     elif isinstance(node, ast.ImportFrom):
                         if node.module == "quilt3" or (node.module and node.module.startswith("quilt3.")):
                             quilt3_importing_tools.append(str(tool_file))
-                            
+
             except Exception as e:
-                # Skip files that can't be parsed
+                # Skip files that can't be parsed (e.g. syntax errors, non-Python files)
+                logger.debug(f"Skipping {tool_file}: {e}")
                 continue
-        
+
         # Allow quilt3 imports only in specific files that need backward compatibility
         allowed_quilt3_imports = [
             "src/quilt_mcp/tools/packages.py",  # Has some backward compatibility exports
         ]
-        
+
         unexpected_imports = [f for f in quilt3_importing_tools if f not in allowed_quilt3_imports]
-        
+
         assert len(unexpected_imports) == 0, (
             f"Found unexpected direct quilt3 imports in tools: {unexpected_imports}. "
             f"Tools should use QuiltOps abstraction instead."
@@ -431,79 +434,71 @@ class TestCodeCleanup:
         """Test that migrated tools use QuiltOpsFactory pattern."""
         import ast
         from pathlib import Path
-        
+
         tools_dir = Path("src/quilt_mcp/tools")
         factory_using_tools = []
-        
+
         for tool_file in tools_dir.glob("*.py"):
             if tool_file.name.startswith("__"):
                 continue
-                
+
             try:
                 with open(tool_file, 'r') as f:
                     content = f.read()
-                
+
                 # Check for QuiltOpsFactory usage
                 if "QuiltOpsFactory" in content:
                     factory_using_tools.append(str(tool_file))
-                            
+
             except Exception as e:
+                logger.debug(f"Error reading {tool_file}: {e}")
                 continue
-        
+
         # At least some tools should be using QuiltOpsFactory
-        assert len(factory_using_tools) > 0, (
-            "Expected at least some tools to use QuiltOpsFactory pattern"
-        )
-        
+        assert len(factory_using_tools) > 0, "Expected at least some tools to use QuiltOpsFactory pattern"
+
         # Verify packages.py is using QuiltOpsFactory (we know it's been migrated)
         packages_file = "src/quilt_mcp/tools/packages.py"
-        assert packages_file in factory_using_tools, (
-            "packages.py should be using QuiltOpsFactory"
-        )
+        assert packages_file in factory_using_tools, "packages.py should be using QuiltOpsFactory"
 
     def test_no_direct_quilt3_instantiation_in_tools(self):
         """Test that tools don't directly instantiate quilt3 objects."""
         from pathlib import Path
-        
+
         tools_dir = Path("src/quilt_mcp/tools")
         problematic_patterns = []
-        
+
         for tool_file in tools_dir.glob("*.py"):
             if tool_file.name.startswith("__"):
                 continue
-                
+
             try:
                 with open(tool_file, 'r') as f:
                     content = f.read()
-                
+
                 # Look for direct quilt3 object instantiation patterns
                 problematic_lines = []
                 for i, line in enumerate(content.split('\n'), 1):
                     line_stripped = line.strip()
                     if (
-                        "quilt3.Package(" in line_stripped or
-                        "quilt3.Bucket(" in line_stripped or
-                        "quilt3.search(" in line_stripped or
-                        "quilt3.list_packages(" in line_stripped
+                        "quilt3.Package(" in line_stripped
+                        or "quilt3.Bucket(" in line_stripped
+                        or "quilt3.search(" in line_stripped
+                        or "quilt3.list_packages(" in line_stripped
                     ):
                         problematic_lines.append(f"Line {i}: {line_stripped}")
-                
+
                 if problematic_lines:
-                    problematic_patterns.append({
-                        'file': str(tool_file),
-                        'lines': problematic_lines
-                    })
-                            
+                    problematic_patterns.append({'file': str(tool_file), 'lines': problematic_lines})
+
             except Exception as e:
+                logger.debug(f"Error parsing {tool_file}: {e}")
                 continue
-        
+
         # Allow some patterns in packages.py for backward compatibility during transition
         allowed_files = ["src/quilt_mcp/tools/packages.py"]
-        unexpected_patterns = [
-            p for p in problematic_patterns 
-            if p['file'] not in allowed_files
-        ]
-        
+        unexpected_patterns = [p for p in problematic_patterns if p['file'] not in allowed_files]
+
         assert len(unexpected_patterns) == 0, (
             f"Found direct quilt3 instantiation in tools: {unexpected_patterns}. "
             f"Tools should use QuiltOps abstraction instead."

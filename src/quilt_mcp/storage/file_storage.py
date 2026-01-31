@@ -42,7 +42,7 @@ class FileBasedWorkflowStorage(WorkflowStorage):
             return None
         with self._lock:
             with path.open("r", encoding="utf-8") as handle:
-                return json.load(handle)
+                return json.load(handle)  # type: ignore[no-any-return]
 
     def list_all(self, tenant_id: str) -> List[Dict[str, Any]]:
         tenant_dir = self._tenant_dir(tenant_id)

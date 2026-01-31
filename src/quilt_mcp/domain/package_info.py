@@ -41,12 +41,14 @@ class Package_Info:
 
     def __hash__(self) -> int:
         """Custom hash implementation that handles the tags list."""
-        return hash((
-            self.name,
-            self.description,
-            tuple(self.tags),  # Convert list to tuple for hashing
-            self.modified_date,
-            self.registry,
-            self.bucket,
-            self.top_hash
-        ))
+        return hash(
+            (
+                self.name,
+                self.description,
+                tuple(self.tags),  # Convert list to tuple for hashing
+                self.modified_date,
+                self.registry,
+                self.bucket,
+                self.top_hash,
+            )
+        )

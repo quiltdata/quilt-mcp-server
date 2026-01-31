@@ -231,7 +231,9 @@ class WorkflowService:
                 step["completed_at"] = now
 
             # Update workflow counters
-            workflow["completed_steps"] = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.COMPLETED.value)
+            workflow["completed_steps"] = sum(
+                1 for s in workflow["steps"] if s["status"] == StepStatus.COMPLETED.value
+            )
             workflow["failed_steps"] = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.FAILED.value)
             workflow["updated_at"] = now
 
@@ -371,7 +373,9 @@ class WorkflowService:
             logger.error(f"Failed to list workflows: {e}")
             return ErrorResponse(error=f"Failed to list workflows: {str(e)}")
 
-    def template_apply(self, template_name: str, workflow_id: str, params: Dict[str, Any]) -> WorkflowTemplateApplyResponse:
+    def template_apply(
+        self, template_name: str, workflow_id: str, params: Dict[str, Any]
+    ) -> WorkflowTemplateApplyResponse:
         try:
             # Use string-based template selection instead of function references
             # to avoid Pydantic serialization issues
@@ -432,7 +436,7 @@ class WorkflowService:
             return WorkflowTemplateApplySuccess(
                 workflow_id=workflow_id,
                 template_applied=template_name,
-                workflow=workflow,
+                workflow=workflow or {},
                 message=f"Template '{template_name}' applied successfully",
                 next_steps=[
                     f"Check status: workflow_get_status('{workflow_id}')",
@@ -446,7 +450,7 @@ class WorkflowService:
 
 
 def _current_workflow_service() -> WorkflowService:
-    return get_current_context().workflow_service
+    return get_current_context().workflow_service  # type: ignore[no-any-return]
 
 
 def workflow_create(

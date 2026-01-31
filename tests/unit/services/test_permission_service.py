@@ -106,7 +106,7 @@ def test_permission_service_singleton_accessor_removed():
     assert not hasattr(permissions_service, "get_permission_discovery")
 
 
-def test_permission_wrappers_use_passed_service():
+def test_permission_wrappers_use_context_service():
     from quilt_mcp.services.permissions_service import (
         bucket_recommendations_get,
         check_bucket_access,
@@ -129,11 +129,16 @@ def test_permission_wrappers_use_passed_service():
             self.calls.append(("bucket_recommendations_get", kwargs))
             return {"success": True}
 
-    service = _StubService()
+    class _StubContext:
+        def __init__(self, permission_service):
+            self.permission_service = permission_service
 
-    discover_permissions(permission_service=service)
-    check_bucket_access("bucket", permission_service=service)
-    bucket_recommendations_get(permission_service=service)
+    service = _StubService()
+    context = _StubContext(service)
+
+    discover_permissions(context=context)
+    check_bucket_access("bucket", context=context)
+    bucket_recommendations_get(context=context)
 
     call_names = [call[0] for call in service.calls]
     assert call_names == [

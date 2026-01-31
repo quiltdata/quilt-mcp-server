@@ -3,24 +3,31 @@ Quilt3_Backend bucket operations mixin.
 
 This module provides bucket-related operations including listing and
 transformation for the Quilt3_Backend implementation.
+
+This mixin uses self.quilt3 which is provided by Quilt3_Backend_Base.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-
-try:
-    import quilt3
-except ImportError:
-    quilt3 = None
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 from quilt_mcp.ops.exceptions import BackendError, ValidationError
 from quilt_mcp.domain.bucket_info import Bucket_Info
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 logger = logging.getLogger(__name__)
 
 
 class Quilt3_Backend_Buckets:
     """Mixin for bucket-related operations."""
+
+    # Type hints for attributes and methods provided by Quilt3_Backend_Base
+    if TYPE_CHECKING:
+        quilt3: "ModuleType"
+
+        def _normalize_string_field(self, value: Any) -> str: ...
+        def _normalize_datetime(self, dt: Any) -> Optional[str]: ...
 
     def list_buckets(self) -> List[Bucket_Info]:
         """List accessible buckets.
@@ -33,7 +40,7 @@ class Quilt3_Backend_Buckets:
         """
         try:
             logger.debug("Listing buckets")
-            bucket_data = quilt3.list_buckets()
+            bucket_data = self.quilt3.list_buckets()
             result = [self._transform_bucket(name, data) for name, data in bucket_data.items()]
             logger.debug(f"Found {len(result)} buckets")
             return result
@@ -88,13 +95,10 @@ class Quilt3_Backend_Buckets:
             error_context = {
                 'bucket_name': bucket_name,
                 'bucket_data_keys': list(bucket_data.keys()) if bucket_data and hasattr(bucket_data, 'keys') else [],
-                'bucket_data_type': type(bucket_data).__name__
+                'bucket_data_type': type(bucket_data).__name__,
             }
             logger.error(f"Bucket transformation failed: {str(e)}", extra={'context': error_context})
-            raise BackendError(
-                f"Quilt3 backend bucket transformation failed: {str(e)}", 
-                context=error_context
-            )
+            raise BackendError(f"Quilt3 backend bucket transformation failed: {str(e)}", context=error_context)
 
     def _validate_bucket_fields(self, bucket_name: str, bucket_data: Dict[str, Any]) -> None:
         """Validate required fields for bucket transformation.
@@ -110,4 +114,3 @@ class Quilt3_Backend_Buckets:
             raise BackendError("Quilt3 backend bucket validation failed: missing name")
         if bucket_data is None:
             raise BackendError("Quilt3 backend bucket validation failed: invalid bucket_data is None")
-

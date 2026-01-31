@@ -48,6 +48,7 @@ def _current_permission_service():
     except ContextNotAvailableError:
         return None
 
+
 # Initialize service
 quilt_service = QuiltService()
 
@@ -1850,7 +1851,7 @@ def package_create_from_s3(
                 recommendations = bucket_recommendations_get(
                     source_bucket=source_bucket,
                     operation_type="package_creation",
-                    permission_service=_current_permission_service(),
+                    context=get_current_context(),
                 )
 
                 if recommendations.get("success") and recommendations.get("recommendations", {}).get(
@@ -1875,7 +1876,7 @@ def package_create_from_s3(
         try:
             access_check = check_bucket_access(
                 target_bucket_name,
-                permission_service=_current_permission_service(),
+                context=get_current_context(),
             )
             if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
                 return PackageCreateFromS3Error(

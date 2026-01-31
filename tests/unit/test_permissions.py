@@ -108,13 +108,18 @@ class TestAWSPermissionsDiscover:
 
     def test_discover_permissions_error(self):
         """Test error handling in permission discovery."""
+
         class _StubService:
             def discover_permissions(self, *args, **kwargs):
                 raise Exception("AWS error")
 
+        class _StubContext:
+            def __init__(self):
+                self.permission_service = _StubService()
+
         from quilt_mcp.services.permissions_service import discover_permissions
 
-        result = discover_permissions(permission_service=_StubService())
+        result = discover_permissions(context=_StubContext())
 
         assert result["success"] is False
         assert "Failed to discover AWS permissions" in result["error"]

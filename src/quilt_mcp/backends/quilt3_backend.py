@@ -15,18 +15,12 @@ The implementation is organized into modular components:
 import logging
 from typing import List, Dict, Any, Optional
 
-# Import external dependencies for test patching compatibility
-try:
-    import quilt3
-    import requests
-    import boto3
-except ImportError:
-    quilt3 = None
-    requests = None
-    boto3 = None
-
 from quilt_mcp.ops.quilt_ops import QuiltOps
-from quilt_mcp.backends.quilt3_backend_base import Quilt3_Backend_Base
+from quilt_mcp.ops.exceptions import NotFoundError
+from quilt_mcp.domain.package_info import Package_Info
+from quilt_mcp.domain.content_info import Content_Info
+from quilt_mcp.domain.bucket_info import Bucket_Info
+from quilt_mcp.backends.quilt3_backend_base import Quilt3_Backend_Base, quilt3, requests, boto3
 from quilt_mcp.backends.quilt3_backend_packages import Quilt3_Backend_Packages
 from quilt_mcp.backends.quilt3_backend_content import Quilt3_Backend_Content
 from quilt_mcp.backends.quilt3_backend_buckets import Quilt3_Backend_Buckets
@@ -54,4 +48,5 @@ class Quilt3_Backend(
 
     The mixin order is important for proper method resolution order (MRO).
     """
+
     pass

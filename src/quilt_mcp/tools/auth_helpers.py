@@ -54,7 +54,7 @@ def _build_s3_client(session: boto3.Session) -> Optional[Any]:
 def _resolve_auth_service(auth_service: AuthService | None) -> AuthService:
     if auth_service is None:
         try:
-            return get_current_context().auth_service
+            return get_current_context().auth_service  # type: ignore[no-any-return]
         except ContextNotAvailableError:
             return create_auth_service()
     return auth_service

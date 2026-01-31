@@ -114,24 +114,30 @@ def test_check_package_operations_uses_public_bucket():
     2. Function either succeeds or fails with AWS error (not config error)
     3. Error messages don't combine "registry" and "required" together
     """
-    result = error_recovery._check_package_operations()
+    # Mock packages_list to provide valid auth session
+    with patch("quilt_mcp.tools.packages.packages_list") as mock_packages_list:
+        mock_packages_list.return_value = {
+            "success": True,
+            "packages": [],
+        }
+        result = error_recovery._check_package_operations()
 
-    # Should return a dict
-    assert isinstance(result, dict), "Health check should return a dict"
+        # Should return a dict
+        assert isinstance(result, dict), "Health check should return a dict"
 
-    # If it fails, should NOT be a configuration error about missing registry
-    if isinstance(result, dict) and not result.get("success"):
-        error_msg = str(result.get("error", "")).lower()
-        # Defensive: check that error doesn't mention both "registry" and "required"
-        # This would indicate it's trying to use a default that doesn't exist
-        has_registry = "registry" in error_msg
-        has_required = "required" in error_msg
-        assert not (has_registry and has_required), (
-            f"Health check should not require DEFAULT_REGISTRY, but got error: {result.get('error')}"
-        )
+        # If it fails, should NOT be a configuration error about missing registry
+        if isinstance(result, dict) and not result.get("success"):
+            error_msg = str(result.get("error", "")).lower()
+            # Defensive: check that error doesn't mention both "registry" and "required"
+            # This would indicate it's trying to use a default that doesn't exist
+            has_registry = "registry" in error_msg
+            has_required = "required" in error_msg
+            assert not (has_registry and has_required), (
+                f"Health check should not require DEFAULT_REGISTRY, but got error: {result.get('error')}"
+            )
 
-    # Should have expected structure
-    assert "package_ops_available" in result or "error" in result, "Should have either success or error info"
+        # Should have expected structure
+        assert "package_ops_available" in result or "error" in result, "Should have either success or error info"
 
 
 def test_health_check_returns_dict():
@@ -139,17 +145,23 @@ def test_health_check_returns_dict():
 
     Verifies the function returns expected data structure with proper keys.
     """
-    result = error_recovery._check_package_operations()
+    # Mock packages_list to provide valid auth session
+    with patch("quilt_mcp.tools.packages.packages_list") as mock_packages_list:
+        mock_packages_list.return_value = {
+            "success": True,
+            "packages": [],
+        }
+        result = error_recovery._check_package_operations()
 
-    # Should return a dict
-    assert isinstance(result, dict), "Health check should return a dict"
+        # Should return a dict
+        assert isinstance(result, dict), "Health check should return a dict"
 
-    # Check for expected keys
-    assert "package_ops_available" in result or "error" in result, "Should have status or error information"
+        # Check for expected keys
+        assert "package_ops_available" in result or "error" in result, "Should have status or error information"
 
-    # If successful, should have package_ops_available key
-    if not result.get("error"):
-        assert "package_ops_available" in result, "Success case should indicate package operations availability"
+        # If successful, should have package_ops_available key
+        if not result.get("error"):
+            assert "package_ops_available" in result, "Success case should indicate package operations availability"
 
 
 def test_health_check_handles_errors_gracefully():

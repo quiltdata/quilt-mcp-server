@@ -19,7 +19,7 @@ from quilt_mcp.domain.bucket_info import Bucket_Info
 class TestQuilt3BackendAdvancedErrorHandling:
     """Test advanced error handling scenarios and edge cases."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_handling_with_nested_exceptions(self, mock_quilt3):
         """Test error handling with nested exception chains."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -43,7 +43,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
             assert "quilt3" in error_message.lower()
             assert "search failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_handling_with_unicode_error_messages(self, mock_quilt3):
         """Test error handling with unicode characters in error messages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -67,7 +67,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
             # The unicode characters should be preserved in the error message
             assert "错误" in error_message
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_propagation_preserves_original_context(self, mock_quilt3):
         """Test that error propagation preserves original error context."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -88,7 +88,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
         assert "test/package" in error_message
         assert "s3://test-registry" in error_message
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_handling_with_empty_error_messages(self, mock_quilt3):
         """Test error handling when underlying errors have empty messages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -108,7 +108,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
         assert "backend" in error_message.lower()
         # Should still provide meaningful context even with empty underlying message
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_handling_with_very_long_error_messages(self, mock_quilt3):
         """Test error handling with very long error messages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -134,7 +134,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
             # The original long message should be preserved in the error
             assert len(error_message) > 100  # Should preserve substantial portion of the long message
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_concurrent_error_handling(self, mock_quilt3):
         """Test error handling in concurrent operation scenarios."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -180,7 +180,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
 class TestQuilt3BackendErrorHandling:
     """Test comprehensive error handling across all operations."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_backend_operation_error_handling(self, mock_quilt3):
         """Test that backend operations are wrapped with error handling."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -206,7 +206,7 @@ class TestQuilt3BackendErrorHandling:
             assert "quilt3" in str(exc_info.value).lower()
             mock_method.side_effect = None  # Reset for next test
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_messages_include_backend_type(self, mock_quilt3):
         """Test that error messages include backend type for debugging."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -242,7 +242,7 @@ class TestQuilt3BackendErrorHandling:
         assert isinstance(exc_info.value, BackendError)
         assert "access denied" in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_authentication_error_scenarios_during_operations(self, mock_quilt3):
         """Test authentication-related errors during backend operations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -277,7 +277,7 @@ class TestQuilt3BackendErrorHandling:
                 elif "credentials" in original_message or "session" in original_message or "token" in original_message:
                     assert any(keyword in error_message.lower() for keyword in ["credentials", "session", "token"])
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_network_error_scenarios_during_operations(self, mock_quilt3):
         """Test network-related errors during backend operations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -303,13 +303,14 @@ class TestQuilt3BackendErrorHandling:
 
             error_message = str(exc_info.value)
             assert "quilt3" in error_message.lower()
-            assert any(keyword in error_message.lower() for keyword in [
-                "timeout", "connection", "network", "dns", "unreachable"
-            ])
+            assert any(
+                keyword in error_message.lower()
+                for keyword in ["timeout", "connection", "network", "dns", "unreachable"]
+            )
 
             mock_quilt3.Package.browse.side_effect = None  # Reset
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_data_validation_error_scenarios(self, mock_quilt3):
         """Test data validation errors during backend operations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -334,13 +335,14 @@ class TestQuilt3BackendErrorHandling:
 
             error_message = str(exc_info.value)
             assert "quilt3" in error_message.lower()
-            assert any(keyword in error_message.lower() for keyword in [
-                "invalid", "malformed", "mismatch", "corrupted", "format"
-            ])
+            assert any(
+                keyword in error_message.lower()
+                for keyword in ["invalid", "malformed", "mismatch", "corrupted", "format"]
+            )
 
             mock_quilt3.list_buckets.side_effect = None  # Reset
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_resource_exhaustion_error_scenarios(self, mock_quilt3):
         """Test resource exhaustion errors during backend operations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -373,9 +375,11 @@ class TestQuilt3BackendErrorHandling:
                 if "memory" in original_message:
                     assert "memory" in error_message.lower()
                 elif any(keyword in original_message for keyword in ["rate", "quota", "requests", "unavailable"]):
-                    assert any(keyword in error_message.lower() for keyword in ["rate", "quota", "requests", "unavailable"])
+                    assert any(
+                        keyword in error_message.lower() for keyword in ["rate", "quota", "requests", "unavailable"]
+                    )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_context_preservation(self, mock_quilt3):
         """Test that error context is preserved through the backend layer."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -427,7 +431,7 @@ class TestQuilt3BackendErrorHandling:
             assert "timeout" in error_message.lower()
             assert "30 seconds" in error_message
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_message_backend_identification(self, mock_quilt3):
         """Test that all error messages clearly identify the backend type."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -457,7 +461,7 @@ class TestQuilt3BackendErrorHandling:
 
             mock_method.side_effect = None  # Reset
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_handling_with_transformation_failures(self, mock_quilt3):
         """Test error handling when data transformation fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -484,11 +488,11 @@ class TestQuilt3BackendErrorHandling:
         assert "quilt3" in error_message.lower()
         assert "get_package_info failed" in error_message.lower()
         # Should indicate this was a transformation/processing error
-        assert any(keyword in error_message.lower() for keyword in [
-            "transformation failed", "invalid date", "invalid"
-        ])
+        assert any(
+            keyword in error_message.lower() for keyword in ["transformation failed", "invalid date", "invalid"]
+        )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_error_propagation_from_quilt3_library(self, mock_quilt3):
         """Test proper error propagation from quilt3 library calls."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -567,7 +571,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         # The unicode characters should be preserved in the error message
         assert "错误" in error_message
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_with_nested_exceptions(self, mock_quilt3):
         """Test get_package_info() handles nested exception chains."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -610,7 +614,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         assert "search failed" in error_message.lower()
         # Should still provide meaningful context even with empty underlying message
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_with_very_long_error_messages(self, mock_quilt3):
         """Test get_package_info() handles very long error messages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -660,7 +664,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         assert error.context['query'] == "complex query"
         assert error.context['registry'] == "s3://test-registry"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_error_context_preservation(self, mock_quilt3):
         """Test that get_package_info() preserves detailed error context."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -692,7 +696,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
 class TestQuilt3BackendTransformationErrorHandlingComprehensive:
     """Comprehensive test suite for error handling in all transformation methods."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_all_transformation_methods_wrap_errors_in_backend_error(self, mock_quilt3):
         """Test that all transformation methods properly wrap errors in BackendError."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -713,7 +717,10 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         with pytest.raises(BackendError) as exc_info:
             backend._transform_package(mock_package)
         # Validation errors are raised directly as BackendError, so they don't get the "quilt3 backend" prefix
-        assert "invalid package object" in str(exc_info.value).lower() and "required field 'name'" in str(exc_info.value).lower()
+        assert (
+            "invalid package object" in str(exc_info.value).lower()
+            and "required field 'name'" in str(exc_info.value).lower()
+        )
 
         # Test _transform_content error wrapping
         mock_entry = Mock()
@@ -745,7 +752,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         assert "quilt3 backend" in str(exc_info.value).lower()
 
     @pytest.mark.skip(reason="Advanced error handling edge cases - to be addressed in follow-up")
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_all_transformation_methods_provide_error_context(self, mock_quilt3):
         """Test that all transformation methods provide useful error context."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -765,7 +772,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
 
         with pytest.raises(BackendError) as exc_info:
             backend._transform_package(mock_package)
-        
+
         error = exc_info.value
         assert hasattr(error, 'context')
         assert 'package_name' in error.context
@@ -786,7 +793,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
 
         with pytest.raises(BackendError) as exc_info:
             backend._transform_content(problematic_entry)
-        
+
         error = exc_info.value
         assert hasattr(error, 'context')
         assert 'entry_name' in error.context
@@ -797,13 +804,13 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         with patch('quilt_mcp.backends.quilt3_backend.Bucket_Info', side_effect=ValueError("Creation failed")):
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_bucket("test-bucket", {'region': 'us-east-1', 'access_level': 'read-write'})
-        
+
             error = exc_info.value
             assert hasattr(error, 'context')
             assert 'bucket_name' in error.context
             assert error.context['bucket_name'] == "test-bucket"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_error_messages_are_actionable(self, mock_quilt3):
         """Test that transformation error messages provide actionable information."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -816,18 +823,18 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
             {
                 'method': '_transform_package',
                 'setup': lambda: self._create_invalid_package_missing_name(),
-                'expected_guidance': ['missing', 'required', 'field', 'name']
+                'expected_guidance': ['missing', 'required', 'field', 'name'],
             },
             {
                 'method': '_transform_content',
                 'setup': lambda: self._create_invalid_content_empty_name(),
-                'expected_guidance': ['empty', 'name', 'content']
+                'expected_guidance': ['empty', 'name', 'content'],
             },
             {
                 'method': '_transform_bucket',
                 'setup': lambda: (None, {'region': 'us-east-1'}),
-                'expected_guidance': ['missing', 'name', 'bucket']
-            }
+                'expected_guidance': ['missing', 'name', 'bucket'],
+            },
         ]
 
         for scenario in actionable_scenarios:
@@ -846,11 +853,12 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
 
             error_message = str(exc_info.value).lower()
             for guidance_keyword in scenario['expected_guidance']:
-                assert guidance_keyword.lower() in error_message, \
+                assert guidance_keyword.lower() in error_message, (
                     f"Error message should contain actionable guidance '{guidance_keyword}' for {scenario['method']}"
+                )
 
     @pytest.mark.skip(reason="Advanced error handling edge cases - to be addressed in follow-up")
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_error_propagation_consistency(self, mock_quilt3):
         """Test that error propagation is consistent across all transformation methods."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -863,18 +871,18 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
             {
                 'method': '_transform_package',
                 'test_func': lambda: backend._transform_package(self._create_package_missing_required_field()),
-                'expected_error_type': BackendError
+                'expected_error_type': BackendError,
             },
             {
                 'method': '_transform_content',
                 'test_func': lambda: backend._transform_content(self._create_content_missing_required_field()),
-                'expected_error_type': BackendError
+                'expected_error_type': BackendError,
             },
             {
                 'method': '_transform_bucket',
                 'test_func': lambda: backend._transform_bucket("", {'region': 'us-east-1'}),
-                'expected_error_type': BackendError
-            }
+                'expected_error_type': BackendError,
+            },
         ]
 
         for test_case in validation_error_tests:
@@ -889,7 +897,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
             # All errors should be BackendError instances with meaningful messages
             assert len(error_message) > 0
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_helper_method_error_propagation(self, mock_quilt3):
         """Test that errors from helper methods are properly propagated in all transformations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -927,7 +935,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
                 backend._transform_bucket("test-bucket", {'region': 'us-east-1'})
             assert "bucket validation failed" in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_domain_object_creation_error_handling(self, mock_quilt3):
         """Test error handling when domain object creation fails in transformations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -936,7 +944,10 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         backend = Quilt3_Backend(mock_session)
 
         # Test Package_Info creation failure
-        with patch('quilt_mcp.backends.quilt3_backend.Package_Info', side_effect=ValueError("Package_Info creation failed")):
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_packages.Package_Info',
+            side_effect=ValueError("Package_Info creation failed"),
+        ):
             mock_package = Mock()
             mock_package.name = "test/package"
             mock_package.description = "Test"
@@ -952,7 +963,10 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
             assert "package_info creation failed" in str(exc_info.value).lower()
 
         # Test Content_Info creation failure
-        with patch('quilt_mcp.backends.quilt3_backend.Content_Info', side_effect=ValueError("Content_Info creation failed")):
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_content.Content_Info',
+            side_effect=ValueError("Content_Info creation failed"),
+        ):
             mock_entry = Mock()
             mock_entry.name = "test_file.txt"
             mock_entry.size = 1024
@@ -965,14 +979,17 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
             assert "content_info creation failed" in str(exc_info.value).lower()
 
         # Test Bucket_Info creation failure
-        with patch('quilt_mcp.backends.quilt3_backend.Bucket_Info', side_effect=ValueError("Bucket_Info creation failed")):
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_buckets.Bucket_Info',
+            side_effect=ValueError("Bucket_Info creation failed"),
+        ):
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_bucket("test-bucket", {'region': 'us-east-1', 'access_level': 'read-write'})
             assert "transformation failed" in str(exc_info.value).lower()
             assert "bucket_info creation failed" in str(exc_info.value).lower()
 
     @pytest.mark.skip(reason="Advanced error handling edge cases - to be addressed in follow-up")
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_logging_during_errors(self, mock_quilt3):
         """Test that appropriate logging occurs during transformation errors."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1076,7 +1093,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         mock_entry.is_dir = False
         return mock_entry
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_error_recovery_and_cleanup(self, mock_quilt3):
         """Test that transformation methods properly handle cleanup after errors."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1098,7 +1115,9 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         mock_package.top_hash = "abc123"
 
         # Mock Package_Info to fail after some processing
-        with patch('quilt_mcp.backends.quilt3_backend.Package_Info', side_effect=ValueError("Creation failed")):
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_packages.Package_Info', side_effect=ValueError("Creation failed")
+        ):
             with pytest.raises(BackendError):
                 backend._transform_package(mock_package)
 
@@ -1119,7 +1138,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         assert result.name == "valid/package"
 
     @pytest.mark.skip(reason="Advanced error handling edge cases - to be addressed in follow-up")
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_error_context_completeness(self, mock_quilt3):
         """Test that error context contains all necessary debugging information."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1195,7 +1214,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
 class TestQuilt3BackendTransformationErrorHandling:
     """Test error handling in transformation logic for _transform_package, _transform_content, and _transform_bucket methods."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_error_handling_with_invalid_objects(self, mock_quilt3):
         """Test _transform_package() error handling with completely invalid objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1206,17 +1225,17 @@ class TestQuilt3BackendTransformationErrorHandling:
         # Test with None object - this triggers validation error, not transformation error
         with pytest.raises(BackendError) as exc_info:
             backend._transform_package(None)
-        
+
         error_message = str(exc_info.value)
         assert "quilt3 backend package validation failed" in error_message.lower()
         assert "missing required field" in error_message.lower()
 
         # Test with object that doesn't have required attributes (use object() instead of Mock())
         invalid_package = object()
-        
+
         with pytest.raises(BackendError) as exc_info:
             backend._transform_package(invalid_package)
-        
+
         error_message = str(exc_info.value)
         assert "missing required field" in error_message.lower()
         assert "name" in error_message.lower()
@@ -1227,14 +1246,14 @@ class TestQuilt3BackendTransformationErrorHandling:
         invalid_package.registry = "s3://test-registry"
         invalid_package.bucket = "test-bucket"
         invalid_package.top_hash = "abc123"
-        
+
         with pytest.raises(BackendError) as exc_info:
             backend._transform_package(invalid_package)
-        
+
         error_message = str(exc_info.value)
         assert "required field 'name' is none" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_error_handling_with_transformation_failures(self, mock_quilt3):
         """Test _transform_package() error handling when transformation logic fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1265,7 +1284,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         assert error_context['package_type'] == "Mock"
         assert 'available_attributes' in error_context
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_error_handling_with_domain_object_creation_failure(self, mock_quilt3):
         """Test _transform_package() error handling when Package_Info creation fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1284,7 +1303,10 @@ class TestQuilt3BackendTransformationErrorHandling:
         valid_package.top_hash = "abc123"
 
         # Mock Package_Info to fail during creation
-        with patch('quilt_mcp.backends.quilt3_backend.Package_Info', side_effect=ValueError("Domain validation failed")):
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_packages.Package_Info',
+            side_effect=ValueError("Domain validation failed"),
+        ):
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_package(valid_package)
 
@@ -1292,7 +1314,7 @@ class TestQuilt3BackendTransformationErrorHandling:
             assert "quilt3 backend package transformation failed" in error_message.lower()
             assert "domain validation failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_handling_with_invalid_objects(self, mock_quilt3):
         """Test _transform_content() error handling with completely invalid objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1303,41 +1325,41 @@ class TestQuilt3BackendTransformationErrorHandling:
         # Test with None object - this triggers validation error, not transformation error
         with pytest.raises(BackendError) as exc_info:
             backend._transform_content(None)
-        
+
         error_message = str(exc_info.value)
         assert "quilt3 backend content transformation failed" in error_message.lower()
         assert "missing name" in error_message.lower()
 
         # Test with object that doesn't have name attribute (use object() instead of Mock())
         invalid_entry = object()
-        
+
         with pytest.raises(BackendError) as exc_info:
             backend._transform_content(invalid_entry)
-        
+
         error_message = str(exc_info.value)
         assert "missing name" in error_message.lower()
 
         # Test with object having None name field (validation error)
         invalid_entry = Mock()
         invalid_entry.name = None
-        
+
         with pytest.raises(BackendError) as exc_info:
             backend._transform_content(invalid_entry)
-        
+
         error_message = str(exc_info.value)
         assert "missing name" in error_message.lower()
 
         # Test with object having empty name field (validation error)
         invalid_entry = Mock()
         invalid_entry.name = ""
-        
+
         with pytest.raises(BackendError) as exc_info:
             backend._transform_content(invalid_entry)
-        
+
         error_message = str(exc_info.value)
         assert "empty name" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_handling_with_transformation_failures(self, mock_quilt3):
         """Test _transform_content() error handling when transformation logic fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1365,7 +1387,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         assert error_context['entry_type'] == "Mock"
         assert 'available_attributes' in error_context
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_handling_with_domain_object_creation_failure(self, mock_quilt3):
         """Test _transform_content() error handling when Content_Info creation fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1381,7 +1403,10 @@ class TestQuilt3BackendTransformationErrorHandling:
         valid_entry.is_dir = False
 
         # Mock Content_Info to fail during creation
-        with patch('quilt_mcp.backends.quilt3_backend.Content_Info', side_effect=ValueError("Domain validation failed")):
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_content.Content_Info',
+            side_effect=ValueError("Domain validation failed"),
+        ):
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_content(valid_entry)
 
@@ -1389,7 +1414,7 @@ class TestQuilt3BackendTransformationErrorHandling:
             assert "quilt3 backend content transformation failed" in error_message.lower()
             assert "domain validation failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_handling_with_attribute_access_errors(self, mock_quilt3):
         """Test _transform_content() error handling when attribute access fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1401,15 +1426,15 @@ class TestQuilt3BackendTransformationErrorHandling:
         class ProblematicEntry:
             def __init__(self):
                 self.name = "test/file.txt"
-            
+
             @property
             def size(self):
                 raise RuntimeError("Size access failed")
-            
+
             @property
             def modified(self):
                 raise RuntimeError("Modified access failed")
-            
+
             @property
             def is_dir(self):
                 raise RuntimeError("is_dir access failed")
@@ -1422,9 +1447,12 @@ class TestQuilt3BackendTransformationErrorHandling:
         error_message = str(exc_info.value)
         assert "quilt3 backend content transformation failed" in error_message.lower()
         # Should contain one of the attribute access errors
-        assert any(error in error_message.lower() for error in ["size access failed", "modified access failed", "is_dir access failed"])
+        assert any(
+            error in error_message.lower()
+            for error in ["size access failed", "modified access failed", "is_dir access failed"]
+        )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_handling_with_invalid_inputs(self, mock_quilt3):
         """Test _transform_bucket() error handling with completely invalid inputs."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1435,25 +1463,25 @@ class TestQuilt3BackendTransformationErrorHandling:
         # Test with None bucket name
         with pytest.raises(BackendError) as exc_info:
             backend._transform_bucket(None, {'region': 'us-east-1', 'access_level': 'read-write'})
-        
+
         error_message = str(exc_info.value)
         assert "missing name" in error_message.lower()
 
         # Test with empty bucket name
         with pytest.raises(BackendError) as exc_info:
             backend._transform_bucket("", {'region': 'us-east-1', 'access_level': 'read-write'})
-        
+
         error_message = str(exc_info.value)
         assert "missing name" in error_message.lower()
 
         # Test with None bucket data
         with pytest.raises(BackendError) as exc_info:
             backend._transform_bucket("test-bucket", None)
-        
+
         error_message = str(exc_info.value)
         assert "bucket_data is none" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_handling_with_missing_required_fields(self, mock_quilt3):
         """Test _transform_bucket() error handling with missing required fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1463,11 +1491,11 @@ class TestQuilt3BackendTransformationErrorHandling:
 
         # The current implementation uses .get() with defaults, so missing fields don't cause errors
         # Let's test with completely invalid bucket_data structure that will cause transformation errors
-        
+
         # Test with non-dict bucket_data that will cause attribute errors
         with pytest.raises(BackendError) as exc_info:
             backend._transform_bucket("test-bucket", "invalid-string-data")
-        
+
         error_message = str(exc_info.value)
         assert "quilt3 backend bucket transformation failed" in error_message.lower()
 
@@ -1475,17 +1503,17 @@ class TestQuilt3BackendTransformationErrorHandling:
         class ProblematicData:
             def get(self, key, default=None):
                 raise RuntimeError(f"Cannot access {key}")
-            
+
             def keys(self):
                 return ['region', 'access_level']
-        
+
         with pytest.raises(BackendError) as exc_info:
             backend._transform_bucket("test-bucket", ProblematicData())
-        
+
         error_message = str(exc_info.value)
         assert "quilt3 backend bucket transformation failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_handling_with_transformation_failures(self, mock_quilt3):
         """Test _transform_bucket() error handling when transformation logic fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1497,7 +1525,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         bucket_data = {
             'region': 'us-east-1',
             'access_level': 'read-write',
-            'created_date': "invalid-date"  # This will trigger ValueError in _normalize_datetime
+            'created_date': "invalid-date",  # This will trigger ValueError in _normalize_datetime
         }
 
         with pytest.raises(BackendError) as exc_info:
@@ -1513,7 +1541,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         assert error_context['bucket_data_type'] == "dict"
         assert 'bucket_data_keys' in error_context
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_handling_with_domain_object_creation_failure(self, mock_quilt3):
         """Test _transform_bucket() error handling when Bucket_Info creation fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1522,14 +1550,12 @@ class TestQuilt3BackendTransformationErrorHandling:
         backend = Quilt3_Backend(mock_session)
 
         # Create valid bucket data
-        bucket_data = {
-            'region': 'us-east-1',
-            'access_level': 'read-write',
-            'created_date': '2024-01-01T12:00:00Z'
-        }
+        bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': '2024-01-01T12:00:00Z'}
 
         # Mock Bucket_Info to fail during creation
-        with patch('quilt_mcp.backends.quilt3_backend.Bucket_Info', side_effect=ValueError("Domain validation failed")):
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_buckets.Bucket_Info', side_effect=ValueError("Domain validation failed")
+        ):
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_bucket("test-bucket", bucket_data)
 
@@ -1537,7 +1563,7 @@ class TestQuilt3BackendTransformationErrorHandling:
             assert "quilt3 backend bucket transformation failed" in error_message.lower()
             assert "domain validation failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_error_handling_with_data_access_errors(self, mock_quilt3):
         """Test _transform_bucket() error handling when bucket data access fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1549,10 +1575,10 @@ class TestQuilt3BackendTransformationErrorHandling:
         class ProblematicBucketData:
             def get(self, key, default=None):
                 raise RuntimeError(f"Data access failed for key: {key}")
-            
+
             def keys(self):
                 return ['region', 'access_level']
-            
+
             def __getitem__(self, key):
                 raise RuntimeError(f"Data access failed for key: {key}")
 
@@ -1565,7 +1591,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         assert "quilt3 backend bucket transformation failed" in error_message.lower()
         assert "data access failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_error_messages_include_backend_context(self, mock_quilt3):
         """Test that all transformation error messages include proper backend context."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1576,7 +1602,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         # Test package transformation error context (validation error for None)
         with pytest.raises(BackendError) as exc_info:
             backend._transform_package(None)
-        
+
         error_message = str(exc_info.value)
         assert "quilt3 backend" in error_message.lower()
         assert any(phrase in error_message.lower() for phrase in ["validation failed", "transformation failed"])
@@ -1584,7 +1610,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         # Test content transformation error context (validation error for None)
         with pytest.raises(BackendError) as exc_info:
             backend._transform_content(None)
-        
+
         error_message = str(exc_info.value)
         assert "quilt3 backend" in error_message.lower()
         assert "transformation failed" in error_message.lower()
@@ -1592,13 +1618,13 @@ class TestQuilt3BackendTransformationErrorHandling:
         # Test bucket transformation error context
         with pytest.raises(BackendError) as exc_info:
             backend._transform_bucket(None, {})
-        
+
         error_message = str(exc_info.value)
         assert "quilt3 backend" in error_message.lower()
         # This might be validation error, so check for either
         assert any(phrase in error_message.lower() for phrase in ["transformation failed", "validation failed"])
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_error_context_preservation(self, mock_quilt3):
         """Test that transformation errors preserve context information for debugging."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1643,11 +1669,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         assert error_context['entry_type'] == "Mock"
 
         # Test bucket transformation error context
-        bucket_data = {
-            'region': 'us-east-1',
-            'access_level': 'read-write',
-            'created_date': "invalid-date"
-        }
+        bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': "invalid-date"}
 
         with pytest.raises(BackendError) as exc_info:
             backend._transform_bucket("test-bucket", bucket_data)
@@ -1659,7 +1681,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         assert error_context['bucket_name'] == "test-bucket"
         assert error_context['bucket_data_type'] == "dict"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_error_handling_with_appropriate_exceptions(self, mock_quilt3):
         """Test that transformation methods raise appropriate BackendError exceptions."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1684,7 +1706,7 @@ class TestQuilt3BackendTransformationErrorHandling:
             assert type(e).__name__ == "BackendError"
             assert hasattr(e, 'context')  # BackendError should have context attribute
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transformation_error_handling_with_clear_error_messages(self, mock_quilt3):
         """Test that transformation errors provide clear, actionable error messages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1702,12 +1724,10 @@ class TestQuilt3BackendTransformationErrorHandling:
         for operation, expected_phrase in error_scenarios:
             with pytest.raises(BackendError) as exc_info:
                 operation()
-            
+
             error_message = str(exc_info.value).lower()
             assert "quilt3 backend" in error_message
             assert expected_phrase in error_message
             # Error message should not be empty or generic
             assert len(error_message) > 20  # Reasonable minimum length for descriptive error
             assert "error" in error_message or "failed" in error_message
-
-

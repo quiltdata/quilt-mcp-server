@@ -42,7 +42,9 @@ class RequestContext:
     def check_bucket_access(self, bucket: str, operations: list[str] | None = None):
         return self.permission_service.check_bucket_access(bucket=bucket, operations=operations)
 
-    def create_workflow(self, workflow_id: str, name: str, description: str = "", metadata: dict[str, Any] | None = None):
+    def create_workflow(
+        self, workflow_id: str, name: str, description: str = "", metadata: dict[str, Any] | None = None
+    ):
         return self.workflow_service.create_workflow(
             workflow_id=workflow_id,
             name=name,

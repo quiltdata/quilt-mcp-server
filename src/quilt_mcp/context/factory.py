@@ -88,12 +88,12 @@ class RequestContextFactory:
     def _create_auth_service(self) -> AuthService:
         runtime_auth = get_runtime_auth()
         if runtime_auth and runtime_auth.access_token:
-            return JWTAuthService()
+            return JWTAuthService()  # type: ignore[return-value]
 
         if get_jwt_mode_enabled():
             raise ServiceInitializationError("AuthService", "JWT authentication required but missing.")
 
-        return IAMAuthService()
+        return IAMAuthService()  # type: ignore[return-value]
 
     def _create_permission_service(self, auth_service: AuthService):
         return PermissionDiscoveryService(auth_service)

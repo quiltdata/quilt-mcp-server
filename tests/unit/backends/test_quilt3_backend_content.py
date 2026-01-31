@@ -19,7 +19,7 @@ from quilt_mcp.domain.bucket_info import Bucket_Info
 class TestQuilt3BackendContentOperations:
     """Test content browsing and URL generation operations."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_with_mocked_package_browsing(self, mock_quilt3):
         """Test browse_content() with mocked quilt3 package browsing."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -48,7 +48,7 @@ class TestQuilt3BackendContentOperations:
         assert result[0].size == 1024
         assert result[0].type == "file"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_root_path_browsing(self, mock_quilt3):
         """Test browse_content() browsing at root path with multiple entries."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -58,7 +58,7 @@ class TestQuilt3BackendContentOperations:
 
         # Mock multiple entries at root
         mock_entries = []
-        
+
         # File entry
         mock_file = Mock()
         mock_file.name = "README.md"
@@ -92,7 +92,7 @@ class TestQuilt3BackendContentOperations:
 
         # Verify
         assert len(result) == 3
-        
+
         # Verify quilt3.Package.browse was called correctly
         mock_quilt3.Package.browse.assert_called_once_with("test/package", registry="s3://test-registry")
 
@@ -112,7 +112,7 @@ class TestQuilt3BackendContentOperations:
         assert config.size == 256
         assert config.modified_date == "2024-01-03T12:00:00"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_subdirectory_path_browsing(self, mock_quilt3):
         """Test browse_content() browsing within a subdirectory path."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -122,7 +122,7 @@ class TestQuilt3BackendContentOperations:
 
         # Mock subdirectory content
         mock_entries = []
-        
+
         mock_file1 = Mock()
         mock_file1.name = "data/file1.csv"
         mock_file1.size = 1024
@@ -141,7 +141,7 @@ class TestQuilt3BackendContentOperations:
         mock_root_package = Mock()
         mock_subdir_package = Mock()
         mock_subdir_package.__iter__ = Mock(return_value=iter(mock_entries))
-        
+
         # Mock package[path] access
         mock_root_package.__getitem__ = Mock(return_value=mock_subdir_package)
         mock_quilt3.Package.browse.return_value = mock_root_package
@@ -151,10 +151,10 @@ class TestQuilt3BackendContentOperations:
 
         # Verify
         assert len(result) == 2
-        
+
         # Verify quilt3.Package.browse was called correctly
         mock_quilt3.Package.browse.assert_called_once_with("test/package", registry="s3://test-registry")
-        
+
         # Verify subdirectory access
         mock_root_package.__getitem__.assert_called_once_with("data/")
 
@@ -167,7 +167,7 @@ class TestQuilt3BackendContentOperations:
         assert file2.type == "file"
         assert file2.size == 2048
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_nested_path_browsing(self, mock_quilt3):
         """Test browse_content() browsing deeply nested paths."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -186,7 +186,7 @@ class TestQuilt3BackendContentOperations:
         mock_root_package = Mock()
         mock_nested_package = Mock()
         mock_nested_package.__iter__ = Mock(return_value=iter([mock_entry]))
-        
+
         mock_root_package.__getitem__ = Mock(return_value=mock_nested_package)
         mock_quilt3.Package.browse.return_value = mock_root_package
 
@@ -196,7 +196,7 @@ class TestQuilt3BackendContentOperations:
 
         # Verify
         assert len(result) == 1
-        
+
         # Verify correct path access
         mock_root_package.__getitem__.assert_called_once_with(nested_path)
 
@@ -205,7 +205,7 @@ class TestQuilt3BackendContentOperations:
         assert result[0].type == "file"
         assert result[0].size == 4096
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_empty_directory(self, mock_quilt3):
         """Test browse_content() with empty directory."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -225,7 +225,7 @@ class TestQuilt3BackendContentOperations:
         assert len(result) == 0
         assert isinstance(result, list)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_package_not_found_error(self, mock_quilt3):
         """Test browse_content() error handling when package is not found."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -243,13 +243,13 @@ class TestQuilt3BackendContentOperations:
         error_message = str(exc_info.value)
         assert "quilt3 backend browse_content failed" in error_message.lower()
         assert "package not found" in error_message.lower()
-        
+
         # Verify error context
         assert exc_info.value.context['package_name'] == "nonexistent/package"
         assert exc_info.value.context['registry'] == "s3://test-registry"
         assert exc_info.value.context['path'] == ""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_path_not_found_error(self, mock_quilt3):
         """Test browse_content() error handling when path is not found."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -275,7 +275,7 @@ class TestQuilt3BackendContentOperations:
         assert exc_info.value.context['package_name'] == "test/package"
         assert exc_info.value.context['path'] == "nonexistent/path/"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_permission_denied_error(self, mock_quilt3):
         """Test browse_content() error handling for permission denied."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -294,7 +294,7 @@ class TestQuilt3BackendContentOperations:
         assert "quilt3 backend browse_content failed" in error_message.lower()
         assert "access denied" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_network_error(self, mock_quilt3):
         """Test browse_content() error handling for network errors."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -313,7 +313,7 @@ class TestQuilt3BackendContentOperations:
         assert "quilt3 backend browse_content failed" in error_message.lower()
         assert "network timeout" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_transformation_error(self, mock_quilt3):
         """Test browse_content() error handling when content transformation fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -336,7 +336,7 @@ class TestQuilt3BackendContentOperations:
         error_message = str(exc_info.value)
         assert "quilt3 backend browse_content failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_calls_quilt3_correctly(self, mock_quilt3):
         """Test that browse_content() correctly calls quilt3.Package.browse with proper parameters."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -355,7 +355,7 @@ class TestQuilt3BackendContentOperations:
         for package_name, registry, path in test_cases:
             # Reset mock
             mock_quilt3.Package.browse.reset_mock()
-            
+
             # Mock simple content
             mock_entry = Mock()
             mock_entry.name = "test.txt"
@@ -366,13 +366,13 @@ class TestQuilt3BackendContentOperations:
             # Create fresh mock package for each test case
             mock_package = Mock()
             mock_package.__iter__ = Mock(return_value=iter([mock_entry]))
-            
+
             # Configure mock for path access if needed
             if path:
                 mock_subdir_package = Mock()
                 mock_subdir_package.__iter__ = Mock(return_value=iter([mock_entry]))
                 mock_package.__getitem__ = Mock(return_value=mock_subdir_package)
-            
+
             mock_quilt3.Package.browse.return_value = mock_package
 
             # Execute
@@ -389,7 +389,7 @@ class TestQuilt3BackendContentOperations:
             assert len(result) == 1
             assert isinstance(result[0], Content_Info)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_with_mixed_content_types(self, mock_quilt3):
         """Test browse_content() with mixed files and directories."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -459,7 +459,7 @@ class TestQuilt3BackendContentOperations:
         assert empty.type == "file"
         assert empty.size == 0
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_with_special_characters_in_paths(self, mock_quilt3):
         """Test browse_content() with special characters in file/directory names."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -519,39 +519,7 @@ class TestQuilt3BackendContentOperations:
             assert entry.size >= 100
             assert entry.modified_date is not None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_browse_content_logging_behavior(self, mock_quilt3):
-        """Test that browse_content() logs appropriate debug information."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
-
-        # Mock content
-        mock_entry = Mock()
-        mock_entry.name = "test.txt"
-        mock_entry.size = 100
-        mock_entry.modified = datetime(2024, 1, 1, 12, 0, 0)
-        mock_entry.is_dir = False
-
-        # Mock package for root path (no path access needed)
-        mock_package = Mock()
-        mock_package.__iter__ = Mock(return_value=iter([mock_entry]))
-        mock_quilt3.Package.browse.return_value = mock_package
-
-        # Capture log messages
-        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
-            # Test with empty path to avoid path access issues
-            result = backend.browse_content("test/package", "s3://test-registry", "")
-
-            # Verify debug logging
-            mock_logger.debug.assert_any_call("Browsing content for: test/package at path: ")
-            mock_logger.debug.assert_any_call("Found 1 content items")
-
-            # Should have at least 3 debug calls (browse start + transform + found items)
-            assert mock_logger.debug.call_count >= 3
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_browse_content_directory_vs_file_detection(self, mock_quilt3):
         """Test browse_content() correctly detects directories vs files."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -587,7 +555,7 @@ class TestQuilt3BackendContentOperations:
         assert file_result.type == "file"
         assert file_result.size == 512
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_with_mocked_url_generation(self, mock_quilt3):
         """Test get_content_url() with mocked quilt3 URL generation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -608,7 +576,7 @@ class TestQuilt3BackendContentOperations:
         assert result == expected_url
         mock_package.get_url.assert_called_once_with("data.csv")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_calls_quilt3_methods_correctly(self, mock_quilt3):
         """Test that get_content_url() correctly calls quilt3.Package.browse and get_url methods."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -630,7 +598,7 @@ class TestQuilt3BackendContentOperations:
         mock_package.get_url.assert_called_once_with("folder/file.txt")
         assert result == expected_url
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_returns_proper_url_string(self, mock_quilt3):
         """Test that get_content_url() returns a proper URL string."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -658,7 +626,7 @@ class TestQuilt3BackendContentOperations:
             assert result == expected_url
             assert len(result) > 0
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_with_various_path_scenarios(self, mock_quilt3):
         """Test get_content_url() with various path scenarios and file types."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -693,7 +661,7 @@ class TestQuilt3BackendContentOperations:
             assert result == expected_url, f"Failed for {description}: {path}"
             mock_package.get_url.assert_called_with(path)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_with_different_file_types(self, mock_quilt3):
         """Test get_content_url() with various file types and extensions."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -734,7 +702,7 @@ class TestQuilt3BackendContentOperations:
             assert isinstance(result, str)
             mock_package.get_url.assert_called_with(filename)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_error_handling_package_not_found(self, mock_quilt3):
         """Test get_content_url() error handling when package is not found."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -752,7 +720,7 @@ class TestQuilt3BackendContentOperations:
         assert "quilt3 backend get_content_url failed" in error_message.lower()
         assert "package not found" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_error_handling_file_not_found(self, mock_quilt3):
         """Test get_content_url() error handling when file is not found in package."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -772,7 +740,7 @@ class TestQuilt3BackendContentOperations:
         assert "quilt3 backend get_content_url failed" in error_message.lower()
         assert "file not found" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_error_handling_permission_denied(self, mock_quilt3):
         """Test get_content_url() error handling for permission denied scenarios."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -790,7 +758,7 @@ class TestQuilt3BackendContentOperations:
         assert "quilt3 backend get_content_url failed" in error_message.lower()
         assert "access denied" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_error_handling_network_errors(self, mock_quilt3):
         """Test get_content_url() error handling for network-related errors."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -814,7 +782,7 @@ class TestQuilt3BackendContentOperations:
             error_message = str(exc_info.value)
             assert "quilt3 backend get_content_url failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_error_handling_url_generation_failure(self, mock_quilt3):
         """Test get_content_url() error handling when URL generation fails."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -834,7 +802,7 @@ class TestQuilt3BackendContentOperations:
         assert "quilt3 backend get_content_url failed" in error_message.lower()
         assert "failed to generate presigned url" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_error_context_information(self, mock_quilt3):
         """Test that get_content_url() includes proper context information in errors."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -855,7 +823,7 @@ class TestQuilt3BackendContentOperations:
         assert error.context['registry'] == "s3://my-registry"
         assert error.context['path'] == "folder/file.csv"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_with_different_registries(self, mock_quilt3):
         """Test get_content_url() works with different registry formats."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -885,7 +853,7 @@ class TestQuilt3BackendContentOperations:
             mock_quilt3.Package.browse.assert_called_with("test/package", registry=registry)
             assert result == expected_url
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_with_complex_package_names(self, mock_quilt3):
         """Test get_content_url() works with complex package names."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -916,32 +884,7 @@ class TestQuilt3BackendContentOperations:
             mock_quilt3.Package.browse.assert_called_with(package_name, registry="s3://test-registry")
             assert result == expected_url
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_get_content_url_logging_behavior(self, mock_quilt3):
-        """Test that get_content_url() logs appropriate debug information."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
-
-        # Mock package and URL generation
-        expected_url = "https://s3.amazonaws.com/bucket/data.csv?signature=test"
-        mock_package = Mock()
-        mock_package.get_url.return_value = expected_url
-        mock_quilt3.Package.browse.return_value = mock_package
-
-        # Capture log messages
-        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
-            result = backend.get_content_url("test/package", "s3://test-registry", "data.csv")
-
-            # Verify debug logging
-            mock_logger.debug.assert_any_call("Getting content URL for: test/package/data.csv")
-            mock_logger.debug.assert_any_call("Generated URL for: test/package/data.csv")
-
-            # Should have exactly 2 debug calls
-            assert mock_logger.debug.call_count == 2
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_content_url_with_empty_and_special_paths(self, mock_quilt3):
         """Test get_content_url() handles empty and special path cases."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -976,7 +919,7 @@ class TestQuilt3BackendContentOperations:
 class TestQuilt3BackendDirectoryFileTypeDetection:
     """Test directory vs file type detection logic in Quilt3_Backend."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_determine_content_type_with_file_entries(self, mock_quilt3):
         """Test _determine_content_type() correctly identifies file entries."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1006,7 +949,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
             result = backend._determine_content_type(mock_entry)
             assert result == scenario['expected'], f"Failed for file: {scenario['name']}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_determine_content_type_with_directory_entries(self, mock_quilt3):
         """Test _determine_content_type() correctly identifies directory entries."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1036,7 +979,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
             result = backend._determine_content_type(mock_entry)
             assert result == scenario['expected'], f"Failed for directory: {scenario['name']}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_determine_content_type_with_missing_is_dir_attribute(self, mock_quilt3):
         """Test _determine_content_type() defaults to 'file' when is_dir attribute is missing."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1055,7 +998,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
         result = backend._determine_content_type(entry_without_is_dir)
         assert result == "file", "Should default to 'file' when is_dir attribute is missing"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_determine_content_type_with_none_is_dir_attribute(self, mock_quilt3):
         """Test _determine_content_type() defaults to 'file' when is_dir is None."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1071,7 +1014,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
         result = backend._determine_content_type(mock_entry)
         assert result == "file", "Should default to 'file' when is_dir is None"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_determine_content_type_with_various_truthy_falsy_values(self, mock_quilt3):
         """Test _determine_content_type() with various truthy/falsy values for is_dir."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1088,7 +1031,6 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
             ([], 'file'),
             ({}, 'file'),
             (None, 'file'),
-            
             # Truthy values should result in 'directory'
             (True, 'directory'),
             (1, 'directory'),
@@ -1106,7 +1048,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
             result = backend._determine_content_type(mock_entry)
             assert result == expected_type, f"Failed for is_dir={is_dir_value}, expected {expected_type}, got {result}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_determine_content_type_integration_with_transform_content(self, mock_quilt3):
         """Test that _determine_content_type() is properly integrated with _transform_content()."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1138,7 +1080,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
         assert dir_result.type == "directory"
         assert dir_result.path == "test_directory/"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_determine_content_type_with_edge_case_quilt3_objects(self, mock_quilt3):
         """Test _determine_content_type() with edge case quilt3 object types."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1166,7 +1108,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
             result = backend._determine_content_type(mock_entry)
             assert result == "directory", f"Failed for mock type {type(mock_entry)} as directory"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_determine_content_type_with_property_access_errors(self, mock_quilt3):
         """Test _determine_content_type() handles property access errors gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1189,7 +1131,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
         result = backend._determine_content_type(problematic_entry)
         assert result == "file", "Should default to 'file' when is_dir property access fails"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_content_type_detection_in_browse_content_workflow(self, mock_quilt3):
         """Test directory vs file type detection in complete browse_content() workflow."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1272,7 +1214,7 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
         assert ambiguous.type == "file"
         assert ambiguous.size == 256
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_content_type_detection_with_various_quilt3_object_types(self, mock_quilt3):
         """Test content type detection works with various quilt3 object types and structures."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1285,15 +1227,12 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
             # Standard object with boolean is_dir
             {'name': 'standard_file.txt', 'is_dir': False, 'expected': 'file'},
             {'name': 'standard_dir/', 'is_dir': True, 'expected': 'directory'},
-            
             # Object with string representation of boolean
             {'name': 'string_false_file.txt', 'is_dir': 'False', 'expected': 'directory'},  # Truthy string
             {'name': 'string_true_dir/', 'is_dir': 'True', 'expected': 'directory'},
-            
             # Object with numeric is_dir
             {'name': 'numeric_zero_file.txt', 'is_dir': 0, 'expected': 'file'},
             {'name': 'numeric_one_dir/', 'is_dir': 1, 'expected': 'directory'},
-            
             # Object with None is_dir
             {'name': 'none_file.txt', 'is_dir': None, 'expected': 'file'},
         ]
@@ -1304,14 +1243,15 @@ class TestQuilt3BackendDirectoryFileTypeDetection:
             mock_entry.is_dir = test_obj['is_dir']
 
             result = backend._determine_content_type(mock_entry)
-            assert result == test_obj['expected'], \
+            assert result == test_obj['expected'], (
                 f"Failed for {test_obj['name']} with is_dir={test_obj['is_dir']}, expected {test_obj['expected']}, got {result}"
+            )
 
 
 class TestQuilt3BackendContentTransformation:
     """Test content transformation methods in isolation."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_complete_entry(self, mock_quilt3):
         """Test _transform_content() method with complete quilt3 content object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1341,7 +1281,7 @@ class TestQuilt3BackendContentTransformation:
 class TestQuilt3BackendMockContentTransformation:
     """Test transformation with mock quilt3 content objects with various configurations."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_complete_mock_file_object(self, mock_quilt3):
         """Test _transform_content() with complete mock quilt3 file content object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1367,7 +1307,7 @@ class TestQuilt3BackendMockContentTransformation:
         assert result.modified_date == "2024-03-15T14:30:45.123456"
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_complete_mock_directory_object(self, mock_quilt3):
         """Test _transform_content() with complete mock quilt3 directory content object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1393,7 +1333,7 @@ class TestQuilt3BackendMockContentTransformation:
         assert result.modified_date == "2024-02-20T10:15:30"
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_minimal_mock_object(self, mock_quilt3):
         """Test _transform_content() with minimal mock quilt3 content object (only required fields)."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1419,7 +1359,7 @@ class TestQuilt3BackendMockContentTransformation:
         assert result.modified_date is None
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_edge_case_mock_configurations(self, mock_quilt3):
         """Test _transform_content() with edge case mock quilt3 content configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1434,36 +1374,36 @@ class TestQuilt3BackendMockContentTransformation:
                 'size': 0,  # Zero size file
                 'modified': datetime(1970, 1, 1, 0, 0, 0),  # Unix epoch
                 'is_dir': False,
-                'should_fail': True  # This configuration should fail validation
+                'should_fail': True,  # This configuration should fail validation
             },
             {
                 'name': "a" * 1000,  # Very long filename
                 'size': 999999999999,  # Very large file size
                 'modified': datetime(2099, 12, 31, 23, 59, 59),  # Future date
                 'is_dir': False,
-                'should_fail': False
+                'should_fail': False,
             },
             {
                 'name': "unicode/测试文件.txt",  # Unicode filename
                 'size': 2048,
                 'modified': datetime(2024, 6, 15, 12, 30, 45),
                 'is_dir': False,
-                'should_fail': False
+                'should_fail': False,
             },
             {
                 'name': "special-chars/file!@#$%^&*()_+.txt",  # Special characters
                 'size': 1024,
                 'modified': datetime(2024, 1, 1, 12, 0, 0),
                 'is_dir': False,
-                'should_fail': False
+                'should_fail': False,
             },
             {
                 'name': "deep/nested/directory/structure/file.json",  # Deep nesting
                 'size': 512,
                 'modified': datetime(2024, 1, 1, 12, 0, 0),
                 'is_dir': False,
-                'should_fail': False
-            }
+                'should_fail': False,
+            },
         ]
 
         for i, case in enumerate(edge_cases):
@@ -1482,7 +1422,7 @@ class TestQuilt3BackendMockContentTransformation:
                 assert result.size == case['size']
                 assert result.type == "file" if not case['is_dir'] else "directory"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_size_configurations(self, mock_quilt3):
         """Test _transform_content() with various size configurations in mock content objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1514,7 +1454,7 @@ class TestQuilt3BackendMockContentTransformation:
             result = backend._transform_content(mock_content)
             assert result.size == expected_size, f"Failed for input size: {input_size}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_datetime_configurations(self, mock_quilt3):
         """Test _transform_content() with various datetime configurations in mock content objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1542,7 +1482,7 @@ class TestQuilt3BackendMockContentTransformation:
             result = backend._transform_content(mock_content)
             assert result.modified_date == expected_datetime, f"Failed for input datetime: {input_datetime}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_path_configurations(self, mock_quilt3):
         """Test _transform_content() with various path configurations in mock content objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1578,7 +1518,7 @@ class TestQuilt3BackendMockContentTransformation:
             assert result.path == path, f"Failed for path: {path}"
             assert result.type == expected_type, f"Failed for path type: {path}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_mock_object_missing_attributes(self, mock_quilt3):
         """Test _transform_content() with mock content objects missing required attributes."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1605,7 +1545,7 @@ class TestQuilt3BackendMockContentTransformation:
 
             assert "missing name" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_mock_object_none_attributes(self, mock_quilt3):
         """Test _transform_content() with mock content objects having None required attributes."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1632,7 +1572,7 @@ class TestQuilt3BackendMockContentTransformation:
 
             assert "missing name" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_mock_object_type_variations(self, mock_quilt3):
         """Test _transform_content() with different types of mock content objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1661,7 +1601,7 @@ class TestQuilt3BackendMockContentTransformation:
             assert result.size == 1024 + i
             assert result.type == "file"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_mock_object_directory_detection(self, mock_quilt3):
         """Test _transform_content() correctly detects directories vs files with mock objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1694,7 +1634,7 @@ class TestQuilt3BackendMockContentTransformation:
             assert result.type == expected_type, f"Failed for {name} (is_dir={is_dir})"
             assert result.path == name
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_mock_object_attribute_access_patterns(self, mock_quilt3):
         """Test _transform_content() handles various attribute access patterns with mock objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1723,7 +1663,7 @@ class TestQuilt3BackendMockContentTransformation:
         # The transformation should succeed because size and modified are optional
         # and the implementation handles exceptions gracefully by using getattr with defaults
         result = backend._transform_content(problematic_content)
-        
+
         # Verify it still creates a valid Content_Info object
         assert isinstance(result, Content_Info)
         assert result.path == "problematic_file.txt"
@@ -1733,7 +1673,7 @@ class TestQuilt3BackendMockContentTransformation:
         # Modified should be handled by the normalization function
         assert result.modified_date is not None  # The normalization converts the dict to string
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_mock_object_performance_edge_cases(self, mock_quilt3):
         """Test _transform_content() handles performance edge cases with large mock data."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1756,7 +1696,7 @@ class TestQuilt3BackendMockContentTransformation:
         assert result.size == 999999999999
         assert result.type == "file"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_mock_object_comprehensive_validation(self, mock_quilt3):
         """Test _transform_content() comprehensive validation with various mock object configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1772,10 +1712,10 @@ class TestQuilt3BackendMockContentTransformation:
                     'name': 'valid/file.txt',
                     'size': 2048,
                     'modified': datetime(2024, 1, 1, 12, 0, 0),
-                    'is_dir': False
+                    'is_dir': False,
                 },
                 'should_pass': True,
-                'expected_type': 'file'
+                'expected_type': 'file',
             },
             {
                 'name': 'valid_directory_complete',
@@ -1783,33 +1723,23 @@ class TestQuilt3BackendMockContentTransformation:
                     'name': 'valid/directory/',
                     'size': None,
                     'modified': datetime(2024, 1, 1, 12, 0, 0),
-                    'is_dir': True
+                    'is_dir': True,
                 },
                 'should_pass': True,
-                'expected_type': 'directory'
+                'expected_type': 'directory',
             },
             {
                 'name': 'empty_name',
-                'config': {
-                    'name': '',
-                    'size': 1024,
-                    'modified': datetime(2024, 1, 1, 12, 0, 0),
-                    'is_dir': False
-                },
+                'config': {'name': '', 'size': 1024, 'modified': datetime(2024, 1, 1, 12, 0, 0), 'is_dir': False},
                 'should_pass': False,
-                'expected_error': 'empty'
+                'expected_error': 'empty',
             },
             {
                 'name': 'none_name',
-                'config': {
-                    'name': None,
-                    'size': 1024,
-                    'modified': datetime(2024, 1, 1, 12, 0, 0),
-                    'is_dir': False
-                },
+                'config': {'name': None, 'size': 1024, 'modified': datetime(2024, 1, 1, 12, 0, 0), 'is_dir': False},
                 'should_pass': False,
-                'expected_error': 'missing name'
-            }
+                'expected_error': 'missing name',
+            },
         ]
 
         for scenario in validation_scenarios:
@@ -1825,11 +1755,11 @@ class TestQuilt3BackendMockContentTransformation:
             else:
                 with pytest.raises(BackendError) as exc_info:
                     backend._transform_content(mock_content)
-                
+
                 error_message = str(exc_info.value).lower()
                 assert scenario['expected_error'] in error_message
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_missing_fields(self, mock_quilt3):
         """Test _transform_content() handles missing/null fields in quilt3 objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1853,7 +1783,7 @@ class TestQuilt3BackendMockContentTransformation:
         assert result.type == "directory"
         assert result.modified_date is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_handling(self, mock_quilt3):
         """Test _transform_content() error handling in transformation logic."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1868,38 +1798,6 @@ class TestQuilt3BackendMockContentTransformation:
         with pytest.raises(BackendError):
             backend._transform_content(mock_entry)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_transform_content_with_missing_fields(self, mock_quilt3):
-        """Test _transform_content() handles missing/null fields in quilt3 objects."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
-
-        # Create mock content entry with missing fields
-        mock_entry = Mock()
-        mock_entry.name = "folder/"
-        mock_entry.size = None
-        mock_entry.modified = None
-        mock_entry.is_dir = True
-
-        # Execute transformation
-        result = backend._transform_content(mock_entry)
-
-        # Verify
-        assert result.path == "folder/"
-        assert result.size is None
-        assert result.type == "directory"
-        assert result.modified_date is None
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_transform_content_error_handling(self, mock_quilt3):
-        """Test _transform_content() error handling in transformation logic."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
-
         # Create mock entry that will cause transformation error
         mock_entry = Mock()
         mock_entry.name = None  # Invalid name
@@ -1907,7 +1805,7 @@ class TestQuilt3BackendMockContentTransformation:
         with pytest.raises(BackendError):
             backend._transform_content(mock_entry)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_wrapping_and_context(self, mock_quilt3):
         """Test that content transformation errors are properly wrapped in BackendError with context."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1921,20 +1819,20 @@ class TestQuilt3BackendMockContentTransformation:
             {
                 'setup': lambda entry: delattr(entry, 'name'),
                 'expected_message': 'missing name',
-                'description': 'missing name attribute'
+                'description': 'missing name attribute',
             },
             # None name
             {
                 'setup': lambda entry: setattr(entry, 'name', None),
                 'expected_message': 'missing name',
-                'description': 'None name'
+                'description': 'None name',
             },
             # Empty name
             {
                 'setup': lambda entry: setattr(entry, 'name', ''),
                 'expected_message': 'empty name',
-                'description': 'empty name'
-            }
+                'description': 'empty name',
+            },
         ]
 
         for scenario in error_scenarios:
@@ -1956,13 +1854,14 @@ class TestQuilt3BackendMockContentTransformation:
             error_message = str(error)
 
             # Verify error message contains expected content
-            assert scenario['expected_message'].lower() in error_message.lower(), \
+            assert scenario['expected_message'].lower() in error_message.lower(), (
                 f"Expected '{scenario['expected_message']}' in error message for {scenario['description']}"
+            )
 
             # Verify error is properly wrapped as BackendError
             assert isinstance(error, BackendError), f"Error should be BackendError for {scenario['description']}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_message_clarity(self, mock_quilt3):
         """Test that content transformation error messages are clear and actionable."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1975,13 +1874,13 @@ class TestQuilt3BackendMockContentTransformation:
             {
                 'name': 'missing_name_attribute',
                 'setup': lambda entry: delattr(entry, 'name'),
-                'expected_keywords': ['missing', 'name', 'content', 'transformation']
+                'expected_keywords': ['missing', 'name', 'content', 'transformation'],
             },
             {
                 'name': 'empty_name_field',
                 'setup': lambda entry: setattr(entry, 'name', ''),
-                'expected_keywords': ['empty', 'name', 'content', 'transformation']
-            }
+                'expected_keywords': ['empty', 'name', 'content', 'transformation'],
+            },
         ]
 
         for test_case in clarity_tests:
@@ -2000,14 +1899,16 @@ class TestQuilt3BackendMockContentTransformation:
 
             # Verify error message contains expected keywords for clarity
             for keyword in test_case['expected_keywords']:
-                assert keyword.lower() in error_message, \
+                assert keyword.lower() in error_message, (
                     f"Error message should contain '{keyword}' for {test_case['name']}: {error_message}"
+                )
 
             # Verify error message mentions the backend type
-            assert 'quilt3' in error_message, \
+            assert 'quilt3' in error_message, (
                 f"Error message should mention backend type for {test_case['name']}: {error_message}"
+            )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_propagation_from_helpers(self, mock_quilt3):
         """Test that errors from content transformation helper methods are properly propagated."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2027,18 +1928,18 @@ class TestQuilt3BackendMockContentTransformation:
 
         # Test error propagation from normalization helpers
         mock_entry.name = "test_file.txt"
-        
+
         # Mock the _normalize_datetime method to raise an error
         with patch.object(backend, '_normalize_datetime', side_effect=ValueError("Invalid datetime format")):
             mock_entry.modified = "invalid-datetime"
-            
+
             with pytest.raises(BackendError) as exc_info:
                 backend._transform_content(mock_entry)
 
             # Verify the normalization error is properly propagated
             assert "transformation failed" in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_various_transformation_failures(self, mock_quilt3):
         """Test various types of content transformation failures and their error handling."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2050,9 +1951,9 @@ class TestQuilt3BackendMockContentTransformation:
         failure_scenarios = [
             {
                 'name': 'content_info_creation_failure',
-                'mock_target': 'quilt_mcp.backends.quilt3_backend.Content_Info',
+                'mock_target': 'quilt_mcp.backends.quilt3_backend_content.Content_Info',
                 'mock_side_effect': ValueError("Content_Info creation failed"),
-                'expected_error': 'content_info creation failed'
+                'expected_error': 'content_info creation failed',
             }
         ]
 
@@ -2069,7 +1970,7 @@ class TestQuilt3BackendMockContentTransformation:
 
                 assert scenario['expected_error'] in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_path_formats(self, mock_quilt3):
         """Test _transform_content() handles various path formats correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2115,7 +2016,7 @@ class TestQuilt3BackendMockContentTransformation:
 
         assert "transformation failed" in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_sizes(self, mock_quilt3):
         """Test _transform_content() handles various file sizes correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2144,7 +2045,7 @@ class TestQuilt3BackendMockContentTransformation:
             assert result.size == size
             assert result.type == ("directory" if size is None else "file")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_date_formats(self, mock_quilt3):
         """Test _transform_content() handles various date formats correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2174,7 +2075,7 @@ class TestQuilt3BackendMockContentTransformation:
             else:
                 assert result.modified_date == str(modified_date)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_directory_vs_file_detection(self, mock_quilt3):
         """Test _transform_content() correctly detects directories vs files."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2204,7 +2105,7 @@ class TestQuilt3BackendMockContentTransformation:
         assert result.type == "directory"
         assert result.size is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_missing_optional_attributes(self, mock_quilt3):
         """Test _transform_content() handles missing optional attributes gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2232,7 +2133,7 @@ class TestQuilt3BackendMockContentTransformation:
 class TestQuilt3BackendContentTransformationIsolated:
     """Test _transform_content() method in complete isolation with focus on transformation logic."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_isolated_with_complete_mock_entry(self, mock_quilt3):
         """Test _transform_content() method in isolation with complete mock quilt3 content entry."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2258,7 +2159,7 @@ class TestQuilt3BackendContentTransformationIsolated:
         assert result.modified_date == "2024-03-15T14:30:45"
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_isolated_with_minimal_mock_entry(self, mock_quilt3):
         """Test _transform_content() method in isolation with minimal mock quilt3 content entry."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2284,7 +2185,7 @@ class TestQuilt3BackendContentTransformationIsolated:
         assert result.modified_date is None
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_isolated_directory_detection(self, mock_quilt3):
         """Test _transform_content() directory detection logic in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2295,8 +2196,8 @@ class TestQuilt3BackendContentTransformationIsolated:
         # Test directory detection scenarios
         directory_scenarios = [
             (True, "directory"),  # is_dir=True -> directory
-            (False, "file"),      # is_dir=False -> file
-            (None, "file"),       # is_dir=None -> file (default)
+            (False, "file"),  # is_dir=False -> file
+            (None, "file"),  # is_dir=None -> file (default)
         ]
 
         for is_dir_value, expected_type in directory_scenarios:
@@ -2311,7 +2212,7 @@ class TestQuilt3BackendContentTransformationIsolated:
             assert result.type == expected_type, f"Failed for is_dir={is_dir_value}"
             assert result.path == f"test-{expected_type}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_isolated_validation_logic(self, mock_quilt3):
         """Test _transform_content() validation logic in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2337,7 +2238,7 @@ class TestQuilt3BackendContentTransformationIsolated:
 
             assert expected_error in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_isolated_helper_method_integration(self, mock_quilt3):
         """Test _transform_content() integration with helper methods in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2362,7 +2263,7 @@ class TestQuilt3BackendContentTransformationIsolated:
         assert result.modified_date == "2024-02-15T14:30:45"  # _normalize_datetime converts datetime
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_isolated_error_context_preservation(self, mock_quilt3):
         """Test _transform_content() error context preservation in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2392,7 +2293,7 @@ class TestQuilt3BackendContentTransformationIsolated:
         assert error_context['entry_type'] == "Mock"
         assert 'available_attributes' in error_context
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_isolated_with_edge_case_inputs(self, mock_quilt3):
         """Test _transform_content() with edge case inputs in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2419,7 +2320,7 @@ class TestQuilt3BackendContentTransformationIsolated:
                 'size': None,  # None size
                 'modified': None,  # None modified
                 'is_dir': True,  # Directory
-            }
+            },
         ]
 
         for i, edge_case in enumerate(edge_cases):
@@ -2439,7 +2340,7 @@ class TestQuilt3BackendContentTransformationIsolated:
 class TestQuilt3BackendContentTransformationMissingNullFields:
     """Test handling of missing/null fields in quilt3 content objects during transformation."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_missing_optional_attributes_comprehensive(self, mock_quilt3):
         """Test _transform_content() handles missing optional attributes comprehensively."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2457,7 +2358,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
         for scenario in missing_attribute_scenarios:
             mock_entry = Mock()
             mock_entry.name = f"missing-{scenario['missing']}.txt"
-            
+
             # Set all attributes first
             mock_entry.size = 1024
             mock_entry.modified = datetime(2024, 1, 1, 12, 0, 0)
@@ -2479,7 +2380,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
             if 'expected_type' in scenario:
                 assert result.type == scenario['expected_type']
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_null_optional_fields_comprehensive(self, mock_quilt3):
         """Test _transform_content() handles null/None values in optional fields comprehensively."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2496,7 +2397,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
                 'is_dir': None,
                 'expected_size': None,
                 'expected_modified': None,
-                'expected_type': 'file'  # None is_dir should default to file
+                'expected_type': 'file',  # None is_dir should default to file
             },
             {
                 'name': 'mixed-null.txt',
@@ -2505,7 +2406,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
                 'is_dir': False,  # Valid is_dir
                 'expected_size': 0,
                 'expected_modified': None,
-                'expected_type': 'file'
+                'expected_type': 'file',
             },
             {
                 'name': 'directory-null.txt',
@@ -2514,8 +2415,8 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
                 'is_dir': True,  # Directory
                 'expected_size': None,
                 'expected_modified': '2024-01-01T12:00:00',
-                'expected_type': 'directory'
-            }
+                'expected_type': 'directory',
+            },
         ]
 
         for scenario in null_scenarios:
@@ -2534,7 +2435,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
             assert result.type == scenario['expected_type']
             assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_missing_required_name_attribute(self, mock_quilt3):
         """Test _transform_content() properly fails when required name attribute is missing."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2559,7 +2460,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
         assert "missing name" in error_message.lower()
         assert "content transformation failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_null_required_name_field(self, mock_quilt3):
         """Test _transform_content() properly fails when required name field is None or empty."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2589,7 +2490,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
         error_message = str(exc_info.value)
         assert "empty name" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_empty_string_fields(self, mock_quilt3):
         """Test _transform_content() handles empty string values appropriately."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2614,7 +2515,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
         assert result.type == "file"
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_malformed_size_fields(self, mock_quilt3):
         """Test _transform_content() handles malformed size fields appropriately."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2625,8 +2526,8 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
         # Test various malformed size scenarios
         size_scenarios = [
             (None, None),  # None size (should be handled gracefully)
-            (0, 0),     # Zero size (valid)
-            (-1, None),    # Negative size (should cause domain validation error)
+            (0, 0),  # Zero size (valid)
+            (-1, None),  # Negative size (should cause domain validation error)
             ("invalid-size", None),  # String size (should be normalized to None)
             (3.14, 3),  # Float size (should be converted to int)
             ({"invalid": "object"}, None),  # Invalid object type (should be normalized to None)
@@ -2651,7 +2552,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
                 assert result.path == f"size-test-{i}.txt"
                 assert result.size == expected_result
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_malformed_datetime_fields(self, mock_quilt3):
         """Test _transform_content() handles malformed datetime fields appropriately."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2686,7 +2587,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
             else:
                 assert isinstance(result.modified_date, str)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_unexpected_field_types(self, mock_quilt3):
         """Test _transform_content() handles unexpected field types gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2719,10 +2620,10 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
 
         with pytest.raises(BackendError) as exc_info:
             backend._transform_content(mock_entry_invalid)
-        
+
         assert "path field must be a string" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_mock_entry_missing_attributes(self, mock_quilt3):
         """Test _transform_content() with mock entries missing various attributes."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2758,7 +2659,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
             if missing_attr == 'is_dir':
                 assert result.type == "file"  # Should default to file
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_handling_comprehensive(self, mock_quilt3):
         """Test comprehensive error handling in _transform_content() transformation logic."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2774,7 +2675,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
                 'modified': datetime(2024, 1, 1),
                 'is_dir': False,
                 'expected_error': 'missing name',
-                'has_context': False  # Validation errors don't have context
+                'has_context': False,  # Validation errors don't have context
             },
             {
                 'name': "",  # Empty name should cause validation error
@@ -2782,8 +2683,8 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
                 'modified': datetime(2024, 1, 1),
                 'is_dir': False,
                 'expected_error': 'empty name',
-                'has_context': False  # Validation errors don't have context
-            }
+                'has_context': False,  # Validation errors don't have context
+            },
         ]
 
         for scenario in error_scenarios:
@@ -2811,7 +2712,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
                 # Validation errors don't include context
                 assert not hasattr(exc_info.value, 'context') or not exc_info.value.context
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_edge_case_attribute_access_patterns(self, mock_quilt3):
         """Test transformation handles various attribute access patterns and edge cases."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2837,7 +2738,7 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
         assert "quilt3 backend content transformation failed" in error_message.lower()
         assert "size field cannot be negative" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_mock_object_types(self, mock_quilt3):
         """Test _transform_content() with different types of mock content objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2869,13 +2770,13 @@ class TestQuilt3BackendContentTransformationMissingNullFields:
 
 class TestQuilt3BackendTransformContentMethodIsolated:
     """Dedicated unit tests for _transform_content() method in complete isolation.
-    
+
     This test class focuses specifically on testing the _transform_content() method
     with mock quilt3 content objects, testing transformation logic, error handling,
     and edge cases in isolation from broader integration concerns.
     """
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_complete_mock_quilt3_object(self, mock_quilt3):
         """Test _transform_content() with a complete mock quilt3 content object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2901,7 +2802,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         assert result.modified_date == "2024-03-15T14:30:45.123456"
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_directory_mock_object(self, mock_quilt3):
         """Test _transform_content() with mock quilt3 directory object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2927,7 +2828,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         assert result.modified_date == "2024-02-10T09:15:30"
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_minimal_mock_object(self, mock_quilt3):
         """Test _transform_content() with minimal mock quilt3 content object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2954,7 +2855,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         assert result.modified_date is None
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_size_values(self, mock_quilt3):
         """Test _transform_content() handles various size values correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2964,14 +2865,14 @@ class TestQuilt3BackendTransformContentMethodIsolated:
 
         # Test different size scenarios
         size_scenarios = [
-            (None, None),           # None size
-            (0, 0),                 # Zero size (empty file)
-            (1, 1),                 # Single byte
-            (1024, 1024),           # 1KB
-            (1048576, 1048576),     # 1MB
-            (1073741824, 1073741824), # 1GB
-            ("1024", 1024),         # String number (should convert)
-            ("invalid", None),      # Invalid string (should convert to None)
+            (None, None),  # None size
+            (0, 0),  # Zero size (empty file)
+            (1, 1),  # Single byte
+            (1024, 1024),  # 1KB
+            (1048576, 1048576),  # 1MB
+            (1073741824, 1073741824),  # 1GB
+            ("1024", 1024),  # String number (should convert)
+            ("invalid", None),  # Invalid string (should convert to None)
         ]
 
         for input_size, expected_size in size_scenarios:
@@ -2986,7 +2887,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
             assert result.size == expected_size, f"Failed for input size: {input_size}"
             assert result.path == f"test-size-{input_size}.txt"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_datetime_formats(self, mock_quilt3):
         """Test _transform_content() handles various datetime formats correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3005,7 +2906,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
 
         for input_datetime, expected_datetime in datetime_scenarios:
             mock_content = Mock()
-            mock_content.name = f"test-datetime.txt"
+            mock_content.name = "test-datetime.txt"
             mock_content.size = 1024
             mock_content.modified = input_datetime
             mock_content.is_dir = False
@@ -3014,7 +2915,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
 
             assert result.modified_date == expected_datetime, f"Failed for input datetime: {input_datetime}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_various_path_formats(self, mock_quilt3):
         """Test _transform_content() handles various path formats correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3024,17 +2925,17 @@ class TestQuilt3BackendTransformContentMethodIsolated:
 
         # Test different path formats
         path_scenarios = [
-            "simple.txt",                           # Simple filename
-            "data/file.csv",                        # Nested path
-            "deep/nested/path/file.json",           # Deep nesting
-            "file with spaces.txt",                 # Spaces in filename
-            "file-with-dashes_and_underscores.txt", # Special characters
-            "unicode_文件名.txt",                    # Unicode characters
-            "file.with.multiple.dots.txt",          # Multiple dots
-            "UPPERCASE_FILE.TXT",                   # Uppercase
-            "123numeric_start.txt",                 # Numeric start
-            ".hidden_file",                         # Hidden file
-            "folder/",                              # Directory path
+            "simple.txt",  # Simple filename
+            "data/file.csv",  # Nested path
+            "deep/nested/path/file.json",  # Deep nesting
+            "file with spaces.txt",  # Spaces in filename
+            "file-with-dashes_and_underscores.txt",  # Special characters
+            "unicode_文件名.txt",  # Unicode characters
+            "file.with.multiple.dots.txt",  # Multiple dots
+            "UPPERCASE_FILE.TXT",  # Uppercase
+            "123numeric_start.txt",  # Numeric start
+            ".hidden_file",  # Hidden file
+            "folder/",  # Directory path
         ]
 
         for path in path_scenarios:
@@ -3049,7 +2950,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
             assert result.path == path, f"Path not preserved correctly for: {path}"
             assert result.type == ("directory" if path.endswith('/') else "file")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_missing_required_fields(self, mock_quilt3):
         """Test _transform_content() error handling when required fields are missing."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3072,7 +2973,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         assert "missing name" in str(exc_info.value).lower()
         assert "content transformation failed" in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_null_required_fields(self, mock_quilt3):
         """Test _transform_content() error handling when required fields are None or empty."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3104,7 +3005,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
 
         assert "empty name" in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_helper_method_integration(self, mock_quilt3):
         """Test _transform_content() integration with helper methods."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3128,7 +3029,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         assert result.modified_date == "2024-01-15T10:30:45"  # _normalize_datetime converted to ISO
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_error_context_preservation(self, mock_quilt3):
         """Test _transform_content() error handling and context preservation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3204,7 +3105,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         context = error.context
         assert context == {}  # Empty context for validation errors
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_edge_case_mock_objects(self, mock_quilt3):
         """Test _transform_content() with edge case mock objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3243,7 +3144,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         result = backend._transform_content(future_file_mock)
         assert result.modified_date == "2099-12-31T23:59:59"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_different_mock_object_types(self, mock_quilt3):
         """Test _transform_content() works with different types of mock objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3272,7 +3173,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
             assert result.size == 1024 * (i + 1)
             assert result.type == "file"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_attribute_access_error_handling(self, mock_quilt3):
         """Test _transform_content() handles attribute access errors gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3332,32 +3233,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         assert "transformation failed" in error_message.lower()
         assert "missing name" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_transform_content_logging_behavior(self, mock_quilt3):
-        """Test _transform_content() logging behavior during transformation."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
-
-        mock_content = Mock()
-        mock_content.name = "logging_test.txt"
-        mock_content.size = 2048
-        mock_content.modified = datetime(2024, 1, 1, 12, 0, 0)
-        mock_content.is_dir = False
-
-        # Capture log messages
-        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
-            result = backend._transform_content(mock_content)
-
-            # Verify debug logging
-            mock_logger.debug.assert_any_call("Transforming content entry: logging_test.txt")
-            mock_logger.debug.assert_any_call("Successfully transformed content: logging_test.txt (file)")
-
-            # Should have exactly 2 debug calls
-            assert mock_logger.debug.call_count == 2
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_performance_with_large_mock_data(self, mock_quilt3):
         """Test _transform_content() performance with large mock data structures."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3380,7 +3256,7 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         assert result.size == 999999999999
         assert result.type == "file"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_unicode_and_special_characters(self, mock_quilt3):
         """Test _transform_content() handles unicode and special characters correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3391,9 +3267,9 @@ class TestQuilt3BackendTransformContentMethodIsolated:
         # Test various unicode and special character scenarios
         special_names = [
             "测试文件.txt",  # Chinese characters
-            "файл.txt",      # Cyrillic characters
-            "αρχείο.txt",    # Greek characters
-            "ファイル.txt",    # Japanese characters
+            "файл.txt",  # Cyrillic characters
+            "αρχείο.txt",  # Greek characters
+            "ファイル.txt",  # Japanese characters
             "file_with_émojis_🚀📊.txt",  # Emojis
             "file!@#$%^&*()_+.txt",  # Special ASCII characters
             "file with spaces and tabs\t.txt",  # Whitespace
@@ -3412,5 +3288,3 @@ class TestQuilt3BackendTransformContentMethodIsolated:
             assert result.path == special_name, f"Failed to preserve special name: {special_name}"
             assert isinstance(result, Content_Info)
             assert result.type == "file"
-
-

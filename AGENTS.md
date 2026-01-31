@@ -58,6 +58,38 @@
 ❌ python scripts/test.py
 ```
 
+### Development Commands
+
+**Essential make targets:**
+
+```bash
+# Testing (run these after code changes)
+make test              # Unit tests only (fast, default)
+make test-all          # All tests (unit, integration, e2e, scripts, mcpb)
+make lint              # Format code + type checking (run before commit)
+
+# Development server
+make run               # Start local MCP server
+make run-inspector     # Launch MCP Inspector UI
+
+# Coverage & validation
+make coverage          # Generate coverage report
+make test-integration  # Integration tests with AWS
+
+# Build & package
+make mcpb              # Create MCPB package
+make docker-build      # Build Docker image (for test-mcp-docker)
+
+# Cleanup
+make clean             # Remove all build artifacts
+```
+
+**Common workflows:**
+- After editing code: `make test lint`
+- Before commit: `make test-all lint`
+- Test with Inspector: `make run-inspector`
+- Full local release: `make release-local`
+
 ### Architecture Overview
 
 **Backend:** Modular mixin-based design

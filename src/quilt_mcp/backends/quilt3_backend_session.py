@@ -3,29 +3,31 @@ Quilt3_Backend session, configuration, and AWS operations mixin.
 
 This module provides session management, catalog configuration, GraphQL queries,
 and AWS boto3 client access for the Quilt3_Backend implementation.
+
+This mixin uses self.quilt3, self.requests, and self.boto3 which are provided by Quilt3_Backend_Base.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
-try:
-    import quilt3
-    import requests
-    import boto3
-except ImportError:
-    quilt3 = None
-    requests = None
-    boto3 = None
-
-from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError
+from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError, NotFoundError
 from quilt_mcp.domain.auth_status import Auth_Status
 from quilt_mcp.domain.catalog_config import Catalog_Config
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 logger = logging.getLogger(__name__)
 
 
 class Quilt3_Backend_Session:
     """Mixin for session, configuration, and AWS operations."""
+
+    # Type hints for attributes provided by Quilt3_Backend_Base
+    if TYPE_CHECKING:
+        quilt3: "ModuleType"
+        requests: "ModuleType"
+        boto3: "ModuleType"
 
     def get_auth_status(self) -> Auth_Status:
         """Get current authentication status.
@@ -35,8 +37,9 @@ class Quilt3_Backend_Session:
 
         Raises:
             BackendError: If auth status retrieval fails
+            NotImplementedError: This method must be implemented by concrete class
         """
-        pass
+        raise NotImplementedError("get_auth_status must be implemented by concrete class")
 
     def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
         """Get catalog configuration from the specified catalog URL.
@@ -64,10 +67,10 @@ class Quilt3_Backend_Session:
                 raise ValidationError("Invalid catalog URL: must be a non-empty string")
 
             # Use quilt3 session to fetch config.json
-            if not hasattr(quilt3, 'session') or not hasattr(quilt3.session, 'get_session'):
+            if not hasattr(self.quilt3, 'session') or not hasattr(self.quilt3.session, 'get_session'):
                 raise AuthenticationError("quilt3 session not available - user may not be authenticated")
 
-            session = quilt3.session.get_session()
+            session = self.quilt3.session.get_session()
             if session is None:
                 raise AuthenticationError("No active quilt3 session - please run 'quilt3 login'")
 
@@ -130,7 +133,7 @@ class Quilt3_Backend_Session:
                 raise ValidationError("Invalid catalog URL: must be a non-empty string")
 
             # Use quilt3.config to set the catalog URL
-            quilt3.config(catalog_url)
+            self.quilt3.config(catalog_url)
 
             logger.debug(f"Successfully configured catalog: {catalog_url}")
 
@@ -193,7 +196,7 @@ class Quilt3_Backend_Session:
                 api_gateway_endpoint=api_gateway_endpoint,
                 analytics_bucket=analytics_bucket,
                 stack_prefix=stack_prefix,
-                tabulator_data_catalog=tabulator_data_catalog
+                tabulator_data_catalog=tabulator_data_catalog,
             )
 
             logger.debug("Successfully transformed catalog configuration")
@@ -221,10 +224,10 @@ class Quilt3_Backend_Session:
             logger.debug("Getting registry URL from quilt3 session")
 
             # Check if quilt3.session.get_registry_url method exists
-            if hasattr(quilt3.session, "get_registry_url"):
-                registry_url = quilt3.session.get_registry_url()
+            if hasattr(self.quilt3.session, "get_registry_url"):
+                registry_url = self.quilt3.session.get_registry_url()
                 logger.debug(f"Retrieved registry URL: {registry_url}")
-                return registry_url
+                return str(registry_url) if registry_url is not None else None
             else:
                 logger.debug("quilt3.session.get_registry_url method not available")
                 return None
@@ -262,10 +265,10 @@ class Quilt3_Backend_Session:
             logger.debug("Executing GraphQL query against catalog")
 
             # Get authenticated session
-            session = quilt3.session.get_session()
+            session = self.quilt3.session.get_session()
 
             # Determine registry URL
-            registry_url = registry or quilt3.session.get_registry_url()
+            registry_url = registry or self.quilt3.session.get_registry_url()
             if not registry_url:
                 raise AuthenticationError("No registry configured")
 
@@ -273,18 +276,19 @@ class Quilt3_Backend_Session:
             api_url = self._get_graphql_endpoint(registry_url)
 
             # Prepare request payload
-            payload = {"query": query}
+            payload: Dict[str, Any] = {"query": query}
             if variables:
-                payload["variables"] = variables
+                payload["variables"] = variables  # Variables is Dict[str, Any]  # type: ignore[assignment]
 
             # Execute GraphQL query
             response = session.post(api_url, json=payload)
             response.raise_for_status()
 
             logger.debug("GraphQL query executed successfully")
-            return response.json()
+            result: Dict[str, Any] = response.json()
+            return result
 
-        except requests.HTTPError as e:
+        except self.requests.HTTPError as e:
             if hasattr(e, 'response') and e.response and e.response.status_code == 403:
                 logger.error("GraphQL query authorization failed")
                 raise AuthenticationError("GraphQL query not authorized")
@@ -326,14 +330,14 @@ class Quilt3_Backend_Session:
             logger.debug(f"Creating boto3 client for service: {service_name}, region: {region}")
 
             # Check if boto3 is available
-            if boto3 is None:
+            if self.boto3 is None:
                 raise BackendError("boto3 library is not available")
 
             # Create botocore session from quilt3
-            botocore_session = quilt3.session.create_botocore_session()
+            botocore_session = self.quilt3.session.create_botocore_session()
 
             # Create boto3 session with authenticated botocore session
-            boto3_session = boto3.Session(botocore_session=botocore_session)
+            boto3_session = self.boto3.Session(botocore_session=botocore_session)
 
             # Create client for the specified service
             client = boto3_session.client(service_name, region_name=region)
@@ -378,4 +382,3 @@ class Quilt3_Backend_Session:
         except Exception as e:
             logger.error(f"GraphQL endpoint construction failed: {str(e)}")
             raise ValidationError(f"Invalid registry URL format: {registry_url}")
-

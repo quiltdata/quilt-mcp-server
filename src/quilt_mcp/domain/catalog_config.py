@@ -1,7 +1,7 @@
 """Catalog_Config domain object for backend-agnostic catalog configuration representation.
 
 This module defines the Catalog_Config dataclass that represents Quilt catalog
-configuration information in a way that's independent of the underlying backend 
+configuration information in a way that's independent of the underlying backend
 (quilt3 library or Platform GraphQL).
 """
 
@@ -73,10 +73,12 @@ class Catalog_Config:
 
     def __hash__(self) -> int:
         """Custom hash implementation for the frozen dataclass."""
-        return hash((
-            self.region,
-            self.api_gateway_endpoint,
-            self.analytics_bucket,
-            self.stack_prefix,
-            self.tabulator_data_catalog
-        ))
+        return hash(
+            (
+                self.region,
+                self.api_gateway_endpoint,
+                self.analytics_bucket,
+                self.stack_prefix,
+                self.tabulator_data_catalog,
+            )
+        )

@@ -37,9 +37,4 @@ class Auth_Status:
 
     def __hash__(self) -> int:
         """Custom hash implementation for the frozen dataclass."""
-        return hash((
-            self.is_authenticated,
-            self.logged_in_url,
-            self.catalog_name,
-            self.registry_url
-        ))
+        return hash((self.is_authenticated, self.logged_in_url, self.catalog_name, self.registry_url))

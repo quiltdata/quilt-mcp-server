@@ -3,24 +3,32 @@ Quilt3_Backend package operations mixin.
 
 This module provides package-related operations including search, retrieval,
 and transformation for the Quilt3_Backend implementation.
+
+This mixin uses self.quilt3 which is provided by Quilt3_Backend_Base.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-
-try:
-    import quilt3
-except ImportError:
-    quilt3 = None
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 from quilt_mcp.ops.exceptions import BackendError, ValidationError, NotFoundError
 from quilt_mcp.domain.package_info import Package_Info
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 logger = logging.getLogger(__name__)
 
 
 class Quilt3_Backend_Packages:
     """Mixin for package-related operations."""
+
+    # Type hints for attributes and methods provided by Quilt3_Backend_Base
+    if TYPE_CHECKING:
+        quilt3: "ModuleType"
+
+        def _normalize_tags(self, tags: Any) -> List[str]: ...
+        def _normalize_description(self, description: Any) -> str: ...
+        def _normalize_datetime(self, dt: Any) -> Optional[str]: ...
 
     def search_packages(self, query: str, registry: str) -> List[Package_Info]:
         """Search for packages matching query.
@@ -47,11 +55,11 @@ class Quilt3_Backend_Packages:
                         "bool": {
                             "must": [
                                 {"match_all": {}},
-                                {"exists": {"field": "ptr_name"}}  # Only manifest documents have ptr_name
+                                {"exists": {"field": "ptr_name"}},  # Only manifest documents have ptr_name
                             ]
                         }
                     },
-                    "size": 1000  # Default limit for listing all packages
+                    "size": 1000,  # Default limit for listing all packages
                 }
             else:
                 # Escape special ES characters but preserve wildcards
@@ -61,11 +69,11 @@ class Quilt3_Backend_Packages:
                         "bool": {
                             "must": [
                                 {"query_string": {"query": escaped_query}},
-                                {"exists": {"field": "ptr_name"}}  # Only manifest documents have ptr_name
+                                {"exists": {"field": "ptr_name"}},  # Only manifest documents have ptr_name
                             ]
                         }
                     },
-                    "size": 1000  # Default limit
+                    "size": 1000,  # Default limit
                 }
 
             # Extract bucket name from registry for index pattern
@@ -75,6 +83,7 @@ class Quilt3_Backend_Packages:
 
             # Use quilt3.search_util.search_api instead of quilt3.search
             from quilt3.search_util import search_api
+
             response = search_api(query=es_query, index=index_pattern, limit=1000)
 
             if "error" in response:
@@ -130,7 +139,7 @@ class Quilt3_Backend_Packages:
         """
         try:
             logger.debug(f"Getting package info for: {package_name} in registry: {registry}")
-            package = quilt3.Package.browse(package_name, registry=registry)
+            package = self.quilt3.Package.browse(package_name, registry=registry)
             result = self._transform_package(package)
             logger.debug(f"Retrieved package info for: {package_name}")
             return result
@@ -186,13 +195,10 @@ class Quilt3_Backend_Packages:
             error_context = {
                 'package_name': getattr(quilt3_package, 'name', 'unknown'),
                 'package_type': type(quilt3_package).__name__,
-                'available_attributes': [attr for attr in dir(quilt3_package) if not attr.startswith('_')]
+                'available_attributes': [attr for attr in dir(quilt3_package) if not attr.startswith('_')],
             }
             logger.error(f"Package transformation failed: {str(e)}", extra={'context': error_context})
-            raise BackendError(
-                f"Quilt3 backend package transformation failed: {str(e)}", 
-                context=error_context
-            )
+            raise BackendError(f"Quilt3 backend package transformation failed: {str(e)}", context=error_context)
 
     def _escape_elasticsearch_query(self, query: str) -> str:
         """Escape special characters in Elasticsearch query_string queries.
@@ -251,9 +257,13 @@ class Quilt3_Backend_Packages:
         required_fields = ['name', 'registry', 'bucket', 'top_hash']
         for field in required_fields:
             if not hasattr(quilt3_package, field):
-                raise BackendError(f"Quilt3 backend package validation failed: invalid package object: missing required field '{field}'")
+                raise BackendError(
+                    f"Quilt3 backend package validation failed: invalid package object: missing required field '{field}'"
+                )
             if getattr(quilt3_package, field) is None:
-                raise BackendError(f"Quilt3 backend package validation failed: invalid package object: required field '{field}' is None")
+                raise BackendError(
+                    f"Quilt3 backend package validation failed: invalid package object: required field '{field}' is None"
+                )
 
     def _normalize_package_datetime(self, datetime_value) -> str:
         """Normalize datetime field for package transformation (maintains backward compatibility).
@@ -270,7 +280,8 @@ class Quilt3_Backend_Packages:
         if datetime_value is None:
             return "None"  # Maintain backward compatibility with existing package tests
         if hasattr(datetime_value, 'isoformat'):
-            return datetime_value.isoformat()
+            result: str = datetime_value.isoformat()
+            return result
         if datetime_value == "invalid-date":
             # Special case for test error handling
             raise ValueError("Invalid date format")
@@ -289,6 +300,7 @@ class Quilt3_Backend_Packages:
         This method is not yet implemented. See Task 3.2 in the migration tasks.
         """
         from quilt_mcp.domain.package_creation import Package_Creation_Result
+
         raise NotImplementedError("create_package_revision() not yet implemented - see Task 3.2")
 
     def list_all_packages(self, registry: str) -> List[str]:

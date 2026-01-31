@@ -370,7 +370,7 @@ def _check_permissions_discovery() -> Dict[str, Any]:
 
         result = aws_permissions_discover(
             force_refresh=False,
-            permission_service=_current_permission_service(),
+            context=get_current_context(),
         )
         if not result.get("success"):
             raise Exception(result.get("error", "Permissions discovery failed"))

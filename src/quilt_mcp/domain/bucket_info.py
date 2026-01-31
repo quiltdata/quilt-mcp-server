@@ -55,9 +55,4 @@ class Bucket_Info:
 
     def __hash__(self) -> int:
         """Custom hash implementation for hashable dataclass."""
-        return hash((
-            self.name,
-            self.region,
-            self.access_level,
-            self.created_date
-        ))
+        return hash((self.name, self.region, self.access_level, self.created_date))

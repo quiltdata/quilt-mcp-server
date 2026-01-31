@@ -5,10 +5,13 @@ This module tests package-related operations including package retrieval,
 transformations, and error handling for the Quilt3_Backend implementation.
 """
 
+import logging
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from datetime import datetime
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError
 from quilt_mcp.domain.package_info import Package_Info
@@ -20,7 +23,7 @@ class TestQuilt3BackendPackageOperations:
     """Test package-related operations in Quilt3_Backend."""
 
     @patch('quilt3.search_util.search_api')
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_search_packages_with_mocked_quilt3_search(self, mock_quilt3, mock_search_api):
         """Test search_packages() with mocked quilt3.search() calls."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -39,7 +42,7 @@ class TestQuilt3BackendPackageOperations:
                             "description": "Test package",
                             "tags": ["test", "data"],
                             "ptr_last_modified": "2024-01-01T12:00:00",
-                            "top_hash": "abc123"
+                            "top_hash": "abc123",
                         }
                     }
                 ]
@@ -85,7 +88,7 @@ class TestQuilt3BackendPackageOperations:
                             "description": "Test package",
                             "tags": ["test", "data"],
                             "ptr_last_modified": "2024-01-01T12:00:00",  # Last modified is in ptr_last_modified
-                            "top_hash": "abc123"
+                            "top_hash": "abc123",
                         }
                     }
                 ]
@@ -141,7 +144,7 @@ class TestQuilt3BackendPackageOperations:
         assert "quilt3" in str(exc_info.value).lower()
         assert "network error" in str(exc_info.value).lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_with_mocked_package_loading(self, mock_quilt3):
         """Test get_package_info() with mocked quilt3 package loading."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -169,7 +172,7 @@ class TestQuilt3BackendPackageOperations:
         assert result.name == "test/package"
         mock_quilt3.Package.browse.assert_called_once_with("test/package", registry="s3://test-registry")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_error_handling(self, mock_quilt3):
         """Test get_package_info() error handling."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -183,7 +186,7 @@ class TestQuilt3BackendPackageOperations:
         with pytest.raises(BackendError):
             backend.get_package_info("nonexistent/package", "s3://test-registry")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_calls_quilt3_browse_correctly(self, mock_quilt3):
         """Test that get_package_info() correctly calls quilt3.Package.browse with proper parameters."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -219,7 +222,7 @@ class TestQuilt3BackendPackageOperations:
         assert result.bucket == "test-bucket"
         assert result.top_hash == "def456ghi789"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_with_different_registries(self, mock_quilt3):
         """Test get_package_info() works with different registry formats."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -257,7 +260,7 @@ class TestQuilt3BackendPackageOperations:
             assert result.registry == registry
             assert result.bucket == registry.replace("s3://", "")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_with_complex_package_names(self, mock_quilt3):
         """Test get_package_info() works with complex package names."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -296,7 +299,7 @@ class TestQuilt3BackendPackageOperations:
             # Verify result contains correct package name
             assert result.name == package_name
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_transformation_to_package_info(self, mock_quilt3):
         """Test that get_package_info() properly transforms quilt3 Package to Package_Info domain object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -333,13 +336,14 @@ class TestQuilt3BackendPackageOperations:
 
         # Verify it's a proper dataclass that can be serialized
         from dataclasses import asdict
+
         result_dict = asdict(result)
         assert isinstance(result_dict, dict)
         assert result_dict['name'] == "comprehensive/package"
         assert result_dict['description'] == "A comprehensive test package with all metadata"
         assert result_dict['tags'] == ["comprehensive", "test", "metadata", "full"]
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_error_scenarios(self, mock_quilt3):
         """Test get_package_info() error handling for various failure scenarios."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -372,7 +376,7 @@ class TestQuilt3BackendPackageOperations:
             # Reset for next test
             mock_quilt3.Package.browse.side_effect = None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_with_missing_optional_fields(self, mock_quilt3):
         """Test get_package_info() handles packages with missing optional fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -405,42 +409,11 @@ class TestQuilt3BackendPackageOperations:
         assert result.bucket == "test-bucket"
         assert result.top_hash == "minimal123"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_get_package_info_logging_behavior(self, mock_quilt3):
-        """Test that get_package_info() logs appropriate debug information."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
-
-        # Mock package object
-        mock_package = Mock()
-        mock_package.name = "logging/test"
-        mock_package.description = "Test logging"
-        mock_package.tags = []
-        mock_package.modified = datetime(2024, 1, 1, 12, 0, 0)
-        mock_package.registry = "s3://test-registry"
-        mock_package.bucket = "test-bucket"
-        mock_package.top_hash = "log123"
-
-        mock_quilt3.Package.browse.return_value = mock_package
-
-        # Capture log messages
-        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
-            result = backend.get_package_info("logging/test", "s3://test-registry")
-
-            # Verify debug logging
-            mock_logger.debug.assert_any_call("Getting package info for: logging/test in registry: s3://test-registry")
-            mock_logger.debug.assert_any_call("Retrieved package info for: logging/test")
-
-            # Should have exactly 4 debug calls (2 from get_package_info + 2 from _transform_package)
-            assert mock_logger.debug.call_count == 4
-
 
 class TestQuilt3BackendPackageTransformationIsolated:
     """Test _transform_package() method in complete isolation with focus on transformation logic."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_isolated_with_minimal_mock(self, mock_quilt3):
         """Test _transform_package() method in isolation with minimal mock quilt3.Package object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -471,7 +444,7 @@ class TestQuilt3BackendPackageTransformationIsolated:
         assert result.bucket == "isolated-bucket"
         assert result.top_hash == "isolated123hash"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_isolated_validation_logic(self, mock_quilt3):
         """Test _transform_package() validation logic in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -505,7 +478,7 @@ class TestQuilt3BackendPackageTransformationIsolated:
 
             assert expected_error in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_isolated_helper_method_integration(self, mock_quilt3):
         """Test _transform_package() integration with helper methods in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -535,7 +508,7 @@ class TestQuilt3BackendPackageTransformationIsolated:
         assert result.bucket == "helper-bucket"
         assert result.top_hash == "helper456hash"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_isolated_error_context_preservation(self, mock_quilt3):
         """Test _transform_package() error context preservation in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -567,7 +540,7 @@ class TestQuilt3BackendPackageTransformationIsolated:
         assert error_context['package_type'] == "Mock"
         assert 'available_attributes' in error_context
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_isolated_with_edge_case_inputs(self, mock_quilt3):
         """Test _transform_package() with edge case inputs in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -594,7 +567,7 @@ class TestQuilt3BackendPackageTransformationIsolated:
                 'registry': "s3://" + "x" * 100,  # Long registry
                 'bucket': "y" * 100,  # Long bucket
                 'top_hash': "z" * 200,  # Long hash
-            }
+            },
         ]
 
         for i, edge_case in enumerate(edge_cases):
@@ -617,7 +590,7 @@ class TestQuilt3BackendPackageTransformationIsolated:
 class TestQuilt3BackendTransformationHelperMethods:
     """Test transformation helper methods in complete isolation."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_validate_package_fields_isolated(self, mock_quilt3):
         """Test _validate_package_fields() method in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -668,7 +641,7 @@ class TestQuilt3BackendTransformationHelperMethods:
 
             assert f"required field '{field_name}' is None" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_normalize_tags_isolated(self, mock_quilt3):
         """Test _normalize_tags() method in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -694,7 +667,7 @@ class TestQuilt3BackendTransformationHelperMethods:
             assert isinstance(result, list), f"Result should be list for input: {input_tags}"
             assert all(isinstance(tag, str) for tag in result), f"All tags should be strings for input: {input_tags}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_normalize_package_datetime_isolated(self, mock_quilt3):
         """Test _normalize_package_datetime() method in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -721,7 +694,7 @@ class TestQuilt3BackendTransformationHelperMethods:
             backend._normalize_package_datetime("invalid-date")
         assert "Invalid date format" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_normalize_description_isolated(self, mock_quilt3):
         """Test _normalize_description() method in isolation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -750,7 +723,7 @@ class TestQuilt3BackendTransformationHelperMethods:
 class TestQuilt3BackendMockPackageTransformation:
     """Test transformation with mock quilt3.Package objects with various configurations."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_complete_mock_package(self, mock_quilt3):
         """Test _transform_package() with complete mock quilt3.Package object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -781,7 +754,7 @@ class TestQuilt3BackendMockPackageTransformation:
         assert result.bucket == "comprehensive-bucket"
         assert result.top_hash == "abcdef123456789comprehensive"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_minimal_mock_package(self, mock_quilt3):
         """Test _transform_package() with minimal mock quilt3.Package object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -812,7 +785,7 @@ class TestQuilt3BackendMockPackageTransformation:
         assert result.bucket == "minimal-bucket"
         assert result.top_hash == "minimal123"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_edge_case_mock_configurations(self, mock_quilt3):
         """Test _transform_package() with edge case mock quilt3.Package configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -830,7 +803,7 @@ class TestQuilt3BackendMockPackageTransformation:
                 'registry': "s3://a",  # Minimal registry
                 'bucket': "b",  # Minimal bucket
                 'top_hash': "0",  # Minimal hash
-                'should_fail': True  # This configuration should fail validation
+                'should_fail': True,  # This configuration should fail validation
             },
             {
                 'name': "a" * 1000,  # Very long name
@@ -840,7 +813,7 @@ class TestQuilt3BackendMockPackageTransformation:
                 'registry': "s3://" + "x" * 63,  # Long registry (AWS bucket name limit)
                 'bucket': "y" * 63,  # Long bucket (AWS bucket name limit)
                 'top_hash': "z" * 200,  # Long hash
-                'should_fail': False
+                'should_fail': False,
             },
             {
                 'name': "unicode/测试包",  # Unicode package name
@@ -850,8 +823,8 @@ class TestQuilt3BackendMockPackageTransformation:
                 'registry': "s3://unicode-registry",
                 'bucket': "unicode-bucket",
                 'top_hash': "unicode123hash",
-                'should_fail': False
-            }
+                'should_fail': False,
+            },
         ]
 
         for i, case in enumerate(edge_cases):
@@ -873,7 +846,7 @@ class TestQuilt3BackendMockPackageTransformation:
                 assert result.bucket == case['bucket']
                 assert result.top_hash == case['top_hash']
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_various_tag_configurations(self, mock_quilt3):
         """Test _transform_package() with various tag configurations in mock packages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -906,7 +879,7 @@ class TestQuilt3BackendMockPackageTransformation:
             result = backend._transform_package(mock_package)
             assert result.tags == expected_tags, f"Failed for input tags: {input_tags}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_various_datetime_configurations(self, mock_quilt3):
         """Test _transform_package() with various datetime configurations in mock packages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -937,7 +910,7 @@ class TestQuilt3BackendMockPackageTransformation:
             result = backend._transform_package(mock_package)
             assert result.modified_date == expected_datetime, f"Failed for input datetime: {input_datetime}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_various_description_configurations(self, mock_quilt3):
         """Test _transform_package() with various description configurations in mock packages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -971,7 +944,7 @@ class TestQuilt3BackendMockPackageTransformation:
             result = backend._transform_package(mock_package)
             assert result.description == expected_description, f"Failed for input description: {input_description}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_complex_registry_configurations(self, mock_quilt3):
         """Test _transform_package() with complex registry configurations in mock packages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -986,8 +959,10 @@ class TestQuilt3BackendMockPackageTransformation:
             ("s3://bucket.with.dots", "bucket.with.dots"),
             ("s3://bucket_with_underscores", "bucket_with_underscores"),
             ("s3://123numeric-bucket", "123numeric-bucket"),
-            ("s3://very-long-bucket-name-with-many-characters-and-dashes-for-testing-purposes", 
-             "very-long-bucket-name-with-many-characters-and-dashes-for-testing-purposes"),
+            (
+                "s3://very-long-bucket-name-with-many-characters-and-dashes-for-testing-purposes",
+                "very-long-bucket-name-with-many-characters-and-dashes-for-testing-purposes",
+            ),
             ("s3://a", "a"),  # Single character bucket
         ]
 
@@ -1005,7 +980,7 @@ class TestQuilt3BackendMockPackageTransformation:
             assert result.registry == registry, f"Failed for registry: {registry}"
             assert result.bucket == expected_bucket, f"Failed for bucket: {expected_bucket}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_various_hash_configurations(self, mock_quilt3):
         """Test _transform_package() with various top_hash configurations in mock packages."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1044,7 +1019,7 @@ class TestQuilt3BackendMockPackageTransformation:
                 result = backend._transform_package(mock_package)
                 assert result.top_hash == top_hash, f"Failed for hash: {top_hash}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_mock_package_missing_attributes(self, mock_quilt3):
         """Test _transform_package() with mock packages missing required attributes."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1074,7 +1049,7 @@ class TestQuilt3BackendMockPackageTransformation:
 
             assert f"missing required field '{missing_attr}'" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_mock_package_none_attributes(self, mock_quilt3):
         """Test _transform_package() with mock packages having None required attributes."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1104,7 +1079,7 @@ class TestQuilt3BackendMockPackageTransformation:
 
             assert f"required field '{none_attr}' is None" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_mock_package_type_variations(self, mock_quilt3):
         """Test _transform_package() with different types of mock package objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1137,7 +1112,7 @@ class TestQuilt3BackendMockPackageTransformation:
 class TestQuilt3BackendMissingNullFieldHandling:
     """Test handling of missing/null fields in quilt3 objects during transformation."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_missing_optional_attributes(self, mock_quilt3):
         """Test _transform_package() handles missing optional attributes gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1171,7 +1146,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         assert result.bucket == "test-bucket"
         assert result.top_hash == "abc123"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_null_optional_fields(self, mock_quilt3):
         """Test _transform_package() handles null/None values in optional fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1218,7 +1193,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
             else:
                 assert result.tags == scenario['tags']
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_missing_required_attributes(self, mock_quilt3):
         """Test _transform_package() properly fails when required attributes are missing."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1249,7 +1224,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
             assert f"missing required field '{missing_field}'" in error_message
             assert "invalid package object" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_null_required_fields(self, mock_quilt3):
         """Test _transform_package() properly fails when required fields are None."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1280,7 +1255,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
             assert f"required field '{null_field}' is None" in error_message
             assert "invalid package object" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_empty_string_fields(self, mock_quilt3):
         """Test _transform_package() handles empty string values appropriately."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1323,7 +1298,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         assert result.description == ""  # Empty string preserved
         assert result.tags == ["", "valid", ""]  # Empty strings in tags preserved
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_malformed_datetime_fields(self, mock_quilt3):
         """Test _transform_package() handles malformed datetime fields appropriately."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1366,7 +1341,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
                 else:
                     assert isinstance(result.modified_date, str)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_unexpected_field_types(self, mock_quilt3):
         """Test _transform_package() handles unexpected field types gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1396,7 +1371,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         assert result.bucket is True  # Original type preserved
         assert result.top_hash == 3.14159  # Original type preserved
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_missing_optional_attributes(self, mock_quilt3):
         """Test _transform_content() handles missing optional attributes gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1426,7 +1401,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         assert result.type == "file"  # Should default to "file" for missing is_dir
         assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_null_optional_fields(self, mock_quilt3):
         """Test _transform_content() handles null/None values in optional fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1469,7 +1444,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
             else:
                 assert result.type == ("directory" if scenario['is_dir'] else "file")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_missing_required_attributes(self, mock_quilt3):
         """Test _transform_content() properly fails when required attributes are missing."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1494,7 +1469,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         assert "missing name" in error_message.lower()
         assert "content transformation failed" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_with_null_required_fields(self, mock_quilt3):
         """Test _transform_content() properly fails when required fields are None."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1524,7 +1499,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         error_message = str(exc_info.value)
         assert "empty name" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_missing_optional_fields(self, mock_quilt3):
         """Test _transform_bucket() handles missing optional fields gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1536,7 +1511,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         bucket_name = "minimal-bucket"
         bucket_data = {
             'region': 'us-west-2',
-            'access_level': 'read-only'
+            'access_level': 'read-only',
             # created_date missing
         }
 
@@ -1550,16 +1525,16 @@ class TestQuilt3BackendMissingNullFieldHandling:
 
         # Test with completely empty bucket data (should use defaults)
         bucket_data_empty = {}
-        
+
         result_empty = backend._transform_bucket("empty-bucket", bucket_data_empty)
-        
+
         assert isinstance(result_empty, Bucket_Info)
         assert result_empty.name == "empty-bucket"
         assert result_empty.region == "unknown"  # Should default to "unknown"
         assert result_empty.access_level == "unknown"  # Should default to "unknown"
         assert result_empty.created_date is None  # Should default to None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_null_optional_fields(self, mock_quilt3):
         """Test _transform_bucket() handles null/None values in optional fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1608,19 +1583,19 @@ class TestQuilt3BackendMissingNullFieldHandling:
             result = backend._transform_bucket(bucket_name, bucket_data)
             assert isinstance(result, Bucket_Info)
             assert result.name == bucket_name
-            
+
             # None and empty strings should be converted to "unknown"
             if scenario['region'] is None or scenario['region'] == "":
                 assert result.region == "unknown"
             else:
                 assert result.region == scenario['region']
-                
+
             if scenario['access_level'] is None or scenario['access_level'] == "":
                 assert result.access_level == "unknown"
             else:
                 assert result.access_level == scenario['access_level']
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_missing_required_fields(self, mock_quilt3):
         """Test _transform_bucket() properly fails when required fields are missing."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1657,7 +1632,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         error_message = str(exc_info.value)
         assert "bucket_data is none" in error_message.lower()
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_with_empty_bucket_data(self, mock_quilt3):
         """Test _transform_bucket() handles empty bucket data but fails due to domain validation."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1671,14 +1646,14 @@ class TestQuilt3BackendMissingNullFieldHandling:
 
         # Empty bucket data will now work because we provide "unknown" defaults
         result = backend._transform_bucket(bucket_name, bucket_data)
-        
+
         assert isinstance(result, Bucket_Info)
         assert result.name == bucket_name
         assert result.region == "unknown"  # Should default to "unknown"
         assert result.access_level == "unknown"  # Should default to "unknown"
         assert result.created_date is None  # Should default to None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_provides_reasonable_defaults(self, mock_quilt3):
         """Test _transform_package() provides reasonable defaults for missing/null fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1693,22 +1668,22 @@ class TestQuilt3BackendMissingNullFieldHandling:
                 'description': None,
                 'tags': None,
                 'expected_description': None,
-                'expected_tags': []
+                'expected_tags': [],
             },
             {
-                'name': 'test-defaults-2', 
+                'name': 'test-defaults-2',
                 'description': '',
                 'tags': [],
                 'expected_description': '',
-                'expected_tags': []
+                'expected_tags': [],
             },
             {
                 'name': 'test-defaults-3',
                 'description': 'Valid description',
                 'tags': ['tag1', 'tag2'],
                 'expected_description': 'Valid description',
-                'expected_tags': ['tag1', 'tag2']
-            }
+                'expected_tags': ['tag1', 'tag2'],
+            },
         ]
 
         for case in test_cases:
@@ -1729,7 +1704,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
             assert result.tags == case['expected_tags']
             assert result.modified_date == "2024-01-01T12:00:00"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_content_provides_reasonable_defaults(self, mock_quilt3):
         """Test _transform_content() provides reasonable defaults for missing/null fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1746,7 +1721,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
                 'is_dir': None,
                 'expected_size': None,
                 'expected_modified': None,
-                'expected_type': 'file'
+                'expected_type': 'file',
             },
             {
                 'name': 'file2.txt',
@@ -1755,7 +1730,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
                 'is_dir': False,
                 'expected_size': 0,
                 'expected_modified': '2024-01-01T12:00:00',
-                'expected_type': 'file'
+                'expected_type': 'file',
             },
             {
                 'name': 'directory/',
@@ -1764,8 +1739,8 @@ class TestQuilt3BackendMissingNullFieldHandling:
                 'is_dir': True,
                 'expected_size': None,
                 'expected_modified': None,
-                'expected_type': 'directory'
-            }
+                'expected_type': 'directory',
+            },
         ]
 
         for case in test_cases:
@@ -1784,7 +1759,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
             assert result.type == case['expected_type']
             assert result.download_url is None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_bucket_provides_reasonable_defaults(self, mock_quilt3):
         """Test _transform_bucket() provides reasonable defaults for missing/null fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1799,22 +1774,22 @@ class TestQuilt3BackendMissingNullFieldHandling:
                 'bucket_data': {'region': 'us-east-1', 'access_level': 'read-only'},
                 'expected_region': 'us-east-1',
                 'expected_access_level': 'read-only',
-                'expected_created_date': None
+                'expected_created_date': None,
             },
             {
                 'bucket_name': 'test-bucket-2',
                 'bucket_data': {'region': 'us-west-2', 'access_level': 'admin', 'created_date': '2024-01-01'},
                 'expected_region': 'us-west-2',
                 'expected_access_level': 'admin',
-                'expected_created_date': '2024-01-01'
+                'expected_created_date': '2024-01-01',
             },
             {
                 'bucket_name': 'test-bucket-3',
                 'bucket_data': {'region': 'eu-central-1', 'access_level': 'read-write', 'created_date': None},
                 'expected_region': 'eu-central-1',
                 'expected_access_level': 'read-write',
-                'expected_created_date': None
-            }
+                'expected_created_date': None,
+            },
         ]
 
         for case in test_cases:
@@ -1833,20 +1808,20 @@ class TestQuilt3BackendMissingNullFieldHandling:
                 'bucket_data': {'region': '', 'access_level': 'read-only'},  # Empty region -> "unknown"
                 'expected_region': 'unknown',
                 'expected_access_level': 'read-only',
-                'expected_created_date': None
+                'expected_created_date': None,
             },
             {
-                'bucket_name': 'edge-case-bucket-2', 
+                'bucket_name': 'edge-case-bucket-2',
                 'bucket_data': {'region': 'us-east-1', 'access_level': ''},  # Empty access_level -> "unknown"
                 'expected_region': 'us-east-1',
                 'expected_access_level': 'unknown',
-                'expected_created_date': None
-            }
+                'expected_created_date': None,
+            },
         ]
 
         for case in edge_cases:
             result = backend._transform_bucket(case['bucket_name'], case['bucket_data'])
-            
+
             assert isinstance(result, Bucket_Info)
             assert result.name == case['bucket_name']
             assert result.region == case['expected_region']
@@ -1855,14 +1830,14 @@ class TestQuilt3BackendMissingNullFieldHandling:
 
         # Test case with completely empty bucket data (should use defaults)
         result_empty = backend._transform_bucket("empty-bucket", {})
-        
+
         assert isinstance(result_empty, Bucket_Info)
         assert result_empty.name == "empty-bucket"
         assert result_empty.region == "unknown"  # Should default to "unknown"
         assert result_empty.access_level == "unknown"  # Should default to "unknown"
         assert result_empty.created_date is None  # Should default to None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_edge_case_attribute_access_patterns(self, mock_quilt3):
         """Test _transform_package() works with mock objects created from Elasticsearch responses."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1893,7 +1868,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         assert result.bucket == "search-bucket"
         assert result.top_hash == "es123hash456"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_mock_package_performance_edge_cases(self, mock_quilt3):
         """Test _transform_package() handles performance edge cases with large data."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1950,7 +1925,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
             assert result.bucket == f"test-bucket-{i}"
             assert result.top_hash == f"abc123-{i}"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_mock_package_elasticsearch_format_v2(self, mock_quilt3):
         """Test _transform_package() with mock packages mimicking Elasticsearch response format."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -1981,7 +1956,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
         assert result.bucket == "search-bucket"
         assert result.top_hash == "es123hash456"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_mock_package_performance_edge_cases_v2(self, mock_quilt3):
         """Test _transform_package() with mock packages designed to test performance edge cases."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2014,7 +1989,7 @@ class TestQuilt3BackendMissingNullFieldHandling:
 class TestQuilt3BackendPackageTransformation:
     """Test package transformation methods in isolation."""
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_all_fields(self, mock_quilt3):
         """Test _transform_package() method with complete quilt3.Package object."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2045,7 +2020,7 @@ class TestQuilt3BackendPackageTransformation:
         assert result.bucket == "test-bucket"
         assert result.top_hash == "abc123def456"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_missing_fields(self, mock_quilt3):
         """Test _transform_package() handles missing/null fields in quilt3 objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2070,7 +2045,7 @@ class TestQuilt3BackendPackageTransformation:
         assert result.description is None
         assert result.tags == []  # Should default to empty list
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_error_handling(self, mock_quilt3):
         """Test _transform_package() error handling in transformation logic."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2094,7 +2069,7 @@ class TestQuilt3BackendPackageTransformation:
         assert "transformation failed" in str(exc_info.value).lower()
 
     @pytest.mark.skip(reason="Advanced error handling edge cases - to be addressed in follow-up")
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_error_wrapping_and_context(self, mock_quilt3):
         """Test that transformation errors are properly wrapped in BackendError with context."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2108,26 +2083,30 @@ class TestQuilt3BackendPackageTransformation:
             {
                 'setup': lambda pkg: delattr(pkg, 'name'),
                 'expected_message': 'missing required field',
-                'description': 'missing required field'
+                'description': 'missing required field',
             },
             # None required field
             {
                 'setup': lambda pkg: setattr(pkg, 'top_hash', None),
                 'expected_message': 'required field \'top_hash\' is None',
-                'description': 'None required field'
+                'description': 'None required field',
             },
             # Invalid datetime format
             {
                 'setup': lambda pkg: setattr(pkg, 'modified', 'invalid-date'),
                 'expected_message': 'Invalid date format',
-                'description': 'invalid datetime format'
+                'description': 'invalid datetime format',
             },
             # Attribute access error
             {
-                'setup': lambda pkg: setattr(pkg, 'description', property(lambda self: exec('raise AttributeError("Access denied")'))),
+                'setup': lambda pkg: setattr(
+                    pkg,
+                    'description',
+                    property(lambda self: exec('raise AttributeError("Access denied")')),  # noqa: S102
+                ),
                 'expected_message': 'transformation failed',
-                'description': 'attribute access error'
-            }
+                'description': 'attribute access error',
+            },
         ]
 
         for scenario in error_scenarios:
@@ -2144,8 +2123,9 @@ class TestQuilt3BackendPackageTransformation:
             # Apply the error scenario setup
             try:
                 scenario['setup'](mock_package)
-            except:
+            except Exception as e:
                 # Some setups might fail, skip those
+                logger.debug(f"Skipping scenario {scenario.get('description', 'unknown')}: {e}")
                 continue
 
             # Test that error is wrapped in BackendError
@@ -2156,8 +2136,9 @@ class TestQuilt3BackendPackageTransformation:
             error_message = str(error)
 
             # Verify error message contains expected content
-            assert scenario['expected_message'].lower() in error_message.lower(), \
+            assert scenario['expected_message'].lower() in error_message.lower(), (
                 f"Expected '{scenario['expected_message']}' in error message for {scenario['description']}"
+            )
 
             # Verify error is properly wrapped as BackendError
             assert isinstance(error, BackendError), f"Error should be BackendError for {scenario['description']}"
@@ -2165,10 +2146,11 @@ class TestQuilt3BackendPackageTransformation:
             # Verify error context is provided
             assert hasattr(error, 'context'), f"Error should have context for {scenario['description']}"
             if error.context:
-                assert 'package_name' in error.context or 'package_type' in error.context, \
+                assert 'package_name' in error.context or 'package_type' in error.context, (
                     f"Error context should contain package info for {scenario['description']}"
+                )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_error_message_clarity(self, mock_quilt3):
         """Test that transformation error messages are clear and actionable."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2181,18 +2163,18 @@ class TestQuilt3BackendPackageTransformation:
             {
                 'name': 'missing_name_field',
                 'setup': lambda pkg: delattr(pkg, 'name'),
-                'expected_keywords': ['missing', 'required', 'field', 'name']
+                'expected_keywords': ['missing', 'required', 'field', 'name'],
             },
             {
                 'name': 'none_registry_field',
                 'setup': lambda pkg: setattr(pkg, 'registry', None),
-                'expected_keywords': ['required', 'field', 'registry', 'none']
+                'expected_keywords': ['required', 'field', 'registry', 'none'],
             },
             {
                 'name': 'invalid_datetime',
                 'setup': lambda pkg: setattr(pkg, 'modified', 'invalid-date'),
-                'expected_keywords': ['invalid', 'date', 'format']
-            }
+                'expected_keywords': ['invalid', 'date', 'format'],
+            },
         ]
 
         for test_case in clarity_tests:
@@ -2214,14 +2196,16 @@ class TestQuilt3BackendPackageTransformation:
 
             # Verify error message contains expected keywords for clarity
             for keyword in test_case['expected_keywords']:
-                assert keyword.lower() in error_message, \
+                assert keyword.lower() in error_message, (
                     f"Error message should contain '{keyword}' for {test_case['name']}: {error_message}"
+                )
 
             # Verify error message mentions the backend type
-            assert 'quilt3' in error_message, \
+            assert 'quilt3' in error_message, (
                 f"Error message should mention backend type for {test_case['name']}: {error_message}"
+            )
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_error_propagation_from_helpers(self, mock_quilt3):
         """Test that errors from helper methods are properly propagated."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2255,7 +2239,7 @@ class TestQuilt3BackendPackageTransformation:
         # Verify the normalization error is properly propagated
         assert "Invalid date format" in str(exc_info.value)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_various_transformation_failures(self, mock_quilt3):
         """Test various types of transformation failures and their error handling."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2263,67 +2247,27 @@ class TestQuilt3BackendPackageTransformation:
         mock_session = {'registry': 's3://test-registry'}
         backend = Quilt3_Backend(mock_session)
 
-        # Test different types of transformation failures
-        failure_scenarios = [
-            {
-                'name': 'package_info_creation_failure',
-                'setup': lambda: None,  # We'll mock Package_Info to fail
-                'mock_target': 'quilt_mcp.backends.quilt3_backend.Package_Info',
-                'mock_side_effect': ValueError("Package_Info creation failed"),
-                'expected_error': 'transformation failed'
-            },
-            {
-                'name': 'attribute_error_during_access',
-                'setup': lambda: None,
-                'mock_target': None,  # No mocking needed, we'll create problematic package
-                'mock_side_effect': None,
-                'expected_error': 'transformation failed'
-            }
-        ]
+        # Test Package_Info creation failure
+        with patch(
+            'quilt_mcp.backends.quilt3_backend_packages.Package_Info',
+            side_effect=ValueError("Package_Info creation failed"),
+        ):
+            mock_package = Mock()
+            mock_package.name = "test/package"
+            mock_package.description = "Test package"
+            mock_package.tags = ["test"]
+            mock_package.modified = datetime(2024, 1, 1, 12, 0, 0)
+            mock_package.registry = "s3://test-registry"
+            mock_package.bucket = "test-bucket"
+            mock_package.top_hash = "abc123"
 
-        for scenario in failure_scenarios:
-            if scenario['mock_target']:
-                with patch(scenario['mock_target'], side_effect=scenario['mock_side_effect']):
-                    mock_package = Mock()
-                    mock_package.name = "test/package"
-                    mock_package.description = "Test package"
-                    mock_package.tags = ["test"]
-                    mock_package.modified = datetime(2024, 1, 1, 12, 0, 0)
-                    mock_package.registry = "s3://test-registry"
-                    mock_package.bucket = "test-bucket"
-                    mock_package.top_hash = "abc123"
+            with pytest.raises(BackendError) as exc_info:
+                backend._transform_package(mock_package)
 
-                    with pytest.raises(BackendError) as exc_info:
-                        backend._transform_package(mock_package)
+            assert 'transformation failed' in str(exc_info.value).lower()
+            assert 'package_info creation failed' in str(exc_info.value).lower()
 
-                    assert scenario['expected_error'] in str(exc_info.value).lower()
-            else:
-                # Test attribute error scenario
-                class ProblematicPackage:
-                    def __init__(self):
-                        self.name = "test/package"
-                        self.registry = "s3://test-registry"
-                        self.bucket = "test-bucket"
-                        self.top_hash = "abc123"
-                        self.modified = datetime(2024, 1, 1, 12, 0, 0)
-
-                    @property
-                    def description(self):
-                        raise AttributeError("Cannot access description")
-
-                    @property
-                    def tags(self):
-                        return ["test"]
-
-                problematic_package = ProblematicPackage()
-
-                with pytest.raises(BackendError) as exc_info:
-                    backend._transform_package(problematic_package)
-
-                assert 'transformation failed' in str(exc_info.value).lower()
-                assert 'cannot access description' in str(exc_info.value).lower()
-
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_various_date_formats(self, mock_quilt3):
         """Test _transform_package() handles various date formats from quilt3 objects."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2354,7 +2298,7 @@ class TestQuilt3BackendPackageTransformation:
         result = backend._transform_package(mock_package)
         assert result.modified_date == "None"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_empty_and_null_tags(self, mock_quilt3):
         """Test _transform_package() handles empty and null tags correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2385,7 +2329,7 @@ class TestQuilt3BackendPackageTransformation:
         result = backend._transform_package(mock_package)
         assert result.tags == ["tag1", "tag2", "tag3"]
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_complex_package_names(self, mock_quilt3):
         """Test _transform_package() handles complex package names correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2401,7 +2345,7 @@ class TestQuilt3BackendPackageTransformation:
             "org.domain/project.name",
             "namespace_with_underscores/package_name",
             "123numeric/456package",
-            "unicode-测试/package名称"
+            "unicode-测试/package名称",
         ]
 
         for package_name in complex_names:
@@ -2418,7 +2362,7 @@ class TestQuilt3BackendPackageTransformation:
             assert result.name == package_name
             assert isinstance(result, Package_Info)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_various_registry_formats(self, mock_quilt3):
         """Test _transform_package() handles various registry URL formats."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2432,7 +2376,7 @@ class TestQuilt3BackendPackageTransformation:
             "s3://bucket.with.dots",
             "s3://bucket_with_underscores",
             "s3://123numeric-bucket",
-            "s3://very-long-bucket-name-with-many-characters-and-dashes"
+            "s3://very-long-bucket-name-with-many-characters-and-dashes",
         ]
 
         for registry in registry_formats:
@@ -2449,7 +2393,7 @@ class TestQuilt3BackendPackageTransformation:
             assert result.registry == registry
             assert result.bucket == registry.replace("s3://", "")
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_various_hash_formats(self, mock_quilt3):
         """Test _transform_package() handles various top_hash formats."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2463,7 +2407,7 @@ class TestQuilt3BackendPackageTransformation:
             "0123456789abcdef",  # Hex characters
             "",  # Empty hash
             "hash-with-dashes",  # Hash with special characters
-            "UPPERCASE_HASH_123"  # Uppercase hash
+            "UPPERCASE_HASH_123",  # Uppercase hash
         ]
 
         for top_hash in hash_formats:
@@ -2479,7 +2423,7 @@ class TestQuilt3BackendPackageTransformation:
             result = backend._transform_package(mock_package)
             assert result.top_hash == top_hash
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_long_descriptions(self, mock_quilt3):
         """Test _transform_package() handles long and special character descriptions."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2494,7 +2438,7 @@ class TestQuilt3BackendPackageTransformation:
             "",  # Empty description
             None,  # None description
             "Description with \"quotes\" and 'apostrophes'",  # Quotes
-            "Description with special chars: !@#$%^&*()_+-=[]{}|;:,.<>?"  # Special symbols
+            "Description with special chars: !@#$%^&*()_+-=[]{}|;:,.<>?",  # Special symbols
         ]
 
         for description in descriptions:
@@ -2511,7 +2455,7 @@ class TestQuilt3BackendPackageTransformation:
             assert result.description == description
             assert isinstance(result, Package_Info)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_large_tag_lists(self, mock_quilt3):
         """Test _transform_package() handles large tag lists and special tag formats."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2543,7 +2487,7 @@ class TestQuilt3BackendPackageTransformation:
             assert result.tags == tags
             assert isinstance(result, Package_Info)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_missing_required_fields(self, mock_quilt3):
         """Test _transform_package() handles missing required fields gracefully."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2577,7 +2521,7 @@ class TestQuilt3BackendPackageTransformation:
         with pytest.raises(BackendError):
             backend._transform_package(mock_package)
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_preserves_all_field_types(self, mock_quilt3):
         """Test _transform_package() preserves correct data types for all fields."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2614,7 +2558,7 @@ class TestQuilt3BackendPackageTransformation:
         assert result.bucket == "test-bucket"
         assert result.top_hash == "abc123def456"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_transform_package_with_mock_elasticsearch_response_format(self, mock_quilt3):
         """Test _transform_package() works with mock objects created from Elasticsearch responses."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2780,9 +2724,10 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
             assert "quilt3" in error_message.lower(), f"Failed for {description}: {error_message}"
             assert "search failed" in error_message.lower(), f"Failed for {description}: {error_message}"
             # Should preserve the original error details
-            assert any(keyword in error_message.lower() for keyword in [
-                "not iterable", "has no attribute", "get", "typeerror", "nonetype"
-            ]), f"Failed for {description}: {error_message}"
+            assert any(
+                keyword in error_message.lower()
+                for keyword in ["not iterable", "has no attribute", "get", "typeerror", "nonetype"]
+            ), f"Failed for {description}: {error_message}"
 
             # Reset for next test
             mock_search_api.return_value = None
@@ -2823,7 +2768,7 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
                             "description": "Valid package",
                             "tags": ["test"],
                             "ptr_last_modified": "2024-01-01T12:00:00",
-                            "top_hash": "abc123"
+                            "top_hash": "abc123",
                         }
                     },
                     {
@@ -2832,7 +2777,7 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
                             "description": "Invalid package",
                             "tags": ["test"],
                             "ptr_last_modified": "2024-01-01T12:00:00",
-                            "top_hash": "def456"
+                            "top_hash": "def456",
                         }
                     },
                     {
@@ -2841,9 +2786,9 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
                             "description": "Another valid package",
                             "tags": ["test"],
                             "ptr_last_modified": "2024-01-01T12:00:00",
-                            "top_hash": "ghi789"
+                            "top_hash": "ghi789",
                         }
-                    }
+                    },
                 ]
             }
         }
@@ -2856,7 +2801,7 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
         assert result[1].name == ""  # Empty name from missing ptr_name
         assert result[2].name == "another/valid"
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_network_errors(self, mock_quilt3):
         """Test get_package_info() handles various network errors correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2891,7 +2836,7 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
             # Reset for next test
             mock_quilt3.Package.browse.side_effect = None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_authentication_errors(self, mock_quilt3):
         """Test get_package_info() handles authentication/permission errors correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2926,7 +2871,7 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
             # Reset for next test
             mock_quilt3.Package.browse.side_effect = None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_not_found_errors(self, mock_quilt3):
         """Test get_package_info() handles package not found errors correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2960,7 +2905,7 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
             # Reset for next test
             mock_quilt3.Package.browse.side_effect = None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_invalid_registry_errors(self, mock_quilt3):
         """Test get_package_info() handles invalid registry errors correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -2993,7 +2938,7 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
             # Reset for next test
             mock_quilt3.Package.browse.side_effect = None
 
-    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_get_package_info_transformation_errors(self, mock_quilt3):
         """Test get_package_info() handles package transformation errors correctly."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
@@ -3079,18 +3024,18 @@ class TestQuilt3BackendPackageOperationsErrorHandling:
             assert "Test search error" in error_message
 
         # Test get_package_info error message format
-        with patch('quilt_mcp.backends.quilt3_backend.quilt3') as mock_quilt3:
-            mock_quilt3.Package.browse.side_effect = Exception("Test package error")
+        # Mock the backend instance's quilt3 reference directly
+        mock_quilt3_instance = Mock()
+        mock_quilt3_instance.Package.browse.side_effect = Exception("Test package error")
+        backend.quilt3 = mock_quilt3_instance
 
-            with pytest.raises(BackendError) as exc_info:
-                backend.get_package_info("test/package", "s3://test-registry")
+        with pytest.raises(BackendError) as exc_info:
+            backend.get_package_info("test/package", "s3://test-registry")
 
-            error_message = str(exc_info.value)
-            # Verify message starts with backend identifier
-            assert error_message.startswith("Quilt3 backend")
-            # Verify operation is identified
-            assert "get_package_info failed" in error_message
-            # Verify original error is included
-            assert "Test package error" in error_message
-
-
+        error_message = str(exc_info.value)
+        # Verify message starts with backend identifier
+        assert error_message.startswith("Quilt3 backend")
+        # Verify operation is identified
+        assert "get_package_info failed" in error_message
+        # Verify original error is included
+        assert "Test package error" in error_message

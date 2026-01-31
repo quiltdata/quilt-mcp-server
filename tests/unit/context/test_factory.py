@@ -36,6 +36,7 @@ def test_factory_create_context_uses_jwt_auth(monkeypatch):
     auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"sub": "user-1"})
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:
+
         class _StubPermissionService:
             def __init__(self, auth_service):
                 self.auth_service = auth_service

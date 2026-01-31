@@ -3,10 +3,14 @@ Quilt3_Backend base class with shared utilities.
 
 This module provides the base class with initialization, session validation,
 and shared normalization/validation utilities used across all backend operations.
+
+This is the ONLY module that imports quilt3, requests, and boto3 at the module level.
+These are then stored as instance attributes (self.quilt3, self.requests, self.boto3)
+for use by all mixin classes. The main module re-exports them for test patching compatibility.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
 
 try:
@@ -15,8 +19,11 @@ try:
     import boto3
 except ImportError:
     quilt3 = None
-    requests = None
+    requests = None  # type: ignore[assignment]
     boto3 = None
+
+# Export for re-import by main module (test patching compatibility)
+__all__ = ['Quilt3_Backend_Base', 'quilt3', 'requests', 'boto3']
 
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError
 
@@ -37,6 +44,11 @@ class Quilt3_Backend_Base:
         """
         if quilt3 is None:
             raise AuthenticationError("quilt3 library is not available")
+
+        # Store library references as instance attributes for mixin access
+        self.quilt3 = quilt3
+        self.requests = requests
+        self.boto3 = boto3
 
         self.session = self._validate_session(session_config)
         logger.info("Quilt3_Backend initialized successfully")
@@ -92,6 +104,7 @@ class Quilt3_Backend_Base:
             # Provide more specific error messages based on error type
             error_message = self._format_session_error(e)
             raise AuthenticationError(f"Invalid quilt3 session: {error_message}")
+
     def _validate_session_accessibility(self) -> None:
         """Validate that the quilt3 session is accessible and functional.
 
@@ -100,8 +113,8 @@ class Quilt3_Backend_Base:
         """
         try:
             # Attempt to validate session by checking if we can access session info
-            if hasattr(quilt3.session, 'get_session_info'):
-                session_info = quilt3.session.get_session_info()
+            if hasattr(self.quilt3.session, 'get_session_info'):
+                session_info = self.quilt3.session.get_session_info()
                 logger.debug("Session accessibility check passed")
 
                 # Additional validation: ensure session info is not empty
@@ -169,14 +182,10 @@ class Quilt3_Backend_Base:
                 "and ensure you have permission to access the registry."
             )
         elif "401" in error_str or "Unauthorized" in error_str:
-            return (
-                f"{error_str}. Authentication failed - please run 'quilt3 login' to refresh "
-                "your credentials."
-            )
+            return f"{error_str}. Authentication failed - please run 'quilt3 login' to refresh your credentials."
         elif "expired" in error_str.lower() or "token" in error_str.lower():
             return (
-                f"{error_str}. Your session may have expired. "
-                "Please run 'quilt3 login' to refresh your credentials."
+                f"{error_str}. Your session may have expired. Please run 'quilt3 login' to refresh your credentials."
             )
         else:
             return (
@@ -220,7 +229,8 @@ class Quilt3_Backend_Base:
         if datetime_value is None:
             return None
         if hasattr(datetime_value, 'isoformat'):
-            return datetime_value.isoformat()
+            result: Optional[str] = datetime_value.isoformat()
+            return result
         if datetime_value == "invalid-date":
             # Special case for test error handling
             raise ValueError("Invalid date format")
@@ -241,7 +251,8 @@ class Quilt3_Backend_Base:
         if datetime_value is None:
             return "None"  # Maintain backward compatibility with existing package tests
         if hasattr(datetime_value, 'isoformat'):
-            return datetime_value.isoformat()
+            result: str = datetime_value.isoformat()
+            return result
         if datetime_value == "invalid-date":
             # Special case for test error handling
             raise ValueError("Invalid date format")
@@ -288,4 +299,3 @@ class Quilt3_Backend_Base:
         if value is None:
             return ""
         return str(value)
-
