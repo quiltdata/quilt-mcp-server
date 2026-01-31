@@ -295,13 +295,94 @@ class Quilt3_Backend_Packages:
         registry: Optional[str] = None,
         message: str = "Package created via QuiltOps",
     ):
-        """Create and push a package revision (stub implementation).
+        """Create and push a package revision in a single operation.
 
-        This method is not yet implemented. See Task 3.2 in the migration tasks.
+        Creates a new package revision with the specified files and metadata,
+        then pushes it to the registry. This is a complete operation that
+        handles the entire package creation workflow.
+
+        Args:
+            package_name: Full package name in "user/package" format
+            s3_uris: List of S3 URIs to include in the package
+            metadata: Optional metadata dictionary to attach to the package
+            registry: Target registry URL (uses default if None)
+            message: Commit message for the package revision
+
+        Returns:
+            Package_Creation_Result with creation details and status
+
+        Raises:
+            ValidationError: When parameters are invalid (malformed URIs, invalid names)
+            BackendError: When the backend operation fails (S3 access, push errors, etc.)
         """
         from quilt_mcp.domain.package_creation import Package_Creation_Result
+        from quilt_mcp.ops.exceptions import BackendError
 
-        raise NotImplementedError("create_package_revision() not yet implemented - see Task 3.2")
+        try:
+            logger.debug(f"Creating package revision: {package_name} with {len(s3_uris)} files")
+
+            # Validate inputs
+            self._validate_package_creation_inputs(package_name, s3_uris)
+
+            # Create new package
+            package = self.quilt3.Package()
+
+            # Add files to package
+            for s3_uri in s3_uris:
+                logical_key = self._extract_logical_key(s3_uri)
+                package.set(logical_key, s3_uri)
+
+            # Set metadata if provided
+            if metadata:
+                package.set_meta(metadata)
+
+            # Push to registry
+            top_hash = package.push(package_name, registry=registry, message=message)
+
+            # Determine effective registry for result
+            effective_registry = registry or self.get_registry_url() or "s3://unknown-registry"  # type: ignore[attr-defined]
+
+            # Generate catalog URL if registry is available
+            catalog_url = None
+            if effective_registry and effective_registry != "s3://unknown-registry":
+                catalog_url = self._build_catalog_url(package_name, effective_registry)
+
+            # Handle push failure (when top_hash is None or empty)
+            if not top_hash:
+                return Package_Creation_Result(
+                    package_name=package_name,
+                    top_hash="",
+                    registry=effective_registry,
+                    catalog_url=catalog_url,
+                    file_count=len(s3_uris),
+                    success=False,
+                )
+
+            result = Package_Creation_Result(
+                package_name=package_name,
+                top_hash=top_hash,
+                registry=effective_registry,
+                catalog_url=catalog_url,
+                file_count=len(s3_uris),
+                success=True,
+            )
+
+            logger.debug(f"Successfully created package revision: {package_name} with hash: {top_hash}")
+            return result
+
+        except ValidationError:
+            # Re-raise validation errors as-is
+            raise
+        except Exception as e:
+            error_context = {
+                'package_name': package_name,
+                'registry': registry,
+                'file_count': len(s3_uris),
+            }
+            logger.error(f"Package creation failed: {str(e)}", extra={'context': error_context})
+            raise BackendError(
+                f"Quilt3 backend create_package_revision failed: {str(e)}", context=error_context
+            ) from e
 
     def list_all_packages(self, registry: str) -> List[str]:
         """List all package names (stub implementation).
@@ -309,3 +390,80 @@ class Quilt3_Backend_Packages:
         This method is not yet implemented. See Task 3.3 in the migration tasks.
         """
         raise NotImplementedError("list_all_packages() not yet implemented - see Task 3.3")
+
+    def _validate_package_creation_inputs(self, package_name: str, s3_uris: List[str]) -> None:
+        """Validate inputs for package creation.
+
+        Args:
+            package_name: Package name to validate
+            s3_uris: List of S3 URIs to validate
+
+        Raises:
+            ValidationError: If inputs are invalid
+        """
+        import re
+
+        # Validate package name format (user/package)
+        if not package_name or not isinstance(package_name, str):
+            raise ValidationError("Package name must be a non-empty string", {"field": "package_name"})
+
+        if not re.match(r'^[^/]+/[^/]+$', package_name):
+            raise ValidationError("Package name must be in 'user/package' format", {"field": "package_name"})
+
+        # Validate S3 URIs
+        if not s3_uris or not isinstance(s3_uris, list):
+            raise ValidationError("S3 URIs must be a non-empty list", {"field": "s3_uris"})
+
+        for i, s3_uri in enumerate(s3_uris):
+            if not isinstance(s3_uri, str) or not s3_uri.startswith('s3://'):
+                raise ValidationError(
+                    f"Invalid S3 URI at index {i}: must start with 's3://'",
+                    {"field": "s3_uris", "index": i, "uri": s3_uri},
+                )
+
+            # Check for basic S3 URI structure (bucket and key)
+            parts = s3_uri[5:].split('/', 1)  # Remove 's3://' and split
+            if len(parts) < 2 or not parts[0] or not parts[1]:
+                raise ValidationError(
+                    f"Invalid S3 URI at index {i}: must include bucket and key",
+                    {"field": "s3_uris", "index": i, "uri": s3_uri},
+                )
+
+    def _extract_logical_key(self, s3_uri: str) -> str:
+        """Extract logical key from S3 URI for package.
+
+        Args:
+            s3_uri: S3 URI in format s3://bucket/path/to/file.ext
+
+        Returns:
+            Logical key (path/to/file.ext) for use in package
+        """
+        # Remove s3://bucket/ prefix to get logical key
+        parts = s3_uri[5:].split('/', 1)  # Remove 's3://' and split on first '/'
+        if len(parts) >= 2:
+            return parts[1]  # Return everything after bucket name
+        else:
+            # Fallback: use filename if no path
+            return s3_uri.split('/')[-1]
+
+    def _build_catalog_url(self, package_name: str, registry: str) -> Optional[str]:
+        """Build catalog URL for viewing package in web UI.
+
+        Args:
+            package_name: Package name in user/package format
+            registry: Registry S3 URL
+
+        Returns:
+            Catalog URL or None if cannot be constructed
+        """
+        try:
+            # Extract bucket name from registry
+            bucket_name = registry.replace('s3://', '').split('/')[0]
+
+            # Construct catalog URL (this is a simplified version)
+            # In practice, this would need to determine the actual catalog domain
+            # For now, return a placeholder that includes the key information
+            return f"https://catalog.example.com/b/{bucket_name}/packages/{package_name}"
+        except Exception:
+            # If URL construction fails, return None
+            return None

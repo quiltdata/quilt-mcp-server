@@ -45,98 +45,123 @@ class TestQuiltTools:
 
     def test_packages_list_success(self):
         """Test packages_list with successful response."""
-        mock_packages = ["user/package1", "user/package2"]
-        mock_package = Mock()
-        mock_package.meta = {"description": "Test package"}
+        # Mock quilt3 at the factory import point
+        with patch("quilt_mcp.ops.factory.quilt3") as mock_quilt3:
+            # Setup session mock
+            mock_quilt3.session.get_session_info.return_value = {"registry": "s3://quilt-ernest-staging"}
 
-        with (
-            patch("quilt3.list_packages", return_value=mock_packages),
-            patch("quilt3.Package.browse", return_value=mock_package),
-        ):
-            # Uses default registry - TODO: fix after parameter flattening
-            result = packages_list(registry="s3://quilt-ernest-staging")
+            # Setup search API mock with proper Elasticsearch response structure
+            with patch(
+                "quilt3.search_util.search_api",
+                return_value={
+                    "hits": {
+                        "hits": [
+                            {"_source": {"ptr_name": "user/package1", "description": "Test package 1"}},
+                            {"_source": {"ptr_name": "user/package2", "description": "Test package 2"}},
+                        ]
+                    }
+                },
+            ):
+                # Uses default registry - TODO: fix after parameter flattening
+                result = packages_list(registry="s3://quilt-ernest-staging")
 
-            # Result now has packages structure
-            assert hasattr(result, 'success')
-            assert result.success is True
-            assert hasattr(result, 'packages')
+                # Result now has packages structure
+                assert hasattr(result, 'success')
+                assert result.success is True
+                assert hasattr(result, 'packages')
 
-            packages = result.packages
-            assert len(packages) == 2
-            assert packages[0] == "user/package1"
-            assert packages[1] == "user/package2"
+                packages = result.packages
+                assert len(packages) == 2
+                assert packages[0] == "user/package1"
+                assert packages[1] == "user/package2"
 
     def test_packages_list_with_prefix(self):
         """Test packages_list with prefix filter."""
-        mock_packages = ["user/package1", "user/package2", "other/package3"]
-        mock_package = Mock()
-        mock_package.meta = {}
+        with patch("quilt_mcp.ops.factory.quilt3") as mock_quilt3:
+            mock_quilt3.session.get_session_info.return_value = {"registry": "s3://quilt-ernest-staging"}
 
-        with (
-            patch("quilt3.list_packages", return_value=mock_packages),
-            patch("quilt3.Package.browse", return_value=mock_package),
-        ):
-            result = packages_list(registry="s3://quilt-ernest-staging", prefix="user/")
+            with patch(
+                "quilt3.search_util.search_api",
+                return_value={
+                    "hits": {
+                        "hits": [
+                            {"_source": {"ptr_name": "user/package1"}},
+                            {"_source": {"ptr_name": "user/package2"}},
+                            {"_source": {"ptr_name": "other/package3"}},
+                        ]
+                    }
+                },
+            ):
+                result = packages_list(registry="s3://quilt-ernest-staging", prefix="user/")
 
-            # Result now has packages structure
-            assert hasattr(result, 'success')
-            assert result.success is True
-            assert hasattr(result, 'packages')
+                # Result now has packages structure
+                assert hasattr(result, 'success')
+                assert result.success is True
+                assert hasattr(result, 'packages')
 
-            packages = result.packages
-            assert len(packages) == 2
-            assert all(pkg.startswith("user/") for pkg in packages)
+                packages = result.packages
+                assert len(packages) == 2
+                assert all(pkg.startswith("user/") for pkg in packages)
 
     def test_packages_list_error(self):
         """Test packages_list with error."""
-        with patch("quilt3.list_packages", side_effect=Exception("Test error")):
-            result = packages_list(registry="s3://quilt-ernest-staging")
+        with patch("quilt_mcp.ops.factory.quilt3") as mock_quilt3:
+            mock_quilt3.session.get_session_info.return_value = {"registry": "s3://quilt-ernest-staging"}
 
-            # Should return an error response, not raise exception
-            assert hasattr(result, 'success')
-            assert result.success is False
-            assert "Test error" in result.error
+            # Return error response from search API
+            with patch("quilt3.search_util.search_api", return_value={"error": "Test error"}):
+                result = packages_list(registry="s3://quilt-ernest-staging")
+
+                # Should return an error response, not raise exception
+                assert hasattr(result, 'success')
+                assert result.success is False
+                assert "Test error" in result.error
 
     def test_package_browse_success(self):
         """Test package_browse with successful response."""
-        mock_package = Mock()
-        mock_package.keys.return_value = ["file1.txt", "file2.csv"]
-
         # Create mock entries with required attributes
-        mock_entries = {}
+        mock_entries = []
         for key in ["file1.txt", "file2.csv"]:
             mock_entry = Mock()
+            mock_entry.name = key  # Required attribute
             mock_entry.size = 1000
             mock_entry.hash = "abc123"
             mock_entry.physical_key = f"s3://test-bucket/{key}"
-            mock_entries[key] = mock_entry
+            mock_entries.append(mock_entry)
 
-        # Make mock_package support item access
-        mock_package.__getitem__ = lambda self, key: mock_entries.get(key)
+        # Make mock_package support iteration
+        mock_package = Mock()
+        mock_package.__iter__ = lambda self: iter(mock_entries)
 
-        with patch("quilt3.Package.browse", return_value=mock_package):
-            result = package_browse(package_name="user/test-package", registry="s3://test-bucket")
+        with patch("quilt_mcp.ops.factory.quilt3") as mock_quilt3:
+            mock_quilt3.session.get_session_info.return_value = {"registry": "s3://test-bucket"}
 
-            assert hasattr(result, 'success')
-            assert result.success is True
-            assert hasattr(result, 'entries')
-            assert hasattr(result, 'package_name')
-            assert hasattr(result, 'total_entries')
-            assert len(result.entries) == 2
-            assert result.entries[0]["logical_key"] == "file1.txt"
-            assert result.entries[1]["logical_key"] == "file2.csv"
+            with patch("quilt3.Package.browse", return_value=mock_package):
+                result = package_browse(package_name="user/test-package", registry="s3://test-bucket")
+
+                assert hasattr(result, 'success')
+                assert result.success is True
+                assert hasattr(result, 'entries')
+                assert hasattr(result, 'package_name')
+                assert hasattr(result, 'total_entries')
+                assert len(result.entries) == 2
+                assert result.entries[0]["logical_key"] == "file1.txt"
+                assert result.entries[1]["logical_key"] == "file2.csv"
 
     def test_package_browse_error(self):
         """Test package_browse with error."""
-        with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            result = package_browse(package_name="user/nonexistent", registry="s3://test-bucket")
+        with patch("quilt_mcp.ops.factory.quilt3") as mock_quilt3:
+            mock_quilt3.session.get_session_info.return_value = {"registry": "s3://test-bucket"}
 
-            assert hasattr(result, 'success')
-            assert result.success is False
-            assert "Failed to browse package" in result.error
-            assert "Package not found" in result.cause
-            assert hasattr(result, 'possible_fixes')
-            assert hasattr(result, 'suggested_actions')
+            with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
+                result = package_browse(package_name="user/nonexistent", registry="s3://test-bucket")
+
+                assert hasattr(result, 'success')
+                assert result.success is False
+                assert "Failed to browse package" in result.error
+                assert "Package not found" in result.cause
+                assert hasattr(result, 'possible_fixes')
+                assert hasattr(result, 'suggested_actions')
 
     def test_catalog_info_success(self):
         """Test catalog_info with successful response."""
@@ -361,17 +386,20 @@ class TestQuiltTools:
 
     def test_package_diff_browse_error(self):
         """Test package_diff with package browse error."""
-        with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            result = package_diff(
-                package1_name="user/nonexistent1",
-                package2_name="user/nonexistent2",
-                registry="s3://test-bucket",
-            )
+        with patch("quilt_mcp.ops.factory.quilt3") as mock_quilt3:
+            mock_quilt3.session.get_session_info.return_value = {"registry": "s3://test-bucket"}
 
-            assert hasattr(result, 'success')
-            assert result.success is False
-            assert "Failed to browse packages" in result.error
-            assert "Package not found" in str(result.error)
+            with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
+                result = package_diff(
+                    package1_name="user/nonexistent1",
+                    package2_name="user/nonexistent2",
+                    registry="s3://test-bucket",
+                )
+
+                assert hasattr(result, 'success')
+                assert result.success is False
+                assert "Failed to browse packages" in result.error
+                assert "Package not found" in str(result.error)
 
     def test_package_diff_diff_error(self):
         """Test package_diff with diff operation error."""
@@ -379,16 +407,19 @@ class TestQuiltTools:
         mock_pkg2 = Mock()
         mock_pkg1.diff.side_effect = Exception("Diff operation failed")
 
-        with patch("quilt3.Package.browse") as mock_browse:
-            mock_browse.side_effect = [mock_pkg1, mock_pkg2]
+        with patch("quilt_mcp.ops.factory.quilt3") as mock_quilt3:
+            mock_quilt3.session.get_session_info.return_value = {"registry": "s3://test-bucket"}
 
-            result = package_diff(
-                package1_name="user/package1",
-                package2_name="user/package2",
-                registry="s3://test-bucket",
-            )
+            with patch("quilt3.Package.browse") as mock_browse:
+                mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            assert hasattr(result, 'success')
-            assert result.success is False
-            assert "Failed to diff packages" in result.error
-            assert "Diff operation failed" in str(result.error)
+                result = package_diff(
+                    package1_name="user/package1",
+                    package2_name="user/package2",
+                    registry="s3://test-bucket",
+                )
+
+                assert hasattr(result, 'success')
+                assert result.success is False
+                assert "Failed to diff packages" in result.error
+                assert "Diff operation failed" in str(result.error)
