@@ -187,7 +187,6 @@ Migrate all existing MCP tools from QuiltService to QuiltOps using TDD approach 
 - [ ] Write tests for search_catalog tool using QuiltOps.search_packages()
 - [ ] Write tests for package browsing tools using QuiltOps.browse_content()
 - [ ] Write tests for package info tools using QuiltOps.get_package_info()
-- [ ] Write tests ensuring tools work with Package_Info and Content_Info objects
 - [ ] **MIGRATE:** Update search_catalog tool to use QuiltOps.search_packages()
 - [ ] **MIGRATE:** Update package browsing tools to use QuiltOps.browse_content()
 - [ ] **MIGRATE:** Update package info tools to use QuiltOps.get_package_info()
@@ -196,14 +195,12 @@ Migrate all existing MCP tools from QuiltService to QuiltOps using TDD approach 
 
 - [ ] Write tests for bucket listing tools using QuiltOps.list_buckets()
 - [ ] Write tests for content access tools using QuiltOps.get_content_url()
-- [ ] Write tests ensuring tools work with Bucket_Info objects
 - [ ] **MIGRATE:** Update bucket listing tools to use QuiltOps.list_buckets()
 - [ ] **MIGRATE:** Update content access tools to use QuiltOps.get_content_url()
 
 ### 5.4 TDD: Update tool response formatting (ACTUAL MIGRATION)
 
-- [ ] Write tests for domain object conversion using dataclasses.asdict() for MCP responses
-- [ ] Write tests that migrated tools produce valid MCP response formats
+- [ ] Write tests that migrated tools produce valid MCP response formats using dataclasses.asdict()
 - [ ] **MIGRATE:** Update tools to convert domain objects using dataclasses.asdict() for MCP responses
 
 ### 5.5 Verification Checkpoint: Tool Migration
