@@ -171,43 +171,51 @@ Create the factory using TDD approach, focusing only on quilt3 sessions for Phas
 
 ---
 
-## Task 5: Migrate Existing MCP Tools to QuiltOps (TDD)
+## Task 5: Migrate Existing MCP Tools to QuiltOps
 
-Migrate all existing MCP tools from QuiltService to QuiltOps using TDD approach to ensure they work correctly.
+Migrate existing MCP tools from QuiltService to QuiltOps. Use existing tests to verify behavior doesn't change.
 
-### 5.1 TDD: Pre-migration audit and baseline tests
+### 5.1 Pre-migration audit (COMPLETED)
 
-- [x] Audit all MCP tools in `src/quilt_mcp/tools/` for QuiltService usage: /Users/ernest/GitHub/quilt-mcp-server/tool-migration-audit-report.md
-- [x] Create migration checklist for each tool category: tool_migration_categories.md
-- [x] Write baseline integration tests for existing tool behavior (to verify behavior doesn't change after migration)
-- [x] Document current QuiltService method usage patterns
+- [x] Audit all MCP tools: tool_migration_categories.md
+- [x] Identify affected files: packages.py, search.py, stack_buckets.py, buckets.py, catalog.py
+- [x] Document migration approach for each category
 
-### 5.2 TDD: Migrate search and package tools (ACTUAL MIGRATION)
+### 5.2 Phase 1: Core Package Operations (packages.py)
 
-- [ ] Write tests for search_catalog tool using QuiltOps.search_packages()
-- [ ] Write tests for package browsing tools using QuiltOps.browse_content()
-- [ ] Write tests for package info tools using QuiltOps.get_package_info()
-- [ ] **MIGRATE:** Update search_catalog tool to use QuiltOps.search_packages()
-- [ ] **MIGRATE:** Update package browsing tools to use QuiltOps.browse_content()
-- [ ] **MIGRATE:** Update package info tools to use QuiltOps.get_package_info()
+**Files to update:** `src/quilt_mcp/tools/packages.py`
 
-### 5.3 TDD: Migrate bucket and content tools (ACTUAL MIGRATION)
+- [ ] Migrate `packages_list()`: Replace `quilt_service.list_packages()` → `QuiltOps.search_packages()`
+- [ ] Migrate `package_browse()`: Replace `quilt_service.browse_package()` → `QuiltOps.browse_content()`
+- [ ] Migrate `package_diff()`: Use `QuiltOps.browse_content()` for both packages
+- [ ] Update response formatting to use `dataclasses.asdict()` on domain objects
+- [ ] **DECISION NEEDED:** Handle `create_package_revision()` - no QuiltOps equivalent yet
+- [ ] Run existing tests: `uv run pytest tests/unit/tools/test_packages.py -v`
+- [ ] Run integration tests: `uv run pytest tests/integration/ -k package -v`
 
-- [ ] Write tests for bucket listing tools using QuiltOps.list_buckets()
-- [ ] Write tests for content access tools using QuiltOps.get_content_url()
-- [ ] **MIGRATE:** Update bucket listing tools to use QuiltOps.list_buckets()
-- [ ] **MIGRATE:** Update content access tools to use QuiltOps.get_content_url()
+### 5.3 Phase 2: Authentication & GraphQL (search.py, stack_buckets.py)
 
-### 5.4 TDD: Update tool response formatting (ACTUAL MIGRATION)
+**Files to update:** `src/quilt_mcp/tools/search.py`, `src/quilt_mcp/tools/stack_buckets.py`
 
-- [ ] Write tests that migrated tools produce valid MCP response formats using dataclasses.asdict()
-- [ ] **MIGRATE:** Update tools to convert domain objects using dataclasses.asdict() for MCP responses
+- [ ] Replace session checks with QuiltOpsFactory authentication
+- [ ] Keep GraphQL functionality separate (not part of QuiltOps domain)
+- [ ] Update error handling to use QuiltOps exceptions
+- [ ] Run existing tests: `uv run pytest tests/unit/tools/test_search.py tests/unit/tools/test_stack_buckets.py -v`
+
+### 5.4 Phase 3: Cleanup (buckets.py, catalog.py)
+
+**Files to update:** `src/quilt_mcp/tools/buckets.py`, `src/quilt_mcp/tools/catalog.py`
+
+- [ ] Remove unused QuiltService import from buckets.py
+- [ ] Update documentation references in catalog.py
+- [ ] Run full test suite to verify no regressions
 
 ### 5.5 Verification Checkpoint: Tool Migration
 
 - [ ] Run linting: `ruff check src/quilt_mcp/tools/`
-- [ ] Run tests: `uv run pytest tests/unit/tools/ -v`
-- [ ] Run integration tests: `uv run pytest tests/integration/ -v`
+- [ ] Run all tool tests: `uv run pytest tests/unit/tools/ -v`
+- [ ] Run all integration tests: `uv run pytest tests/integration/ -v`
+- [ ] Verify all existing tests still pass
 - [ ] Commit changes: `git add . && git commit -m "feat: migrate all MCP tools to use QuiltOps abstraction"`
 
 ---
