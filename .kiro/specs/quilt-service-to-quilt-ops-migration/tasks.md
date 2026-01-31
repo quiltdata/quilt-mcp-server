@@ -1,6 +1,10 @@
 # QuiltService → QuiltOps Migration Task Checklist
 
-This checklist identifies every method that depends on quilt3 or QuiltService with its QuiltOps replacement. Use this to update callees/tests and delete the legacy version.
+This checklist identifies every method that depends on quilt3 or QuiltService with its QuiltOps replacement.
+Use this to update callees/tests and delete the legacy version.
+
+> **Note:** For code examples and migration patterns, see the
+> [Migration Code Appendix](./design.md#appendix-migration-code-examples) in design.md.
 
 ---
 
@@ -18,114 +22,64 @@ This checklist identifies every method that depends on quilt3 or QuiltService wi
 ### ✅ `is_authenticated() -> bool`
 
 **QuiltOps Replacement:** `QuiltOpsFactory.create()` + check if instance created successfully
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/auth_metadata.py:47` (used in `_get_catalog_info`)
 
-**Migration Strategy:**
-
-```python
-# Before
-service = QuiltService()
-if service.is_authenticated():
-    ...
-
-# After
-try:
-    ops = QuiltOpsFactory.create()
-    # If we got here, we're authenticated
-    ...
-except AuthenticationError:
-    # Not authenticated
-    ...
-```
+**Migration:** See Appendix A1 in design.md
 
 ---
 
 ### 🚧 `get_logged_in_url() -> str | None`
 
 **QuiltOps Replacement:** NEW: `get_auth_status() -> Auth_Status`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/auth_metadata.py:56` (in `_get_catalog_host_from_config`)
 - [ ] `src/quilt_mcp/services/auth_metadata.py:156` (in `auth_status`)
 - [ ] `src/quilt_mcp/services/auth_metadata.py:168` (in `get_catalog_info`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 172-178
-@abstractmethod
-def get_auth_status(self) -> Auth_Status:
-    """Get current authentication status."""
-    pass
-
-@dataclass
-class Auth_Status:
-    is_authenticated: bool
-    logged_in_url: Optional[str]
-    catalog_name: Optional[str]
-    registry_url: Optional[str]
-```
+**Requires:** Implement `Auth_Status` dataclass and `get_auth_status()` method (design.md lines 172-178)
 
 ---
 
 ### 🚧 `get_config() -> dict | None`
 
 **QuiltOps Replacement:** NEW: `get_catalog_config(catalog_url) -> Catalog_Config`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/auth_metadata.py:69` (in `_get_catalog_host_from_config`)
 - [ ] `src/quilt_mcp/services/auth_metadata.py:161` (in `auth_status`)
 - [ ] `src/quilt_mcp/services/auth_metadata.py:178` (in `configure_catalog`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 181-196
-@abstractmethod
-def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
-    """Get catalog configuration."""
-    pass
-
-@dataclass
-class Catalog_Config:
-    region: str
-    api_gateway_endpoint: str
-    analytics_bucket: str
-    stack_prefix: str
-    tabulator_data_catalog: str
-```
+**Requires:** Implement `Catalog_Config` dataclass and `get_catalog_config()` method (design.md lines 181-196)
 
 ---
 
 ### 🚧 `get_catalog_config(catalog_url: str) -> dict | None`
 
 **QuiltOps Replacement:** NEW: `get_catalog_config(catalog_url) -> Catalog_Config`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/auth_metadata.py:202` (in `get_catalog_info`)
 
-**Same as above - needs implementation**
+**Requires:** Same as above - needs implementation
 
 ---
 
 ### 🚧 `set_config(catalog_url: str) -> None`
 
 **QuiltOps Replacement:** NEW: `configure_catalog(catalog_url: str) -> None`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/auth_metadata.py:491` (in `configure_catalog`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 190-196
-@abstractmethod
-def configure_catalog(self, catalog_url: str) -> None:
-    """Configure the default catalog URL."""
-    pass
-```
+**Requires:** Implement `configure_catalog()` method (design.md lines 190-196)
 
 ---
 
@@ -151,6 +105,7 @@ def configure_catalog(self, catalog_url: str) -> None:
 ### 🚧 `has_session_support() -> bool`
 
 **QuiltOps Replacement:** NEW: `get_auth_status() -> Auth_Status` (check `is_authenticated`)
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/quilt_service.py:90` (internal use in `get_catalog_config`)
@@ -162,52 +117,36 @@ def configure_catalog(self, catalog_url: str) -> None:
 ### 🚧 `get_session() -> Any`
 
 **QuiltOps Replacement:** NEW: `execute_graphql_query(query, variables, registry) -> Dict`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/quilt_service.py:95` (internal use in `get_catalog_config`)
 - [ ] `src/quilt_mcp/search/backends/elasticsearch.py:228` (in `_get_available_buckets`)
 
-**Requires Implementation:**
+**Requires:** Implement `execute_graphql_query()` method (design.md lines 502-518)
 
-```python
-# design.md lines 502-518
-@abstractmethod
-def execute_graphql_query(
-    self,
-    query: str,
-    variables: Optional[Dict] = None,
-    registry: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Execute a GraphQL query against the catalog."""
-    pass
-```
+**Migration:** See Appendix A2 in design.md
 
 ---
 
 ### 🚧 `get_registry_url() -> str | None`
 
 **QuiltOps Replacement:** NEW: `get_registry_url() -> Optional[str]`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/search/backends/elasticsearch.py:186` (in `_check_session`)
 - [ ] `src/quilt_mcp/search/backends/elasticsearch.py:207` (in `health_check`)
 - [ ] `src/quilt_mcp/search/backends/elasticsearch.py:229` (in `_get_available_buckets`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 538-544
-@abstractmethod
-def get_registry_url(self) -> Optional[str]:
-    """Get the current default registry URL."""
-    pass
-```
+**Requires:** Implement `get_registry_url()` method (design.md lines 538-544)
 
 ---
 
 ### 🚧 `create_botocore_session() -> Any`
 
 **QuiltOps Replacement:** NEW: `get_boto3_client(service_name, region) -> Any`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/athena_service.py:90` (in `_create_sqlalchemy_engine`)
@@ -215,19 +154,9 @@ def get_registry_url(self) -> Optional[str]:
 - [ ] `src/quilt_mcp/services/athena_service.py:204` (in `_create_s3_client`)
 - [ ] `src/quilt_mcp/services/athena_service.py:495` (in `list_workgroups`)
 
-**Requires Implementation:**
+**Requires:** Implement `get_boto3_client()` method (design.md lines 520-535)
 
-```python
-# design.md lines 520-535
-@abstractmethod
-def get_boto3_client(
-    self,
-    service_name: str,
-    region: Optional[str] = None,
-) -> Any:
-    """Get authenticated boto3 client for AWS services."""
-    pass
-```
+**Migration:** See Appendix A3 in design.md
 
 ---
 
@@ -236,75 +165,36 @@ def get_boto3_client(
 ### 🚧 `create_package_revision(...) -> Dict`
 
 **QuiltOps Replacement:** NEW: `create_package_revision(...) -> Package_Creation_Result`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/tools/packages.py` (in `package_create`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 241-250
-@abstractmethod
-def create_package_revision(
-    self,
-    package_name: str,
-    s3_uris: List[str],
-    metadata: Optional[Dict] = None,
-    registry: Optional[str] = None,
-    message: str = "Package created via QuiltOps",
-) -> Package_Creation_Result:
-    """Create and push package in single operation."""
-    pass
-
-@dataclass
-class Package_Creation_Result:
-    package_name: str
-    registry: str
-    top_hash: str
-    catalog_url: Optional[str]
-    file_count: int
-    success: bool
-```
+**Requires:** Implement `create_package_revision()` and `Package_Creation_Result` dataclass (design.md lines 241-250)
 
 ---
 
 ### ✅ `browse_package(name, registry, top_hash) -> Any`
 
 **QuiltOps Replacement:** EXISTING: `browse_content(package_name, registry, path) -> List[Content_Info]`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/tools/packages.py` (in various browse methods)
 
-**Migration Strategy:**
-
-```python
-# Before
-pkg = service.browse_package(name, registry)
-# Manual iteration over pkg contents
-
-# After
-contents = ops.browse_content(package_name, registry, path="")
-# Get List[Content_Info] directly
-```
+**Migration:** See Appendix A4 in design.md
 
 ---
 
 ### 🚧 `list_packages(registry) -> Iterator[str]`
 
 **QuiltOps Replacement:** NEW: `list_all_packages(registry) -> List[str]`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/tools/packages.py` (in `packages_list`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 262-266
-@abstractmethod
-def list_all_packages(self, registry: str) -> List[str]:
-    """List all package names in registry."""
-    pass
-```
+**Requires:** Implement `list_all_packages()` method (design.md lines 262-266)
 
 ---
 
@@ -313,12 +203,13 @@ def list_all_packages(self, registry: str) -> List[str]:
 ### ❌ `create_bucket(bucket_uri) -> Any`
 
 **QuiltOps Replacement:** NONE - Not a domain operation
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/tools/stack_buckets.py` (if used)
 
-**Migration Strategy:**
-Use `get_boto3_client('s3')` directly instead. Design doc (line 686) states this is not a Quilt domain operation.
+**Migration Strategy:** Use `get_boto3_client('s3')` directly instead. Design doc (line 686) states
+this is not a Quilt domain operation.
 
 ---
 
@@ -326,35 +217,14 @@ Use `get_boto3_client('s3')` directly instead. Design doc (line 686) states this
 
 ### 🚧 `get_search_api() -> Any`
 
-**QuiltOps Replacement:** NEW: `search_packages(query, registry) -> List[Package_Info]`
+**QuiltOps Replacement:** NEW: `search_packages(query, registry)` and `search_objects(query, registry, filters)`
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/search/backends/elasticsearch.py:449` (in `search`)
 - [ ] `src/quilt_mcp/tools/packages.py` (if used for search)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 620-646
-@abstractmethod
-def search_packages(
-    self,
-    query: str,
-    registry: str,
-) -> List[Package_Info]:
-    """Search for packages (already exists ✓)."""
-    pass
-
-@abstractmethod
-def search_objects(
-    self,
-    query: str,
-    registry: str,
-    filters: Optional[Dict] = None,
-) -> List[Object_Search_Result]:
-    """Search for S3 objects across all packages."""
-    pass
-```
+**Requires:** Implement search methods (design.md lines 620-646)
 
 ---
 
@@ -363,26 +233,13 @@ def search_objects(
 ### 🚧 `is_admin_available() -> bool`
 
 **QuiltOps Replacement:** Try/catch on admin operations
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/tabulator_service.py:19` (module-level check)
 - [ ] `src/quilt_mcp/services/governance_service.py:25` (module-level check)
 
-**Migration Strategy:**
-
-```python
-# Before
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
-if ADMIN_AVAILABLE:
-    admin = quilt_service.get_tabulator_admin()
-
-# After
-try:
-    tables = ops.list_tabulator_tables(catalog_name)
-    # Admin is available
-except PermissionError:
-    # Admin not available
-```
+**Migration:** See Appendix A5 in design.md
 
 ---
 
@@ -407,30 +264,7 @@ except PermissionError:
 - [ ] `src/quilt_mcp/services/governance_service.py:1102` (in `admin_tabulator_open_query_get`)
 - [ ] `src/quilt_mcp/services/governance_service.py:1152` (in `admin_tabulator_open_query_set`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 422-456
-@abstractmethod
-def list_tabulator_tables(self, catalog_name: str) -> List[Tabulator_Table]:
-    """List all Athena tables in the tabulator catalog."""
-    pass
-
-@abstractmethod
-def create_tabulator_table(...) -> Tabulator_Table:
-    """Create a new Athena table in tabulator."""
-    pass
-
-@abstractmethod
-def delete_tabulator_table(catalog_name: str, table_name: str) -> bool:
-    """Delete an Athena table from tabulator."""
-    pass
-
-@abstractmethod
-def get_tabulator_table_info(...) -> Tabulator_Table:
-    """Get detailed information about a tabulator table."""
-    pass
-```
+**Requires:** Implement tabulator domain methods (design.md lines 422-456)
 
 ---
 
@@ -461,35 +295,7 @@ def get_tabulator_table_info(...) -> Tabulator_Table:
 - [ ] `src/quilt_mcp/services/governance_service.py:768` (in `admin_user_add_roles`)
 - [ ] `src/quilt_mcp/services/governance_service.py:845` (in `admin_user_remove_roles`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 319-368
-@abstractmethod
-def list_catalog_users(self, registry: str) -> List[User_Info]:
-    """List all users with access to the catalog."""
-    pass
-
-@abstractmethod
-def get_user(self, username: str, registry: str) -> User_Info:
-    """Get detailed information about a specific user."""
-    pass
-
-@abstractmethod
-def create_user(username: str, email: str, role: str, registry: str) -> User_Info:
-    """Create a new user in the catalog."""
-    pass
-
-@abstractmethod
-def delete_user(self, username: str, registry: str) -> bool:
-    """Remove a user from the catalog."""
-    pass
-
-@abstractmethod
-def set_user_role(username: str, role: str, registry: str) -> User_Info:
-    """Update a user's role."""
-    pass
-```
+**Requires:** Implement user management methods (design.md lines 319-368)
 
 ---
 
@@ -507,20 +313,7 @@ def set_user_role(username: str, role: str, registry: str) -> User_Info:
 - [ ] `src/quilt_mcp/services/governance_service.py:32` (module-level)
 - [ ] `src/quilt_mcp/services/governance_service.py:893` (in `admin_roles_list`)
 
-**Requires Implementation:**
-
-```python
-# design.md lines 355-368
-@abstractmethod
-def list_roles(self, registry: str) -> List[Role_Info]:
-    """List all available roles in the catalog."""
-    pass
-
-@abstractmethod
-def get_role_policies(role_name: str, registry: str) -> List[Policy_Info]:
-    """Get IAM policies attached to a role."""
-    pass
-```
+**Requires:** Implement role management methods (design.md lines 355-368)
 
 ---
 
@@ -541,25 +334,7 @@ def get_role_policies(role_name: str, registry: str) -> List[Policy_Info]:
 - [ ] `src/quilt_mcp/services/governance_service.py:1018` (in `admin_sso_config_set`)
 - [ ] `src/quilt_mcp/services/governance_service.py:1066` (in `admin_sso_config_remove`)
 
-**Requires Implementation:**
-
-```python
-# NEW - Not in design.md yet
-@abstractmethod
-def get_sso_config(self, registry: str) -> Optional[SSO_Config]:
-    """Get current SSO configuration."""
-    pass
-
-@abstractmethod
-def set_sso_config(self, config: str, registry: str) -> SSO_Config:
-    """Set SSO configuration."""
-    pass
-
-@abstractmethod
-def delete_sso_config(self, registry: str) -> bool:
-    """Remove SSO configuration."""
-    pass
-```
+**Requires:** Implement SSO config methods (see design.md Appendix)
 
 ---
 
@@ -568,24 +343,12 @@ def delete_sso_config(self, registry: str) -> bool:
 ### 🚧 `get_admin_exceptions() -> dict[str, type]`
 
 **QuiltOps Replacement:** Use standard QuiltOps exceptions
+
 **Callers:**
 
 - [ ] `src/quilt_mcp/services/governance_service.py:38` (module-level)
 
-**Migration Strategy:**
-Replace with QuiltOps exception hierarchy:
-
-```python
-# design.md lines 697-721
-from quilt_mcp.ops.exceptions import (
-    QuiltOpsError,
-    AuthenticationError,
-    BackendError,
-    ValidationError,
-    NotFoundError,
-    PermissionError,
-)
-```
+**Migration Strategy:** Replace with QuiltOps exception hierarchy (design.md lines 697-721)
 
 ---
 
@@ -602,40 +365,40 @@ from quilt_mcp.ops.exceptions import (
 
 ### Phase 2: AWS & GraphQL (Week 1-2)
 
-7. [ ] Implement `execute_graphql_query()` in QuiltOps interface
+1. [ ] Implement `execute_graphql_query()` in QuiltOps interface
 2. [ ] Implement `get_boto3_client()` in QuiltOps interface
 3. [ ] Implement both in `Quilt3_Backend`
 
 ### Phase 3: Package Operations (Week 2)
 
-10. [ ] Implement `create_package_revision()` in QuiltOps interface
+1. [ ] Implement `create_package_revision()` in QuiltOps interface
 2. [ ] Implement `list_all_packages()` in QuiltOps interface
 3. [ ] Implement `get_package_versions()` in QuiltOps interface
 4. [ ] Implement all in `Quilt3_Backend`
 
 ### Phase 4: Search Operations (Week 2-3)
 
-14. [ ] Implement `search_objects()` in QuiltOps interface
+1. [ ] Implement `search_objects()` in QuiltOps interface
 2. [ ] Enhance `search_packages()` if needed
 3. [ ] Implement in `Quilt3_Backend`
 
 ### Phase 5: Admin - Tabulator (Week 3)
 
-17. [ ] Implement all tabulator domain methods in QuiltOps interface
+1. [ ] Implement all tabulator domain methods in QuiltOps interface
 2. [ ] Implement `Tabulator_Table` and `Column_Info` dataclasses
 3. [ ] Implement all in `Quilt3_Backend`
 4. [ ] Migrate `src/quilt_mcp/services/tabulator_service.py`
 
 ### Phase 6: Admin - Users (Week 3-4)
 
-21. [ ] Implement all user management methods in QuiltOps interface
+1. [ ] Implement all user management methods in QuiltOps interface
 2. [ ] Implement `User_Info` dataclass
 3. [ ] Implement all in `Quilt3_Backend`
 4. [ ] Migrate user management in `src/quilt_mcp/services/governance_service.py`
 
 ### Phase 7: Admin - Roles & SSO (Week 4)
 
-25. [ ] Implement role management methods in QuiltOps interface
+1. [ ] Implement role management methods in QuiltOps interface
 2. [ ] Implement SSO methods in QuiltOps interface
 3. [ ] Implement `Role_Info`, `Policy_Info`, `SSO_Config` dataclasses
 4. [ ] Implement all in `Quilt3_Backend`
@@ -643,7 +406,7 @@ from quilt_mcp.ops.exceptions import (
 
 ### Phase 8: Migrate Callers (Week 4-5)
 
-30. [ ] Migrate `src/quilt_mcp/services/auth_metadata.py`
+1. [ ] Migrate `src/quilt_mcp/services/auth_metadata.py`
 2. [ ] Migrate `src/quilt_mcp/services/athena_service.py`
 3. [ ] Migrate `src/quilt_mcp/search/backends/elasticsearch.py`
 4. [ ] Migrate `src/quilt_mcp/tools/packages.py`
@@ -651,7 +414,7 @@ from quilt_mcp.ops.exceptions import (
 
 ### Phase 9: Testing & Cleanup (Week 5)
 
-35. [ ] Update all tests to use QuiltOps instead of QuiltService
+1. [ ] Update all tests to use QuiltOps instead of QuiltService
 2. [ ] Run full test suite
 3. [ ] Verify no QuiltService references remain (grep check)
 4. [ ] Delete `src/quilt_mcp/services/quilt_service.py`

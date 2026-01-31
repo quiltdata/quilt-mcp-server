@@ -887,3 +887,447 @@ def list_users(registry: str) -> List[Dict]:
 - ❌ Partial workflows requiring caller state management
 - ❌ quilt3.Package or other library types
 - ❌ Pure utilities (those go in utils.py)
+
+---
+
+## Appendix: Migration Code Examples
+
+### A1: Migrating `is_authenticated()`
+
+**Before:**
+
+```python
+service = QuiltService()
+if service.is_authenticated():
+    ...
+```
+
+**After:**
+
+```python
+try:
+    ops = QuiltOpsFactory.create()
+    # If we got here, we're authenticated
+    ...
+except AuthenticationError:
+    # Not authenticated
+    ...
+```
+
+---
+
+### A2: Migrating `get_session()` for GraphQL
+
+**Before:**
+
+```python
+session = quilt_service.get_session()
+registry_url = quilt_service.get_registry_url()
+api_url = self._get_graphql_endpoint(registry_url)
+response = session.post(api_url, json={"query": query, "variables": variables})
+```
+
+**After:**
+
+```python
+response_data = ops.execute_graphql_query(
+    query=query,
+    variables=variables,
+    registry=registry_url
+)
+```
+
+---
+
+### A3: Migrating `create_botocore_session()` for AWS Clients
+
+**Before:**
+
+```python
+botocore_session = quilt_service.create_botocore_session()
+boto3_session = boto3.Session(botocore_session=botocore_session)
+client = boto3_session.client('athena', region_name=region)
+```
+
+**After:**
+
+```python
+client = ops.get_boto3_client('athena', region=region)
+```
+
+---
+
+### A4: Migrating `browse_package()`
+
+**Before:**
+
+```python
+pkg = service.browse_package(name, registry)
+# Manual iteration over pkg contents
+for key in pkg.keys():
+    entry = pkg[key]
+    # Process entry...
+```
+
+**After:**
+
+```python
+contents = ops.browse_content(package_name, registry, path="")
+# Get List[Content_Info] directly
+for content_info in contents:
+    # Process content_info...
+```
+
+---
+
+### A5: Migrating `is_admin_available()`
+
+**Before:**
+
+```python
+ADMIN_AVAILABLE = quilt_service.is_admin_available()
+if ADMIN_AVAILABLE:
+    admin = quilt_service.get_tabulator_admin()
+```
+
+**After:**
+
+```python
+try:
+    tables = ops.list_tabulator_tables(catalog_name)
+    # Admin is available
+except PermissionError:
+    # Admin not available
+```
+
+---
+
+### A6: Migrating `get_auth_status()` Implementation
+
+**QuiltOps Interface:**
+
+```python
+@dataclass
+class Auth_Status:
+    is_authenticated: bool
+    logged_in_url: Optional[str]
+    catalog_name: Optional[str]
+    registry_url: Optional[str]
+
+@abstractmethod
+def get_auth_status(self) -> Auth_Status:
+    """Get current authentication status."""
+    pass
+```
+
+**Quilt3_Backend Implementation:**
+
+```python
+def get_auth_status(self) -> Auth_Status:
+    """Get current authentication status from quilt3."""
+    try:
+        logged_in_url = quilt3.logged_in()
+        registry_url = quilt3.session.get_registry_url()
+        catalog_name = None
+        if logged_in_url:
+            # Extract catalog name from URL if needed
+            catalog_name = self._extract_catalog_name(logged_in_url)
+
+        return Auth_Status(
+            is_authenticated=bool(logged_in_url),
+            logged_in_url=logged_in_url,
+            catalog_name=catalog_name,
+            registry_url=registry_url
+        )
+    except Exception as e:
+        raise BackendError(f"Failed to get auth status: {e}") from e
+```
+
+---
+
+### A7: Migrating `get_catalog_config()` Implementation
+
+**QuiltOps Interface:**
+
+```python
+@dataclass
+class Catalog_Config:
+    region: str
+    api_gateway_endpoint: str
+    analytics_bucket: str
+    stack_prefix: str
+    tabulator_data_catalog: str
+
+@abstractmethod
+def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+    """Get catalog configuration."""
+    pass
+```
+
+**Quilt3_Backend Implementation:**
+
+```python
+def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+    """Fetch catalog configuration from config.json."""
+    try:
+        session = quilt3.session.get_session()
+        config_url = f"{catalog_url}/config.json"
+        response = session.get(config_url)
+        response.raise_for_status()
+        config_data = response.json()
+
+        return Catalog_Config(
+            region=config_data.get('region', ''),
+            api_gateway_endpoint=config_data.get('apiGatewayEndpoint', ''),
+            analytics_bucket=config_data.get('analyticsBucket', ''),
+            stack_prefix=config_data.get('stackPrefix', ''),
+            tabulator_data_catalog=config_data.get('tabulatorDataCatalog', '')
+        )
+    except requests.HTTPError as e:
+        raise NotFoundError(f"Catalog config not found: {catalog_url}") from e
+    except Exception as e:
+        raise BackendError(f"Failed to get catalog config: {e}") from e
+```
+
+---
+
+### A8: Migrating `create_package_revision()` Implementation
+
+**QuiltOps Interface:**
+
+```python
+@dataclass
+class Package_Creation_Result:
+    package_name: str
+    registry: str
+    top_hash: str
+    catalog_url: Optional[str]
+    file_count: int
+    success: bool
+
+@abstractmethod
+def create_package_revision(
+    self,
+    package_name: str,
+    s3_uris: List[str],
+    metadata: Optional[Dict] = None,
+    registry: Optional[str] = None,
+    message: str = "Package created via QuiltOps",
+) -> Package_Creation_Result:
+    """Create and push package in single operation."""
+    pass
+```
+
+**Quilt3_Backend Implementation:**
+
+```python
+def create_package_revision(
+    self,
+    package_name: str,
+    s3_uris: List[str],
+    metadata: Optional[Dict] = None,
+    registry: Optional[str] = None,
+    message: str = "Package created via QuiltOps",
+) -> Package_Creation_Result:
+    """Create and push a package using quilt3."""
+    try:
+        pkg = quilt3.Package()
+
+        # Add files to package
+        for s3_uri in s3_uris:
+            logical_key = self._extract_logical_key(s3_uri)
+            pkg.set(logical_key, s3_uri)
+
+        # Set metadata if provided
+        if metadata:
+            pkg.set_meta(metadata)
+
+        # Push to registry
+        pkg_hash = pkg.push(package_name, registry=registry, message=message)
+
+        # Get catalog URL
+        catalog_url = None
+        if registry:
+            catalog_url = self._build_catalog_url(package_name, registry)
+
+        return Package_Creation_Result(
+            package_name=package_name,
+            registry=registry or self.get_registry_url(),
+            top_hash=pkg_hash,
+            catalog_url=catalog_url,
+            file_count=len(s3_uris),
+            success=True
+        )
+    except Exception as e:
+        raise BackendError(f"Failed to create package: {e}") from e
+```
+
+---
+
+### A9: Migrating `execute_graphql_query()` Implementation
+
+**Quilt3_Backend Implementation:**
+
+```python
+def execute_graphql_query(
+    self,
+    query: str,
+    variables: Optional[Dict] = None,
+    registry: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Execute GraphQL query using quilt3 session."""
+    try:
+        session = quilt3.session.get_session()
+        registry_url = registry or quilt3.session.get_registry_url()
+
+        if not registry_url:
+            raise AuthenticationError("No registry configured")
+
+        # Extract catalog URL from registry S3 URL
+        api_url = self._get_graphql_endpoint(registry_url)
+
+        payload = {"query": query}
+        if variables:
+            payload["variables"] = variables
+
+        response = session.post(api_url, json=payload)
+        response.raise_for_status()
+
+        return response.json()
+    except requests.HTTPError as e:
+        if e.response.status_code == 403:
+            raise PermissionError("GraphQL query not authorized") from e
+        raise BackendError(f"GraphQL query failed: {e}") from e
+    except Exception as e:
+        raise BackendError(f"GraphQL execution error: {e}") from e
+```
+
+---
+
+### A10: Migrating User Management
+
+**Before (governance_service.py):**
+
+```python
+from quilt_mcp.services.quilt_service import QuiltService
+
+quilt_service = QuiltService()
+ADMIN_AVAILABLE = quilt_service.is_admin_available()
+
+if ADMIN_AVAILABLE:
+    admin_users = quilt_service.get_users_admin()
+    admin_exceptions = quilt_service.get_admin_exceptions()
+    UserNotFoundError = admin_exceptions['UserNotFoundError']
+
+def list_users(registry: str) -> List[Dict]:
+    """List all users in the catalog."""
+    if not ADMIN_AVAILABLE:
+        raise Exception("Admin API not available")
+
+    try:
+        users = admin_users.list_users()  # Returns quilt3 admin objects
+        return [
+            {
+                "username": u.name,
+                "email": u.email,
+                "role": u.role,
+            }
+            for u in users
+        ]
+    except UserNotFoundError as e:
+        raise Exception(f"Error: {e}")
+```
+
+**After (governance_service.py):**
+
+```python
+from quilt_mcp.ops import get_quilt_ops
+from quilt_mcp.ops.exceptions import NotFoundError, BackendError, PermissionError
+from quilt_mcp.domain import User_Info
+
+quilt_ops = get_quilt_ops()
+
+def list_users(registry: str) -> List[Dict]:
+    """List all users in the catalog."""
+    try:
+        users: List[User_Info] = quilt_ops.list_catalog_users(registry)
+        return [
+            {
+                "username": u.username,
+                "email": u.email,
+                "role": u.role,
+            }
+            for u in users
+        ]
+    except PermissionError as e:
+        raise Exception(f"Admin access required: {e}")
+    except NotFoundError as e:
+        raise Exception(f"Error: {e}")
+```
+
+---
+
+### A11: Migrating SSO Configuration Methods
+
+**QuiltOps Interface:**
+
+```python
+@dataclass
+class SSO_Config:
+    provider: str
+    metadata_url: Optional[str]
+    entity_id: Optional[str]
+    attribute_mapping: Dict[str, str]
+
+@abstractmethod
+def get_sso_config(self, registry: str) -> Optional[SSO_Config]:
+    """Get current SSO configuration."""
+    pass
+
+@abstractmethod
+def set_sso_config(self, config: str, registry: str) -> SSO_Config:
+    """Set SSO configuration."""
+    pass
+
+@abstractmethod
+def delete_sso_config(self, registry: str) -> bool:
+    """Remove SSO configuration."""
+    pass
+```
+
+**Quilt3_Backend Implementation:**
+
+```python
+def get_sso_config(self, registry: str) -> Optional[SSO_Config]:
+    """Get SSO config using quilt3 admin."""
+    try:
+        from quilt3.admin import sso_config
+        config_data = sso_config.get_config()
+
+        if not config_data:
+            return None
+
+        return SSO_Config(
+            provider=config_data.get('provider', ''),
+            metadata_url=config_data.get('metadataUrl'),
+            entity_id=config_data.get('entityId'),
+            attribute_mapping=config_data.get('attributeMapping', {})
+        )
+    except Exception as e:
+        raise BackendError(f"Failed to get SSO config: {e}") from e
+
+def set_sso_config(self, config: str, registry: str) -> SSO_Config:
+    """Set SSO config using quilt3 admin."""
+    try:
+        from quilt3.admin import sso_config
+        result = sso_config.set_config(config)
+
+        return SSO_Config(
+            provider=result.get('provider', ''),
+            metadata_url=result.get('metadataUrl'),
+            entity_id=result.get('entityId'),
+            attribute_mapping=result.get('attributeMapping', {})
+        )
+    except Exception as e:
+        raise BackendError(f"Failed to set SSO config: {e}") from e
+```
