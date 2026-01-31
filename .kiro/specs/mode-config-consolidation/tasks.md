@@ -6,8 +6,8 @@ This implementation plan consolidates scattered mode detection logic into a sing
 
 ## Tasks
 
-- [-] 1. Create ModeConfig abstraction and Platform Backend stub
-  - [-] 1.1 Create ModeConfig singleton with mode properties
+- [x] 1. Create ModeConfig abstraction and Platform Backend stub
+  - [x] 1.1 Create ModeConfig singleton with mode properties
     - Create `src/quilt_mcp/config/mode_config.py` with ModeConfig class
     - Implement singleton pattern with `get_mode_config()` function
     - Add properties: `is_multitenant`, `is_local_dev`, `backend_type`, `requires_jwt`, `allows_filesystem_state`, `allows_quilt3_library`, `tenant_mode`, `requires_graphql`, `default_transport`
@@ -20,7 +20,7 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 3: Mode Property Completeness**
     - **Validates: Requirements 1.1, 1.2, 1.4, 1.5**
 
-  - [ ] 1.3 Create Platform Backend stub
+  - [x] 1.3 Create Platform Backend stub
     - Create `src/quilt_mcp/backends/platform_backend.py` with Platform_Backend class
     - Extend QuiltOps abstract interface
     - All methods raise NotImplementedError with clear message directing to local development
@@ -30,7 +30,7 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 5: Platform Backend Error Handling**
     - **Validates: Requirements 2.4**
 
-- [ ] 2. Update backend and authentication factories
+- [-] 2. Update backend and authentication factories
   - [ ] 2.1 Update QuiltOps factory to use ModeConfig
     - Modify `src/quilt_mcp/ops/factory.py` to import and use `get_mode_config()`
     - Replace credential detection with `mode_config.backend_type` query
@@ -144,7 +144,18 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - Delete redundant environment variables: `QUILT_MCP_STATELESS_MODE`, `MCP_REQUIRE_JWT`, `QUILT_DISABLE_QUILT3_SESSION`
     - _Requirements: 9.2, 9.3, 9.4_
 
-  - [ ]* 7.3 Write property tests for test suite coverage
+  - [ ] 7.3 Fix malformed test in test_s3_package.py
+    - Update test `test_create_enhanced_package_uses_create_package_revision` in
+      `tests/unit/test_s3_package.py` lines 365-411
+    - Change `@patch("quilt_mcp.tools.packages.QuiltService")` to
+      `@patch("quilt_mcp.tools.packages.QuiltOpsFactory")`
+    - Update mock to return mock QuiltOps backend instead of QuiltService instance
+    - Update return value to `Package_Creation_Result` domain object (not dict)
+    - Update assertions to verify `mock_backend.create_package_revision()` called (not QuiltService)
+    - _Fixes: Test patching wrong abstraction after QuiltOps migration_
+    - _See: .kiro/specs/a12-quilt-ops/08-malformed-auth-tests.md_
+
+  - [ ]* 7.4 Write property tests for test suite coverage
     - **Property 14: Test Suite Mode Coverage**
     - **Validates: Requirements 9.5**
 

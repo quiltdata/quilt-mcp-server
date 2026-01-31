@@ -33,14 +33,15 @@ logger = logging.getLogger(__name__)
 class Quilt3_Backend_Base:
     """Base class with core initialization and shared utilities."""
 
-    def __init__(self, session_config: Dict[str, Any]):
-        """Initialize the backend with session configuration.
+    def __init__(self):
+        """Initialize the backend for local development mode.
 
-        Args:
-            session_config: Dictionary containing quilt3 session configuration
+        The backend will use the current quilt3 session and AWS credentials
+        from the environment. No session detection is performed - the mode
+        configuration determines when this backend should be used.
 
         Raises:
-            AuthenticationError: If session configuration is invalid
+            AuthenticationError: If quilt3 library is not available
         """
         if quilt3 is None:
             raise AuthenticationError("quilt3 library is not available")
@@ -50,7 +51,6 @@ class Quilt3_Backend_Base:
         self.requests = requests
         self.boto3 = boto3
 
-        self.session = self._validate_session(session_config)
         logger.info("Quilt3_Backend initialized successfully")
 
     def _validate_session(self, session_config: Dict[str, Any]) -> Dict[str, Any]:

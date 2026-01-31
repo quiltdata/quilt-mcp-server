@@ -2364,6 +2364,7 @@ deploy = [
 ]
 dev = [
     { name = "build" },
+    { name = "pytest-asyncio" },
     { name = "pytest-xdist" },
     { name = "python-dotenv" },
     { name = "wheel" },
@@ -2416,6 +2417,7 @@ deploy = [
 ]
 dev = [
     { name = "build", specifier = ">=1.0.0" },
+    { name = "pytest-asyncio", specifier = ">=1.1.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "wheel", specifier = ">=0.45.1" },
