@@ -294,6 +294,8 @@ class Quilt3_Backend_Packages:
         metadata: Optional[Dict] = None,
         registry: Optional[str] = None,
         message: str = "Package created via QuiltOps",
+        auto_organize: bool = True,
+        copy: str = "auto",
     ):
         """Create and push a package revision in a single operation.
 
@@ -307,6 +309,9 @@ class Quilt3_Backend_Packages:
             metadata: Optional metadata dictionary to attach to the package
             registry: Target registry URL (uses default if None)
             message: Commit message for the package revision
+            auto_organize: If True, preserve S3 folder structure as logical keys.
+                         If False, flatten to just filenames (default: True)
+            copy: Copy strategy for package.push() - "auto", "always", or "never" (default: "auto")
 
         Returns:
             Package_Creation_Result with creation details and status
@@ -329,15 +334,15 @@ class Quilt3_Backend_Packages:
 
             # Add files to package
             for s3_uri in s3_uris:
-                logical_key = self._extract_logical_key(s3_uri)
+                logical_key = self._extract_logical_key(s3_uri, auto_organize=auto_organize)
                 package.set(logical_key, s3_uri)
 
             # Set metadata if provided
             if metadata:
                 package.set_meta(metadata)
 
-            # Push to registry
-            top_hash = package.push(package_name, registry=registry, message=message)
+            # Push to registry with copy parameter
+            top_hash = package.push(package_name, registry=registry, message=message, copy=copy)
 
             # Determine effective registry for result
             effective_registry = registry or self.get_registry_url() or "s3://unknown-registry"  # type: ignore[attr-defined]
@@ -429,21 +434,27 @@ class Quilt3_Backend_Packages:
                     {"field": "s3_uris", "index": i, "uri": s3_uri},
                 )
 
-    def _extract_logical_key(self, s3_uri: str) -> str:
+    def _extract_logical_key(self, s3_uri: str, auto_organize: bool = True) -> str:
         """Extract logical key from S3 URI for package.
 
         Args:
             s3_uri: S3 URI in format s3://bucket/path/to/file.ext
+            auto_organize: If True, preserve S3 folder structure as logical keys.
+                         If False, flatten to just filenames.
 
         Returns:
-            Logical key (path/to/file.ext) for use in package
+            Logical key for use in package
         """
-        # Remove s3://bucket/ prefix to get logical key
-        parts = s3_uri[5:].split('/', 1)  # Remove 's3://' and split on first '/'
-        if len(parts) >= 2:
-            return parts[1]  # Return everything after bucket name
+        if auto_organize:
+            # Preserve S3 folder structure: s3://bucket/path/to/file.ext -> path/to/file.ext
+            parts = s3_uri[5:].split('/', 1)  # Remove 's3://' and split on first '/'
+            if len(parts) >= 2:
+                return parts[1]  # Return everything after bucket name
+            else:
+                # Fallback: use filename if no path
+                return s3_uri.split('/')[-1]
         else:
-            # Fallback: use filename if no path
+            # Flatten to just filename: s3://bucket/path/to/file.ext -> file.ext
             return s3_uri.split('/')[-1]
 
     def _build_catalog_url(self, package_name: str, registry: str) -> Optional[str]:

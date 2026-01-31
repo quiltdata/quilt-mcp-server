@@ -1887,8 +1887,8 @@ class TestQuiltOpsPackageCreationMethod:
         sig = inspect.signature(QuiltOps.create_package_revision)
         params = list(sig.parameters.keys())
 
-        # Should have self, package_name, s3_uris, metadata, registry, message parameters
-        assert params == ['self', 'package_name', 's3_uris', 'metadata', 'registry', 'message']
+        # Should have self, package_name, s3_uris, metadata, registry, message, auto_organize, copy parameters
+        assert params == ['self', 'package_name', 's3_uris', 'metadata', 'registry', 'message', 'auto_organize', 'copy']
 
         # Check parameter types
         assert sig.parameters['package_name'].annotation is str
@@ -1896,6 +1896,8 @@ class TestQuiltOpsPackageCreationMethod:
         assert sig.parameters['metadata'].annotation == Optional[Dict]
         assert sig.parameters['registry'].annotation == Optional[str]
         assert sig.parameters['message'].annotation is str
+        assert sig.parameters['auto_organize'].annotation is bool
+        assert sig.parameters['copy'].annotation is str
 
         # Should return Package_Creation_Result
         assert sig.return_annotation == Package_Creation_Result
@@ -1915,6 +1917,12 @@ class TestQuiltOpsPackageCreationMethod:
 
         # message should have a default value
         assert sig.parameters['message'].default == "Package created via QuiltOps"
+
+        # auto_organize should default to False
+        assert sig.parameters['auto_organize'].default is False
+
+        # copy should default to "none"
+        assert sig.parameters['copy'].default == "none"
 
     def test_create_package_revision_is_abstract(self):
         """Test that create_package_revision is an abstract method."""

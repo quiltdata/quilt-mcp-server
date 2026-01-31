@@ -19,6 +19,8 @@ from ..context.propagation import get_current_context
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 from ..services.quilt_service import QuiltService
 from ..utils import format_error_response, generate_signed_url, get_s3_client, validate_package_name
+from ..ops.factory import QuiltOpsFactory
+from ..domain import Package_Creation_Result
 from .auth_helpers import AuthorizationContext, check_package_authorization
 from ..models import (
     PackageBrowseSuccess,
@@ -562,10 +564,10 @@ def _create_enhanced_package(
             else "Created via enhanced S3-to-package tool"
         )
 
-        # Create package using create_package_revision with auto_organize=True
+        # Create package using QuiltOps.create_package_revision with auto_organize=True
         # This preserves the smart organization behavior of s3_package.py
-        quilt_service = QuiltService()
-        result = quilt_service.create_package_revision(
+        quilt_ops = QuiltOpsFactory.create()
+        result = quilt_ops.create_package_revision(
             package_name=package_name,
             s3_uris=s3_uris,
             metadata=processed_metadata,
@@ -575,12 +577,12 @@ def _create_enhanced_package(
             copy=copy_mode,
         )
 
-        # Handle the result
-        if result.get("error"):
-            logger.error(f"Package creation failed: {result['error']}")
-            raise Exception(result["error"])
+        # Handle the result - it's now a Package_Creation_Result domain object
+        if not result.success:
+            logger.error("Package creation failed: no error details available")
+            raise Exception("Package creation failed")
 
-        top_hash = result.get("top_hash")
+        top_hash = result.top_hash
         logger.info(f"Successfully created package {package_name} with hash {top_hash}")
 
         # TODO: Handle summary files and visualizations in future enhancement
@@ -1263,9 +1265,10 @@ def package_create(
         )
 
     try:
-        # Use the new create_package_revision method with auto_organize=False
+        # Use QuiltOps.create_package_revision method with auto_organize=False
         # to preserve the existing flattening behavior
-        result = quilt_service.create_package_revision(
+        quilt_ops = QuiltOpsFactory.create()
+        result = quilt_ops.create_package_revision(
             package_name=package_name,
             s3_uris=s3_uris,
             metadata=processed_metadata,
@@ -1275,10 +1278,10 @@ def package_create(
             copy=copy_mode,
         )
 
-        # Handle the result based on its structure
-        if result.get("error"):
+        # Handle the result - it's now a Package_Creation_Result domain object
+        if not result.success:
             return PackageCreateError(
-                error=result["error"],
+                error="Package creation failed",
                 package_name=package_name,
                 registry=registry,
                 suggested_actions=[
@@ -1289,10 +1292,10 @@ def package_create(
                 warnings=warnings,
             )
 
-        # Extract the top_hash from the result
-        top_hash = result.get("top_hash")
-        entries_added = result.get("entries_added", len(s3_uris))
-        files = result.get("files", [])
+        # Extract details from the Package_Creation_Result domain object
+        top_hash = result.top_hash
+        entries_added = result.file_count
+        files = []  # Files list not available in domain object yet
 
         # Build package URL
         from .catalog import catalog_url
