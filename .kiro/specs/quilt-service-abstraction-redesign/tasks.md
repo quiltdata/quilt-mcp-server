@@ -164,10 +164,10 @@ Create the factory using TDD approach, focusing only on quilt3 sessions for Phas
 
 ### 4.2 Verification Checkpoint: QuiltOps Factory
 
-- [ ] Run linting: `ruff check src/quilt_mcp/ops/factory.py`
-- [ ] Run tests: `pytest tests/unit/ops/test_factory.py -v`
-- [ ] Verify all tests pass
-- [ ] Commit changes: `git add . && git commit -m "feat: implement QuiltOpsFactory with quilt3 session detection"`
+- [x] Run linting: `ruff check src/quilt_mcp/ops/factory.py`
+- [x] Run tests: `pytest tests/unit/ops/test_factory.py -v`
+- [x] Verify all tests pass
+- [x] Commit changes: `git add . && git commit -m "feat: implement QuiltOpsFactory with quilt3 session detection"`
 
 ---
 
@@ -186,8 +186,8 @@ Migrate existing MCP tools using TDD approach to ensure they work correctly with
 
 - [x] Write tests for search_catalog tool using QuiltOps.search_packages()
 - [x] Write tests for package browsing tools using QuiltOps.browse_content()
-- [X] Write tests for package info tools using QuiltOps.get_package_info()
-- [X] Write tests ensuring tools work with Package_Info and Content_Info objects
+- [ ] Write tests for package info tools using QuiltOps.get_package_info()
+- [ ] Write tests ensuring tools work with Package_Info and Content_Info objects
 - [x] Update search_catalog tool to use QuiltOps.search_packages()
 - [x] Update package browsing tools to use QuiltOps.browse_content()
 - [x] Update package info tools to use QuiltOps.get_package_info()
