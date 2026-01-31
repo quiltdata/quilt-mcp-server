@@ -1888,7 +1888,16 @@ class TestQuiltOpsPackageCreationMethod:
         params = list(sig.parameters.keys())
 
         # Should have self, package_name, s3_uris, metadata, registry, message, auto_organize, copy parameters
-        assert params == ['self', 'package_name', 's3_uris', 'metadata', 'registry', 'message', 'auto_organize', 'copy']
+        assert params == [
+            'self',
+            'package_name',
+            's3_uris',
+            'metadata',
+            'registry',
+            'message',
+            'auto_organize',
+            'copy',
+        ]
 
         # Check parameter types
         assert sig.parameters['package_name'].annotation is str

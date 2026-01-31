@@ -1071,9 +1071,7 @@ class TestQuilt3BackendPackageCreation:
         s3_uris = ["s3://bucket/file1.txt", "s3://bucket/file2.csv"]
 
         # Test with auto_organize=True
-        backend.create_package_revision(
-            package_name="test/root-organized", s3_uris=s3_uris, auto_organize=True
-        )
+        backend.create_package_revision(package_name="test/root-organized", s3_uris=s3_uris, auto_organize=True)
         # Both should produce same result for root files: just filename
         expected_calls_true = [
             call("file1.txt", "s3://bucket/file1.txt"),
@@ -1085,9 +1083,7 @@ class TestQuilt3BackendPackageCreation:
         mock_package.set.reset_mock()
 
         # Test with auto_organize=False
-        backend.create_package_revision(
-            package_name="test/root-flat", s3_uris=s3_uris, auto_organize=False
-        )
+        backend.create_package_revision(package_name="test/root-flat", s3_uris=s3_uris, auto_organize=False)
         # Should also use just filenames
         expected_calls_false = [
             call("file1.txt", "s3://bucket/file1.txt"),
@@ -1120,9 +1116,7 @@ class TestQuilt3BackendPackageCreation:
         ]
 
         # Test with auto_organize=True
-        backend.create_package_revision(
-            package_name="test/mixed-true", s3_uris=s3_uris, auto_organize=True
-        )
+        backend.create_package_revision(package_name="test/mixed-true", s3_uris=s3_uris, auto_organize=True)
         expected_calls_true = [
             call("root.txt", "s3://bucket/root.txt"),
             call("level1/file1.csv", "s3://bucket/level1/file1.csv"),
@@ -1135,9 +1129,7 @@ class TestQuilt3BackendPackageCreation:
         mock_package.set.reset_mock()
 
         # Test with auto_organize=False
-        backend.create_package_revision(
-            package_name="test/mixed-false", s3_uris=s3_uris, auto_organize=False
-        )
+        backend.create_package_revision(package_name="test/mixed-false", s3_uris=s3_uris, auto_organize=False)
         expected_calls_false = [
             call("root.txt", "s3://bucket/root.txt"),
             call("file1.csv", "s3://bucket/level1/file1.csv"),
@@ -1450,12 +1442,21 @@ class TestQuilt3BackendPackageCreation:
 
         # Test with special characters in filename
         assert backend._extract_logical_key("s3://bucket/file-with-dashes.txt", True) == "file-with-dashes.txt"
-        assert backend._extract_logical_key("s3://bucket/path/file_with_underscores.csv", True) == "path/file_with_underscores.csv"
-        assert backend._extract_logical_key("s3://bucket/path/file.multiple.dots.json", True) == "path/file.multiple.dots.json"
+        assert (
+            backend._extract_logical_key("s3://bucket/path/file_with_underscores.csv", True)
+            == "path/file_with_underscores.csv"
+        )
+        assert (
+            backend._extract_logical_key("s3://bucket/path/file.multiple.dots.json", True)
+            == "path/file.multiple.dots.json"
+        )
 
         # Test flattening with special characters
         assert backend._extract_logical_key("s3://bucket/path/file-with-dashes.txt", False) == "file-with-dashes.txt"
-        assert backend._extract_logical_key("s3://bucket/path/file.multiple.dots.json", False) == "file.multiple.dots.json"
+        assert (
+            backend._extract_logical_key("s3://bucket/path/file.multiple.dots.json", False)
+            == "file.multiple.dots.json"
+        )
 
     # ========================================================================
     # Tests for list_all_packages (stub)

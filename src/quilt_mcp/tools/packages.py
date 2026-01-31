@@ -1295,7 +1295,7 @@ def package_create(
         # Extract details from the Package_Creation_Result domain object
         top_hash = result.top_hash
         entries_added = result.file_count
-        files = []  # Files list not available in domain object yet
+        files: list[dict[str, Any]] = []  # Files list not available in domain object yet
 
         # Build package URL
         from .catalog import catalog_url
