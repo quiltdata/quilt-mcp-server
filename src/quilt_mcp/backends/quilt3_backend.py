@@ -19,6 +19,7 @@ from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, Validati
 from quilt_mcp.domain.package_info import Package_Info
 from quilt_mcp.domain.content_info import Content_Info
 from quilt_mcp.domain.bucket_info import Bucket_Info
+from quilt_mcp.domain.auth_status import Auth_Status
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +185,17 @@ class Quilt3_Backend(QuiltOps):
                 f"{error_str}. Please ensure you have a valid quilt3 session by running "
                 "'quilt3 login' or check your session configuration."
             )
+
+    def get_auth_status(self) -> Auth_Status:
+        """Get current authentication status.
+
+        Returns:
+            Auth_Status object with authentication details
+
+        Raises:
+            BackendError: If auth status retrieval fails
+        """
+        pass
 
     def search_packages(self, query: str, registry: str) -> List[Package_Info]:
         """Search for packages matching query.

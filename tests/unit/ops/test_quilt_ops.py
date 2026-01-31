@@ -45,6 +45,7 @@ class TestQuiltOpsInterface:
         
         # Should have all required abstract methods
         expected_methods = {
+            'get_auth_status',
             'search_packages',
             'get_package_info', 
             'browse_content',
@@ -60,6 +61,11 @@ class TestQuiltOpsInterface:
         """Test that QuiltOps methods have correct signatures."""
         from quilt_mcp.ops.quilt_ops import QuiltOps
         import inspect
+        
+        # Check get_auth_status signature
+        auth_sig = inspect.signature(QuiltOps.get_auth_status)
+        auth_params = list(auth_sig.parameters.keys())
+        assert auth_params == ['self']
         
         # Check search_packages signature
         search_sig = inspect.signature(QuiltOps.search_packages)
@@ -89,8 +95,12 @@ class TestQuiltOpsInterface:
     def test_quilt_ops_return_type_annotations(self):
         """Test that QuiltOps methods have correct return type annotations."""
         from quilt_mcp.ops.quilt_ops import QuiltOps
-        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status
         import inspect
+        
+        # Check get_auth_status return type
+        auth_sig = inspect.signature(QuiltOps.get_auth_status)
+        assert auth_sig.return_annotation == Auth_Status
         
         # Check search_packages return type
         search_sig = inspect.signature(QuiltOps.search_packages)
@@ -162,6 +172,15 @@ class TestQuiltOpsAbstractMethodBehavior:
         
         # Create a concrete implementation
         class ConcreteQuiltOps(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                from quilt_mcp.domain import Auth_Status
+                return Auth_Status(
+                    is_authenticated=True,
+                    logged_in_url="https://catalog.example.com",
+                    catalog_name="test-catalog",
+                    registry_url="s3://test-registry"
+                )
+            
             def search_packages(self, query: str, registry: str) -> List[Package_Info]:
                 return []
             
@@ -209,6 +228,16 @@ class TestQuiltOpsAbstractMethodBehavior:
 
 class TestQuiltOpsMethodDocstrings:
     """Test that QuiltOps methods have comprehensive docstrings."""
+
+    def test_get_auth_status_has_docstring(self):
+        """Test that get_auth_status method has a docstring."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        docstring = QuiltOps.get_auth_status.__doc__
+        assert docstring is not None
+        assert len(docstring.strip()) > 0
+        assert "auth" in docstring.lower()
+        assert "status" in docstring.lower()
 
     def test_search_packages_has_docstring(self):
         """Test that search_packages method has a docstring."""
@@ -416,6 +445,9 @@ class TestQuiltOpsErrorHandling:
         
         # Create a test implementation that raises exceptions
         class ExceptionQuiltOps(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                raise BackendError("Auth status unavailable", {"backend_type": "test"})
+            
             def search_packages(self, query: str, registry: str) -> List[Package_Info]:
                 raise BackendError("Search failed", {"backend_type": "test"})
             
@@ -434,6 +466,9 @@ class TestQuiltOpsErrorHandling:
         ops = ExceptionQuiltOps()
         
         # Should be able to raise domain exceptions
+        with pytest.raises(BackendError):
+            ops.get_auth_status()
+        
         with pytest.raises(BackendError):
             ops.search_packages("test", "s3://registry")
         
@@ -456,10 +491,19 @@ class TestQuiltOpsUsagePatterns:
     def test_quilt_ops_can_be_used_polymorphically(self):
         """Test that QuiltOps implementations can be used polymorphically."""
         from quilt_mcp.ops.quilt_ops import QuiltOps
-        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status
         
         # Create two different implementations
         class MockQuilt3Ops(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                from quilt_mcp.domain import Auth_Status
+                return Auth_Status(
+                    is_authenticated=True,
+                    logged_in_url="https://quilt3.example.com",
+                    catalog_name="quilt3-catalog",
+                    registry_url="s3://quilt3-registry"
+                )
+            
             def search_packages(self, query: str, registry: str) -> List[Package_Info]:
                 return [Package_Info("quilt3/package", None, [], "2024-01-15T10:30:00Z", 
                                    registry, "bucket", "hash1")]
@@ -478,6 +522,15 @@ class TestQuiltOpsUsagePatterns:
                 return f"https://quilt3.example.com/{package_name}/{path}"
         
         class MockPlatformOps(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                from quilt_mcp.domain import Auth_Status
+                return Auth_Status(
+                    is_authenticated=True,
+                    logged_in_url="https://platform.example.com",
+                    catalog_name="platform-catalog",
+                    registry_url="s3://platform-registry"
+                )
+            
             def search_packages(self, query: str, registry: str) -> List[Package_Info]:
                 return [Package_Info("platform/package", None, [], "2024-01-15T10:30:00Z",
                                    registry, "bucket", "hash2")]
@@ -502,6 +555,10 @@ class TestQuiltOpsUsagePatterns:
             assert isinstance(ops, QuiltOps)
             
             # Should be able to call all methods
+            auth_status = ops.get_auth_status()
+            assert isinstance(auth_status, Auth_Status)
+            assert auth_status.is_authenticated is True
+            
             packages = ops.search_packages("test", "s3://registry")
             assert len(packages) == 1
             assert isinstance(packages[0], Package_Info)

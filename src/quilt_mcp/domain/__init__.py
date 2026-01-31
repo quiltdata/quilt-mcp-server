@@ -7,5 +7,6 @@ without exposing implementation details from specific backends (quilt3 or Platfo
 from .package_info import Package_Info
 from .content_info import Content_Info
 from .bucket_info import Bucket_Info
+from .auth_status import Auth_Status
 
-__all__ = ["Package_Info", "Content_Info", "Bucket_Info"]
+__all__ = ["Package_Info", "Content_Info", "Bucket_Info", "Auth_Status"]

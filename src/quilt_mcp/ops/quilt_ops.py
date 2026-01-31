@@ -7,7 +7,7 @@ while maintaining consistent domain-driven operations for MCP tools.
 
 from abc import ABC, abstractmethod
 from typing import List
-from ..domain import Package_Info, Content_Info, Bucket_Info
+from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status
 
 
 class QuiltOps(ABC):
@@ -22,6 +22,22 @@ class QuiltOps(ABC):
     abstract away backend implementation details while providing consistent access
     to Quilt functionality.
     """
+
+    @abstractmethod
+    def get_auth_status(self) -> Auth_Status:
+        """Get current authentication status.
+
+        Retrieves the current authentication state including whether the user is
+        authenticated, which catalog they're logged into, and the configured registry.
+        This provides a unified view of authentication across different backends.
+
+        Returns:
+            Auth_Status object with authentication details
+
+        Raises:
+            BackendError: When the backend operation fails to retrieve auth status
+        """
+        pass
 
     @abstractmethod
     def search_packages(self, query: str, registry: str) -> List[Package_Info]:
