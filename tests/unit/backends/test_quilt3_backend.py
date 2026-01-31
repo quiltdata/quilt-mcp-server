@@ -13096,3 +13096,455 @@ class TestQuilt3BackendGetRegistryUrlMethod:
 
             # Verify error logging
             mock_logger.error.assert_called_with("Registry URL retrieval failed: Test error")
+
+
+class TestQuilt3BackendExecuteGraphQLQueryMethod:
+    """Test execute_graphql_query method in Quilt3_Backend - TDD Implementation."""
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_execute_graphql_query_method_exists(self, mock_quilt3):
+        """Test that execute_graphql_query method exists in Quilt3_Backend."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Should have execute_graphql_query method
+        assert hasattr(backend, 'execute_graphql_query')
+        assert callable(getattr(backend, 'execute_graphql_query'))
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_execute_graphql_query_basic_functionality(self, mock_quilt3):
+        """Test basic execute_graphql_query functionality with mocked quilt3 session."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock session and GraphQL endpoint
+        mock_session_obj = Mock()
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "data": {
+                "buckets": [
+                    {"name": "bucket1", "region": "us-east-1"},
+                    {"name": "bucket2", "region": "us-west-2"}
+                ]
+            }
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_session_obj.post.return_value = mock_response
+
+        mock_quilt3.session.get_session.return_value = mock_session_obj
+        mock_quilt3.session.get_registry_url.return_value = "s3://test-registry"
+
+        # Mock _get_graphql_endpoint method
+        with patch.object(backend, '_get_graphql_endpoint', return_value="https://api.test.com/graphql"):
+            result = backend.execute_graphql_query("{ buckets { name region } }")
+
+        # Verify result
+        assert isinstance(result, dict)
+        assert "data" in result
+        assert "buckets" in result["data"]
+        assert len(result["data"]["buckets"]) == 2
+
+        # Verify session.post was called correctly
+        mock_session_obj.post.assert_called_once_with(
+            "https://api.test.com/graphql",
+            json={"query": "{ buckets { name region } }"}
+        )
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_execute_graphql_query_with_variables(self, mock_quilt3):
+        """Test execute_graphql_query with variables parameter."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock session and response
+        mock_session_obj = Mock()
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "data": {
+                "packages": [
+                    {"name": "user1/package1", "description": "Test package"}
+                ]
+            }
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_session_obj.post.return_value = mock_response
+
+        mock_quilt3.session.get_session.return_value = mock_session_obj
+        mock_quilt3.session.get_registry_url.return_value = "s3://test-registry"
+
+        # Mock _get_graphql_endpoint method
+        with patch.object(backend, '_get_graphql_endpoint', return_value="https://api.test.com/graphql"):
+            result = backend.execute_graphql_query(
+                "query GetPackages($limit: Int, $search: String) { packages(limit: $limit, search: $search) { name } }",
+                variables={"limit": 10, "search": "user1"}
+            )
+
+        # Verify result
+        assert isinstance(result, dict)
+        assert "data" in result
+
+        # Verify session.post was called with variables
+        mock_session_obj.post.assert_called_once_with(
+            "https://api.test.com/graphql",
+            json={
+                "query": "query GetPackages($limit: Int, $search: String) { packages(limit: $limit, search: $search) { name } }",
+                "variables": {"limit": 10, "search": "user1"}
+            }
+        )
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_execute_graphql_query_with_custom_registry(self, mock_quilt3):
+        """Test execute_graphql_query with custom registry parameter."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://default-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock session and response
+        mock_session_obj = Mock()
+        mock_response = Mock()
+        mock_response.json.return_value = {"data": {"config": {"region": "us-east-1"}}}
+        mock_response.raise_for_status.return_value = None
+        mock_session_obj.post.return_value = mock_response
+
+        mock_quilt3.session.get_session.return_value = mock_session_obj
+
+        # Mock _get_graphql_endpoint method
+        with patch.object(backend, '_get_graphql_endpoint', return_value="https://api.custom.com/graphql") as mock_get_endpoint:
+            result = backend.execute_graphql_query(
+                "{ config { region } }",
+                registry="s3://custom-registry"
+            )
+
+        # Verify result
+        assert isinstance(result, dict)
+        assert "data" in result
+
+        # Verify _get_graphql_endpoint was called with custom registry
+        mock_get_endpoint.assert_called_once_with("s3://custom-registry")
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_execute_graphql_query_error_handling(self, mock_quilt3):
+        """Test execute_graphql_query error handling scenarios."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        from quilt_mcp.ops.exceptions import BackendError, AuthenticationError
+        import requests
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        mock_session_obj = Mock()
+        mock_quilt3.session.get_session.return_value = mock_session_obj
+        mock_quilt3.session.get_registry_url.return_value = "s3://test-registry"
+
+        # Test HTTP 403 error (authentication)
+        mock_response_403 = Mock()
+        mock_response_403.status_code = 403
+        http_error_403 = requests.HTTPError("403 Forbidden")
+        http_error_403.response = mock_response_403
+        mock_response_403.raise_for_status.side_effect = http_error_403
+        mock_session_obj.post.return_value = mock_response_403
+
+        with patch.object(backend, '_get_graphql_endpoint', return_value="https://api.test.com/graphql"):
+            with pytest.raises(AuthenticationError) as exc_info:
+                backend.execute_graphql_query("{ buckets { name } }")
+            
+            assert "GraphQL query not authorized" in str(exc_info.value)
+
+        # Test HTTP 404 error (backend error)
+        mock_response_404 = Mock()
+        mock_response_404.status_code = 404
+        mock_response_404.text = "GraphQL endpoint not found"
+        http_error_404 = requests.HTTPError("404 Not Found")
+        http_error_404.response = mock_response_404
+        mock_response_404.raise_for_status.side_effect = http_error_404
+        mock_session_obj.post.return_value = mock_response_404
+
+        with patch.object(backend, '_get_graphql_endpoint', return_value="https://api.test.com/graphql"):
+            with pytest.raises(BackendError) as exc_info:
+                backend.execute_graphql_query("{ buckets { name } }")
+            
+            assert "GraphQL query failed" in str(exc_info.value)
+
+        # Test general exception
+        mock_session_obj.post.side_effect = Exception("Network error")
+
+        with patch.object(backend, '_get_graphql_endpoint', return_value="https://api.test.com/graphql"):
+            with pytest.raises(BackendError) as exc_info:
+                backend.execute_graphql_query("{ buckets { name } }")
+            
+            assert "GraphQL execution error" in str(exc_info.value)
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_execute_graphql_query_no_registry_configured(self, mock_quilt3):
+        """Test execute_graphql_query when no registry is configured."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        from quilt_mcp.ops.exceptions import AuthenticationError
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        mock_quilt3.session.get_session.return_value = Mock()
+        mock_quilt3.session.get_registry_url.return_value = None
+
+        with pytest.raises(AuthenticationError) as exc_info:
+            backend.execute_graphql_query("{ buckets { name } }")
+        
+        assert "No registry configured" in str(exc_info.value)
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_execute_graphql_query_logging(self, mock_quilt3):
+        """Test that execute_graphql_query operations are properly logged."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock successful execution
+        mock_session_obj = Mock()
+        mock_response = Mock()
+        mock_response.json.return_value = {"data": {}}
+        mock_response.raise_for_status.return_value = None
+        mock_session_obj.post.return_value = mock_response
+
+        mock_quilt3.session.get_session.return_value = mock_session_obj
+        mock_quilt3.session.get_registry_url.return_value = "s3://test-registry"
+
+        # Capture log messages
+        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
+            with patch.object(backend, '_get_graphql_endpoint', return_value="https://api.test.com/graphql"):
+                backend.execute_graphql_query("{ buckets { name } }")
+
+            # Verify debug logging
+            mock_logger.debug.assert_any_call("Executing GraphQL query against catalog")
+            mock_logger.debug.assert_any_call("GraphQL query executed successfully")
+
+
+class TestQuilt3BackendGetBoto3ClientMethod:
+    """Test get_boto3_client method in Quilt3_Backend - TDD Implementation."""
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_get_boto3_client_method_exists(self, mock_quilt3):
+        """Test that get_boto3_client method exists in Quilt3_Backend."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Should have get_boto3_client method
+        assert hasattr(backend, 'get_boto3_client')
+        assert callable(getattr(backend, 'get_boto3_client'))
+
+    @patch('quilt_mcp.backends.quilt3_backend.boto3')
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_get_boto3_client_basic_functionality(self, mock_quilt3, mock_boto3):
+        """Test basic get_boto3_client functionality with mocked boto3."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock botocore session and boto3 session
+        mock_botocore_session = Mock()
+        mock_boto3_session = Mock()
+        mock_s3_client = Mock()
+
+        mock_quilt3.session.create_botocore_session.return_value = mock_botocore_session
+        mock_boto3.Session.return_value = mock_boto3_session
+        mock_boto3_session.client.return_value = mock_s3_client
+
+        # Execute
+        result = backend.get_boto3_client("s3")
+
+        # Verify result
+        assert result == mock_s3_client
+
+        # Verify calls
+        mock_quilt3.session.create_botocore_session.assert_called_once()
+        mock_boto3.Session.assert_called_once_with(botocore_session=mock_botocore_session)
+        mock_boto3_session.client.assert_called_once_with("s3", region_name=None)
+
+    @patch('quilt_mcp.backends.quilt3_backend.boto3')
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_get_boto3_client_with_region(self, mock_quilt3, mock_boto3):
+        """Test get_boto3_client with custom region parameter."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock botocore session and boto3 session
+        mock_botocore_session = Mock()
+        mock_boto3_session = Mock()
+        mock_athena_client = Mock()
+
+        mock_quilt3.session.create_botocore_session.return_value = mock_botocore_session
+        mock_boto3.Session.return_value = mock_boto3_session
+        mock_boto3_session.client.return_value = mock_athena_client
+
+        # Execute with custom region
+        result = backend.get_boto3_client("athena", region="us-west-2")
+
+        # Verify result
+        assert result == mock_athena_client
+
+        # Verify calls with custom region
+        mock_boto3_session.client.assert_called_once_with("athena", region_name="us-west-2")
+
+    @patch('quilt_mcp.backends.quilt3_backend.boto3')
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_get_boto3_client_different_services(self, mock_quilt3, mock_boto3):
+        """Test get_boto3_client with different AWS service types."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock botocore session and boto3 session
+        mock_botocore_session = Mock()
+        mock_boto3_session = Mock()
+
+        mock_quilt3.session.create_botocore_session.return_value = mock_botocore_session
+        mock_boto3.Session.return_value = mock_boto3_session
+
+        # Test different service types
+        services = ["s3", "athena", "glue", "lambda", "dynamodb"]
+        
+        for service in services:
+            mock_client = Mock()
+            mock_boto3_session.client.return_value = mock_client
+
+            result = backend.get_boto3_client(service)
+
+            assert result == mock_client
+            mock_boto3_session.client.assert_called_with(service, region_name=None)
+
+    @patch('quilt_mcp.backends.quilt3_backend.boto3')
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_get_boto3_client_error_handling(self, mock_quilt3, mock_boto3):
+        """Test get_boto3_client error handling scenarios."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        from quilt_mcp.ops.exceptions import BackendError, AuthenticationError
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Test botocore session creation failure
+        mock_quilt3.session.create_botocore_session.side_effect = Exception("Session creation failed")
+
+        with pytest.raises(BackendError) as exc_info:
+            backend.get_boto3_client("s3")
+        
+        assert "Failed to create boto3 client" in str(exc_info.value)
+
+        # Reset mock
+        mock_quilt3.session.create_botocore_session.side_effect = None
+        mock_quilt3.session.create_botocore_session.return_value = Mock()
+
+        # Test boto3 Session creation failure
+        mock_boto3.Session.side_effect = Exception("Boto3 session failed")
+
+        with pytest.raises(BackendError) as exc_info:
+            backend.get_boto3_client("s3")
+        
+        assert "Failed to create boto3 client" in str(exc_info.value)
+
+        # Reset mock
+        mock_boto3.Session.side_effect = None
+        mock_boto3_session = Mock()
+        mock_boto3.Session.return_value = mock_boto3_session
+
+        # Test client creation failure
+        mock_boto3_session.client.side_effect = Exception("Client creation failed")
+
+        with pytest.raises(BackendError) as exc_info:
+            backend.get_boto3_client("s3")
+        
+        assert "Failed to create boto3 client" in str(exc_info.value)
+
+    @patch('quilt_mcp.backends.quilt3_backend.boto3')
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_get_boto3_client_logging(self, mock_quilt3, mock_boto3):
+        """Test that get_boto3_client operations are properly logged."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock successful execution
+        mock_botocore_session = Mock()
+        mock_boto3_session = Mock()
+        mock_s3_client = Mock()
+
+        mock_quilt3.session.create_botocore_session.return_value = mock_botocore_session
+        mock_boto3.Session.return_value = mock_boto3_session
+        mock_boto3_session.client.return_value = mock_s3_client
+
+        # Capture log messages
+        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
+            backend.get_boto3_client("s3", region="us-east-1")
+
+            # Verify debug logging
+            mock_logger.debug.assert_any_call("Creating boto3 client for service: s3, region: us-east-1")
+            mock_logger.debug.assert_any_call("Successfully created boto3 client for service: s3")
+
+    @patch('quilt_mcp.backends.quilt3_backend.boto3')
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_get_boto3_client_region_handling(self, mock_quilt3, mock_boto3):
+        """Test get_boto3_client region parameter handling."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock botocore session and boto3 session
+        mock_botocore_session = Mock()
+        mock_boto3_session = Mock()
+        mock_client = Mock()
+
+        mock_quilt3.session.create_botocore_session.return_value = mock_botocore_session
+        mock_boto3.Session.return_value = mock_boto3_session
+        mock_boto3_session.client.return_value = mock_client
+
+        # Test with None region (default)
+        backend.get_boto3_client("s3", region=None)
+        mock_boto3_session.client.assert_called_with("s3", region_name=None)
+
+        # Test with explicit region
+        backend.get_boto3_client("s3", region="us-west-2")
+        mock_boto3_session.client.assert_called_with("s3", region_name="us-west-2")
+
+        # Test with empty string region
+        backend.get_boto3_client("s3", region="")
+        mock_boto3_session.client.assert_called_with("s3", region_name="")
+
+    @patch('quilt_mcp.backends.quilt3_backend.boto3')
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_get_boto3_client_integration_with_catalog_config(self, mock_quilt3, mock_boto3):
+        """Test get_boto3_client integration with catalog configuration for default region."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+
+        # Mock botocore session and boto3 session
+        mock_botocore_session = Mock()
+        mock_boto3_session = Mock()
+        mock_client = Mock()
+
+        mock_quilt3.session.create_botocore_session.return_value = mock_botocore_session
+        mock_boto3.Session.return_value = mock_boto3_session
+        mock_boto3_session.client.return_value = mock_client
+
+        # Test that region parameter is passed through correctly
+        # (In a real implementation, this might get default region from catalog config)
+        result = backend.get_boto3_client("glue", region="eu-west-1")
+
+        assert result == mock_client
+        mock_boto3_session.client.assert_called_with("glue", region_name="eu-west-1")

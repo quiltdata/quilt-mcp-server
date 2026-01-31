@@ -980,6 +980,673 @@ class TestQuiltOpsCatalogConfigMethods:
         assert "quilt-prod-tabulator" in tabulator_catalog
 
 
+class TestQuiltOpsGraphQLMethod:
+    """Test QuiltOps execute_graphql_query method - TDD Implementation."""
+
+    def test_execute_graphql_query_method_exists(self):
+        """Test that execute_graphql_query method exists in QuiltOps interface."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should have execute_graphql_query method
+        assert hasattr(QuiltOps, 'execute_graphql_query')
+        assert callable(getattr(QuiltOps, 'execute_graphql_query'))
+
+    def test_execute_graphql_query_has_correct_signature(self):
+        """Test that execute_graphql_query has the correct method signature."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        import inspect
+        from typing import Dict, Any, Optional
+        
+        sig = inspect.signature(QuiltOps.execute_graphql_query)
+        params = list(sig.parameters.keys())
+        
+        # Should have self, query, variables, and registry parameters
+        assert params == ['self', 'query', 'variables', 'registry']
+        
+        # Check parameter types
+        assert sig.parameters['query'].annotation == str
+        assert sig.parameters['variables'].annotation == Optional[Dict]
+        assert sig.parameters['registry'].annotation == Optional[str]
+        
+        # Should return Dict[str, Any]
+        assert sig.return_annotation == Dict[str, Any]
+
+    def test_execute_graphql_query_has_default_parameters(self):
+        """Test that execute_graphql_query has correct default parameters."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        import inspect
+        
+        sig = inspect.signature(QuiltOps.execute_graphql_query)
+        
+        # variables should default to None
+        assert sig.parameters['variables'].default is None
+        
+        # registry should default to None
+        assert sig.parameters['registry'].default is None
+
+    def test_execute_graphql_query_is_abstract(self):
+        """Test that execute_graphql_query is an abstract method."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should be in abstract methods
+        assert 'execute_graphql_query' in QuiltOps.__abstractmethods__
+
+    def test_execute_graphql_query_has_comprehensive_docstring(self):
+        """Test that execute_graphql_query has a comprehensive docstring."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        docstring = QuiltOps.execute_graphql_query.__doc__
+        assert docstring is not None
+        assert len(docstring.strip()) > 0
+        
+        # Should mention key concepts
+        assert "graphql" in docstring.lower()
+        assert "query" in docstring.lower()
+        assert "catalog" in docstring.lower()
+        assert "variables" in docstring.lower()
+        assert "registry" in docstring.lower()
+        
+        # Should document parameters
+        assert "query:" in docstring
+        assert "variables:" in docstring
+        assert "registry:" in docstring
+        
+        # Should document return type
+        assert "Dict[str, Any]" in docstring
+        
+        # Should document exceptions
+        assert "AuthenticationError" in docstring
+        assert "BackendError" in docstring
+        assert "ValidationError" in docstring
+
+    def test_execute_graphql_query_can_be_implemented(self):
+        """Test that execute_graphql_query can be implemented in concrete classes."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        from typing import Dict, Any, Optional
+        
+        class TestGraphQLOps(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config("us-east-1", "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
+            
+            def execute_graphql_query(
+                self, 
+                query: str, 
+                variables: Optional[Dict] = None, 
+                registry: Optional[str] = None
+            ) -> Dict[str, Any]:
+                # Mock GraphQL response
+                if "buckets" in query:
+                    return {
+                        "data": {
+                            "buckets": [
+                                {"name": "test-bucket", "region": "us-east-1"},
+                                {"name": "another-bucket", "region": "us-west-2"}
+                            ]
+                        }
+                    }
+                elif "packages" in query:
+                    return {
+                        "data": {
+                            "packages": [
+                                {"name": "test/package", "description": "Test package"}
+                            ]
+                        }
+                    }
+                else:
+                    return {"data": {}}
+            
+            def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
+                from unittest.mock import Mock
+                return Mock()
+        
+        # Should be able to instantiate and use
+        ops = TestGraphQLOps()
+        
+        # Should be able to call execute_graphql_query with minimal parameters
+        result = ops.execute_graphql_query("{ buckets { name } }")
+        assert isinstance(result, dict)
+        assert "data" in result
+        assert "buckets" in result["data"]
+        
+        # Should be able to call with variables
+        result = ops.execute_graphql_query(
+            "query GetPackages($limit: Int) { packages(limit: $limit) { name } }",
+            variables={"limit": 10}
+        )
+        assert isinstance(result, dict)
+        
+        # Should be able to call with registry
+        result = ops.execute_graphql_query(
+            "{ buckets { name } }",
+            registry="s3://custom-registry"
+        )
+        assert isinstance(result, dict)
+
+    def test_execute_graphql_query_can_raise_domain_exceptions(self):
+        """Test that execute_graphql_query can raise appropriate domain exceptions."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        from typing import Dict, Any, Optional
+        
+        class ExceptionGraphQLOps(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config("us-east-1", "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
+            
+            def execute_graphql_query(
+                self, 
+                query: str, 
+                variables: Optional[Dict] = None, 
+                registry: Optional[str] = None
+            ) -> Dict[str, Any]:
+                if "invalid" in query:
+                    raise ValidationError("Invalid GraphQL query", {"field": "query"})
+                elif "unauthorized" in query:
+                    raise AuthenticationError("GraphQL query not authorized")
+                elif "backend_error" in query:
+                    raise BackendError("GraphQL execution failed")
+                else:
+                    return {"data": {}}
+            
+            def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
+                from unittest.mock import Mock
+                return Mock()
+        
+        ops = ExceptionGraphQLOps()
+        
+        # Should raise ValidationError for invalid queries
+        with pytest.raises(ValidationError):
+            ops.execute_graphql_query("invalid query syntax")
+        
+        # Should raise AuthenticationError for unauthorized queries
+        with pytest.raises(AuthenticationError):
+            ops.execute_graphql_query("{ unauthorized { data } }")
+        
+        # Should raise BackendError for backend failures
+        with pytest.raises(BackendError):
+            ops.execute_graphql_query("{ backend_error { data } }")
+
+    def test_execute_graphql_query_usage_patterns(self):
+        """Test common usage patterns for execute_graphql_query method."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        from typing import Dict, Any, Optional
+        
+        class UsagePatternGraphQLOps(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config("us-east-1", "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
+            
+            def execute_graphql_query(
+                self, 
+                query: str, 
+                variables: Optional[Dict] = None, 
+                registry: Optional[str] = None
+            ) -> Dict[str, Any]:
+                # Simulate different GraphQL operations
+                if "buckets" in query:
+                    buckets = ["bucket1", "bucket2", "bucket3"]
+                    if variables and "limit" in variables:
+                        buckets = buckets[:variables["limit"]]
+                    return {"data": {"buckets": [{"name": b} for b in buckets]}}
+                
+                elif "packages" in query:
+                    packages = ["user1/pkg1", "user2/pkg2", "user3/pkg3"]
+                    if variables and "search" in variables:
+                        packages = [p for p in packages if variables["search"] in p]
+                    return {"data": {"packages": [{"name": p} for p in packages]}}
+                
+                elif "config" in query:
+                    config_data = {
+                        "region": "us-east-1",
+                        "apiGatewayEndpoint": "https://api.test.com",
+                        "analyticsBucket": "test-analytics"
+                    }
+                    if registry:
+                        config_data["registry"] = registry
+                    return {"data": {"config": config_data}}
+                
+                else:
+                    return {"data": {}}
+            
+            def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
+                from unittest.mock import Mock
+                return Mock()
+        
+        ops = UsagePatternGraphQLOps()
+        
+        # Test bucket listing query
+        result = ops.execute_graphql_query("{ buckets { name } }")
+        assert len(result["data"]["buckets"]) == 3
+        
+        # Test bucket listing with limit
+        result = ops.execute_graphql_query(
+            "query GetBuckets($limit: Int) { buckets(limit: $limit) { name } }",
+            variables={"limit": 2}
+        )
+        assert len(result["data"]["buckets"]) == 2
+        
+        # Test package search
+        result = ops.execute_graphql_query(
+            "query SearchPackages($search: String) { packages(search: $search) { name } }",
+            variables={"search": "user1"}
+        )
+        assert len(result["data"]["packages"]) == 1
+        assert result["data"]["packages"][0]["name"] == "user1/pkg1"
+        
+        # Test config query with registry
+        result = ops.execute_graphql_query(
+            "{ config { region apiGatewayEndpoint } }",
+            registry="s3://custom-registry"
+        )
+        assert result["data"]["config"]["region"] == "us-east-1"
+        assert result["data"]["config"]["registry"] == "s3://custom-registry"
+
+
+class TestQuiltOpsBoto3ClientMethod:
+    """Test QuiltOps get_boto3_client method - TDD Implementation."""
+
+    def test_get_boto3_client_method_exists(self):
+        """Test that get_boto3_client method exists in QuiltOps interface."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should have get_boto3_client method
+        assert hasattr(QuiltOps, 'get_boto3_client')
+        assert callable(getattr(QuiltOps, 'get_boto3_client'))
+
+    def test_get_boto3_client_has_correct_signature(self):
+        """Test that get_boto3_client has the correct method signature."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        import inspect
+        from typing import Any, Optional
+        
+        sig = inspect.signature(QuiltOps.get_boto3_client)
+        params = list(sig.parameters.keys())
+        
+        # Should have self, service_name, and region parameters
+        assert params == ['self', 'service_name', 'region']
+        
+        # Check parameter types
+        assert sig.parameters['service_name'].annotation == str
+        assert sig.parameters['region'].annotation == Optional[str]
+        
+        # Should return Any (boto3 client)
+        assert sig.return_annotation == Any
+
+    def test_get_boto3_client_has_default_parameters(self):
+        """Test that get_boto3_client has correct default parameters."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        import inspect
+        
+        sig = inspect.signature(QuiltOps.get_boto3_client)
+        
+        # region should default to None
+        assert sig.parameters['region'].default is None
+
+    def test_get_boto3_client_is_abstract(self):
+        """Test that get_boto3_client is an abstract method."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should be in abstract methods
+        assert 'get_boto3_client' in QuiltOps.__abstractmethods__
+
+    def test_get_boto3_client_has_comprehensive_docstring(self):
+        """Test that get_boto3_client has a comprehensive docstring."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        docstring = QuiltOps.get_boto3_client.__doc__
+        assert docstring is not None
+        assert len(docstring.strip()) > 0
+        
+        # Should mention key concepts
+        assert "boto3" in docstring.lower()
+        assert "client" in docstring.lower()
+        assert "aws" in docstring.lower()
+        assert "service" in docstring.lower()
+        assert "authenticated" in docstring.lower()
+        
+        # Should document parameters
+        assert "service_name:" in docstring
+        assert "region:" in docstring
+        
+        # Should document return type
+        assert "boto3 client" in docstring.lower()
+        
+        # Should document exceptions
+        assert "AuthenticationError" in docstring
+        assert "BackendError" in docstring
+        assert "ValidationError" in docstring
+
+    def test_get_boto3_client_can_be_implemented(self):
+        """Test that get_boto3_client can be implemented in concrete classes."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        from typing import Dict, Any, Optional
+        from unittest.mock import Mock
+        
+        class TestBoto3Ops(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config("us-east-1", "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
+            
+            def execute_graphql_query(
+                self, 
+                query: str, 
+                variables: Optional[Dict] = None, 
+                registry: Optional[str] = None
+            ) -> Dict[str, Any]:
+                return {"data": {}}
+            
+            def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
+                # Mock boto3 client
+                mock_client = Mock()
+                mock_client.service_name = service_name
+                mock_client.region = region or "us-east-1"
+                
+                # Add service-specific methods
+                if service_name == "s3":
+                    mock_client.list_buckets = Mock(return_value={"Buckets": []})
+                    mock_client.get_object = Mock()
+                elif service_name == "athena":
+                    mock_client.list_work_groups = Mock(return_value={"WorkGroups": []})
+                    mock_client.start_query_execution = Mock()
+                elif service_name == "glue":
+                    mock_client.get_databases = Mock(return_value={"DatabaseList": []})
+                    mock_client.get_tables = Mock()
+                
+                return mock_client
+        
+        # Should be able to instantiate and use
+        ops = TestBoto3Ops()
+        
+        # Should be able to get S3 client
+        s3_client = ops.get_boto3_client("s3")
+        assert s3_client.service_name == "s3"
+        assert s3_client.region == "us-east-1"
+        assert hasattr(s3_client, "list_buckets")
+        
+        # Should be able to get Athena client with custom region
+        athena_client = ops.get_boto3_client("athena", region="us-west-2")
+        assert athena_client.service_name == "athena"
+        assert athena_client.region == "us-west-2"
+        assert hasattr(athena_client, "list_work_groups")
+        
+        # Should be able to get Glue client
+        glue_client = ops.get_boto3_client("glue")
+        assert glue_client.service_name == "glue"
+        assert hasattr(glue_client, "get_databases")
+
+    def test_get_boto3_client_can_raise_domain_exceptions(self):
+        """Test that get_boto3_client can raise appropriate domain exceptions."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        from typing import Dict, Any, Optional
+        
+        class ExceptionBoto3Ops(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config("us-east-1", "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
+            
+            def execute_graphql_query(
+                self, 
+                query: str, 
+                variables: Optional[Dict] = None, 
+                registry: Optional[str] = None
+            ) -> Dict[str, Any]:
+                return {"data": {}}
+            
+            def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
+                if service_name == "invalid":
+                    raise ValidationError("Invalid AWS service name", {"field": "service_name"})
+                elif service_name == "unauthorized":
+                    raise AuthenticationError("AWS credentials not available")
+                elif service_name == "backend_error":
+                    raise BackendError("Failed to create boto3 client")
+                else:
+                    from unittest.mock import Mock
+                    return Mock()
+        
+        ops = ExceptionBoto3Ops()
+        
+        # Should raise ValidationError for invalid service names
+        with pytest.raises(ValidationError):
+            ops.get_boto3_client("invalid")
+        
+        # Should raise AuthenticationError for unauthorized access
+        with pytest.raises(AuthenticationError):
+            ops.get_boto3_client("unauthorized")
+        
+        # Should raise BackendError for backend failures
+        with pytest.raises(BackendError):
+            ops.get_boto3_client("backend_error")
+
+    def test_get_boto3_client_usage_patterns(self):
+        """Test common usage patterns for get_boto3_client method."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        from typing import Dict, Any, Optional
+        from unittest.mock import Mock
+        
+        class UsagePatternBoto3Ops(QuiltOps):
+            def __init__(self):
+                self.default_region = "us-east-1"
+            
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config(self.default_region, "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                if "west" in catalog_url:
+                    self.default_region = "us-west-2"
+                else:
+                    self.default_region = "us-east-1"
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
+            
+            def execute_graphql_query(
+                self, 
+                query: str, 
+                variables: Optional[Dict] = None, 
+                registry: Optional[str] = None
+            ) -> Dict[str, Any]:
+                return {"data": {}}
+            
+            def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
+                effective_region = region or self.default_region
+                
+                mock_client = Mock()
+                mock_client.service_name = service_name
+                mock_client.region = effective_region
+                
+                # Simulate different service capabilities
+                if service_name == "s3":
+                    mock_client.list_buckets = Mock(return_value={
+                        "Buckets": [
+                            {"Name": "bucket1", "CreationDate": "2024-01-01"},
+                            {"Name": "bucket2", "CreationDate": "2024-01-02"}
+                        ]
+                    })
+                elif service_name == "athena":
+                    mock_client.list_work_groups = Mock(return_value={
+                        "WorkGroups": [
+                            {"Name": "primary", "State": "ENABLED"},
+                            {"Name": "secondary", "State": "ENABLED"}
+                        ]
+                    })
+                elif service_name == "glue":
+                    mock_client.get_databases = Mock(return_value={
+                        "DatabaseList": [
+                            {"Name": "default"},
+                            {"Name": "analytics"}
+                        ]
+                    })
+                
+                return mock_client
+        
+        ops = UsagePatternBoto3Ops()
+        
+        # Test default region usage
+        s3_client = ops.get_boto3_client("s3")
+        assert s3_client.region == "us-east-1"
+        
+        # Test explicit region override
+        s3_client_west = ops.get_boto3_client("s3", region="us-west-2")
+        assert s3_client_west.region == "us-west-2"
+        
+        # Test different AWS services
+        athena_client = ops.get_boto3_client("athena")
+        assert athena_client.service_name == "athena"
+        workgroups = athena_client.list_work_groups()
+        assert len(workgroups["WorkGroups"]) == 2
+        
+        glue_client = ops.get_boto3_client("glue")
+        assert glue_client.service_name == "glue"
+        databases = glue_client.get_databases()
+        assert len(databases["DatabaseList"]) == 2
+        
+        # Test region changes based on catalog configuration
+        ops.configure_catalog("https://west.quiltdata.com")
+        s3_client_after_config = ops.get_boto3_client("s3")
+        assert s3_client_after_config.region == "us-west-2"
+
+
 class TestQuiltOpsRegistryUrlMethod:
     """Test QuiltOps get_registry_url method - TDD Implementation."""
 

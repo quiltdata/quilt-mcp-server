@@ -6,7 +6,7 @@ while maintaining consistent domain-driven operations for MCP tools.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
 
 
@@ -196,5 +196,61 @@ class QuiltOps(ABC):
 
         Raises:
             BackendError: When the backend operation fails to retrieve registry URL
+        """
+        pass
+
+    @abstractmethod
+    def execute_graphql_query(
+        self,
+        query: str,
+        variables: Optional[Dict] = None,
+        registry: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Execute a GraphQL query against the catalog.
+
+        Executes a GraphQL query against the catalog API, providing authenticated
+        access to catalog data and operations. This method abstracts the underlying
+        GraphQL implementation details while providing consistent query execution
+        across different backends.
+
+        Args:
+            query: GraphQL query string to execute
+            variables: Optional dictionary of query variables
+            registry: Target registry URL (uses default if None)
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the GraphQL response data
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When the GraphQL query execution fails
+            ValidationError: When query syntax is invalid or variables are malformed
+        """
+        pass
+
+    @abstractmethod
+    def get_boto3_client(
+        self,
+        service_name: str,
+        region: Optional[str] = None,
+    ) -> Any:
+        """Get authenticated boto3 client for AWS services.
+
+        Creates and returns a boto3 client for the specified AWS service,
+        configured with the appropriate authentication credentials from the
+        current session. This provides backend-agnostic access to AWS services
+        needed for Quilt operations.
+
+        Args:
+            service_name: AWS service name (e.g., 'athena', 's3', 'glue')
+            region: AWS region override (uses catalog region if None)
+
+        Returns:
+            Configured boto3 client for the specified service
+
+        Raises:
+            AuthenticationError: When AWS credentials are not available or invalid
+            BackendError: When boto3 client creation fails
+            ValidationError: When service_name is invalid or unsupported
         """
         pass

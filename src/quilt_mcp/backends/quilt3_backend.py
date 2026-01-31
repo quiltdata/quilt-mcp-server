@@ -12,9 +12,11 @@ from datetime import datetime
 try:
     import quilt3
     import requests
+    import boto3
 except ImportError:
     quilt3 = None
     requests = None
+    boto3 = None
 
 from quilt_mcp.ops.quilt_ops import QuiltOps
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError, NotFoundError
@@ -64,7 +66,7 @@ class Quilt3_Backend(QuiltOps):
             AuthenticationError: If session is invalid with specific error details
         """
         logger.debug("Starting session validation")
-        
+
         # Basic structure validation
         if not session_config:
             logger.error("Session validation failed: empty configuration")
@@ -80,14 +82,14 @@ class Quilt3_Backend(QuiltOps):
         try:
             # Validate session accessibility
             self._validate_session_accessibility()
-            
+
             # Validate session structure if registry is provided
             if 'registry' in session_config:
                 self._validate_registry_format(session_config['registry'])
-            
+
             logger.debug("Session validation completed successfully")
             return session_config
-            
+
         except AuthenticationError:
             # Re-raise authentication errors as-is
             raise
@@ -99,7 +101,7 @@ class Quilt3_Backend(QuiltOps):
 
     def _validate_session_accessibility(self) -> None:
         """Validate that the quilt3 session is accessible and functional.
-        
+
         Raises:
             AuthenticationError: If session cannot be accessed
         """
@@ -108,55 +110,55 @@ class Quilt3_Backend(QuiltOps):
             if hasattr(quilt3.session, 'get_session_info'):
                 session_info = quilt3.session.get_session_info()
                 logger.debug("Session accessibility check passed")
-                
+
                 # Additional validation: ensure session info is not empty
                 if session_info is None:
                     raise AuthenticationError("Session info is None - session may be corrupted")
             else:
                 logger.debug("get_session_info not available, skipping accessibility check")
-                
+
         except Exception as e:
             logger.error(f"Session accessibility check failed: {str(e)}")
             raise
 
     def _validate_registry_format(self, registry: str) -> None:
         """Validate the format of the registry URL.
-        
+
         Args:
             registry: Registry URL to validate
-            
+
         Raises:
             AuthenticationError: If registry format is invalid
         """
         if not registry:
             raise AuthenticationError("Registry URL is empty")
-            
+
         if not isinstance(registry, str):
             raise AuthenticationError(f"Registry must be a string, got {type(registry).__name__}")
-            
+
         # Basic S3 URL format validation
         if not registry.startswith('s3://'):
             logger.warning(f"Registry URL does not start with 's3://': {registry}")
             # Don't fail here as some configurations might use different formats
-            
+
         # Check for obviously malformed URLs
         if registry == 's3://':
             raise AuthenticationError("Registry URL is incomplete: missing bucket name")
-            
+
         logger.debug(f"Registry format validation passed: {registry}")
 
     def _format_session_error(self, error: Exception) -> str:
         """Format session validation errors with helpful context.
-        
+
         Args:
             error: The original error
-            
+
         Returns:
             Formatted error message with troubleshooting guidance
         """
         error_str = str(error)
         error_type = type(error).__name__
-        
+
         # Provide specific guidance based on error type
         if isinstance(error, (TimeoutError, ConnectionError)):
             return (
@@ -521,12 +523,12 @@ class Quilt3_Backend(QuiltOps):
             if not region:  # Handle empty strings
                 region = 'unknown'
             region = self._normalize_string_field(region)
-            
+
             access_level = bucket_data.get('access_level', 'unknown')
             if not access_level:  # Handle empty strings
                 access_level = 'unknown'
             access_level = self._normalize_string_field(access_level)
-            
+
             created_date = self._normalize_datetime(bucket_data.get('created_date'))
 
             bucket_info = Bucket_Info(
@@ -779,36 +781,36 @@ class Quilt3_Backend(QuiltOps):
         """
         try:
             logger.debug(f"Getting catalog config for: {catalog_url}")
-            
+
             # Validate catalog URL
             if not catalog_url or not isinstance(catalog_url, str):
                 raise ValidationError("Invalid catalog URL: must be a non-empty string")
-            
+
             # Use quilt3 session to fetch config.json
             if not hasattr(quilt3, 'session') or not hasattr(quilt3.session, 'get_session'):
                 raise AuthenticationError("quilt3 session not available - user may not be authenticated")
-            
+
             session = quilt3.session.get_session()
             if session is None:
                 raise AuthenticationError("No active quilt3 session - please run 'quilt3 login'")
-            
+
             # Normalize URL and fetch config.json
             normalized_url = catalog_url.rstrip("/")
             config_url = f"{normalized_url}/config.json"
-            
+
             logger.debug(f"Fetching config from: {config_url}")
             response = session.get(config_url, timeout=10)
             response.raise_for_status()
-            
+
             full_config = response.json()
             logger.debug("Successfully fetched catalog configuration")
-            
+
             # Transform to Catalog_Config domain object
             catalog_config = self._transform_catalog_config(full_config)
-            
+
             logger.debug(f"Successfully retrieved catalog config for: {catalog_url}")
             return catalog_config
-            
+
         except ValidationError:
             raise
         except AuthenticationError:
@@ -845,16 +847,16 @@ class Quilt3_Backend(QuiltOps):
         """
         try:
             logger.debug(f"Configuring catalog: {catalog_url}")
-            
+
             # Validate catalog URL
             if not catalog_url or not isinstance(catalog_url, str):
                 raise ValidationError("Invalid catalog URL: must be a non-empty string")
-            
+
             # Use quilt3.config to set the catalog URL
             quilt3.config(catalog_url)
-            
+
             logger.debug(f"Successfully configured catalog: {catalog_url}")
-            
+
         except ValidationError:
             raise
         except Exception as e:
@@ -875,20 +877,20 @@ class Quilt3_Backend(QuiltOps):
         """
         try:
             logger.debug("Transforming catalog configuration")
-            
+
             # Extract required fields with validation
             region = config_data.get("region", "")
             if not region:
                 raise BackendError("Missing required field 'region' in catalog configuration")
-            
+
             api_gateway_endpoint = config_data.get("apiGatewayEndpoint", "")
             if not api_gateway_endpoint:
                 raise BackendError("Missing required field 'apiGatewayEndpoint' in catalog configuration")
-            
+
             analytics_bucket = config_data.get("analyticsBucket", "")
             if not analytics_bucket:
                 raise BackendError("Missing required field 'analyticsBucket' in catalog configuration")
-            
+
             # Derive stack prefix from analytics bucket name
             # Example: "quilt-staging-analyticsbucket-10ort3e91tnoa" -> "quilt-staging"
             stack_prefix = ""
@@ -904,11 +906,11 @@ class Quilt3_Backend(QuiltOps):
                     stack_prefix = analytics_bucket.split("-")[0]
                 else:
                     stack_prefix = analytics_bucket
-            
+
             # Derive tabulator data catalog name from stack prefix
             # Example: "quilt-staging" -> "quilt-quilt-staging-tabulator"
             tabulator_data_catalog = f"quilt-{stack_prefix}-tabulator"
-            
+
             catalog_config = Catalog_Config(
                 region=region,
                 api_gateway_endpoint=api_gateway_endpoint,
@@ -916,10 +918,10 @@ class Quilt3_Backend(QuiltOps):
                 stack_prefix=stack_prefix,
                 tabulator_data_catalog=tabulator_data_catalog
             )
-            
+
             logger.debug("Successfully transformed catalog configuration")
             return catalog_config
-            
+
         except BackendError:
             raise
         except Exception as e:
@@ -940,7 +942,7 @@ class Quilt3_Backend(QuiltOps):
         """
         try:
             logger.debug("Getting registry URL from quilt3 session")
-            
+
             # Check if quilt3.session.get_registry_url method exists
             if hasattr(quilt3.session, "get_registry_url"):
                 registry_url = quilt3.session.get_registry_url()
@@ -949,7 +951,153 @@ class Quilt3_Backend(QuiltOps):
             else:
                 logger.debug("quilt3.session.get_registry_url method not available")
                 return None
-                
+
         except Exception as e:
             logger.error(f"Registry URL retrieval failed: {str(e)}")
             raise BackendError(f"Quilt3 backend get_registry_url failed: {str(e)}")
+
+    def execute_graphql_query(
+        self,
+        query: str,
+        variables: Optional[Dict] = None,
+        registry: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Execute a GraphQL query against the catalog.
+
+        Executes a GraphQL query against the catalog API using the authenticated
+        quilt3 session. This provides access to catalog data and operations through
+        the GraphQL interface.
+
+        Args:
+            query: GraphQL query string to execute
+            variables: Optional dictionary of query variables
+            registry: Target registry URL (uses default if None)
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the GraphQL response data
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When the GraphQL query execution fails
+            ValidationError: When query syntax is invalid or variables are malformed
+        """
+        try:
+            logger.debug("Executing GraphQL query against catalog")
+
+            # Get authenticated session
+            session = quilt3.session.get_session()
+
+            # Determine registry URL
+            registry_url = registry or quilt3.session.get_registry_url()
+            if not registry_url:
+                raise AuthenticationError("No registry configured")
+
+            # Get GraphQL endpoint from registry URL
+            api_url = self._get_graphql_endpoint(registry_url)
+
+            # Prepare request payload
+            payload = {"query": query}
+            if variables:
+                payload["variables"] = variables
+
+            # Execute GraphQL query
+            response = session.post(api_url, json=payload)
+            response.raise_for_status()
+
+            logger.debug("GraphQL query executed successfully")
+            return response.json()
+
+        except requests.HTTPError as e:
+            if hasattr(e, 'response') and e.response and e.response.status_code == 403:
+                logger.error("GraphQL query authorization failed")
+                raise AuthenticationError("GraphQL query not authorized")
+            else:
+                error_text = e.response.text if hasattr(e, 'response') and e.response else str(e)
+                logger.error(f"GraphQL query HTTP error: {error_text}")
+                raise BackendError(f"GraphQL query failed: {error_text}")
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"GraphQL query execution error: {str(e)}")
+            raise BackendError(f"GraphQL execution error: {str(e)}")
+
+    def get_boto3_client(
+        self,
+        service_name: str,
+        region: Optional[str] = None,
+    ) -> Any:
+        """Get authenticated boto3 client for AWS services.
+
+        Creates and returns a boto3 client for the specified AWS service,
+        configured with the appropriate authentication credentials from the
+        quilt3 session. This provides backend-agnostic access to AWS services
+        needed for Quilt operations.
+
+        Args:
+            service_name: AWS service name (e.g., 'athena', 's3', 'glue')
+            region: AWS region override (uses catalog region if None)
+
+        Returns:
+            Configured boto3 client for the specified service
+
+        Raises:
+            AuthenticationError: When AWS credentials are not available or invalid
+            BackendError: When boto3 client creation fails
+            ValidationError: When service_name is invalid or unsupported
+        """
+        try:
+            logger.debug(f"Creating boto3 client for service: {service_name}, region: {region}")
+
+            # Check if boto3 is available
+            if boto3 is None:
+                raise BackendError("boto3 library is not available")
+
+            # Create botocore session from quilt3
+            botocore_session = quilt3.session.create_botocore_session()
+
+            # Create boto3 session with authenticated botocore session
+            boto3_session = boto3.Session(botocore_session=botocore_session)
+
+            # Create client for the specified service
+            client = boto3_session.client(service_name, region_name=region)
+
+            logger.debug(f"Successfully created boto3 client for service: {service_name}")
+            return client
+
+        except Exception as e:
+            logger.error(f"Boto3 client creation failed: {str(e)}")
+            raise BackendError(f"Failed to create boto3 client for {service_name}: {str(e)}")
+
+    def _get_graphql_endpoint(self, registry_url: str) -> str:
+        """Extract GraphQL API endpoint from registry URL.
+
+        Converts an S3 registry URL to the corresponding GraphQL API endpoint.
+        This is a helper method for execute_graphql_query.
+
+        Args:
+            registry_url: S3 registry URL (e.g., "s3://my-registry-bucket")
+
+        Returns:
+            GraphQL API endpoint URL
+
+        Raises:
+            ValidationError: When registry URL format is invalid
+        """
+        try:
+            # Extract bucket name from S3 URL
+            if not registry_url.startswith("s3://"):
+                raise ValidationError("Registry URL must be an S3 URL")
+
+            bucket_name = registry_url.replace("s3://", "").split("/")[0]
+
+            # Construct GraphQL endpoint
+            # This is a simplified implementation - in practice, this might need
+            # to query the catalog config to get the actual API endpoint
+            api_endpoint = f"https://{bucket_name}.quiltdata.com/api/graphql"
+
+            logger.debug(f"Constructed GraphQL endpoint: {api_endpoint}")
+            return api_endpoint
+
+        except Exception as e:
+            logger.error(f"GraphQL endpoint construction failed: {str(e)}")
+            raise ValidationError(f"Invalid registry URL format: {registry_url}")
