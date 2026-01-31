@@ -109,7 +109,7 @@ class TestQuilt3BackendStructure:
 
         # Should still initialize successfully if session config is provided
         session_config = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(session_config)
+        backend = Quilt3_Backend()
         assert backend.session == session_config
 
 
@@ -124,7 +124,7 @@ class TestQuilt3BackendIntegration:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api response
         mock_search_api.return_value = {
@@ -192,7 +192,7 @@ class TestQuilt3BackendIntegration:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test error in each step
         mock_search_api.side_effect = Exception("Search failed")

@@ -30,7 +30,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api response
         mock_search_api.return_value = {
@@ -76,7 +76,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api response
         mock_search_api.return_value = {
@@ -117,7 +117,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api response
         mock_search_api.return_value = {
@@ -166,7 +166,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api response
         mock_search_api.return_value = {"hits": {"hits": []}}
@@ -184,7 +184,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api response
         mock_search_api.return_value = {"hits": {"hits": []}}
@@ -206,7 +206,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api to return error response
         mock_search_api.return_value = {"error": "Search failed"}
@@ -224,7 +224,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api to return response with missing/invalid hits
         mock_search_api.return_value = {
@@ -250,7 +250,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock search_api to raise exception
         mock_search_api.side_effect = Exception("Network error")
@@ -269,7 +269,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock package object
         mock_package = Mock()
@@ -303,7 +303,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock Package.browse to raise exception
         mock_quilt3.Package.browse.side_effect = Exception("Package not found")
@@ -321,7 +321,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock package with None tags
         mock_package = Mock()
@@ -346,7 +346,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock package with no description
         mock_package = Mock()
@@ -371,7 +371,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock package missing required 'name' field
         mock_package = Mock()
@@ -397,7 +397,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock package with None required field
         mock_package = Mock()
@@ -422,7 +422,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock package with invalid datetime
         mock_package = Mock()
@@ -447,7 +447,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test escaping of special characters
         test_cases = [
@@ -471,7 +471,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test that wildcards are NOT escaped
         test_cases = [
@@ -491,7 +491,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test complex query with both special chars and wildcards
         input_query = "test:package-name*+tag[2024]"
@@ -513,7 +513,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock valid package
         mock_package = Mock()
@@ -532,7 +532,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with datetime object
         dt = datetime(2024, 1, 15, 12, 30, 45)
@@ -548,7 +548,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with None
         result = backend._normalize_package_datetime(None)
@@ -563,7 +563,7 @@ class TestQuilt3BackendPackageOperations:
 
         # Setup mock
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with string
         result = backend._normalize_package_datetime("2024-01-15T12:30:45")
@@ -580,7 +580,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Verify method exists
         assert hasattr(backend, 'create_package_revision')
@@ -593,7 +593,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.domain.package_creation import Package_Creation_Result
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -630,7 +630,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.domain.package_creation import Package_Creation_Result
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package creation and operations
         mock_package = Mock()
@@ -669,7 +669,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': test_registry}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package creation and operations
         mock_package = Mock()
@@ -699,7 +699,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': test_registry}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package creation and operations
         mock_package = Mock()
@@ -733,7 +733,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package creation and operations
         mock_package = Mock()
@@ -756,7 +756,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://default-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://default-registry")
@@ -783,7 +783,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various invalid package names
         invalid_names = [
@@ -806,7 +806,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various invalid S3 URI scenarios
         invalid_uri_cases = [
@@ -828,7 +828,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package to raise exception
         mock_quilt3.Package.side_effect = Exception("Package creation failed")
@@ -844,7 +844,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package with set() that raises exception
         mock_package = Mock()
@@ -862,7 +862,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package with push() that raises exception
         mock_package = Mock()
@@ -880,7 +880,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package with set_meta() that raises exception
         mock_package = Mock()
@@ -902,7 +902,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.domain.package_creation import Package_Creation_Result
 
         mock_session = {'registry': test_registry}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package with push() returning None (indicates failure)
         mock_package = Mock()
@@ -926,7 +926,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3.Package to raise exception
         mock_quilt3.Package.side_effect = Exception("Test error")
@@ -955,7 +955,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -992,7 +992,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1029,7 +1029,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1057,7 +1057,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1097,7 +1097,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1148,7 +1148,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1176,7 +1176,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1204,7 +1204,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1232,7 +1232,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1264,7 +1264,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1305,7 +1305,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1346,7 +1346,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock get_registry_url to return a valid S3 URL
         backend.get_registry_url = Mock(return_value="s3://test-registry")
@@ -1402,7 +1402,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         test_cases = [
             ("s3://bucket/file.txt", "file.txt"),
@@ -1420,7 +1420,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         test_cases = [
             ("s3://bucket/file.txt", "file.txt"),
@@ -1438,7 +1438,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with special characters in filename
         assert backend._extract_logical_key("s3://bucket/file-with-dashes.txt", True) == "file-with-dashes.txt"
@@ -1468,7 +1468,7 @@ class TestQuilt3BackendPackageCreation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Verify method raises NotImplementedError
         with pytest.raises(NotImplementedError) as exc_info:

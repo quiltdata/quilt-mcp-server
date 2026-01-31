@@ -25,7 +25,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock bucket listing response
         mock_bucket_data = {
@@ -60,7 +60,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock comprehensive bucket data with various metadata scenarios
         mock_bucket_data = {
@@ -132,7 +132,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test scenarios with missing/empty fields - should default to 'unknown'
         test_scenarios = [
@@ -219,7 +219,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock bucket data with various date formats
         mock_bucket_data = {
@@ -279,7 +279,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock bucket data with various access levels
         mock_bucket_data = {
@@ -363,7 +363,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock bucket data with various AWS regions
         mock_bucket_data = {
@@ -441,7 +441,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various malformed data scenarios
         malformed_scenarios = [
@@ -474,7 +474,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock edge case bucket data
         mock_bucket_data = {
@@ -557,7 +557,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock bucket data with various missing optional fields (only created_date is optional)
         mock_bucket_data = {
@@ -602,7 +602,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock bucket data with various field types
         mock_bucket_data = {
@@ -660,7 +660,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock bucket data
         mock_bucket_data = {
@@ -693,7 +693,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock empty bucket data
         mock_quilt3.list_buckets.return_value = {}
@@ -712,7 +712,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock diverse bucket configurations
         mock_bucket_data = {
@@ -774,7 +774,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various error scenarios
         error_scenarios = [
@@ -806,7 +806,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock comprehensive bucket data
         mock_bucket_data = {
@@ -849,7 +849,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various scenarios with missing/None fields - should default to 'unknown'
         test_scenarios = [
@@ -891,7 +891,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create large number of mock buckets
         mock_bucket_data = {}
@@ -931,7 +931,7 @@ class TestQuilt3BackendBucketOperations:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock buckets with various naming patterns
         mock_bucket_data = {
@@ -984,7 +984,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create complete bucket data
         bucket_name = "test-bucket"
@@ -1006,7 +1006,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create minimal bucket data
         bucket_name = "minimal-bucket"
@@ -1031,7 +1031,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create invalid bucket data
         bucket_name = None  # Invalid name
@@ -1046,7 +1046,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test legitimate error scenarios that should raise BackendError
         error_scenarios = [
@@ -1115,7 +1115,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test legitimate error scenarios that should raise BackendError
         error_tests = [
@@ -1161,7 +1161,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test error propagation from validation helper (None bucket_name)
         with pytest.raises(BackendError) as exc_info:
@@ -1188,7 +1188,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test different types of transformation failures
         failure_scenarios = [
@@ -1246,7 +1246,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test edge cases that should cause errors
         edge_case_scenarios = [
@@ -1290,7 +1290,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         bucket_names = [
             "simple-bucket",
@@ -1320,7 +1320,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         regions = [
             'us-east-1',
@@ -1359,7 +1359,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         access_levels = [
             'read-only',
@@ -1396,7 +1396,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         date_formats = [
             '2024-01-01T00:00:00Z',  # ISO format with Z
@@ -1426,7 +1426,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with minimal valid bucket data (non-empty required fields)
         minimal_data = {'region': 'us-west-2', 'access_level': 'read-only'}
@@ -1459,7 +1459,7 @@ class TestQuilt3BackendBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with extra fields that should be ignored
         bucket_data_with_extras = {
@@ -1496,7 +1496,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create minimal mock bucket data with only required fields
         bucket_name = "isolated-test-bucket"
@@ -1522,7 +1522,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create complete mock bucket data with all fields
         bucket_name = "complete-isolated-bucket"
@@ -1544,7 +1544,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test legitimate errors that should raise BackendError
         # Test validation of required bucket_name field
@@ -1582,7 +1582,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various null/None scenarios for optional fields
         null_scenarios = [
@@ -1615,7 +1615,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create bucket data that exercises all helper methods
         bucket_name = "helper-integration-bucket"
@@ -1641,7 +1641,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various edge case bucket names
         edge_case_names = [
@@ -1674,7 +1674,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various AWS regions
         edge_case_regions = [
@@ -1707,7 +1707,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various access levels
         edge_case_access_levels = [
@@ -1740,7 +1740,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test legitimate error scenarios that should raise BackendError
         error_scenarios = [
@@ -1790,7 +1790,7 @@ class TestQuilt3BackendBucketTransformationIsolated:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test that transformation is pure (no side effects)
         bucket_name = "pure-transformation-test"
@@ -1830,7 +1830,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Simulate typical quilt3 bucket response format
         bucket_name = "production-data-bucket"
@@ -1868,7 +1868,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Simulate minimal quilt3 bucket response with only required fields
         bucket_name = "minimal-bucket"
@@ -1893,7 +1893,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various null/None scenarios in quilt3 responses
         null_scenarios = [
@@ -1936,7 +1936,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test legitimate error scenarios (None/empty bucket_name, None bucket_data)
         error_scenarios = [
@@ -2031,7 +2031,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test different response configurations that might come from quilt3
         response_configurations = [
@@ -2113,7 +2113,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test edge cases that might occur in real quilt3 responses
         edge_cases = [
@@ -2187,7 +2187,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test malformed responses that should cause errors
         malformed_scenarios = [
@@ -2243,7 +2243,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test responses with unexpected field types
         unexpected_type_scenarios = [
@@ -2321,7 +2321,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test comprehensive bucket response
         comprehensive_response = {
@@ -2379,7 +2379,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test direct method call with various inputs
         test_cases = [
@@ -2459,7 +2459,7 @@ class TestQuilt3BackendBucketTransformationFromQuilt3Responses:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': '2024-01-01T00:00:00Z'}
 
@@ -2492,7 +2492,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create comprehensive mock bucket configuration
         bucket_name = "comprehensive-test-bucket"
@@ -2522,7 +2522,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create minimal mock bucket configuration (only required fields)
         bucket_name = "minimal-test-bucket"
@@ -2548,7 +2548,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test different AWS regions
         region_configurations = [
@@ -2580,7 +2580,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test different access levels
         access_level_configurations = [
@@ -2613,7 +2613,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test different date formats
         date_format_configurations = [
@@ -2644,7 +2644,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test different bucket name formats (following AWS S3 naming rules)
         bucket_name_configurations = [
@@ -2675,7 +2675,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various partial configurations - all should succeed with 'unknown' defaults
         partial_configurations = [
@@ -2731,7 +2731,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test edge cases that should succeed
         edge_case_configurations = [
@@ -2789,7 +2789,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test legitimate error scenarios (None/empty bucket_name, None bucket_data)
         error_configurations = [
@@ -2866,7 +2866,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock AWS S3 API response format
         aws_response_format = {
@@ -2910,7 +2910,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock quilt3 library response format
         quilt3_response_format = {
@@ -2958,7 +2958,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test unicode and special characters (where valid for S3 bucket names)
         # Note: S3 bucket names have strict rules, so we test within those constraints
@@ -3006,7 +3006,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test validation errors (raised directly from _validate_bucket_fields)
         with pytest.raises(BackendError) as exc_info:
@@ -3066,7 +3066,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create mock with very large metadata
         large_bucket_name = "performance-test-bucket"
@@ -3104,7 +3104,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with different data structure types
         data_type_configurations = [
@@ -3156,7 +3156,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create mock that exercises all helper methods
         bucket_name = "helper-integration-bucket"
@@ -3183,7 +3183,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Comprehensive test scenarios
         comprehensive_scenarios = [
@@ -3262,7 +3262,7 @@ class TestQuilt3BackendMockBucketTransformation:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with mock object that has dynamic attribute access
         class DynamicBucketData:

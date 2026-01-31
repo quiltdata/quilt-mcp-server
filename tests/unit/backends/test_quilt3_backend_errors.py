@@ -25,7 +25,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create nested exception
         root_cause = ValueError("Invalid parameter")
@@ -49,7 +49,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with unicode error message
         unicode_error = Exception("错误: 无法连接到服务器")
@@ -73,7 +73,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with detailed error context
         detailed_error = Exception("HTTP 404: Package 'test/package' not found in registry 's3://test-registry'")
@@ -94,7 +94,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with empty error message
         empty_error = Exception("")
@@ -114,7 +114,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create very long error message
         long_message = "Error: " + "A" * 10000 + " - operation failed"
@@ -141,7 +141,7 @@ class TestQuilt3BackendAdvancedErrorHandling:
         import threading
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock different errors for concurrent calls
         errors = [
@@ -186,7 +186,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test each operation raises BackendError on quilt3 exceptions
         operations = [
@@ -212,7 +212,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         mock_quilt3.search.side_effect = Exception("Network timeout")
 
@@ -229,7 +229,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test authentication-related errors
         mock_search_api.side_effect = Exception("Access denied")
@@ -248,7 +248,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various authentication errors during operations
         auth_errors = [
@@ -284,7 +284,7 @@ class TestQuilt3BackendErrorHandling:
         import socket
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various network errors
         network_errors = [
@@ -316,7 +316,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various data validation errors
         validation_errors = [
@@ -348,7 +348,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test various resource exhaustion errors
         resource_errors = [
@@ -385,7 +385,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with detailed error context
         detailed_errors = [
@@ -437,7 +437,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test all operations include backend identification in errors
         operations_and_mocks = [
@@ -467,7 +467,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Mock successful quilt3 call but create object that will fail transformation
         mock_package = Mock()
@@ -498,7 +498,7 @@ class TestQuilt3BackendErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test that specific quilt3 errors are properly wrapped
         quilt3_specific_errors = [
@@ -556,7 +556,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with unicode error message
         unicode_error = Exception("错误: 无法连接到服务器")
@@ -577,7 +577,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create nested exception
         root_cause = ValueError("Invalid parameter")
@@ -600,7 +600,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with empty error message
         empty_error = Exception("")
@@ -620,7 +620,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create very long error message
         long_message = "Error: " + "A" * 10000 + " - operation failed"
@@ -643,7 +643,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with detailed error context
         detailed_error = Exception("Elasticsearch timeout: Query took longer than 30 seconds to complete")
@@ -670,7 +670,7 @@ class TestQuilt3BackendErrorHandlingEdgeCases:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with detailed error context
         detailed_error = Exception("HTTP 404: Package 'user/dataset' not found in registry 's3://my-registry'")
@@ -702,7 +702,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test _transform_package error wrapping
         mock_package = Mock()
@@ -758,7 +758,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test _transform_package error context (for general transformation errors, not validation)
         mock_package = Mock()
@@ -816,7 +816,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test actionable error messages for different scenarios
         actionable_scenarios = [
@@ -864,7 +864,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test that all transformation methods properly propagate validation errors
         validation_error_tests = [
@@ -903,7 +903,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test helper method error propagation in package transformation
         with patch.object(backend, '_validate_package_fields', side_effect=BackendError("Validation failed")):
@@ -941,7 +941,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test Package_Info creation failure
         with patch(
@@ -995,7 +995,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test logging during package transformation error (general error, not validation)
         with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
@@ -1099,7 +1099,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test that partial transformations don't leave inconsistent state
         # This is important for ensuring that failed transformations don't corrupt the backend state
@@ -1144,7 +1144,7 @@ class TestQuilt3BackendTransformationErrorHandlingComprehensive:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test package transformation error context completeness (general error, not validation)
         mock_package = Mock()
@@ -1220,7 +1220,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with None object - this triggers validation error, not transformation error
         with pytest.raises(BackendError) as exc_info:
@@ -1259,7 +1259,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with invalid datetime that causes transformation error
         invalid_package = Mock()
@@ -1290,7 +1290,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create valid mock package
         valid_package = Mock()
@@ -1320,7 +1320,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with None object - this triggers validation error, not transformation error
         with pytest.raises(BackendError) as exc_info:
@@ -1365,7 +1365,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with invalid datetime that causes transformation error
         invalid_entry = Mock()
@@ -1393,7 +1393,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create valid mock content entry
         valid_entry = Mock()
@@ -1420,7 +1420,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create mock that raises exception when accessing attributes
         class ProblematicEntry:
@@ -1458,7 +1458,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with None bucket name
         with pytest.raises(BackendError) as exc_info:
@@ -1487,7 +1487,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # The current implementation uses .get() with defaults, so missing fields don't cause errors
         # Let's test with completely invalid bucket_data structure that will cause transformation errors
@@ -1519,7 +1519,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test with invalid datetime that causes transformation error
         bucket_data = {
@@ -1547,7 +1547,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create valid bucket data
         bucket_data = {'region': 'us-east-1', 'access_level': 'read-write', 'created_date': '2024-01-01T12:00:00Z'}
@@ -1569,7 +1569,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Create mock that raises exception when accessing data
         class ProblematicBucketData:
@@ -1597,7 +1597,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test package transformation error context (validation error for None)
         with pytest.raises(BackendError) as exc_info:
@@ -1630,7 +1630,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test package transformation error context
         invalid_package = Mock()
@@ -1687,7 +1687,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # All transformation errors should be BackendError, not generic Exception
         with pytest.raises(BackendError):
@@ -1712,7 +1712,7 @@ class TestQuilt3BackendTransformationErrorHandling:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend(mock_session)
+        backend = Quilt3_Backend()
 
         # Test that error messages are descriptive and include the operation that failed
         error_scenarios = [
