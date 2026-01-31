@@ -50,9 +50,16 @@ class ModeConfig:
     for all mode-related decisions and validation of required configuration.
     """
 
-    def __init__(self):
-        """Initialize ModeConfig with environment variable parsing."""
-        self._multitenant_mode = self._parse_bool(os.getenv("QUILT_MULTITENANT_MODE"), default=False)
+    def __init__(self, multitenant_mode: Optional[bool] = None):
+        """Initialize ModeConfig with environment variable parsing.
+        
+        Args:
+            multitenant_mode: Override for testing. If None, reads from environment.
+        """
+        if multitenant_mode is not None:
+            self._multitenant_mode = multitenant_mode
+        else:
+            self._multitenant_mode = self._parse_bool(os.getenv("QUILT_MULTITENANT_MODE"), default=False)
 
     @staticmethod
     def _parse_bool(value: Optional[str], default: bool = False) -> bool:
@@ -150,3 +157,31 @@ def get_mode_config() -> ModeConfig:
     if _mode_config_instance is None:
         _mode_config_instance = ModeConfig()
     return _mode_config_instance
+
+
+def reset_mode_config() -> None:
+    """Reset ModeConfig singleton (used in tests)."""
+    global _mode_config_instance
+    _mode_config_instance = None
+
+
+def create_test_mode_config(multitenant_mode: bool) -> ModeConfig:
+    """Create a ModeConfig instance for testing without affecting the singleton.
+    
+    Args:
+        multitenant_mode: Whether to enable multitenant mode
+        
+    Returns:
+        ModeConfig instance configured for testing
+    """
+    return ModeConfig(multitenant_mode=multitenant_mode)
+
+
+def set_test_mode_config(multitenant_mode: bool) -> None:
+    """Set a test ModeConfig instance as the singleton (used in tests).
+    
+    Args:
+        multitenant_mode: Whether to enable multitenant mode
+    """
+    global _mode_config_instance
+    _mode_config_instance = ModeConfig(multitenant_mode=multitenant_mode)

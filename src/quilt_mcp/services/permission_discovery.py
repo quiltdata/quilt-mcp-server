@@ -19,7 +19,7 @@ from cachetools import TTLCache
 import requests
 from urllib.parse import urljoin
 
-from quilt_mcp.config import http_config
+from quilt_mcp.config import get_mode_config, http_config
 
 logger = logging.getLogger(__name__)
 
@@ -78,14 +78,14 @@ class AWSPermissionDiscovery:
             if session is None:
                 # Prefer Quilt3-provided STS-backed session, if logged in
                 try:
-                    disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
-                    # If quilt3 is mocked in tests, always allow using it regardless of env flag
+                    mode_config = get_mode_config()
+                    # If quilt3 is mocked in tests, always allow using it regardless of mode flag
                     try:
                         is_quilt3_mock = "unittest.mock" in type(quilt3).__module__
                     except Exception:
                         is_quilt3_mock = False
                     if (
-                        (not disable_quilt3_session or is_quilt3_mock)
+                        (mode_config.allows_quilt3_library or is_quilt3_mock)
                         and hasattr(quilt3, "logged_in")
                         and quilt3.logged_in()
                     ):

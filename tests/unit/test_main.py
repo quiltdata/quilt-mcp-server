@@ -1,5 +1,6 @@
 import os
 from importlib import reload
+from unittest.mock import patch
 
 import pytest
 
@@ -7,8 +8,12 @@ import pytest
 @pytest.fixture(autouse=True)
 def reset_env(monkeypatch):
     monkeypatch.delenv("FASTMCP_TRANSPORT", raising=False)
+    # Reset ModeConfig singleton for each test
+    from quilt_mcp.config import reset_mode_config
+    reset_mode_config()
     yield
     monkeypatch.delenv("FASTMCP_TRANSPORT", raising=False)
+    reset_mode_config()
 
 
 def call_main_with_fake_server(argv=None):
@@ -152,3 +157,46 @@ def test_main_keyboard_interrupt(monkeypatch, capsys):
         assert "user interrupt" in captured.err.lower()
     finally:
         sys.argv = old_argv
+
+
+def test_transport_protocol_selection_local_mode(monkeypatch):
+    """Test that local mode sets stdio transport."""
+    # Ensure local mode (default)
+    monkeypatch.delenv("QUILT_MULTITENANT_MODE", raising=False)
+    
+    called, transport, skip_banner = call_main_with_fake_server()
+    
+    assert called is True
+    assert transport == "stdio"
+
+
+def test_transport_protocol_selection_multitenant_mode(monkeypatch):
+    """Test that multitenant mode sets http transport."""
+    # Set multitenant mode
+    monkeypatch.setenv("QUILT_MULTITENANT_MODE", "true")
+    # Set required JWT config to pass validation
+    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+    monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")
+    monkeypatch.setenv("MCP_JWT_AUDIENCE", "test-audience")
+    
+    called, transport, skip_banner = call_main_with_fake_server()
+    
+    assert called is True
+    assert transport == "http"
+
+
+def test_transport_protocol_respects_existing_env_var(monkeypatch):
+    """Test that existing FASTMCP_TRANSPORT is not overridden."""
+    # Set multitenant mode (which would normally set http)
+    monkeypatch.setenv("QUILT_MULTITENANT_MODE", "true")
+    # Set required JWT config to pass validation
+    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+    monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")
+    monkeypatch.setenv("MCP_JWT_AUDIENCE", "test-audience")
+    # Pre-set transport to a different value
+    monkeypatch.setenv("FASTMCP_TRANSPORT", "sse")
+    
+    called, transport, skip_banner = call_main_with_fake_server()
+    
+    assert called is True
+    assert transport == "sse"  # Should not be overridden

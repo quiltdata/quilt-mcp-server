@@ -414,15 +414,14 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
     logger = logging.getLogger(__name__)
 
-    from quilt_mcp.services.auth_service import get_jwt_mode_enabled
+    from quilt_mcp.config import get_mode_config
 
-    # Check if we're running in stateless mode (for containerized deployments)
-    stateless_mode = os.environ.get("QUILT_MCP_STATELESS_MODE", "false").lower() == "true"
+    mode_config = get_mode_config()
 
     try:
-        # Use JSON responses in stateless mode for simpler HTTP client integration
+        # Use JSON responses in multitenant mode for simpler HTTP client integration
         # (SSE requires stream parsing which complicates testing and client implementations)
-        app = mcp.http_app(transport=transport, stateless_http=stateless_mode, json_response=stateless_mode)
+        app = mcp.http_app(transport=transport, stateless_http=mode_config.is_multitenant, json_response=mode_config.is_multitenant)
     except AttributeError as exc:  # pragma: no cover - FastMCP versions prior to HTTP support
         logger.error("HTTP transport requested but FastMCP does not expose http_app(): %s", exc)
         raise
@@ -483,18 +482,20 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     except ImportError:  # pragma: no cover - starlette optional guard
         logger.warning("CORS middleware unavailable; continuing without CORS configuration")
 
-    if get_jwt_mode_enabled():
-        try:
-            from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
+    mode_config = get_mode_config()
+    
+    try:
+        from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
 
-            # Add last so it runs first in Starlette's middleware stack.
-            app.add_middleware(JwtAuthMiddleware, require_jwt=True)
+        # Add last so it runs first in Starlette's middleware stack.
+        app.add_middleware(JwtAuthMiddleware, require_jwt=mode_config.requires_jwt)
+        if mode_config.requires_jwt:
             logger.info("JWT middleware enabled for HTTP transport")
-        except ImportError as exc:  # pragma: no cover
-            logger.error("JWT middleware unavailable: %s", exc)
-            raise
-    else:
-        logger.info("JWT middleware disabled (IAM mode)")
+        else:
+            logger.info("JWT middleware present but not enforced (IAM mode)")
+    except ImportError as exc:  # pragma: no cover
+        logger.error("JWT middleware unavailable: %s", exc)
+        raise
 
     return app
 

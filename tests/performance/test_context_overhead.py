@@ -5,12 +5,11 @@ from __future__ import annotations
 import time
 
 from quilt_mcp.context.factory import RequestContextFactory
-from quilt_mcp.services.auth_service import reset_auth_service
+from quilt_mcp.config import set_test_mode_config
 
 
 def test_context_creation_overhead_under_10ms(monkeypatch):
-    monkeypatch.delenv("MCP_REQUIRE_JWT", raising=False)
-    reset_auth_service()
+    set_test_mode_config(multitenant_mode=False)
 
     factory = RequestContextFactory(mode="single-user")
 

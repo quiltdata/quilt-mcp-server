@@ -30,8 +30,8 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 5: Platform Backend Error Handling**
     - **Validates: Requirements 2.4**
 
-- [-] 2. Update backend and authentication factories
-  - [ ] 2.1 Update QuiltOps factory to use ModeConfig
+- [x] 2. Update backend and authentication factories
+  - [x] 2.1 Update QuiltOps factory to use ModeConfig
     - Modify `src/quilt_mcp/ops/factory.py` to import and use `get_mode_config()`
     - Replace credential detection with `mode_config.backend_type` query
     - Create Quilt3_Backend for "quilt3" backend type
@@ -43,7 +43,7 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 4: Backend Selection Consistency**
     - **Validates: Requirements 2.1, 2.2**
 
-  - [ ] 2.3 Update context factory authentication logic
+  - [x] 2.3 Update context factory authentication logic
     - Modify `src/quilt_mcp/context/factory.py` to use ModeConfig
     - Replace `get_jwt_mode_enabled()` calls with `mode_config.requires_jwt`
     - Update tenant mode determination to use `mode_config.tenant_mode`
@@ -54,14 +54,14 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 6: Authentication Service Selection**
     - **Validates: Requirements 3.1, 3.2**
 
-- [ ] 3. Remove redundant environment variables and update services
-  - [ ] 3.1 Update IAM auth service to use ModeConfig
+- [x] 3. Remove redundant environment variables and update services
+  - [x] 3.1 Update IAM auth service to use ModeConfig
     - Modify `src/quilt_mcp/services/iam_auth_service.py` line 29
     - Delete line reading `os.getenv("QUILT_DISABLE_QUILT3_SESSION")`
     - Replace with `mode_config.allows_quilt3_library` check
     - _Requirements: 4.2, 7.1, 7.2_
 
-  - [ ] 3.2 Delete global JWT mode detection from auth service
+  - [x] 3.2 Delete global JWT mode detection from auth service
     - Modify `src/quilt_mcp/services/auth_service.py` lines 51-71
     - Delete `_JWT_MODE_ENABLED` global variable
     - Delete `get_jwt_mode_enabled()` function
@@ -69,7 +69,7 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - Update all callers to use `get_mode_config().requires_jwt`
     - _Requirements: 4.3, 3.3_
 
-  - [ ] 3.3 Update HTTP utilities to use ModeConfig
+  - [x] 3.3 Update HTTP utilities to use ModeConfig
     - Modify `src/quilt_mcp/utils.py` lines 420-425
     - Delete line reading `os.environ.get("QUILT_MCP_STATELESS_MODE")`
     - Replace with `mode_config.is_multitenant` for stateless HTTP configuration
@@ -80,14 +80,14 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 10: HTTP Configuration Mode Alignment**
     - **Validates: Requirements 6.1, 6.2, 6.3**
 
-  - [ ] 3.5 Update permission discovery service
+  - [x] 3.5 Update permission discovery service
     - Modify `src/quilt_mcp/services/permission_discovery.py` line 81
     - Delete line reading `os.getenv("QUILT_DISABLE_QUILT3_SESSION")`
     - Replace with `mode_config.allows_quilt3_library` check
     - _Requirements: 4.2, 7.4_
 
-- [ ] 4. Update runtime context and main server
-  - [ ] 4.1 Update runtime context default environment
+- [x] 4. Update runtime context and main server
+  - [x] 4.1 Update runtime context default environment
     - Modify `src/quilt_mcp/runtime_context.py` lines 35, 74-81
     - Initialize `_default_state` based on ModeConfig
     - Set environment="web" for multitenant mode
@@ -98,7 +98,7 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 13: Runtime Context Environment Defaults**
     - **Validates: Requirements 8.1, 8.2, 8.4**
 
-  - [ ] 4.3 Add startup validation to main server
+  - [x] 4.3 Add startup validation to main server
     - Modify `src/quilt_mcp/main.py` to import and use ModeConfig
     - Call `mode_config.validate()` early in startup before accepting requests
     - Log validation errors from `get_validation_errors()` and exit on failure
@@ -111,13 +111,13 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 9: Validation Logging**
     - **Validates: Requirements 3.4, 5.1, 5.2, 5.3, 5.4, 5.5**
 
-- [ ] 5. Update JWT middleware and transport configuration
-  - [ ] 5.1 Update JWT middleware enforcement
+- [x] 5. Update JWT middleware and transport configuration
+  - [x] 5.1 Update JWT middleware enforcement
     - Modify JWT middleware instantiation to pass `require_jwt=mode_config.requires_jwt`
     - Ensure JWT enforced in multitenant mode, optional in local mode
     - _Requirements: 3.1, 3.2_
-
-  - [ ] 5.2 Add transport protocol selection
+ a
+  - [x] 5.2 Add transport protocol selection
     - Update server configuration to use `mode_config.default_transport`
     - Set HTTP transport for multitenant mode
     - Set stdio transport for local mode
@@ -127,7 +127,7 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 11: Transport Protocol Selection**
     - **Validates: Requirements 8.4**
 
-- [ ] 6. Checkpoint - Ensure core functionality works
+- [x] 6. Checkpoint - Ensure core functionality works
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 7. Update test configurations

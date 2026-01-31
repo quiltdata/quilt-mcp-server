@@ -7,6 +7,8 @@ from typing import Literal, Optional, TYPE_CHECKING
 
 import boto3
 
+from quilt_mcp.config import get_mode_config
+
 if TYPE_CHECKING:
     from quilt_mcp.services.auth_service import AuthService
 
@@ -26,9 +28,9 @@ class IAMAuthService:
         except Exception:
             return None
 
-        disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
+        mode_config = get_mode_config()
         try:
-            if disable_quilt3_session and "unittest.mock" not in type(quilt3).__module__:
+            if not mode_config.allows_quilt3_library and "unittest.mock" not in type(quilt3).__module__:
                 return None
             if hasattr(quilt3, "logged_in") and quilt3.logged_in():
                 if hasattr(quilt3, "get_boto3_session"):

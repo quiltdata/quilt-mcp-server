@@ -9,6 +9,7 @@ from typing import Literal, Optional, cast
 
 import boto3
 
+from quilt_mcp.config import get_mode_config
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.auth_metrics import record_auth_mode
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
@@ -48,29 +49,6 @@ class AuthService(ABC):
         return self.get_session()
 
 
-_JWT_MODE_ENABLED: Optional[bool] = None
-
-
-def _parse_bool(value: str | None, *, default: bool = False) -> bool:
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def get_jwt_mode_enabled() -> bool:
-    """Return whether JWT mode is enabled (cached at first call)."""
-    global _JWT_MODE_ENABLED
-    if _JWT_MODE_ENABLED is None:
-        _JWT_MODE_ENABLED = _parse_bool(os.getenv("MCP_REQUIRE_JWT"), default=False)
-    return _JWT_MODE_ENABLED
-
-
-def reset_auth_service() -> None:
-    """Reset cached auth mode/service (used in tests)."""
-    global _JWT_MODE_ENABLED
-    _JWT_MODE_ENABLED = None
-
-
 def _validate_jwt_mode() -> None:
     decoder = get_jwt_decoder()
     try:
@@ -81,7 +59,9 @@ def _validate_jwt_mode() -> None:
 
 def create_auth_service() -> AuthService:
     """Create a new auth service instance for the configured mode."""
-    if get_jwt_mode_enabled():
+    mode_config = get_mode_config()
+    
+    if mode_config.requires_jwt:
         _validate_jwt_mode()
         logger.info("Authentication mode selected: JWT")
         record_auth_mode("jwt")

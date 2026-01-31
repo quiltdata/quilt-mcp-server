@@ -10,7 +10,8 @@ from quilt_mcp.context.exceptions import ServiceInitializationError, TenantValid
 from quilt_mcp.context.tenant_extraction import extract_tenant_id
 from quilt_mcp.context.request_context import RequestContext
 from quilt_mcp.runtime_context import get_runtime_auth
-from quilt_mcp.services.auth_service import AuthService, create_auth_service, get_jwt_mode_enabled
+from quilt_mcp.services.auth_service import AuthService, create_auth_service
+from quilt_mcp.config import get_mode_config
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
 from quilt_mcp.services.permissions_service import PermissionDiscoveryService
@@ -18,25 +19,15 @@ from quilt_mcp.services.workflow_service import WorkflowService
 from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
 
 
-def _parse_bool(value: str | None, *, default: bool = False) -> bool:
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on", "multitenant"}
-
-
 class RequestContextFactory:
     """Factory for creating request-scoped contexts and services."""
 
     def __init__(self, mode: str = "auto") -> None:
-        self.mode = self._determine_mode(mode)
-
-    def _determine_mode(self, mode: str) -> str:
-        if mode and mode != "auto":
-            return mode
-        env_value = os.getenv("QUILT_MULTITENANT_MODE")
-        if env_value is None:
-            return "single-user"
-        return "multitenant" if _parse_bool(env_value, default=False) else "single-user"
+        mode_config = get_mode_config()
+        if mode == "auto":
+            self.mode = mode_config.tenant_mode
+        else:
+            self.mode = mode
 
     def create_context(
         self,
@@ -86,12 +77,17 @@ class RequestContextFactory:
         return "default"
 
     def _create_auth_service(self) -> AuthService:
+        mode_config = get_mode_config()
         runtime_auth = get_runtime_auth()
+        
         if runtime_auth and runtime_auth.access_token:
             return JWTAuthService()  # type: ignore[return-value]
 
-        if get_jwt_mode_enabled():
-            raise ServiceInitializationError("AuthService", "JWT authentication required but missing.")
+        if mode_config.requires_jwt:
+            raise ServiceInitializationError(
+                "AuthService", 
+                "JWT authentication required but missing."
+            )
 
         return IAMAuthService()  # type: ignore[return-value]
 
