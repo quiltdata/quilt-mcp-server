@@ -7,7 +7,7 @@ while maintaining consistent domain-driven operations for MCP tools.
 
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
-from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config, Package_Creation_Result
 
 
 class QuiltOps(ABC):
@@ -252,5 +252,58 @@ class QuiltOps(ABC):
             AuthenticationError: When AWS credentials are not available or invalid
             BackendError: When boto3 client creation fails
             ValidationError: When service_name is invalid or unsupported
+        """
+        pass
+
+    @abstractmethod
+    def create_package_revision(
+        self,
+        package_name: str,
+        s3_uris: List[str],
+        metadata: Optional[Dict] = None,
+        registry: Optional[str] = None,
+        message: str = "Package created via QuiltOps",
+    ) -> Package_Creation_Result:
+        """Create and push a package revision in a single operation.
+
+        Creates a new package revision with the specified files and metadata,
+        then pushes it to the registry. This is a complete operation that
+        handles the entire package creation workflow.
+
+        Args:
+            package_name: Full package name in "user/package" format
+            s3_uris: List of S3 URIs to include in the package
+            metadata: Optional metadata dictionary to attach to the package
+            registry: Target registry URL (uses default if None)
+            message: Commit message for the package revision
+
+        Returns:
+            Package_Creation_Result with creation details and status
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When the backend operation fails (S3 access, push errors, etc.)
+            ValidationError: When parameters are invalid (malformed URIs, invalid names)
+            PermissionError: When user lacks permission to create packages in registry
+        """
+        pass
+
+    @abstractmethod
+    def list_all_packages(self, registry: str) -> List[str]:
+        """List all package names in the specified registry.
+
+        Retrieves a list of all package names available in the given registry.
+        This provides a simple way to discover packages without detailed metadata.
+
+        Args:
+            registry: Registry URL to list packages from
+
+        Returns:
+            List of package names in "user/package" format
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When the backend operation fails or registry is unreachable
+            ValidationError: When registry parameter is invalid
         """
         pass

@@ -80,12 +80,12 @@ Implement methods for GraphQL queries and AWS boto3 client access.
 
 ### 2.1 TDD: execute_graphql_query() method
 
-- [-] Write tests for `execute_graphql_query()` in `tests/unit/ops/test_quilt_ops.py`
-- [ ] Test query execution with variables
-- [ ] Test error handling for invalid queries and auth failures
-- [ ] Add abstract method `execute_graphql_query()` to QuiltOps interface
-- [ ] Write tests for `execute_graphql_query()` Quilt3_Backend implementation
-- [ ] Implement `execute_graphql_query()` in Quilt3_Backend using quilt3 session
+- [x] Write tests for `execute_graphql_query()` in `tests/unit/ops/test_quilt_ops.py`
+- [x] Test query execution with variables
+- [x] Test error handling for invalid queries and auth failures
+- [x] Add abstract method `execute_graphql_query()` to QuiltOps interface
+- [x] Write tests for `execute_graphql_query()` Quilt3_Backend implementation
+- [x] Implement `execute_graphql_query()` in Quilt3_Backend using quilt3 session
 
 **Callers to migrate:**
 
@@ -97,12 +97,12 @@ Implement methods for GraphQL queries and AWS boto3 client access.
 
 ### 2.2 TDD: get_boto3_client() method
 
-- [ ] Write tests for `get_boto3_client()` in `tests/unit/ops/test_quilt_ops.py`
-- [ ] Test client creation for different service types (s3, glue, athena)
-- [ ] Test region override and default region handling
-- [ ] Add abstract method `get_boto3_client()` to QuiltOps interface
-- [ ] Write tests for `get_boto3_client()` Quilt3_Backend implementation
-- [ ] Implement `get_boto3_client()` in Quilt3_Backend using quilt3's botocore session
+- [x] Write tests for `get_boto3_client()` in `tests/unit/ops/test_quilt_ops.py`
+- [x] Test client creation for different service types (s3, glue, athena)
+- [x] Test region override and default region handling
+- [x] Add abstract method `get_boto3_client()` to QuiltOps interface
+- [x] Write tests for `get_boto3_client()` Quilt3_Backend implementation
+- [x] Implement `get_boto3_client()` in Quilt3_Backend using quilt3's botocore session
 
 **Callers to migrate:**
 
@@ -116,10 +116,10 @@ Implement methods for GraphQL queries and AWS boto3 client access.
 
 ### 2.3 Verification Checkpoint: AWS & GraphQL Methods
 
-- [ ] Task 2: Run linting: `ruff check --fix src/quilt_mcp/ops/`
-- [ ] Task 2: Run tests: `uv run pytest tests/unit/ops/ -v`
-- [ ] Task 2: Verify all tests pass
-- [ ] Task 2: Commit changes: `git add . && git commit -m "feat: implement AWS & GraphQL methods"`
+- [x] Task 2: Run linting: `ruff check --fix src/quilt_mcp/ops/`
+- [x] Task 2: Run tests: `uv run pytest tests/unit/ops/ -v`
+- [x] Task 2: Verify all tests pass
+- [x] Task 2: Commit changes: `git add . && git commit -m "feat: implement AWS & GraphQL methods"`
 
 ---
 
