@@ -934,6 +934,378 @@ class TestQuilt3BackendTransformationHelperMethods:
                 assert isinstance(result, str), f"Result should be string for input: {input_description}"
 
 
+class TestQuilt3BackendSessionDetectionAndValidation:
+    """Test quilt3 session detection and validation functionality."""
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_detection_with_valid_session_info(self, mock_quilt3):
+        """Test session detection when quilt3.session.get_session_info() returns valid data."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Mock valid session info
+        valid_session = {
+            'registry': 's3://test-registry',
+            'credentials': {
+                'access_key': 'AKIAIOSFODNN7EXAMPLE',
+                'secret_key': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+            },
+            'region': 'us-east-1',
+            'profile': 'default'
+        }
+        mock_quilt3.session.get_session_info.return_value = valid_session
+
+        # Create backend instance
+        backend = Quilt3_Backend(valid_session)
+
+        # Verify session was properly stored
+        assert backend.session == valid_session
+        assert backend.session['registry'] == 's3://test-registry'
+        assert backend.session['credentials']['access_key'] == 'AKIAIOSFODNN7EXAMPLE'
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_detection_with_minimal_valid_session(self, mock_quilt3):
+        """Test session detection with minimal valid session configuration."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Mock minimal valid session
+        minimal_session = {
+            'registry': 's3://minimal-registry'
+        }
+        mock_quilt3.session.get_session_info.return_value = minimal_session
+
+        # Create backend instance
+        backend = Quilt3_Backend(minimal_session)
+
+        # Verify minimal session works
+        assert backend.session == minimal_session
+        assert backend.session['registry'] == 's3://minimal-registry'
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_detection_with_empty_session_info(self, mock_quilt3):
+        """Test session detection when get_session_info() returns empty data."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Test various empty session scenarios
+        empty_scenarios = [
+            None,  # No session
+            {},    # Empty dict
+            "",    # Empty string
+            []     # Empty list
+        ]
+
+        for empty_session in empty_scenarios:
+            mock_quilt3.session.get_session_info.return_value = empty_session
+
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend(empty_session)
+
+            error_message = str(exc_info.value)
+            assert "session configuration is empty" in error_message
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_detection_when_get_session_info_raises_exception(self, mock_quilt3):
+        """Test session detection when get_session_info() raises various exceptions."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Test different exception scenarios
+        exception_scenarios = [
+            Exception("Session expired"),
+            PermissionError("Access denied to session file"),
+            FileNotFoundError("Session file not found"),
+            ValueError("Invalid session format"),
+            ConnectionError("Cannot connect to authentication server"),
+            TimeoutError("Session validation timeout")
+        ]
+
+        for exception in exception_scenarios:
+            mock_quilt3.session.get_session_info.side_effect = exception
+
+            with pytest.raises(AuthenticationError) as exc_info:
+                # Try to create backend with a dummy session, but get_session_info will fail
+                Quilt3_Backend({'registry': 's3://test'})
+
+            error_message = str(exc_info.value)
+            assert "Invalid quilt3 session" in error_message
+            assert str(exception) in error_message
+
+            # Reset side effect for next test
+            mock_quilt3.session.get_session_info.side_effect = None
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_various_registry_formats(self, mock_quilt3):
+        """Test session validation with different registry URL formats."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Test various valid registry formats
+        registry_formats = [
+            's3://simple-bucket',
+            's3://bucket-with-dashes',
+            's3://bucket.with.dots',
+            's3://bucket_with_underscores',
+            's3://123numeric-bucket',
+            's3://very-long-bucket-name-with-many-characters-for-testing',
+            's3://a',  # Single character
+        ]
+
+        for registry in registry_formats:
+            session_config = {'registry': registry}
+            mock_quilt3.session.get_session_info.return_value = session_config
+
+            # Should create backend successfully
+            backend = Quilt3_Backend(session_config)
+            assert backend.session['registry'] == registry
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_complex_credentials(self, mock_quilt3):
+        """Test session validation with complex credential configurations."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Test various credential configurations
+        credential_configs = [
+            # AWS access keys
+            {
+                'registry': 's3://test-registry',
+                'credentials': {
+                    'access_key': 'AKIAIOSFODNN7EXAMPLE',
+                    'secret_key': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+                }
+            },
+            # AWS profile-based
+            {
+                'registry': 's3://test-registry',
+                'profile': 'my-aws-profile',
+                'region': 'us-west-2'
+            },
+            # Session token
+            {
+                'registry': 's3://test-registry',
+                'credentials': {
+                    'access_key': 'AKIAIOSFODNN7EXAMPLE',
+                    'secret_key': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+                    'session_token': 'AQoEXAMPLEH4aoAH0gNCAPyJxz4BlCFFxWNE1OPTgk5TthT+FvwqnKwRcOIfrRh3c/LTo6UDdyJwOOvEVPvLXCrrrUtdnniCEXAMPLE/IvU1dYUg2RVAJBanLiHb4IgRmpRV3zrkuWJOgQs8IZZaIv2BXIa2R4OlgkBN9bkUDNCJiBeb/AXlzBBko7b15fjrBs2+cTQtpZ3CYWFXG8C5zqx37wnOE49mRl/+OtkIKGO7fAE'
+                }
+            },
+            # Minimal configuration
+            {
+                'registry': 's3://minimal-registry'
+            }
+        ]
+
+        for config in credential_configs:
+            mock_quilt3.session.get_session_info.return_value = config
+
+            # Should create backend successfully
+            backend = Quilt3_Backend(config)
+            assert backend.session == config
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_preserves_all_session_data(self, mock_quilt3):
+        """Test that session validation preserves all provided session data."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Comprehensive session configuration
+        comprehensive_session = {
+            'registry': 's3://comprehensive-registry',
+            'credentials': {
+                'access_key': 'AKIAIOSFODNN7EXAMPLE',
+                'secret_key': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+                'session_token': 'temporary-session-token'
+            },
+            'region': 'us-west-2',
+            'profile': 'production',
+            'endpoint_url': 'https://custom-s3-endpoint.example.com',
+            'metadata': {
+                'user': 'test-user',
+                'environment': 'testing',
+                'created_at': '2024-01-01T12:00:00Z'
+            },
+            'custom_field': 'custom_value'
+        }
+
+        mock_quilt3.session.get_session_info.return_value = comprehensive_session
+
+        # Create backend
+        backend = Quilt3_Backend(comprehensive_session)
+
+        # Verify all data is preserved
+        assert backend.session == comprehensive_session
+        assert backend.session['registry'] == 's3://comprehensive-registry'
+        assert backend.session['credentials']['access_key'] == 'AKIAIOSFODNN7EXAMPLE'
+        assert backend.session['region'] == 'us-west-2'
+        assert backend.session['profile'] == 'production'
+        assert backend.session['endpoint_url'] == 'https://custom-s3-endpoint.example.com'
+        assert backend.session['metadata']['user'] == 'test-user'
+        assert backend.session['custom_field'] == 'custom_value'
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_invalid_session_formats(self, mock_quilt3):
+        """Test session validation with various invalid session formats."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Test invalid session formats that should be rejected
+        invalid_sessions = [
+            None,  # None session
+            "",    # Empty string
+            [],    # List instead of dict
+        ]
+
+        for invalid_session in invalid_sessions:
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend(invalid_session)
+
+            error_message = str(exc_info.value)
+            assert "session configuration is empty" in error_message
+
+        # Test non-dict types that will cause AttributeError in validation
+        non_dict_sessions = [
+            "invalid_string",  # String instead of dict
+            123,   # Number instead of dict
+            True,  # Boolean instead of dict
+        ]
+
+        for invalid_session in non_dict_sessions:
+            with pytest.raises((AuthenticationError, AttributeError)):
+                Quilt3_Backend(invalid_session)
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_detection_when_quilt3_library_unavailable(self, mock_quilt3):
+        """Test session detection behavior when quilt3 library is not available."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Mock quilt3 as None (library not available)
+        with patch('quilt_mcp.backends.quilt3_backend.quilt3', None):
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend({'registry': 's3://test'})
+
+            error_message = str(exc_info.value)
+            assert "quilt3 library is not available" in error_message
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_get_session_info_method_missing(self, mock_quilt3):
+        """Test session validation when get_session_info method is not available."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Mock quilt3.session without get_session_info method
+        mock_session = Mock()
+        if hasattr(mock_session, 'get_session_info'):
+            delattr(mock_session, 'get_session_info')
+        mock_quilt3.session = mock_session
+
+        # Should still work if session config is provided directly
+        session_config = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(session_config)
+        assert backend.session == session_config
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_logging_behavior(self, mock_quilt3):
+        """Test that session validation produces appropriate log messages."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Mock valid session
+        session_config = {'registry': 's3://test-registry'}
+        mock_quilt3.session.get_session_info.return_value = session_config
+
+        # Capture log messages
+        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
+            backend = Quilt3_Backend(session_config)
+
+            # Verify appropriate logging
+            mock_logger.info.assert_called_with("Quilt3_Backend initialized successfully")
+
+        # Test logging for invalid session
+        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
+            with pytest.raises(AuthenticationError):
+                Quilt3_Backend(None)
+
+            # Should log error details
+            mock_logger.error.assert_called()
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_error_context_preservation(self, mock_quilt3):
+        """Test that session validation errors preserve context for debugging."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        # Test with exception that has detailed context
+        detailed_error = Exception("Session validation failed: Invalid credentials for registry s3://test-registry")
+        mock_quilt3.session.get_session_info.side_effect = detailed_error
+
+        with pytest.raises(AuthenticationError) as exc_info:
+            Quilt3_Backend({'registry': 's3://test-registry'})
+
+        error_message = str(exc_info.value)
+        # Should preserve original error context
+        assert "Invalid credentials for registry s3://test-registry" in error_message
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_concurrent_access_scenarios(self, mock_quilt3):
+        """Test session validation under concurrent access scenarios."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        import threading
+        import time
+
+        # Mock session that simulates concurrent access
+        session_config = {'registry': 's3://concurrent-test'}
+        mock_quilt3.session.get_session_info.return_value = session_config
+
+        results = []
+        errors = []
+
+        def create_backend():
+            try:
+                backend = Quilt3_Backend(session_config)
+                results.append(backend)
+            except Exception as e:
+                errors.append(e)
+
+        # Create multiple threads to test concurrent access
+        threads = []
+        for i in range(5):
+            thread = threading.Thread(target=create_backend)
+            threads.append(thread)
+            thread.start()
+
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+
+        # Verify all backends were created successfully
+        assert len(results) == 5
+        assert len(errors) == 0
+        for backend in results:
+            assert backend.session == session_config
+
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_performance_with_large_session_data(self, mock_quilt3):
+        """Test session validation performance with large session configurations."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        import time
+
+        # Create large session configuration
+        large_session = {
+            'registry': 's3://performance-test',
+            'credentials': {
+                'access_key': 'A' * 1000,  # Large access key
+                'secret_key': 'S' * 1000,  # Large secret key
+            },
+            'metadata': {
+                f'key_{i}': f'value_{i}' * 100 for i in range(1000)  # Large metadata
+            },
+            'large_list': [f'item_{i}' for i in range(10000)],  # Large list
+            'large_string': 'X' * 100000  # Large string
+        }
+
+        mock_quilt3.session.get_session_info.return_value = large_session
+
+        # Measure performance
+        start_time = time.time()
+        backend = Quilt3_Backend(large_session)
+        end_time = time.time()
+
+        # Should complete within reasonable time (less than 1 second)
+        assert (end_time - start_time) < 1.0
+        assert backend.session == large_session
+
+
 class TestQuilt3BackendMockPackageTransformation:
     """Test transformation with mock quilt3.Package objects with various configurations."""
 

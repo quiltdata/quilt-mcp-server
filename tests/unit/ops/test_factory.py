@@ -281,6 +281,248 @@ class TestQuiltOpsFactoryPhase1Scope:
         assert QuiltOpsFactory is not None  # Basic check that class exists
 
 
+class TestQuiltOpsFactorySessionDetection:
+    """Test the _detect_quilt3_session() method specifically."""
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_with_valid_session(self, mock_quilt3):
+        """Test _detect_quilt3_session() with valid session data."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Mock valid session
+        valid_session = {
+            'registry': 's3://test-registry',
+            'credentials': {'access_key': 'test', 'secret_key': 'test'}
+        }
+        mock_quilt3.session.get_session_info.return_value = valid_session
+
+        # Execute
+        result = QuiltOpsFactory._detect_quilt3_session()
+
+        # Verify
+        assert result == valid_session
+        mock_quilt3.session.get_session_info.assert_called_once()
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_with_no_session(self, mock_quilt3):
+        """Test _detect_quilt3_session() when no session is available."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Mock no session
+        mock_quilt3.session.get_session_info.return_value = None
+
+        # Execute
+        result = QuiltOpsFactory._detect_quilt3_session()
+
+        # Verify
+        assert result is None
+        mock_quilt3.session.get_session_info.assert_called_once()
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_with_empty_session(self, mock_quilt3):
+        """Test _detect_quilt3_session() with empty session data."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Mock empty session
+        mock_quilt3.session.get_session_info.return_value = {}
+
+        # Execute
+        result = QuiltOpsFactory._detect_quilt3_session()
+
+        # Verify - empty dict evaluates to False, so should return None
+        assert result is None
+        mock_quilt3.session.get_session_info.assert_called_once()
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_when_get_session_info_raises_exception(self, mock_quilt3):
+        """Test _detect_quilt3_session() when get_session_info() raises an exception."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Mock exception
+        mock_quilt3.session.get_session_info.side_effect = Exception("Session error")
+
+        # Execute
+        result = QuiltOpsFactory._detect_quilt3_session()
+
+        # Verify - should return None when exception occurs
+        assert result is None
+        mock_quilt3.session.get_session_info.assert_called_once()
+
+    @patch('quilt_mcp.ops.factory.quilt3', None)
+    def test_detect_quilt3_session_when_quilt3_unavailable(self):
+        """Test _detect_quilt3_session() when quilt3 library is not available."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Execute
+        result = QuiltOpsFactory._detect_quilt3_session()
+
+        # Verify - should return None when quilt3 is not available
+        assert result is None
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_with_various_session_types(self, mock_quilt3):
+        """Test _detect_quilt3_session() with various session data types."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Test different session data types that should return the session
+        valid_session_types = [
+            {'registry': 's3://test'},  # Dict with content
+            {'complex': {'nested': {'data': 'value'}}},  # Nested dict
+        ]
+
+        for session_data in valid_session_types:
+            mock_quilt3.session.get_session_info.return_value = session_data
+
+            result = QuiltOpsFactory._detect_quilt3_session()
+
+            assert result == session_data
+            mock_quilt3.session.get_session_info.assert_called()
+
+            # Reset for next test
+            mock_quilt3.session.get_session_info.reset_mock()
+
+        # Test session data types that evaluate to False and should return None
+        falsy_session_types = [
+            None,  # None
+            {},  # Empty dict
+        ]
+
+        for session_data in falsy_session_types:
+            mock_quilt3.session.get_session_info.return_value = session_data
+
+            result = QuiltOpsFactory._detect_quilt3_session()
+
+            assert result is None
+            mock_quilt3.session.get_session_info.assert_called()
+
+            # Reset for next test
+            mock_quilt3.session.get_session_info.reset_mock()
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_with_permission_errors(self, mock_quilt3):
+        """Test _detect_quilt3_session() with permission-related errors."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Test various permission errors
+        permission_errors = [
+            PermissionError("Access denied to session file"),
+            FileNotFoundError("Session file not found"),
+            OSError("Permission denied"),
+        ]
+
+        for error in permission_errors:
+            mock_quilt3.session.get_session_info.side_effect = error
+
+            result = QuiltOpsFactory._detect_quilt3_session()
+
+            # Should return None for permission errors (graceful degradation)
+            assert result is None
+            mock_quilt3.session.get_session_info.assert_called()
+
+            # Reset for next test
+            mock_quilt3.session.get_session_info.side_effect = None
+            mock_quilt3.session.get_session_info.reset_mock()
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_logging_behavior(self, mock_quilt3):
+        """Test that _detect_quilt3_session() produces appropriate log messages."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Test successful detection
+        valid_session = {'registry': 's3://test-registry'}
+        mock_quilt3.session.get_session_info.return_value = valid_session
+
+        with patch('quilt_mcp.ops.factory.logger') as mock_logger:
+            result = QuiltOpsFactory._detect_quilt3_session()
+
+            # Verify debug logging
+            mock_logger.debug.assert_any_call("Checking for quilt3 session")
+            mock_logger.debug.assert_any_call("Found valid quilt3 session")
+
+        # Test no session found
+        mock_quilt3.session.get_session_info.return_value = None
+
+        with patch('quilt_mcp.ops.factory.logger') as mock_logger:
+            result = QuiltOpsFactory._detect_quilt3_session()
+
+            # Verify debug logging
+            mock_logger.debug.assert_any_call("Checking for quilt3 session")
+            mock_logger.debug.assert_any_call("No quilt3 session found")
+
+        # Test exception handling
+        mock_quilt3.session.get_session_info.side_effect = Exception("Test error")
+
+        with patch('quilt_mcp.ops.factory.logger') as mock_logger:
+            result = QuiltOpsFactory._detect_quilt3_session()
+
+            # Verify error logging
+            mock_logger.debug.assert_any_call("Error checking quilt3 session: Test error")
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_with_complex_session_structures(self, mock_quilt3):
+        """Test _detect_quilt3_session() with complex session structures."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+
+        # Test complex session structure
+        complex_session = {
+            'registry': 's3://complex-registry',
+            'credentials': {
+                'access_key': 'AKIAIOSFODNN7EXAMPLE',
+                'secret_key': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+                'session_token': 'temporary-token'
+            },
+            'region': 'us-west-2',
+            'profile': 'production',
+            'metadata': {
+                'user': 'test-user',
+                'environment': 'production',
+                'created_at': '2024-01-01T12:00:00Z',
+                'nested': {
+                    'deep': {
+                        'structure': 'value'
+                    }
+                }
+            },
+            'custom_fields': ['field1', 'field2', 'field3']
+        }
+
+        mock_quilt3.session.get_session_info.return_value = complex_session
+
+        # Execute
+        result = QuiltOpsFactory._detect_quilt3_session()
+
+        # Verify complex structure is preserved
+        assert result == complex_session
+        assert result['credentials']['access_key'] == 'AKIAIOSFODNN7EXAMPLE'
+        assert result['metadata']['nested']['deep']['structure'] == 'value'
+        assert result['custom_fields'] == ['field1', 'field2', 'field3']
+
+    @patch('quilt_mcp.ops.factory.quilt3')
+    def test_detect_quilt3_session_performance_with_large_sessions(self, mock_quilt3):
+        """Test _detect_quilt3_session() performance with large session data."""
+        from quilt_mcp.ops.factory import QuiltOpsFactory
+        import time
+
+        # Create large session data
+        large_session = {
+            'registry': 's3://performance-test',
+            'large_metadata': {f'key_{i}': f'value_{i}' * 100 for i in range(1000)},
+            'large_list': [f'item_{i}' for i in range(10000)],
+            'large_string': 'X' * 100000
+        }
+
+        mock_quilt3.session.get_session_info.return_value = large_session
+
+        # Measure performance
+        start_time = time.time()
+        result = QuiltOpsFactory._detect_quilt3_session()
+        end_time = time.time()
+
+        # Should complete quickly (less than 1 second)
+        assert (end_time - start_time) < 1.0
+        assert result == large_session
+
+
 class TestQuiltOpsFactoryIntegration:
     """Test integration scenarios and complete factory workflows."""
 
