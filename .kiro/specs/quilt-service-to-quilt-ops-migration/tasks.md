@@ -136,10 +136,10 @@ Implement package creation, listing, and version management methods.
 
 ### 3.1 TDD: Package_Creation_Result domain object
 
-- [ ] Write tests for Package_Creation_Result dataclass in `tests/unit/domain/test_package_creation.py`
-- [ ] Test required fields: package_name, top_hash, registry, catalog_url
-- [ ] Create `src/quilt_mcp/domain/package_creation.py` to make tests pass
-- [ ] Implement Package_Creation_Result with validation
+- [x] Write tests for Package_Creation_Result dataclass in `tests/unit/domain/test_package_creation.py`
+- [x] Test required fields: package_name, top_hash, registry, catalog_url
+- [x] Create `src/quilt_mcp/domain/package_creation.py` to make tests pass
+- [x] Implement Package_Creation_Result with validation
 
 **Reference:** design.md lines 241-250
 
