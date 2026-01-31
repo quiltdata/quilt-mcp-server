@@ -11,6 +11,9 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from unittest.mock import Mock
 
+# Import domain objects for type checking
+from quilt_mcp.domain import Catalog_Config
+
 
 class TestQuiltOpsInterface:
     """Test QuiltOps abstract base class interface."""
@@ -50,7 +53,9 @@ class TestQuiltOpsInterface:
             'get_package_info', 
             'browse_content',
             'list_buckets',
-            'get_content_url'
+            'get_content_url',
+            'get_catalog_config',
+            'configure_catalog'
         }
         
         assert expected_methods.issubset(abstract_methods), (
@@ -92,6 +97,16 @@ class TestQuiltOpsInterface:
         url_params = list(url_sig.parameters.keys())
         assert url_params == ['self', 'package_name', 'registry', 'path']
 
+        # Check get_catalog_config signature
+        catalog_config_sig = inspect.signature(QuiltOps.get_catalog_config)
+        catalog_config_params = list(catalog_config_sig.parameters.keys())
+        assert catalog_config_params == ['self', 'catalog_url']
+
+        # Check configure_catalog signature
+        configure_sig = inspect.signature(QuiltOps.configure_catalog)
+        configure_params = list(configure_sig.parameters.keys())
+        assert configure_params == ['self', 'catalog_url']
+
     def test_quilt_ops_return_type_annotations(self):
         """Test that QuiltOps methods have correct return type annotations."""
         from quilt_mcp.ops.quilt_ops import QuiltOps
@@ -122,6 +137,14 @@ class TestQuiltOpsInterface:
         url_sig = inspect.signature(QuiltOps.get_content_url)
         assert url_sig.return_annotation == str
 
+        # Check get_catalog_config return type
+        catalog_config_sig = inspect.signature(QuiltOps.get_catalog_config)
+        assert catalog_config_sig.return_annotation == Catalog_Config
+
+        # Check configure_catalog return type
+        configure_sig = inspect.signature(QuiltOps.configure_catalog)
+        assert configure_sig.return_annotation is None or configure_sig.return_annotation == type(None)
+
     def test_quilt_ops_parameter_type_annotations(self):
         """Test that QuiltOps methods have correct parameter type annotations."""
         from quilt_mcp.ops.quilt_ops import QuiltOps
@@ -148,6 +171,14 @@ class TestQuiltOpsInterface:
         assert url_sig.parameters['package_name'].annotation == str
         assert url_sig.parameters['registry'].annotation == str
         assert url_sig.parameters['path'].annotation == str
+
+        # Check get_catalog_config parameter types
+        catalog_config_sig = inspect.signature(QuiltOps.get_catalog_config)
+        assert catalog_config_sig.parameters['catalog_url'].annotation == str
+
+        # Check configure_catalog parameter types
+        configure_sig = inspect.signature(QuiltOps.configure_catalog)
+        assert configure_sig.parameters['catalog_url'].annotation == str
 
 
 class TestQuiltOpsAbstractMethodBehavior:
@@ -203,6 +234,21 @@ class TestQuiltOpsAbstractMethodBehavior:
             
             def get_content_url(self, package_name: str, registry: str, path: str) -> str:
                 return "https://example.com/download/file.txt"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config(
+                    region="us-east-1",
+                    api_gateway_endpoint="https://api.example.com",
+                    analytics_bucket="test-analytics-bucket",
+                    stack_prefix="test-stack",
+                    tabulator_data_catalog="quilt-test-stack-tabulator"
+                )
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
         
         # Should be able to instantiate
         ops = ConcreteQuiltOps()
@@ -462,6 +508,15 @@ class TestQuiltOpsErrorHandling:
             
             def get_content_url(self, package_name: str, registry: str, path: str) -> str:
                 raise ValidationError("Invalid path", {"field": "path"})
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                raise BackendError("Catalog config unavailable", {"backend_type": "test"})
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                raise BackendError("Configure failed", {"backend_type": "test"})
+            
+            def get_registry_url(self) -> Optional[str]:
+                raise BackendError("Registry URL unavailable", {"backend_type": "test"})
         
         ops = ExceptionQuiltOps()
         
@@ -520,6 +575,21 @@ class TestQuiltOpsUsagePatterns:
             
             def get_content_url(self, package_name: str, registry: str, path: str) -> str:
                 return f"https://quilt3.example.com/{package_name}/{path}"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config(
+                    region="us-east-1",
+                    api_gateway_endpoint="https://api.quilt3.example.com",
+                    analytics_bucket="quilt3-analytics",
+                    stack_prefix="quilt3",
+                    tabulator_data_catalog="quilt-quilt3-tabulator"
+                )
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://quilt3-registry"
         
         class MockPlatformOps(QuiltOps):
             def get_auth_status(self) -> Auth_Status:
@@ -547,6 +617,21 @@ class TestQuiltOpsUsagePatterns:
             
             def get_content_url(self, package_name: str, registry: str, path: str) -> str:
                 return f"https://platform.example.com/{package_name}/{path}"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config(
+                    region="us-west-2",
+                    api_gateway_endpoint="https://api.platform.example.com",
+                    analytics_bucket="platform-analytics",
+                    stack_prefix="platform",
+                    tabulator_data_catalog="quilt-platform-tabulator"
+                )
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://platform-registry"
         
         # Should be able to use both polymorphically
         implementations = [MockQuilt3Ops(), MockPlatformOps()]
@@ -577,3 +662,476 @@ class TestQuiltOpsUsagePatterns:
             url = ops.get_content_url("test/package", "s3://registry", "file.txt")
             assert isinstance(url, str)
             assert "example.com" in url
+
+
+class TestQuiltOpsCatalogConfigMethods:
+    """Test QuiltOps catalog configuration methods - TDD Implementation."""
+
+    def test_get_catalog_config_method_exists(self):
+        """Test that get_catalog_config method exists in QuiltOps interface."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should have get_catalog_config method
+        assert hasattr(QuiltOps, 'get_catalog_config')
+        assert callable(getattr(QuiltOps, 'get_catalog_config'))
+
+    def test_configure_catalog_method_exists(self):
+        """Test that configure_catalog method exists in QuiltOps interface."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should have configure_catalog method
+        assert hasattr(QuiltOps, 'configure_catalog')
+        assert callable(getattr(QuiltOps, 'configure_catalog'))
+
+    def test_get_catalog_config_has_correct_signature(self):
+        """Test that get_catalog_config has the correct method signature."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        import inspect
+        
+        sig = inspect.signature(QuiltOps.get_catalog_config)
+        params = list(sig.parameters.keys())
+        
+        # Should have self and catalog_url parameters
+        assert params == ['self', 'catalog_url']
+        
+        # catalog_url should be annotated as str
+        assert sig.parameters['catalog_url'].annotation == str
+        
+        # Should return Catalog_Config
+        assert sig.return_annotation == Catalog_Config
+
+    def test_configure_catalog_has_correct_signature(self):
+        """Test that configure_catalog has the correct method signature."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        import inspect
+        
+        sig = inspect.signature(QuiltOps.configure_catalog)
+        params = list(sig.parameters.keys())
+        
+        # Should have self and catalog_url parameters
+        assert params == ['self', 'catalog_url']
+        
+        # catalog_url should be annotated as str
+        assert sig.parameters['catalog_url'].annotation == str
+        
+        # Should return None
+        assert sig.return_annotation is None or sig.return_annotation == type(None)
+
+    def test_get_catalog_config_is_abstract(self):
+        """Test that get_catalog_config is an abstract method."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should be in abstract methods
+        assert 'get_catalog_config' in QuiltOps.__abstractmethods__
+
+    def test_configure_catalog_is_abstract(self):
+        """Test that configure_catalog is an abstract method."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should be in abstract methods
+        assert 'configure_catalog' in QuiltOps.__abstractmethods__
+
+    def test_get_catalog_config_has_comprehensive_docstring(self):
+        """Test that get_catalog_config has a comprehensive docstring."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        docstring = QuiltOps.get_catalog_config.__doc__
+        assert docstring is not None
+        assert len(docstring.strip()) > 0
+        
+        # Should mention key concepts
+        assert "catalog" in docstring.lower()
+        assert "configuration" in docstring.lower()
+        assert "catalog_url" in docstring
+        assert "Catalog_Config" in docstring
+        
+        # Should document exceptions
+        assert "AuthenticationError" in docstring
+        assert "BackendError" in docstring
+        assert "ValidationError" in docstring
+        assert "NotFoundError" in docstring
+
+    def test_configure_catalog_has_comprehensive_docstring(self):
+        """Test that configure_catalog has a comprehensive docstring."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        docstring = QuiltOps.configure_catalog.__doc__
+        assert docstring is not None
+        assert len(docstring.strip()) > 0
+        
+        # Should mention key concepts
+        assert "configure" in docstring.lower()
+        assert "catalog" in docstring.lower()
+        assert "catalog_url" in docstring
+        
+        # Should document exceptions
+        assert "AuthenticationError" in docstring
+        assert "BackendError" in docstring
+        assert "ValidationError" in docstring
+
+    def test_catalog_methods_can_be_implemented(self):
+        """Test that catalog methods can be implemented in concrete classes."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        
+        class TestCatalogOps(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config(
+                    region="us-east-1",
+                    api_gateway_endpoint="https://api.test.com",
+                    analytics_bucket="test-analytics",
+                    stack_prefix="test",
+                    tabulator_data_catalog="quilt-test-tabulator"
+                )
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                # Implementation would configure the catalog
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
+        
+        # Should be able to instantiate and use
+        ops = TestCatalogOps()
+        
+        # Should be able to call get_catalog_config
+        config = ops.get_catalog_config("https://test.quiltdata.com")
+        assert isinstance(config, Catalog_Config)
+        assert config.region == "us-east-1"
+        assert config.api_gateway_endpoint == "https://api.test.com"
+        assert config.analytics_bucket == "test-analytics"
+        assert config.stack_prefix == "test"
+        assert config.tabulator_data_catalog == "quilt-test-tabulator"
+        
+        # Should be able to call configure_catalog
+        ops.configure_catalog("https://test.quiltdata.com")  # Should not raise
+
+    def test_catalog_methods_can_raise_domain_exceptions(self):
+        """Test that catalog methods can raise appropriate domain exceptions."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError, NotFoundError
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        
+        class ExceptionCatalogOps(QuiltOps):
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                if catalog_url == "https://invalid.com":
+                    raise ValidationError("Invalid catalog URL", {"field": "catalog_url"})
+                elif catalog_url == "https://notfound.com":
+                    raise NotFoundError("Catalog configuration not found")
+                elif catalog_url == "https://auth.com":
+                    raise AuthenticationError("Authentication required")
+                elif catalog_url == "https://backend.com":
+                    raise BackendError("Backend operation failed")
+                else:
+                    return Catalog_Config("us-east-1", "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                if catalog_url == "https://invalid.com":
+                    raise ValidationError("Invalid catalog URL", {"field": "catalog_url"})
+                elif catalog_url == "https://auth.com":
+                    raise AuthenticationError("Authentication required")
+                elif catalog_url == "https://backend.com":
+                    raise BackendError("Backend operation failed")
+            
+            def get_registry_url(self) -> Optional[str]:
+                return "s3://test-registry"
+        
+        ops = ExceptionCatalogOps()
+        
+        # get_catalog_config should raise appropriate exceptions
+        with pytest.raises(ValidationError):
+            ops.get_catalog_config("https://invalid.com")
+        
+        with pytest.raises(NotFoundError):
+            ops.get_catalog_config("https://notfound.com")
+        
+        with pytest.raises(AuthenticationError):
+            ops.get_catalog_config("https://auth.com")
+        
+        with pytest.raises(BackendError):
+            ops.get_catalog_config("https://backend.com")
+        
+        # configure_catalog should raise appropriate exceptions
+        with pytest.raises(ValidationError):
+            ops.configure_catalog("https://invalid.com")
+        
+        with pytest.raises(AuthenticationError):
+            ops.configure_catalog("https://auth.com")
+        
+        with pytest.raises(BackendError):
+            ops.configure_catalog("https://backend.com")
+
+    def test_catalog_methods_usage_patterns(self):
+        """Test common usage patterns for catalog configuration methods."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        
+        class UsagePatternOps(QuiltOps):
+            def __init__(self):
+                self.configured_catalog = None
+            
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", "s3://test")
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                # Simulate different catalog configurations
+                if "production" in catalog_url:
+                    return Catalog_Config(
+                        region="us-east-1",
+                        api_gateway_endpoint="https://api.prod.quiltdata.com",
+                        analytics_bucket="prod-analytics-bucket",
+                        stack_prefix="quilt-prod",
+                        tabulator_data_catalog="quilt-quilt-prod-tabulator"
+                    )
+                else:
+                    return Catalog_Config(
+                        region="us-west-2",
+                        api_gateway_endpoint="https://api.staging.quiltdata.com",
+                        analytics_bucket="staging-analytics-bucket",
+                        stack_prefix="quilt-staging",
+                        tabulator_data_catalog="quilt-quilt-staging-tabulator"
+                    )
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                self.configured_catalog = catalog_url
+            
+            def get_registry_url(self) -> Optional[str]:
+                if self.configured_catalog:
+                    if "production" in self.configured_catalog:
+                        return "s3://prod-registry"
+                    elif "staging" in self.configured_catalog:
+                        return "s3://staging-registry"
+                return "s3://default-registry"
+        
+        ops = UsagePatternOps()
+        
+        # Should be able to get different configurations
+        prod_config = ops.get_catalog_config("https://production.quiltdata.com")
+        staging_config = ops.get_catalog_config("https://staging.quiltdata.com")
+        
+        assert prod_config.region == "us-east-1"
+        assert staging_config.region == "us-west-2"
+        assert prod_config.stack_prefix == "quilt-prod"
+        assert staging_config.stack_prefix == "quilt-staging"
+        
+        # Should be able to configure catalog
+        ops.configure_catalog("https://production.quiltdata.com")
+        assert ops.configured_catalog == "https://production.quiltdata.com"
+        
+        # Should be able to use config for AWS operations
+        config = ops.get_catalog_config("https://production.quiltdata.com")
+        aws_region = config.region
+        api_endpoint = config.api_gateway_endpoint
+        tabulator_catalog = config.tabulator_data_catalog
+        
+        assert aws_region == "us-east-1"
+        assert "api.prod.quiltdata.com" in api_endpoint
+        assert "quilt-prod-tabulator" in tabulator_catalog
+
+
+class TestQuiltOpsRegistryUrlMethod:
+    """Test QuiltOps get_registry_url method - TDD Implementation."""
+
+    def test_get_registry_url_method_exists(self):
+        """Test that get_registry_url method exists in QuiltOps interface."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should have get_registry_url method
+        assert hasattr(QuiltOps, 'get_registry_url')
+        assert callable(getattr(QuiltOps, 'get_registry_url'))
+
+    def test_get_registry_url_has_correct_signature(self):
+        """Test that get_registry_url has the correct method signature."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        import inspect
+        
+        sig = inspect.signature(QuiltOps.get_registry_url)
+        params = list(sig.parameters.keys())
+        
+        # Should have only self parameter
+        assert params == ['self']
+        
+        # Should return Optional[str]
+        from typing import Optional
+        assert sig.return_annotation == Optional[str]
+
+    def test_get_registry_url_is_abstract(self):
+        """Test that get_registry_url is an abstract method."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Should be in abstract methods
+        assert 'get_registry_url' in QuiltOps.__abstractmethods__
+
+    def test_get_registry_url_has_comprehensive_docstring(self):
+        """Test that get_registry_url has a comprehensive docstring."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        docstring = QuiltOps.get_registry_url.__doc__
+        assert docstring is not None
+        assert len(docstring.strip()) > 0
+        
+        # Should mention key concepts
+        assert "registry" in docstring.lower()
+        assert "url" in docstring.lower()
+        assert "default" in docstring.lower()
+        
+        # Should document return type
+        assert "Optional[str]" in docstring or "str | None" in docstring or "None" in docstring
+
+    def test_get_registry_url_can_be_implemented(self):
+        """Test that get_registry_url can be implemented in concrete classes."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        from typing import Optional
+        
+        class TestRegistryOps(QuiltOps):
+            def __init__(self, registry_url: Optional[str] = None):
+                self.registry_url = registry_url
+            
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", self.registry_url)
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config("us-east-1", "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                pass
+            
+            def get_registry_url(self) -> Optional[str]:
+                return self.registry_url
+        
+        # Should be able to instantiate and use with registry URL
+        ops_with_registry = TestRegistryOps("s3://test-registry")
+        registry_url = ops_with_registry.get_registry_url()
+        assert registry_url == "s3://test-registry"
+        
+        # Should be able to instantiate and use without registry URL
+        ops_without_registry = TestRegistryOps(None)
+        registry_url = ops_without_registry.get_registry_url()
+        assert registry_url is None
+
+    def test_get_registry_url_usage_patterns(self):
+        """Test common usage patterns for get_registry_url method."""
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
+        from typing import Optional
+        
+        class UsagePatternRegistryOps(QuiltOps):
+            def __init__(self):
+                self.configured_registry = None
+            
+            def get_auth_status(self) -> Auth_Status:
+                return Auth_Status(True, "https://test.com", "test", self.configured_registry)
+            
+            def search_packages(self, query: str, registry: str) -> List[Package_Info]:
+                return []
+            
+            def get_package_info(self, package_name: str, registry: str) -> Package_Info:
+                return Package_Info("test/pkg", None, [], "2024-01-15T10:30:00Z", registry, "bucket", "hash")
+            
+            def browse_content(self, package_name: str, registry: str, path: str = "") -> List[Content_Info]:
+                return []
+            
+            def list_buckets(self) -> List[Bucket_Info]:
+                return []
+            
+            def get_content_url(self, package_name: str, registry: str, path: str) -> str:
+                return "https://test.com/file"
+            
+            def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+                return Catalog_Config("us-east-1", "https://api.test.com", "bucket", "test", "catalog")
+            
+            def configure_catalog(self, catalog_url: str) -> None:
+                # Simulate configuring registry based on catalog URL
+                if "production" in catalog_url:
+                    self.configured_registry = "s3://prod-registry"
+                elif "staging" in catalog_url:
+                    self.configured_registry = "s3://staging-registry"
+                else:
+                    self.configured_registry = "s3://default-registry"
+            
+            def get_registry_url(self) -> Optional[str]:
+                return self.configured_registry
+        
+        ops = UsagePatternRegistryOps()
+        
+        # Initially no registry configured
+        assert ops.get_registry_url() is None
+        
+        # Configure production catalog
+        ops.configure_catalog("https://production.quiltdata.com")
+        assert ops.get_registry_url() == "s3://prod-registry"
+        
+        # Configure staging catalog
+        ops.configure_catalog("https://staging.quiltdata.com")
+        assert ops.get_registry_url() == "s3://staging-registry"
+        
+        # Configure default catalog
+        ops.configure_catalog("https://default.quiltdata.com")
+        assert ops.get_registry_url() == "s3://default-registry"

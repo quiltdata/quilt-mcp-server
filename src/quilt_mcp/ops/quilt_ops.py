@@ -6,8 +6,8 @@ while maintaining consistent domain-driven operations for MCP tools.
 """
 
 from abc import ABC, abstractmethod
-from typing import List
-from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status
+from typing import List, Optional
+from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config
 
 
 class QuiltOps(ABC):
@@ -140,5 +140,61 @@ class QuiltOps(ABC):
             AuthenticationError: When authentication credentials are invalid or missing
             BackendError: When the backend operation fails or content is not found
             ValidationError: When parameters are invalid or path doesn't exist
+        """
+        pass
+
+    @abstractmethod
+    def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+        """Get catalog configuration from the specified catalog URL.
+
+        Retrieves the catalog configuration including AWS infrastructure details,
+        API endpoints, and derived information like stack prefix and tabulator catalog name.
+        This provides backend-agnostic access to catalog configuration data.
+
+        Args:
+            catalog_url: URL of the catalog (e.g., 'https://example.quiltdata.com')
+
+        Returns:
+            Catalog_Config object with configuration details
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When the backend operation fails or catalog is unreachable
+            ValidationError: When catalog_url parameter is invalid
+            NotFoundError: When catalog configuration is not found
+        """
+        pass
+
+    @abstractmethod
+    def configure_catalog(self, catalog_url: str) -> None:
+        """Configure the default catalog URL for subsequent operations.
+
+        Sets the default catalog URL that will be used for operations that don't
+        explicitly specify a catalog. This configuration persists across operations
+        within the same session.
+
+        Args:
+            catalog_url: URL of the catalog to configure as default
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid
+            BackendError: When the backend operation fails
+            ValidationError: When catalog_url parameter is invalid
+        """
+        pass
+
+    @abstractmethod
+    def get_registry_url(self) -> Optional[str]:
+        """Get the current default registry URL.
+
+        Retrieves the currently configured default registry URL that is used
+        for operations when no explicit registry is specified. This URL is
+        typically set through catalog configuration or authentication.
+
+        Returns:
+            Registry S3 URL (e.g., "s3://my-registry-bucket") or None if not configured
+
+        Raises:
+            BackendError: When the backend operation fails to retrieve registry URL
         """
         pass

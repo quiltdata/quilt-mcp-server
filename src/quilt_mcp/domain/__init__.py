@@ -8,5 +8,6 @@ from .package_info import Package_Info
 from .content_info import Content_Info
 from .bucket_info import Bucket_Info
 from .auth_status import Auth_Status
+from .catalog_config import Catalog_Config
 
-__all__ = ["Package_Info", "Content_Info", "Bucket_Info", "Auth_Status"]
+__all__ = ["Package_Info", "Content_Info", "Bucket_Info", "Auth_Status", "Catalog_Config"]

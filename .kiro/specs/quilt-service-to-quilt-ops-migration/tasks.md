@@ -14,50 +14,50 @@ Create the foundation authentication and configuration methods using TDD approac
 
 ### 1.1 TDD: Auth_Status domain object
 
-- [ ] Write tests for Auth_Status dataclass in `tests/unit/domain/test_auth_status.py`
-- [ ] Test required fields: is_authenticated, catalog_url, registry_url
-- [ ] Test optional fields and validation logic
-- [ ] Create `src/quilt_mcp/domain/auth_status.py` to make tests pass
-- [ ] Implement Auth_Status with proper validation
+- [x] Write tests for Auth_Status dataclass in `tests/unit/domain/test_auth_status.py`
+- [x] Test required fields: is_authenticated, catalog_url, registry_url
+- [x] Test optional fields and validation logic
+- [x] Create `src/quilt_mcp/domain/auth_status.py` to make tests pass
+- [x] Implement Auth_Status with proper validation
 
 **Replaces:** `is_authenticated()`, `get_logged_in_url()`
 **Reference:** design.md lines 172-178
 
 ### 1.2 TDD: get_auth_status() method
 
-- [ ] Write tests for `get_auth_status()` in `tests/unit/ops/test_quilt_ops.py`
-- [ ] Add abstract method to QuiltOps interface in `src/quilt_mcp/ops/quilt_ops.py`
-- [ ] Write tests for Quilt3_Backend implementation in `tests/unit/backends/test_quilt3_backend.py`
-- [ ] Implement in Quilt3_Backend using quilt3 session inspection
-- [ ] Test extraction of catalog_url and registry_url from quilt3 config
+- [x] Write tests for `get_auth_status()` in `tests/unit/ops/test_quilt_ops.py`
+- [x] Add abstract method to QuiltOps interface in `src/quilt_mcp/ops/quilt_ops.py`
+- [x] Write tests for Quilt3_Backend implementation in `tests/unit/backends/test_quilt3_backend.py`
+- [x] Implement in Quilt3_Backend using quilt3 session inspection
+- [x] Test extraction of catalog_url and registry_url from quilt3 config
 
 **Migration Note:** See Appendix A1 in design.md
 
 ### 1.3 TDD: Catalog_Config domain object
 
-- [ ] Write tests for Catalog_Config dataclass in `tests/unit/domain/test_catalog_config.py`
-- [ ] Test required fields: catalog_url, s3_buckets, default_bucket
-- [ ] Test configuration validation and error messages
-- [ ] Create `src/quilt_mcp/domain/catalog_config.py` to make tests pass
-- [ ] Implement Catalog_Config with proper validation
+- [x] Write tests for Catalog_Config dataclass in `tests/unit/domain/test_catalog_config.py`
+- [x] Test required fields: catalog_url, s3_buckets, default_bucket
+- [x] Test configuration validation and error messages
+- [x] Create `src/quilt_mcp/domain/catalog_config.py` to make tests pass
+- [x] Implement Catalog_Config with proper validation
 
 **Replaces:** `get_config()`, `get_catalog_config()`
 **Reference:** design.md lines 181-196
 
 ### 1.4 TDD: get_catalog_config() and configure_catalog() methods
 
-- [ ] Write tests for `get_catalog_config()` in `tests/unit/ops/test_quilt_ops.py`
-- [ ] Write tests for `configure_catalog()` in `tests/unit/ops/test_quilt_ops.py`
-- [ ] Add abstract methods to QuiltOps interface
-- [ ] Write tests for Quilt3_Backend implementation
-- [ ] Implement both methods in Quilt3_Backend
-- [ ] Test GraphQL query execution for catalog config retrieval
+- [x] Write tests for `get_catalog_config()` in `tests/unit/ops/test_quilt_ops.py`
+- [x] Write tests for `configure_catalog()` in `tests/unit/ops/test_quilt_ops.py`
+- [x] Add abstract methods to QuiltOps interface
+- [x] Write tests for Quilt3_Backend implementation
+- [x] Implement both methods in Quilt3_Backend
+- [x] Test GraphQL query execution for catalog config retrieval
 
 **Reference:** design.md lines 181-196
 
 ### 1.5 TDD: get_registry_url() method
 
-- [ ] Write tests for `get_registry_url()` in `tests/unit/ops/test_quilt_ops.py`
+- [-] Write tests for `get_registry_url()` in `tests/unit/ops/test_quilt_ops.py`
 - [ ] Add abstract method to QuiltOps interface
 - [ ] Write tests for Quilt3_Backend implementation
 - [ ] Implement in Quilt3_Backend using quilt3 config
@@ -67,7 +67,7 @@ Create the foundation authentication and configuration methods using TDD approac
 
 ### 1.6 Verification Checkpoint: Foundation Methods
 
-- [ ] Run linting: `ruff check src/quilt_mcp/ops/ src/quilt_mcp/domain/`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/ops/ src/quilt_mcp/domain/`
 - [ ] Run tests: `uv run pytest tests/unit/ops/ tests/unit/domain/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement auth & config foundation methods"`
@@ -116,7 +116,7 @@ Implement methods for GraphQL queries and AWS boto3 client access.
 
 ### 2.3 Verification Checkpoint: AWS & GraphQL Methods
 
-- [ ] Run linting: `ruff check src/quilt_mcp/ops/`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/ops/`
 - [ ] Run tests: `uv run pytest tests/unit/ops/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement AWS & GraphQL methods"`
@@ -175,7 +175,7 @@ Implement package creation, listing, and version management methods.
 
 ### 3.5 Verification Checkpoint: Package Operations
 
-- [ ] Run linting: `ruff check src/quilt_mcp/ops/ src/quilt_mcp/domain/`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/ops/ src/quilt_mcp/domain/`
 - [ ] Run tests: `uv run pytest tests/unit/ops/ tests/unit/domain/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement package operation methods"`
@@ -211,7 +211,7 @@ Implement package and object search methods.
 
 ### 4.3 Verification Checkpoint: Search Operations
 
-- [ ] Run linting: `ruff check src/quilt_mcp/ops/`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/ops/`
 - [ ] Run tests: `uv run pytest tests/unit/ops/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement search operation methods"`
@@ -259,7 +259,7 @@ Implement tabulator table management methods.
 
 ### 5.3 Verification Checkpoint: Tabulator Operations
 
-- [ ] Run linting: `ruff check src/quilt_mcp/ops/ src/quilt_mcp/domain/`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/ops/ src/quilt_mcp/domain/`
 - [ ] Run tests: `uv run pytest tests/unit/ops/ tests/unit/domain/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement tabulator admin methods"`
@@ -309,7 +309,7 @@ Implement user management methods.
 
 ### 6.3 Verification Checkpoint: User Operations
 
-- [ ] Run linting: `ruff check src/quilt_mcp/ops/ src/quilt_mcp/domain/`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/ops/ src/quilt_mcp/domain/`
 - [ ] Run tests: `uv run pytest tests/unit/ops/ tests/unit/domain/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement user admin methods"`
@@ -370,7 +370,7 @@ Implement role and SSO configuration management methods.
 
 ### 7.5 Verification Checkpoint: Roles & SSO Operations
 
-- [ ] Run linting: `ruff check src/quilt_mcp/ops/ src/quilt_mcp/domain/`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/ops/ src/quilt_mcp/domain/`
 - [ ] Run tests: `uv run pytest tests/unit/ops/ tests/unit/domain/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement role & SSO admin methods"`
@@ -421,7 +421,7 @@ Migrate authentication and metadata service to use QuiltOps.
 
 ### 8.5 Verification Checkpoint: auth_metadata.py Migration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/services/auth_metadata.py`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/services/auth_metadata.py`
 - [ ] Run tests: `uv run pytest tests/unit/services/test_auth_metadata.py -v`
 - [ ] Run integration tests: `uv run pytest tests/integration/ -k auth -v`
 - [ ] Verify all tests pass
@@ -462,7 +462,7 @@ Migrate Athena service to use QuiltOps boto3 client access.
 
 ### 9.4 Verification Checkpoint: athena_service.py Migration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/services/athena_service.py`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/services/athena_service.py`
 - [ ] Run tests: `uv run pytest tests/unit/services/test_athena_service.py -v`
 - [ ] Run integration tests: `uv run pytest tests/integration/ -k athena -v`
 - [ ] Verify all tests pass
@@ -508,7 +508,7 @@ Migrate Elasticsearch search backend to use QuiltOps.
 
 ### 10.5 Verification Checkpoint: elasticsearch.py Migration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/search/backends/elasticsearch.py`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/search/backends/elasticsearch.py`
 - [ ] Run tests: `uv run pytest tests/unit/search/ -v`
 - [ ] Run integration tests: `uv run pytest tests/integration/ -k search -v`
 - [ ] Verify all tests pass
@@ -559,7 +559,7 @@ Migrate package management tool to use QuiltOps.
 
 ### 11.6 Verification Checkpoint: packages.py Migration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/tools/packages.py`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/tools/packages.py`
 - [ ] Run tests: `uv run pytest tests/unit/tools/test_packages.py -v`
 - [ ] Run integration tests: `uv run pytest tests/integration/ -k package -v`
 - [ ] Verify all tests pass
@@ -607,7 +607,7 @@ Migrate tabulator service to use QuiltOps admin methods.
 
 ### 12.5 Verification Checkpoint: tabulator_service.py Migration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/services/tabulator_service.py`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/services/tabulator_service.py`
 - [ ] Run tests: `uv run pytest tests/unit/services/test_tabulator_service.py -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: migrate tabulator_service.py to QuiltOps"`
@@ -670,7 +670,7 @@ Migrate governance service to use QuiltOps admin methods.
 
 ### 13.7 Verification Checkpoint: governance_service.py Migration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/services/governance_service.py`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/services/governance_service.py`
 - [ ] Run tests: `uv run pytest tests/unit/services/test_governance_service.py -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: migrate governance_service.py to QuiltOps"`
@@ -694,7 +694,7 @@ Migrate stack buckets tool to use QuiltOps.
 
 ### 14.2 Verification Checkpoint: stack_buckets.py Migration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/tools/stack_buckets.py`
+- [ ] Run linting: `ruff check --fix src/quilt_mcp/tools/stack_buckets.py`
 - [ ] Run tests: `uv run pytest tests/unit/tools/test_stack_buckets.py -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: migrate stack_buckets.py to QuiltOps"`
@@ -763,7 +763,7 @@ Remove the legacy QuiltService class and perform final cleanup.
 
 ### 16.4 Final verification
 
-- [ ] Run full linting: `ruff check src/ tests/`
+- [ ] Run full linting: `ruff check --fix src/ tests/`
 - [ ] Run complete test suite: `uv run pytest -v`
 - [ ] Run integration tests: `uv run pytest tests/integration/ -v`
 - [ ] Verify test coverage: `uv run pytest --cov=src/quilt_mcp --cov-report=html`

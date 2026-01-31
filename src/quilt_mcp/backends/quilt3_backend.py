@@ -11,15 +11,18 @@ from datetime import datetime
 
 try:
     import quilt3
+    import requests
 except ImportError:
     quilt3 = None
+    requests = None
 
 from quilt_mcp.ops.quilt_ops import QuiltOps
-from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError
+from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError, NotFoundError
 from quilt_mcp.domain.package_info import Package_Info
 from quilt_mcp.domain.content_info import Content_Info
 from quilt_mcp.domain.bucket_info import Bucket_Info
 from quilt_mcp.domain.auth_status import Auth_Status
+from quilt_mcp.domain.catalog_config import Catalog_Config
 
 logger = logging.getLogger(__name__)
 
@@ -755,3 +758,198 @@ class Quilt3_Backend(QuiltOps):
         except (AttributeError, Exception):
             # If we can't access is_dir property, default to file
             return "file"
+
+    def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
+        """Get catalog configuration from the specified catalog URL.
+
+        Retrieves the catalog configuration by fetching config.json from the catalog URL
+        and transforming it into a Catalog_Config domain object.
+
+        Args:
+            catalog_url: URL of the catalog (e.g., 'https://example.quiltdata.com')
+
+        Returns:
+            Catalog_Config object with configuration details
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When the backend operation fails or catalog is unreachable
+            ValidationError: When catalog_url parameter is invalid
+            NotFoundError: When catalog configuration is not found
+        """
+        try:
+            logger.debug(f"Getting catalog config for: {catalog_url}")
+            
+            # Validate catalog URL
+            if not catalog_url or not isinstance(catalog_url, str):
+                raise ValidationError("Invalid catalog URL: must be a non-empty string")
+            
+            # Use quilt3 session to fetch config.json
+            if not hasattr(quilt3, 'session') or not hasattr(quilt3.session, 'get_session'):
+                raise AuthenticationError("quilt3 session not available - user may not be authenticated")
+            
+            session = quilt3.session.get_session()
+            if session is None:
+                raise AuthenticationError("No active quilt3 session - please run 'quilt3 login'")
+            
+            # Normalize URL and fetch config.json
+            normalized_url = catalog_url.rstrip("/")
+            config_url = f"{normalized_url}/config.json"
+            
+            logger.debug(f"Fetching config from: {config_url}")
+            response = session.get(config_url, timeout=10)
+            response.raise_for_status()
+            
+            full_config = response.json()
+            logger.debug("Successfully fetched catalog configuration")
+            
+            # Transform to Catalog_Config domain object
+            catalog_config = self._transform_catalog_config(full_config)
+            
+            logger.debug(f"Successfully retrieved catalog config for: {catalog_url}")
+            return catalog_config
+            
+        except ValidationError:
+            raise
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            # Handle HTTP errors
+            if hasattr(e, 'response') and e.response is not None:
+                if e.response.status_code == 404:
+                    raise NotFoundError(f"Catalog configuration not found at {catalog_url}")
+                elif e.response.status_code == 403:
+                    raise AuthenticationError(f"Access denied to catalog configuration at {catalog_url}")
+                else:
+                    raise BackendError(f"HTTP error fetching catalog config: {e}")
+            # Handle network errors
+            elif "Network" in str(e) or "Connection" in str(e):
+                raise BackendError(f"Network error fetching catalog config: {e}")
+            else:
+                logger.error(f"Catalog config retrieval failed: {str(e)}")
+                raise BackendError(f"Quilt3 backend get_catalog_config failed: {str(e)}")
+
+    def configure_catalog(self, catalog_url: str) -> None:
+        """Configure the default catalog URL for subsequent operations.
+
+        Sets the default catalog URL using quilt3.config() which persists the configuration
+        for future operations.
+
+        Args:
+            catalog_url: URL of the catalog to configure as default
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid
+            BackendError: When the backend operation fails
+            ValidationError: When catalog_url parameter is invalid
+        """
+        try:
+            logger.debug(f"Configuring catalog: {catalog_url}")
+            
+            # Validate catalog URL
+            if not catalog_url or not isinstance(catalog_url, str):
+                raise ValidationError("Invalid catalog URL: must be a non-empty string")
+            
+            # Use quilt3.config to set the catalog URL
+            quilt3.config(catalog_url)
+            
+            logger.debug(f"Successfully configured catalog: {catalog_url}")
+            
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Catalog configuration failed: {str(e)}")
+            raise BackendError(f"Quilt3 backend configure_catalog failed: {str(e)}")
+
+    def _transform_catalog_config(self, config_data: Dict[str, Any]) -> Catalog_Config:
+        """Transform raw catalog configuration to Catalog_Config domain object.
+
+        Args:
+            config_data: Raw configuration dictionary from config.json
+
+        Returns:
+            Catalog_Config domain object
+
+        Raises:
+            BackendError: If transformation fails
+        """
+        try:
+            logger.debug("Transforming catalog configuration")
+            
+            # Extract required fields with validation
+            region = config_data.get("region", "")
+            if not region:
+                raise BackendError("Missing required field 'region' in catalog configuration")
+            
+            api_gateway_endpoint = config_data.get("apiGatewayEndpoint", "")
+            if not api_gateway_endpoint:
+                raise BackendError("Missing required field 'apiGatewayEndpoint' in catalog configuration")
+            
+            analytics_bucket = config_data.get("analyticsBucket", "")
+            if not analytics_bucket:
+                raise BackendError("Missing required field 'analyticsBucket' in catalog configuration")
+            
+            # Derive stack prefix from analytics bucket name
+            # Example: "quilt-staging-analyticsbucket-10ort3e91tnoa" -> "quilt-staging"
+            stack_prefix = ""
+            analytics_bucket_lower = analytics_bucket.lower()
+            if "-analyticsbucket" in analytics_bucket_lower:
+                # Find the position in the original string (case-sensitive)
+                analyticsbucket_pos = analytics_bucket_lower.find("-analyticsbucket")
+                stack_prefix = analytics_bucket[:analyticsbucket_pos]
+            else:
+                # Fallback: use the full bucket name if no analyticsbucket suffix
+                # or first part before dash if there are dashes
+                if "-" in analytics_bucket:
+                    stack_prefix = analytics_bucket.split("-")[0]
+                else:
+                    stack_prefix = analytics_bucket
+            
+            # Derive tabulator data catalog name from stack prefix
+            # Example: "quilt-staging" -> "quilt-quilt-staging-tabulator"
+            tabulator_data_catalog = f"quilt-{stack_prefix}-tabulator"
+            
+            catalog_config = Catalog_Config(
+                region=region,
+                api_gateway_endpoint=api_gateway_endpoint,
+                analytics_bucket=analytics_bucket,
+                stack_prefix=stack_prefix,
+                tabulator_data_catalog=tabulator_data_catalog
+            )
+            
+            logger.debug("Successfully transformed catalog configuration")
+            return catalog_config
+            
+        except BackendError:
+            raise
+        except Exception as e:
+            logger.error(f"Catalog config transformation failed: {str(e)}")
+            raise BackendError(f"Catalog configuration transformation failed: {str(e)}")
+
+    def get_registry_url(self) -> Optional[str]:
+        """Get the current default registry URL.
+
+        Retrieves the currently configured default registry URL from the quilt3 session.
+        This URL is typically set through catalog configuration or authentication.
+
+        Returns:
+            Registry S3 URL (e.g., "s3://my-registry-bucket") or None if not configured
+
+        Raises:
+            BackendError: When the backend operation fails to retrieve registry URL
+        """
+        try:
+            logger.debug("Getting registry URL from quilt3 session")
+            
+            # Check if quilt3.session.get_registry_url method exists
+            if hasattr(quilt3.session, "get_registry_url"):
+                registry_url = quilt3.session.get_registry_url()
+                logger.debug(f"Retrieved registry URL: {registry_url}")
+                return registry_url
+            else:
+                logger.debug("quilt3.session.get_registry_url method not available")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Registry URL retrieval failed: {str(e)}")
+            raise BackendError(f"Quilt3 backend get_registry_url failed: {str(e)}")

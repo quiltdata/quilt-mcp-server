@@ -336,6 +336,125 @@ mypy src/
 
 ---
 
+## Project Structure
+
+### Source Code Organization (`src/quilt_mcp/`)
+
+```text
+src/quilt_mcp/
+├── backends/           # Backend implementations (Quilt3, QuiltOps)
+│   └── quilt3_backend.py
+├── cli/               # Command-line interface
+├── context/           # Request context management
+│   ├── handler.py
+│   ├── factory.py
+│   ├── request_context.py
+│   ├── tenant_extraction.py
+│   ├── propagation.py
+│   └── exceptions.py
+├── domain/            # Domain objects (QuiltOps migration)
+├── middleware/        # HTTP middleware (JWT auth)
+│   └── jwt_middleware.py
+├── models/            # Data models and schemas
+├── ops/               # QuiltOps abstraction layer
+├── optimization/      # Performance optimization
+│   ├── autonomous.py
+│   ├── interceptor.py
+│   ├── integration.py
+│   ├── scenarios.py
+│   └── testing.py
+├── search/            # Search functionality
+├── services/          # Business logic services
+├── storage/           # Data persistence
+├── telemetry/         # Observability and metrics
+├── tools/             # MCP tool implementations
+│   ├── auth_helpers.py
+│   ├── buckets.py
+│   ├── catalog.py
+│   ├── data_visualization.py
+│   ├── error_recovery.py
+│   ├── packages.py
+│   ├── quilt_summary.py
+│   ├── resource_access.py
+│   ├── search.py
+│   └── stack_buckets.py
+├── validators/        # Input validation
+├── visualization/     # Data visualization engine
+│   ├── analyzers/     # File and data analysis
+│   │   ├── data_analyzer.py
+│   │   ├── file_analyzer.py
+│   │   └── genomic_analyzer.py
+│   ├── generators/    # Visualization generators
+│   │   ├── echarts.py
+│   │   ├── igv.py
+│   │   ├── matplotlib.py
+│   │   ├── perspective.py
+│   │   └── vega_lite.py
+│   ├── layouts/       # Layout management
+│   │   └── grid_layout.py
+│   ├── utils/         # Visualization utilities
+│   │   ├── data_processing.py
+│   │   └── file_utils.py
+│   └── engine.py      # Main visualization engine
+├── config.py          # Configuration management
+├── constants.py       # Application constants
+├── formatting.py      # Output formatting
+├── health.py          # Health check endpoints
+├── main.py            # MCP server entry point
+├── resources.py       # Resource management
+├── runtime_context.py # Runtime context utilities
+├── utils.py           # General utilities
+└── version_sync.py    # Version synchronization
+```
+
+### Test Organization (`tests/`)
+
+```text
+tests/
+├── unit/              # Unit tests (isolated component testing)
+│   ├── backends/      # Backend implementation tests
+│   ├── context/       # Context management tests
+│   ├── domain/        # Domain object tests
+│   ├── models/        # Model tests
+│   ├── ops/           # QuiltOps tests
+│   ├── resources/     # Resource tests
+│   ├── search/        # Search tests
+│   ├── server/        # Server tests
+│   ├── services/      # Service tests
+│   ├── storage/       # Storage tests
+│   └── tools/         # Tool tests
+├── integration/       # Integration tests (multiple components)
+├── e2e/               # End-to-end tests (full workflows)
+├── stateless/         # Stateless operation tests
+├── security/          # Security and auth tests
+├── performance/       # Performance benchmarks
+├── load/              # Load testing
+├── fixtures/          # Test data and fixtures
+├── conftest.py        # Pytest configuration
+└── helpers.py         # Test utilities
+```
+
+### Key Architecture Patterns
+
+1. **Backends**: Abstract interface for Quilt3 and QuiltOps implementations
+2. **Context**: Request-scoped context propagation (tenant, auth, etc.)
+3. **Domain**: Domain-driven design objects for QuiltOps migration
+4. **Tools**: MCP tool definitions that expose functionality to AI agents
+5. **Visualization**: Pluggable visualization engine with multiple generators
+6. **Ops**: Abstraction layer for migrating from Quilt3 to QuiltOps
+
+### Testing Strategy
+
+- **Unit tests**: Test individual components in isolation with mocks
+- **Integration tests**: Test multiple components working together
+- **E2E tests**: Test complete user workflows from start to finish
+- **Stateless tests**: Verify operations don't depend on external state
+- **Security tests**: Test authentication, authorization, and data access
+- **Performance tests**: Benchmark critical operations
+- **Load tests**: Test system behavior under stress
+
+---
+
 ## Summary
 
 **Core Behavior:** When users want to understand, query, or explore data:

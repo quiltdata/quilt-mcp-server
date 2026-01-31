@@ -71,3 +71,25 @@ class ValidationError(Exception):
         """
         super().__init__(message)
         self.context = context or {}
+
+
+class NotFoundError(Exception):
+    """Exception raised when requested resources are not found.
+
+    This exception is raised when packages, content, catalogs, or other resources
+    cannot be found in the specified registry or location.
+
+    Attributes:
+        context: Dictionary containing resource-specific error details
+                such as resource type, identifier, and search location.
+    """
+
+    def __init__(self, message: str, context: Optional[Dict[str, Any]] = None):
+        """Initialize NotFoundError with message and optional context.
+
+        Args:
+            message: Human-readable error message
+            context: Optional dictionary with error details for debugging
+        """
+        super().__init__(message)
+        self.context = context or {}
