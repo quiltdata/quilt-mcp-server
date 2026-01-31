@@ -24,8 +24,17 @@ class PermissionDiscoveryService:
     """Request-scoped permission discovery service."""
 
     def __init__(self, auth_service: AuthService, *, cache_ttl: int = 3600) -> None:
-        session = auth_service.get_boto3_session()
-        self._discovery = AWSPermissionDiscovery(cache_ttl=cache_ttl, session=session)
+        self._auth_service = auth_service
+        self._cache_ttl = cache_ttl
+        self._discovery_instance: Optional[AWSPermissionDiscovery] = None
+
+    @property
+    def _discovery(self) -> AWSPermissionDiscovery:
+        """Lazy-initialize AWS permission discovery with session."""
+        if self._discovery_instance is None:
+            session = self._auth_service.get_boto3_session()
+            self._discovery_instance = AWSPermissionDiscovery(cache_ttl=self._cache_ttl, session=session)
+        return self._discovery_instance
 
     def discover_permissions(
         self,
