@@ -145,7 +145,6 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - Delete redundant environment variables: `QUILT_MCP_STATELESS_MODE`, `MCP_REQUIRE_JWT`, `QUILT_DISABLE_QUILT3_SESSION`
     - _Requirements: 9.2, 9.3, 9.4_
 
-
   - [x] 7.3 Fix malformed test in test_s3_package.py
     - Update test `test_create_enhanced_package_uses_create_package_revision` in
       `tests/unit/test_s3_package.py` lines 365-411
