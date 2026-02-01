@@ -75,7 +75,9 @@ class Quilt3_Backend_Session:
                 raise AuthenticationError("No active quilt3 session - please run 'quilt3 login'")
 
             # Normalize URL and fetch config.json
-            normalized_url = catalog_url.rstrip("/")
+            from quilt_mcp.utils import normalize_url
+
+            normalized_url = normalize_url(catalog_url)
             config_url = f"{normalized_url}/config.json"
 
             logger.debug(f"Fetching config from: {config_url}")

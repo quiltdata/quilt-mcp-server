@@ -57,6 +57,39 @@ def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
     return bucket, path, version_id
 
 
+def normalize_url(url: str, *, strip_trailing_slash: bool = True) -> str:
+    """Normalize URL by removing trailing slashes.
+
+    This function is useful for constructing consistent URLs when building paths
+    or endpoints. By default, removes trailing slashes to ensure predictable
+    URL joining behavior.
+
+    Args:
+        url: URL string to normalize
+        strip_trailing_slash: If True (default), remove trailing slash
+
+    Returns:
+        Normalized URL string
+
+    Examples:
+        >>> normalize_url("https://example.com/")
+        'https://example.com'
+        >>> normalize_url("https://api.quiltdata.com/")
+        'https://api.quiltdata.com'
+        >>> normalize_url("s3://bucket/")
+        's3://bucket'
+        >>> normalize_url("https://example.com/", strip_trailing_slash=False)
+        'https://example.com/'
+    """
+    if not url:
+        return url
+
+    if strip_trailing_slash:
+        return url.rstrip("/")
+
+    return url
+
+
 def fix_url(url: str) -> str:
     """Convert non-URL paths to file:// URLs.
 

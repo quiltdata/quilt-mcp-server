@@ -31,7 +31,7 @@ from .scope_handlers import (
     PackageScopeHandler,
     GlobalScopeHandler,
 )
-from ...services.quilt_service import QuiltService
+from ...ops.factory import QuiltOpsFactory
 from ..exceptions import (
     AuthenticationRequired,
     BackendError,
@@ -105,12 +105,16 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
     def __init__(
         self,
-        quilt_service: Optional[QuiltService] = None,
         backend: Optional["Quilt3_Backend"] = None,
     ):
         super().__init__(BackendType.ELASTICSEARCH)
-        self.quilt_service = quilt_service or QuiltService()
         self.backend = backend
+        if self.backend is None:
+            # Create QuiltOps instance for backward compatibility
+            factory = QuiltOpsFactory()
+            self.quilt_ops = factory.create()
+        else:
+            self.quilt_ops = None
         self._session_available = False
 
         # Initialize scope handlers
@@ -191,7 +195,10 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     def _check_session(self):
         """Check if quilt3 session is available."""
         try:
-            registry_url = self.quilt_service.get_registry_url()
+            if self.backend:
+                registry_url = self.backend.get_registry_url()
+            else:
+                registry_url = self.quilt_ops.get_registry_url()
             self._session_available = bool(registry_url)
             if self._session_available:
                 self._update_status(BackendStatus.AVAILABLE)
@@ -212,7 +219,10 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     async def health_check(self) -> bool:
         """Check if Elasticsearch backend is healthy."""
         try:
-            registry_url = self.quilt_service.get_registry_url()
+            if self.backend:
+                registry_url = self.backend.get_registry_url()
+            else:
+                registry_url = self.quilt_ops.get_registry_url()
             if registry_url:
                 self._update_status(BackendStatus.AVAILABLE)
                 return True
@@ -253,8 +263,10 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 if not session or not registry_url:
                     return []
 
+                from quilt_mcp.utils import normalize_url
+
                 resp = session.post(
-                    f"{registry_url.rstrip('/')}/graphql",
+                    f"{normalize_url(registry_url)}/graphql",
                     json={"query": "{ bucketConfigs { name } }"},
                     timeout=30,
                 )
@@ -468,7 +480,8 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                         }
 
             # Execute search with retry logic for 403 errors (too many indices)
-            search_api = self.quilt_service.get_search_api()
+            # Import search_api directly since QuiltOps doesn't expose this low-level API
+            from quilt3.search_util import search_api
 
             # Try search with full index pattern first
             try:
@@ -516,7 +529,11 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                     backend_name="elasticsearch",
                     cause=response["error"],
                     authenticated=self._session_available,
-                    catalog_url=self.quilt_service.get_registry_url() if self._session_available else None,
+                    catalog_url=(
+                        self.backend.get_registry_url() if self.backend else self.quilt_ops.get_registry_url()
+                    )
+                    if self._session_available
+                    else None,
                 )
 
             # Convert results using scope handler

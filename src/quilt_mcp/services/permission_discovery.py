@@ -595,7 +595,9 @@ class AWSPermissionDiscovery:
                     return set()
 
                 # Construct GraphQL endpoint URL
-                graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
+                from quilt_mcp.utils import normalize_url
+
+                graphql_url = urljoin(normalize_url(registry_url) + "/", "graphql")
                 logger.info(f"Querying GraphQL endpoint: {graphql_url}")
 
                 # Query for bucket configurations

@@ -13,6 +13,7 @@ from quilt_mcp.utils import (
     fix_url,
     generate_signed_url,
     get_tool_modules,
+    normalize_url,
     parse_s3_uri,
     register_tools,
     run_server,
@@ -286,6 +287,34 @@ class TestUtils(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             fix_url(None)
         self.assertIn("Empty URL", str(context.exception))
+
+    # normalize_url tests
+
+    def test_normalize_url_strips_trailing_slash_by_default(self):
+        """Test normalize_url strips trailing slashes by default."""
+        self.assertEqual(normalize_url("https://example.com/"), "https://example.com")
+        self.assertEqual(normalize_url("s3://bucket/"), "s3://bucket")
+        self.assertEqual(normalize_url("https://api.example.com/v1/"), "https://api.example.com/v1")
+
+    def test_normalize_url_preserves_url_without_trailing_slash(self):
+        """Test normalize_url preserves URLs without trailing slashes."""
+        self.assertEqual(normalize_url("https://example.com"), "https://example.com")
+        self.assertEqual(normalize_url("s3://bucket"), "s3://bucket")
+
+    def test_normalize_url_with_strip_false_preserves_trailing_slash(self):
+        """Test normalize_url can preserve trailing slashes when requested."""
+        self.assertEqual(normalize_url("https://example.com/", strip_trailing_slash=False), "https://example.com/")
+        self.assertEqual(normalize_url("s3://bucket/", strip_trailing_slash=False), "s3://bucket/")
+
+    def test_normalize_url_handles_empty_string(self):
+        """Test normalize_url handles empty strings gracefully."""
+        self.assertEqual(normalize_url(""), "")
+        self.assertEqual(normalize_url(None), None)
+
+    def test_normalize_url_handles_multiple_trailing_slashes(self):
+        """Test normalize_url removes multiple trailing slashes."""
+        self.assertEqual(normalize_url("https://example.com///"), "https://example.com")
+        self.assertEqual(normalize_url("s3://bucket//"), "s3://bucket")
 
 
 class TestMCPServerConfiguration(unittest.TestCase):

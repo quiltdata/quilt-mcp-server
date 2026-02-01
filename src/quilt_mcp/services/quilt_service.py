@@ -92,9 +92,11 @@ class QuiltService:
 
         try:
             # Use requests session to fetch config.json from catalog
+            from quilt_mcp.utils import normalize_url
+
             session = quilt3.session.get_session()
             # Normalize URL - ensure no trailing slash
-            normalized_url = catalog_url.rstrip("/")
+            normalized_url = normalize_url(catalog_url)
             config_url = f"{normalized_url}/config.json"
 
             response = session.get(config_url, timeout=10)
@@ -399,11 +401,3 @@ class QuiltService:
             'UserNotFoundError': quilt3.admin.exceptions.UserNotFoundError,
             'BucketNotFoundError': quilt3.admin.exceptions.BucketNotFoundError,
         }
-
-    def get_quilt3_module(self) -> Any:
-        """Get the quilt3 module for backward compatibility.
-
-        Returns:
-            The quilt3 module
-        """
-        return quilt3
