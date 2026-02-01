@@ -188,11 +188,11 @@ class QuiltOps(ABC):
         """Get the current default registry URL.
 
         Retrieves the currently configured default registry URL that is used
-        for operations when no explicit registry is specified. This URL is
-        typically set through catalog configuration or authentication.
+        for GraphQL queries. This URL is typically set through catalog configuration
+        or authentication.
 
         Returns:
-            Registry S3 URL (e.g., "s3://my-registry-bucket") or None if not configured
+            Registry API URL (HTTPS) for GraphQL queries (e.g., "https://example-registry.quiltdata.com") or None if not configured
 
         Raises:
             BackendError: When the backend operation fails to retrieve registry URL

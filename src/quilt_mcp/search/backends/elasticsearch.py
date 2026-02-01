@@ -199,9 +199,11 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         """Check if quilt3 session is available."""
         try:
             if self.backend:
-                registry_url = self.backend.get_registry_url()
+                auth_status = self.backend.get_auth_status()
+                registry_url = auth_status.registry_url
             else:
-                registry_url = self.quilt_ops.get_registry_url()
+                auth_status = self.quilt_ops.get_auth_status()
+                registry_url = auth_status.registry_url
             self._session_available = bool(registry_url)
             if self._session_available:
                 self._update_status(BackendStatus.AVAILABLE)
@@ -223,9 +225,11 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         """Check if Elasticsearch backend is healthy."""
         try:
             if self.backend:
-                registry_url = self.backend.get_registry_url()
+                auth_status = self.backend.get_auth_status()
+                registry_url = auth_status.registry_url
             else:
-                registry_url = self.quilt_ops.get_registry_url()
+                auth_status = self.quilt_ops.get_auth_status()
+                registry_url = auth_status.registry_url
             if registry_url:
                 self._update_status(BackendStatus.AVAILABLE)
                 return True
@@ -255,18 +259,30 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 # Fall back to quilt3 session directly
                 import quilt3
 
-                if not hasattr(quilt3, "session") or not hasattr(quilt3.session, "get_session"):
+                if not hasattr(quilt3, "logged_in"):
                     return []
 
-                session = quilt3.session.get_session()
-                registry_url = (
-                    quilt3.session.get_registry_url() if hasattr(quilt3.session, "get_registry_url") else None
-                )
-
-                if not session or not registry_url:
+                logged_in_url = quilt3.logged_in()
+                if not logged_in_url:
                     return []
 
+                session = quilt3.session.get_session() if hasattr(quilt3, "session") else None
+                if not session:
+                    return []
+
+                # Get catalog config to find registry URL
                 from quilt_mcp.utils import normalize_url
+
+                normalized_catalog = normalize_url(logged_in_url)
+
+                # Fetch catalog config
+                config_response = session.get(f"{normalized_catalog}/config.json", timeout=10)
+                config_response.raise_for_status()
+                config_data = config_response.json()
+                registry_url = config_data.get("registryUrl")
+
+                if not registry_url:
+                    return []
 
                 resp = session.post(
                     f"{normalize_url(registry_url)}/graphql",
@@ -528,15 +544,23 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                     raise
 
             if "error" in response:
+                # Get catalog URL for error reporting
+                catalog_url = None
+                if self._session_available:
+                    try:
+                        if self.backend:
+                            auth_status = self.backend.get_auth_status()
+                        else:
+                            auth_status = self.quilt_ops.get_auth_status()
+                        catalog_url = auth_status.logged_in_url
+                    except Exception:
+                        pass
+
                 raise BackendError(
                     backend_name="elasticsearch",
                     cause=response["error"],
                     authenticated=self._session_available,
-                    catalog_url=(
-                        self.backend.get_registry_url() if self.backend else self.quilt_ops.get_registry_url()
-                    )
-                    if self._session_available
-                    else None,
+                    catalog_url=catalog_url,
                 )
 
             # Convert results using scope handler

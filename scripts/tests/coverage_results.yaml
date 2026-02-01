@@ -1,6 +1,6 @@
 summary:
   combined_pct_covered:
-    actual: 58.7
+    actual: 60.7
     required: 55.0
     passed: true
 files: {}

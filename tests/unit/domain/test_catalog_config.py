@@ -22,6 +22,7 @@ class TestCatalogConfigCreation:
         catalog_config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.quiltdata.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="quilt-staging-analyticsbucket-10ort3e91tnoa",
             stack_prefix="quilt-staging",
             tabulator_data_catalog="quilt-quilt-staging-tabulator",
@@ -38,6 +39,7 @@ class TestCatalogConfigCreation:
         catalog_config = Catalog_Config(
             region="us-west-2",
             api_gateway_endpoint="https://api.minimal.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="minimal-analytics",
             stack_prefix="minimal",
             tabulator_data_catalog="quilt-minimal-tabulator",
@@ -59,6 +61,7 @@ class TestCatalogConfigValidation:
         config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -70,6 +73,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -80,6 +84,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region=None,
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -90,6 +95,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region=123,
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -101,6 +107,7 @@ class TestCatalogConfigValidation:
         config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -112,6 +119,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -122,6 +130,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint=None,
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -132,6 +141,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint=123,
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -143,6 +153,7 @@ class TestCatalogConfigValidation:
         config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="my-analytics-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -154,6 +165,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -164,6 +176,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket=None,
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -174,6 +187,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket=123,
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -185,6 +199,7 @@ class TestCatalogConfigValidation:
         config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="my-stack",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -196,6 +211,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -206,6 +222,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix=None,
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -216,6 +233,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix=123,
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -227,6 +245,7 @@ class TestCatalogConfigValidation:
         config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -238,6 +257,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="",
@@ -248,6 +268,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog=None,
@@ -258,6 +279,7 @@ class TestCatalogConfigValidation:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog=123,
@@ -272,6 +294,7 @@ class TestCatalogConfigImmutability:
         catalog_config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -298,6 +321,7 @@ class TestCatalogConfigImmutability:
         catalog_config1 = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -306,6 +330,7 @@ class TestCatalogConfigImmutability:
         catalog_config2 = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -335,6 +360,7 @@ class TestCatalogConfigEquality:
         catalog_config1 = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -343,6 +369,7 @@ class TestCatalogConfigEquality:
         catalog_config2 = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -356,6 +383,7 @@ class TestCatalogConfigEquality:
         catalog_config1 = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -364,6 +392,7 @@ class TestCatalogConfigEquality:
         catalog_config2 = Catalog_Config(
             region="us-west-2",
             api_gateway_endpoint="https://api.other.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="other-bucket",
             stack_prefix="other",
             tabulator_data_catalog="quilt-other-tabulator",
@@ -377,6 +406,7 @@ class TestCatalogConfigEquality:
         base_config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -386,6 +416,7 @@ class TestCatalogConfigEquality:
         different_region = Catalog_Config(
             region="us-west-2",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -396,6 +427,7 @@ class TestCatalogConfigEquality:
         different_endpoint = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.other.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -406,6 +438,7 @@ class TestCatalogConfigEquality:
         different_bucket = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="other-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -421,6 +454,7 @@ class TestCatalogConfigStringRepresentation:
         catalog_config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -441,6 +475,7 @@ class TestCatalogConfigStringRepresentation:
         catalog_config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -465,6 +500,7 @@ class TestCatalogConfigUsagePatterns:
         catalog_config = Catalog_Config(
             region="us-west-2",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -479,6 +515,7 @@ class TestCatalogConfigUsagePatterns:
         catalog_config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.quiltdata.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="test",
             tabulator_data_catalog="quilt-test-tabulator",
@@ -493,6 +530,7 @@ class TestCatalogConfigUsagePatterns:
         catalog_config = Catalog_Config(
             region="us-east-1",
             api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",
             analytics_bucket="test-bucket",
             stack_prefix="production",
             tabulator_data_catalog="quilt-production-tabulator",
@@ -508,6 +546,7 @@ class TestCatalogConfigUsagePatterns:
             Catalog_Config(
                 region="us-east-1",
                 api_gateway_endpoint="https://api.prod.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="prod-bucket",
                 stack_prefix="prod",
                 tabulator_data_catalog="quilt-prod-tabulator",
@@ -515,6 +554,7 @@ class TestCatalogConfigUsagePatterns:
             Catalog_Config(
                 region="us-west-2",
                 api_gateway_endpoint="https://api.staging.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="staging-bucket",
                 stack_prefix="staging",
                 tabulator_data_catalog="quilt-staging-tabulator",
@@ -547,6 +587,7 @@ class TestCatalogConfigTypeHints:
         # Check that all fields have correct types
         assert type_hints['region'] is str
         assert type_hints['api_gateway_endpoint'] is str
+        assert type_hints['registry_url'] is str
         assert type_hints['analytics_bucket'] is str
         assert type_hints['stack_prefix'] is str
         assert type_hints['tabulator_data_catalog'] is str
@@ -564,6 +605,7 @@ class TestCatalogConfigTypeHints:
         expected_fields = {
             'region',
             'api_gateway_endpoint',
+            'registry_url',
             'analytics_bucket',
             'stack_prefix',
             'tabulator_data_catalog',
@@ -574,6 +616,7 @@ class TestCatalogConfigTypeHints:
         field_types = {f.name: f.type for f in fields}
         assert field_types['region'] is str
         assert field_types['api_gateway_endpoint'] is str
+        assert field_types['registry_url'] is str
         assert field_types['analytics_bucket'] is str
         assert field_types['stack_prefix'] is str
         assert field_types['tabulator_data_catalog'] is str
@@ -589,6 +632,7 @@ class TestCatalogConfigErrorMessages:
             Catalog_Config(
                 region=None,
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -599,6 +643,7 @@ class TestCatalogConfigErrorMessages:
             Catalog_Config(
                 region="",
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -609,6 +654,7 @@ class TestCatalogConfigErrorMessages:
             Catalog_Config(
                 region=123,
                 api_gateway_endpoint="https://api.example.com",
+                registry_url="https://example-registry.quiltdata.com",
                 analytics_bucket="test-bucket",
                 stack_prefix="test",
                 tabulator_data_catalog="quilt-test-tabulator",
@@ -621,6 +667,7 @@ class TestCatalogConfigErrorMessages:
         field_tests = [
             ("region", None, "region field is required and cannot be None"),
             ("api_gateway_endpoint", None, "api_gateway_endpoint field is required and cannot be None"),
+            ("registry_url", None, "registry_url field is required and cannot be None"),
             ("analytics_bucket", None, "analytics_bucket field is required and cannot be None"),
             ("stack_prefix", None, "stack_prefix field is required and cannot be None"),
             ("tabulator_data_catalog", None, "tabulator_data_catalog field is required and cannot be None"),
@@ -630,6 +677,7 @@ class TestCatalogConfigErrorMessages:
             kwargs = {
                 "region": "us-east-1",
                 "api_gateway_endpoint": "https://api.example.com",
+                "registry_url": "https://example-registry.quiltdata.com",
                 "analytics_bucket": "test-bucket",
                 "stack_prefix": "test",
                 "tabulator_data_catalog": "quilt-test-tabulator",

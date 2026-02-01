@@ -368,13 +368,24 @@ class Quilt3_Backend_Packages:
                 # (quilt3 default behavior is smart copying - only copies if bytes differ)
                 top_hash = package.push(package_name, registry=registry, message=message)
 
-            # Determine effective registry for result
-            effective_registry = registry or self.get_registry_url() or "s3://unknown-registry"  # type: ignore[attr-defined]
+            # Use provided registry (S3 URL required for Package_Creation_Result)
+            # No default - client must provide explicit registry bucket
+            effective_registry = registry or "s3://unknown-registry"
 
-            # Generate catalog URL if registry is available
+            # Build catalog URL from logged-in catalog
             catalog_url = None
-            if effective_registry and effective_registry != "s3://unknown-registry":
-                catalog_url = self._build_catalog_url(package_name, effective_registry)
+            try:
+                logged_in_url = self.quilt3.logged_in()  # type: ignore[attr-defined]
+                if logged_in_url:
+                    # Build catalog URL from actual catalog domain
+                    from quilt_mcp.utils import normalize_url
+
+                    normalized_catalog = normalize_url(logged_in_url)
+                    catalog_url = f"{normalized_catalog}/b/{package_name}"
+            except Exception:
+                # Fallback: try to build from registry if available
+                if effective_registry and effective_registry != "s3://unknown-registry":
+                    catalog_url = self._build_catalog_url(package_name, effective_registry)  # type: ignore[attr-defined]
 
             # Handle push failure (when top_hash is None or empty)
             if not top_hash:

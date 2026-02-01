@@ -118,80 +118,83 @@ class TestRunnerState:
             return self.phases[self.current_phase]
         return None
 
-    def format_status_line(self) -> str:
-        """Format three-line hierarchical status for TUI."""
-        lines = []
+    def format_progress_string(self, phase: PhaseStats) -> str:
+        """Format progress string for active subtask."""
+        if phase.tests_total == 0:
+            return ""
 
-        # Line 1: Active phase | Completed | Pending
+        # Calculate cumulative position across ALL phases
+        prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
+        current_test_num = prior_tests + phase.tests_passed + phase.tests_failed
+        total_tests = sum(p.tests_total for p in self.phases)
+
+        parts = [f"Test {current_test_num}/{total_tests}"]
+        # Use hourglass for in-progress passing tests (not checkmark which implies done)
+        if self.total_passed > 0:
+            parts.append(f"⏳ {self.total_passed}")
+        if self.total_failed > 0:
+            parts.append(f"❌ {self.total_failed}")
+
+        return " | ".join(parts)
+
+    def format_status_line(self) -> str:
+        """Format multi-line hierarchical status for TUI using tree structure."""
+        lines = []
         phase = self.current_phase_stats()
         phase_num = self.current_phase + 1
         total_phases = len(self.phases)
 
-        active = f"[{phase_num}.⏳ {phase.name}]" if phase else ""
+        # ANSI codes
+        DIM = "\033[2m"
+        RESET = "\033[0m"
 
-        completed = []
-        pending = []
-        for i, p in enumerate(self.phases):
-            if i < self.current_phase:
-                completed.append(p.name)
-            elif i > self.current_phase:
-                pending.append(p.name)
-
-        completed_str = f"✅ {', '.join(completed)}" if completed else ""
-        pending_str = f"💤 {', '.join(pending)}" if pending else ""
-
-        status_parts = [active, completed_str, pending_str]
-        phase_line = " | ".join(p for p in status_parts if p)
-
-        lines.append(f"Phase {phase_num}/{total_phases}: {phase_line}")
-
-        # Line 2: Current phase subtasks
-        if phase and phase.subtasks:
-            subtask_parts = []
-            letters = "abcdefghijklmnopqrstuvwxyz"
-            for i, subtask in enumerate(phase.subtasks):
-                if i == phase.current_subtask_idx:
-                    subtask_parts.append(f"[{letters[i]}. {subtask}]")
-                elif i < phase.current_subtask_idx:
-                    subtask_parts.append(f"✅ {letters[i]}. {subtask}")
-                else:
-                    subtask_parts.append(f"{letters[i]}. {subtask}")
-
-            lines.append(f"{phase.name}: {' | '.join(subtask_parts)}")
-        elif phase:
-            lines.append(f"{phase.name}")
-
-        # Line 3: Current subtask details with cumulative progress and timers
+        # Section 1: RUNNING header with timers on same line
         if phase:
-            letters = "abcdefghijklmnopqrstuvwxyz"
-            current_letter = (
-                letters[phase.current_subtask_idx] if phase.current_subtask_idx < len(phase.subtasks) else ""
-            )
-            current_subtask = (
-                phase.subtasks[phase.current_subtask_idx] if phase.current_subtask_idx < len(phase.subtasks) else ""
-            )
-
-            progress = ""
-            if phase.tests_total > 0:
-                # Calculate cumulative position across ALL phases
-                prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
-                current_test_num = prior_tests + phase.tests_passed + phase.tests_failed
-                total_tests = sum(p.tests_total for p in self.phases)
-
-                progress = f"[Test {current_test_num}/{total_tests}"
-                if self.total_passed > 0:
-                    progress += f" | ✅ {self.total_passed} passed"
-                if self.total_failed > 0:
-                    progress += f" | ❌ {self.total_failed} failed"
-                progress += "]"
-
+            elapsed = self.elapsed_time()
             lap = self.lap_time()
-            if current_subtask:
-                lines.append(f"{current_subtask} {progress} | ⏱️  {self.elapsed_time()} | 🔄 {lap}")
-            else:
-                lines.append(f"⏱️  {self.elapsed_time()} | 🔄 {lap}")
-        else:
-            lines.append(f"⏱️  {self.elapsed_time()}")
+            lines.append(f"🔄 RUNNING: Phase {phase_num}/{total_phases} - {phase.name} ⏱️  {elapsed} | 🔄 {lap}")
+
+            # Section 2: Tree structure for subtasks
+            if phase.subtasks:
+                letters = "abcdefghijklmnopqrstuvwxyz"
+                for i, subtask in enumerate(phase.subtasks):
+                    # Tree symbol: ├─ for middle items, └─ for last
+                    tree_symbol = "└─" if i == len(phase.subtasks) - 1 else "├─"
+                    letter = letters[i]
+
+                    if i == phase.current_subtask_idx:
+                        # Active subtask with full progress
+                        progress = self.format_progress_string(phase)
+                        if progress:
+                            lines.append(f"  {tree_symbol} {letter}. {subtask} [ACTIVE] {progress}")
+                        else:
+                            lines.append(f"  {tree_symbol} {letter}. {subtask} [ACTIVE]")
+                    elif i < phase.current_subtask_idx:
+                        # Completed subtask (dimmed)
+                        lines.append(f"{DIM}  {tree_symbol} {letter}. {subtask} ✅{RESET}")
+                    else:
+                        # Pending subtask
+                        lines.append(f"  {tree_symbol} {letter}. {subtask}")
+
+        # Section 3: Blank separator
+        lines.append("")
+
+        # Section 4: PENDING (forward-looking)
+        pending = [p.name for i, p in enumerate(self.phases) if i > self.current_phase]
+        if pending:
+            lines.append(f"💤 PENDING: {' | '.join(pending)}")
+
+        # Section 5: COMPLETED (past) - dimmed
+        completed = [p.name for i, p in enumerate(self.phases) if i < self.current_phase]
+        if completed:
+            lines.append(f"{DIM}✅ COMPLETED: {' | '.join(completed)}{RESET}")
+
+        # Section 6: All failures
+        if self.all_failures:
+            lines.append("")
+            for failure in self.all_failures:
+                line_info = f":{failure.line}" if failure.line else ""
+                lines.append(f"❌ {failure.phase}: {failure.test_path}{line_info}")
 
         return "\n".join(lines)
 
@@ -243,8 +246,9 @@ def parse_pytest_output(line: str, state: TestRunnerState) -> None:
             phase.tests_failed += 1
             state.total_failed += 1
             state.reset_lap_timer()
-            # Extract test path
-            match = re.search(r"(tests/[^:]+)::", line)
+            # Extract full test path including function name
+            # Match patterns like: tests/unit/test_file.py::TestClass::test_method FAILED
+            match = re.search(r"(tests/[^:]+::[^\s]+)", line)
             if match:
                 test_path = match.group(1)
                 line_match = re.search(r"line (\d+)", line)
@@ -418,14 +422,19 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
     else:
         print(f"❌ Test suite failed in {state.elapsed_time()}\n")
 
-        if state.all_failures:
-            for phase in state.phases:
+        # Show all phases with failures
+        for phase in state.phases:
+            if phase.tests_failed > 0:
+                print(f"  {phase.name} - ❌ {phase.tests_failed} failed:")
                 if phase.failures:
-                    print(f"  {phase.name} - ❌ {len(phase.failures)} failed:")
+                    # Show detailed failures if we captured them
                     for failure in phase.failures:
                         line_info = f":{failure.line}" if failure.line else ""
                         print(f"    • {failure.test_path}{line_info}")
-                    print()
+                else:
+                    # Show count only if we didn't capture details
+                    print(f"    Run with --verbose to see details")
+                print()
 
         print(f"  Total: {state.total_passed} passed, {state.total_failed} failed")
         print("\n  Run with --verbose for full output")

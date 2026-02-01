@@ -22,8 +22,20 @@ class TestAuthStatusImplementation:
     def test_get_auth_status_when_authenticated(self, mock_backend):
         """Test get_auth_status returns correct status when user is authenticated."""
         # Setup mock
+        from quilt_mcp.domain.catalog_config import Catalog_Config
+
         mock_backend.quilt3.logged_in.return_value = "https://example.quiltdata.com"
-        mock_backend.quilt3.session.get_registry_url.return_value = "s3://my-registry"
+
+        # Mock get_catalog_config to return a Catalog_Config with registry URL
+        mock_catalog_config = Catalog_Config(
+            region="us-east-1",
+            api_gateway_endpoint="https://api.example.com",
+            registry_url="https://example-registry.quiltdata.com",  # HTTPS URL, not S3!
+            analytics_bucket="my-analytics-bucket",
+            stack_prefix="example",
+            tabulator_data_catalog="quilt-example-tabulator",
+        )
+        mock_backend.get_catalog_config = Mock(return_value=mock_catalog_config)
 
         # Execute
         result = mock_backend.get_auth_status()
@@ -33,7 +45,7 @@ class TestAuthStatusImplementation:
         assert result.is_authenticated is True
         assert result.logged_in_url == "https://example.quiltdata.com"
         assert result.catalog_name == "example.quiltdata.com"
-        assert result.registry_url == "s3://my-registry"
+        assert result.registry_url == "https://example-registry.quiltdata.com"  # HTTPS, not S3
 
     def test_get_auth_status_when_not_authenticated(self, mock_backend):
         """Test get_auth_status returns correct status when user is not authenticated."""
@@ -63,11 +75,11 @@ class TestAuthStatusImplementation:
         assert result.is_authenticated is False
         assert result.logged_in_url is None
 
-    def test_get_auth_status_handles_registry_url_exception(self, mock_backend):
-        """Test get_auth_status handles exceptions from get_registry_url()."""
+    def test_get_auth_status_handles_catalog_config_exception(self, mock_backend):
+        """Test get_auth_status handles exceptions from get_catalog_config()."""
         # Setup mock
         mock_backend.quilt3.logged_in.return_value = "https://example.quiltdata.com"
-        mock_backend.get_registry_url = Mock(side_effect=Exception("Registry error"))
+        mock_backend.get_catalog_config = Mock(side_effect=Exception("Catalog config error"))
 
         # Execute
         result = mock_backend.get_auth_status()

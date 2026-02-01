@@ -19,7 +19,7 @@ class Auth_Status:
         is_authenticated: Whether the user is currently authenticated
         logged_in_url: URL of the catalog the user is logged into (if authenticated)
         catalog_name: Name of the catalog the user is logged into (if authenticated)
-        registry_url: Registry S3 URL the user is configured for (if authenticated)
+        registry_url: Registry API URL (HTTPS) for GraphQL queries (e.g., https://example-registry.quiltdata.com)
     """
 
     is_authenticated: bool

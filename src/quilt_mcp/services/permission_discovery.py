@@ -586,18 +586,41 @@ class AWSPermissionDiscovery:
         """Discover buckets by querying the Quilt catalog's GraphQL endpoint."""
         try:
             # Get the authenticated session from quilt3
-            if hasattr(quilt3, "session") and hasattr(quilt3.session, "get_session"):
-                session = quilt3.session.get_session()
-                registry_url = quilt3.session.get_registry_url()
+            if not hasattr(quilt3, "logged_in"):
+                logger.warning("quilt3.logged_in not available")
+                return set()
+
+            logged_in_url = quilt3.logged_in()
+            if not logged_in_url:
+                logger.warning("Not logged in to any catalog")
+                return set()
+
+            session = quilt3.session.get_session() if hasattr(quilt3, "session") else None
+            if not session:
+                logger.warning("quilt3 session not available")
+                return set()
+
+            # Get catalog config to find registry URL
+            from quilt_mcp.utils import normalize_url
+
+            normalized_catalog = normalize_url(logged_in_url)
+            config_url = f"{normalized_catalog}/config.json"
+
+            try:
+                config_response = session.get(config_url, timeout=10)
+                config_response.raise_for_status()
+                config_data = config_response.json()
+                registry_url = config_data.get("registryUrl")
 
                 if not registry_url:
-                    logger.warning("No registry URL available for GraphQL query")
+                    logger.warning("No registry URL in catalog config")
                     return set()
 
                 # Construct GraphQL endpoint URL
-                from quilt_mcp.utils import normalize_url
-
                 graphql_url = urljoin(normalize_url(registry_url) + "/", "graphql")
+            except Exception as e:
+                logger.warning(f"Failed to get catalog config: {e}")
+                return set()
                 logger.info(f"Querying GraphQL endpoint: {graphql_url}")
 
                 # Query for bucket configurations

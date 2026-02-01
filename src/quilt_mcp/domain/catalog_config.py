@@ -18,6 +18,7 @@ class Catalog_Config:
     Attributes:
         region: AWS region where the catalog is deployed
         api_gateway_endpoint: API Gateway endpoint URL for the catalog
+        registry_url: Registry API URL for GraphQL queries (e.g., https://example-registry.quiltdata.com)
         analytics_bucket: S3 bucket name used for analytics data
         stack_prefix: CloudFormation stack prefix (derived from analytics bucket)
         tabulator_data_catalog: Athena data catalog name for tabulator operations
@@ -25,6 +26,7 @@ class Catalog_Config:
 
     region: str
     api_gateway_endpoint: str
+    registry_url: str
     analytics_bucket: str
     stack_prefix: str
     tabulator_data_catalog: str
@@ -46,6 +48,14 @@ class Catalog_Config:
             raise TypeError("api_gateway_endpoint field must be a string")
         if self.api_gateway_endpoint == "":
             raise ValueError("api_gateway_endpoint field cannot be empty")
+
+        # Validate registry_url field
+        if self.registry_url is None:
+            raise TypeError("registry_url field is required and cannot be None")
+        if not isinstance(self.registry_url, str):
+            raise TypeError("registry_url field must be a string")
+        if self.registry_url == "":
+            raise ValueError("registry_url field cannot be empty")
 
         # Validate analytics_bucket field
         if self.analytics_bucket is None:
@@ -77,6 +87,7 @@ class Catalog_Config:
             (
                 self.region,
                 self.api_gateway_endpoint,
+                self.registry_url,
                 self.analytics_bucket,
                 self.stack_prefix,
                 self.tabulator_data_catalog,

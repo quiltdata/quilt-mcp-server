@@ -62,9 +62,10 @@ class Quilt3_Backend_Session:
 
             # Get registry URL if authenticated
             registry_url: Optional[str] = None
-            if is_authenticated:
+            if is_authenticated and logged_in_url:
                 try:
-                    registry_url = self.get_registry_url()
+                    catalog_config = self.get_catalog_config(logged_in_url)
+                    registry_url = catalog_config.registry_url
                 except Exception as e:
                     logger.debug(f"Failed to get registry URL: {e}")
                     registry_url = None
@@ -211,6 +212,10 @@ class Quilt3_Backend_Session:
             if not api_gateway_endpoint:
                 raise BackendError("Missing required field 'apiGatewayEndpoint' in catalog configuration")
 
+            registry_url = config_data.get("registryUrl", "")
+            if not registry_url:
+                raise BackendError("Missing required field 'registryUrl' in catalog configuration")
+
             analytics_bucket = config_data.get("analyticsBucket", "")
             if not analytics_bucket:
                 raise BackendError("Missing required field 'analyticsBucket' in catalog configuration")
@@ -238,6 +243,7 @@ class Quilt3_Backend_Session:
             catalog_config = Catalog_Config(
                 region=region,
                 api_gateway_endpoint=api_gateway_endpoint,
+                registry_url=registry_url,
                 analytics_bucket=analytics_bucket,
                 stack_prefix=stack_prefix,
                 tabulator_data_catalog=tabulator_data_catalog,
@@ -259,7 +265,7 @@ class Quilt3_Backend_Session:
         This URL is typically set through catalog configuration or authentication.
 
         Returns:
-            Registry S3 URL (e.g., "s3://my-registry-bucket") or None if not configured
+            Registry API URL (HTTPS) for GraphQL queries (e.g., "https://example-registry.quiltdata.com") or None if not configured
 
         Raises:
             BackendError: When the backend operation fails to retrieve registry URL
@@ -311,13 +317,22 @@ class Quilt3_Backend_Session:
             # Get authenticated session
             session = self.quilt3.session.get_session()
 
-            # Determine registry URL
-            registry_url = registry or self.quilt3.session.get_registry_url()
-            if not registry_url:
-                raise AuthenticationError("No registry configured")
+            # Get GraphQL endpoint
+            if registry:
+                # Legacy: registry parameter provided as S3 URL
+                api_url = self._get_graphql_endpoint(registry)
+            else:
+                # Modern: get registry URL from catalog config
+                logged_in_url = self.quilt3.logged_in()
+                if not logged_in_url:
+                    raise AuthenticationError("Not authenticated - no catalog configured")
 
-            # Get GraphQL endpoint from registry URL
-            api_url = self._get_graphql_endpoint(registry_url)
+                catalog_config = self.get_catalog_config(logged_in_url)
+                # Construct GraphQL endpoint from catalog's registry URL
+                from quilt_mcp.utils import normalize_url
+
+                normalized_registry = normalize_url(catalog_config.registry_url)
+                api_url = f"{normalized_registry}/api/graphql"
 
             # Prepare request payload
             payload: Dict[str, Any] = {"query": query}
@@ -396,14 +411,15 @@ class Quilt3_Backend_Session:
     def _get_graphql_endpoint(self, registry_url: str) -> str:
         """Extract GraphQL API endpoint from registry URL.
 
-        Converts an S3 registry URL to the corresponding GraphQL API endpoint.
-        This is a helper method for execute_graphql_query.
+        LEGACY: Converts an S3 registry URL to the corresponding GraphQL API endpoint.
+        This is only used for backward compatibility with old code that passes S3 URLs.
+        New code should use catalog_config.registry_url directly (which is already HTTPS).
 
         Args:
             registry_url: S3 registry URL (e.g., "s3://my-registry-bucket")
 
         Returns:
-            GraphQL API endpoint URL
+            GraphQL API endpoint URL (HTTPS)
 
         Raises:
             ValidationError: When registry URL format is invalid

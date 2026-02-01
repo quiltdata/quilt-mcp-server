@@ -131,9 +131,16 @@ class TestIndexPatternBuilder:
     def setup_method(self):
         """Setup mock backend for each test."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        from quilt_mcp.domain.auth_status import Auth_Status
 
         self.mock_backend = Mock(spec=Quilt3_Backend)
-        self.mock_backend.get_registry_url.return_value = "s3://test-registry"
+        mock_auth_status = Auth_Status(
+            is_authenticated=True,
+            logged_in_url="https://example.quiltdata.com",
+            catalog_name="example.quiltdata.com",
+            registry_url="https://example-registry.quiltdata.com",
+        )
+        self.mock_backend.get_auth_status.return_value = mock_auth_status
         self.backend = Quilt3ElasticsearchBackend(backend=self.mock_backend)
 
     def test_file_scope_with_bucket(self):
@@ -161,7 +168,6 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_backend.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return results from multiple buckets
         mock_search_api = Mock()
@@ -238,7 +244,6 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_backend.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return package entry results from multiple buckets
         mock_search_api = Mock()
@@ -317,7 +322,6 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_backend.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return BOTH file and package entry results from multiple buckets
         mock_search_api = Mock()
@@ -393,9 +397,16 @@ class TestResultNormalization:
     def setup_method(self):
         """Setup mock backend for each test."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        from quilt_mcp.domain.auth_status import Auth_Status
 
         self.mock_backend = Mock(spec=Quilt3_Backend)
-        self.mock_backend.get_registry_url.return_value = "s3://test-registry"
+        mock_auth_status = Auth_Status(
+            is_authenticated=True,
+            logged_in_url="https://example.quiltdata.com",
+            catalog_name="example.quiltdata.com",
+            registry_url="https://example-registry.quiltdata.com",
+        )
+        self.mock_backend.get_auth_status.return_value = mock_auth_status
         self.backend = Quilt3ElasticsearchBackend(backend=self.mock_backend)
 
     def test_normalize_file_result(self):
@@ -497,7 +508,6 @@ class TestSearchExecution:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         self.mock_backend = Mock(spec=Quilt3_Backend)
-        self.mock_backend.get_registry_url.return_value = "s3://test-registry"
 
         # Mock search API - we'll patch it directly since it's imported in the backend
         self.mock_search_api = Mock()
@@ -573,9 +583,16 @@ class TestDependencyInjection:
     def test_accepts_backend_dependency(self):
         """Backend should accept Quilt3_Backend as dependency."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        from quilt_mcp.domain.auth_status import Auth_Status
 
         mock_backend = Mock(spec=Quilt3_Backend)
-        mock_backend.get_registry_url.return_value = "s3://test-bucket"
+        mock_auth_status = Auth_Status(
+            is_authenticated=True,
+            logged_in_url="https://example.quiltdata.com",
+            catalog_name="example.quiltdata.com",
+            registry_url="https://example-registry.quiltdata.com",
+        )
+        mock_backend.get_auth_status.return_value = mock_auth_status
 
         backend = Quilt3ElasticsearchBackend(backend=mock_backend)
 
@@ -583,7 +600,7 @@ class TestDependencyInjection:
 
         # Verify dependency is used
         backend.ensure_initialized()
-        mock_backend.get_registry_url.assert_called()
+        mock_backend.get_auth_status.assert_called()
 
     def test_creates_default_quilt_ops_if_none_provided(self):
         """Backend should create default QuiltOps if none provided."""
