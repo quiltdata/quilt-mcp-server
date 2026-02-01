@@ -1501,8 +1501,8 @@ JWT Authentication:
   # Using command-line argument
   mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..." --tools-test
 
-  # Or generate token separately with jwt_helper
-  python scripts/tests/jwt_helper.py generate --role-arn arn:aws:iam::123456789012:role/TestRole --secret test-secret
+  # Or generate token separately with jwt_helpers
+  python tests/jwt_helpers.py generate --role-arn arn:aws:iam::123456789012:role/TestRole --secret test-secret --auto-extract
 
 For detailed JWT testing documentation, see: docs/JWT_TESTING.md
         """

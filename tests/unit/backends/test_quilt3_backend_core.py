@@ -41,8 +41,11 @@ class TestQuilt3BackendStructure:
 
         for method_name in abstract_methods:
             assert method_name in backend_methods, f"Missing implementation of abstract method: {method_name}"
-            # Verify the method is callable
-            assert callable(getattr(Quilt3_Backend, method_name))
+            # Verify the method is callable or is a property
+            attr = getattr(Quilt3_Backend, method_name)
+            assert callable(attr) or isinstance(attr, property), (
+                f"Method {method_name} is neither callable nor a property"
+            )
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_initialization_with_empty_session(self, mock_quilt3):

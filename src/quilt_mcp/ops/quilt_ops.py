@@ -7,7 +7,10 @@ while maintaining consistent domain-driven operations for MCP tools.
 
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
+from pydantic import GetCoreSchemaHandler
+from pydantic_core import core_schema
 from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config, Package_Creation_Result
+from .admin_ops import AdminOps
 
 
 class QuiltOps(ABC):
@@ -22,6 +25,41 @@ class QuiltOps(ABC):
     abstract away backend implementation details while providing consistent access
     to Quilt functionality.
     """
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
+        """Provide Pydantic core schema for QuiltOps abstract class.
+
+        This allows Pydantic to handle QuiltOps types in function signatures
+        without failing schema generation. Since QuiltOps is abstract and used
+        as an optional parameter in service functions, we provide a simple
+        schema that allows None values.
+        """
+        return core_schema.union_schema(
+            [
+                core_schema.none_schema(),
+                core_schema.any_schema(),
+            ]
+        )
+
+    @property
+    @abstractmethod
+    def admin(self) -> AdminOps:
+        """Access to admin operations.
+
+        Provides access to administrative operations including user management,
+        role management, and SSO configuration. This property returns an AdminOps
+        interface that abstracts backend-specific admin functionality.
+
+        Returns:
+            AdminOps interface for performing admin operations
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When admin functionality is not available or fails to initialize
+            PermissionError: When user lacks admin privileges
+        """
+        pass
 
     @abstractmethod
     def get_auth_status(self) -> Auth_Status:

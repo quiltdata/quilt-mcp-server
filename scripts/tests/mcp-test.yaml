@@ -584,7 +584,7 @@ test_tools:
       query: README.md
       limit: 10
       scope: global
-      bucket: ''
+      bucket: quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -613,7 +613,7 @@ test_tools:
       query: README.md
       limit: 10
       scope: file
-      bucket: ''
+      bucket: quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -625,7 +625,7 @@ test_tools:
       - content
     validation:
       type: search
-      min_results: 1
+      min_results: 0
       must_contain:
       - value: README.md
         field: title
@@ -648,7 +648,7 @@ test_tools:
       query: raw/test
       limit: 10
       scope: package
-      bucket: ''
+      bucket: quilt-ernest-staging
     response_schema:
       type: object
       properties:

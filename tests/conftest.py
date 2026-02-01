@@ -266,3 +266,41 @@ def cached_athena_service_constructor(athena_service_factory):
         yield
     finally:
         athena_glue.AthenaQueryService = original_constructor
+
+
+# ============================================================================
+# Quilt3 Backend Fixture
+# ============================================================================
+
+
+@pytest.fixture(scope="session")
+def quilt3_backend():
+    """Provide initialized Quilt3_Backend for integration tests.
+
+    This fixture creates a session-scoped Quilt3_Backend instance that uses
+    the current quilt3 session and AWS credentials from the environment.
+
+    Returns:
+        Quilt3_Backend: Initialized backend instance
+
+    Raises:
+        pytest.skip: If quilt3 is not authenticated or backend initialization fails
+    """
+    try:
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        backend = Quilt3_Backend()
+
+        # Verify auth status is available
+        try:
+            auth_status = backend.get_auth_status()
+            if not auth_status.is_authenticated:
+                pytest.skip("Quilt3 not authenticated - skipping integration tests")
+        except Exception as e:
+            pytest.skip(f"Failed to verify auth status: {e}")
+
+        return backend
+    except ImportError as e:
+        pytest.skip(f"Failed to import Quilt3_Backend: {e}")
+    except Exception as e:
+        pytest.skip(f"Failed to initialize Quilt3_Backend: {e}")

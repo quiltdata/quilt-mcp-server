@@ -14,10 +14,12 @@ from typing import Annotated, Dict, List, Any, Optional
 from pydantic import Field
 from ..utils import format_error_response
 from ..formatting import format_users_as_table, format_roles_as_table
+from ..ops.quilt_ops import QuiltOps
+from ..ops.exceptions import NotFoundError, BackendError, ValidationError, AuthenticationError, PermissionError
 
 logger = logging.getLogger(__name__)
 
-# Check admin availability and import modules directly
+# Check admin availability and import modules directly for backward compatibility
 try:
     import quilt3.admin.users
     import quilt3.admin.roles
@@ -58,9 +60,18 @@ else:
 class GovernanceService:
     """Service for managing Quilt governance and administration."""
 
-    def __init__(self, use_quilt_auth: bool = True):
+    def __init__(self, quilt_ops: Optional[QuiltOps] = None, use_quilt_auth: bool = True):
+        self.quilt_ops = quilt_ops
         self.use_quilt_auth = use_quilt_auth
         self.admin_available = ADMIN_AVAILABLE and use_quilt_auth
+
+    def _get_quilt_ops(self) -> QuiltOps:
+        """Get QuiltOps instance, creating one if not provided."""
+        if self.quilt_ops is None:
+            from ..ops.factory import QuiltOpsFactory
+
+            self.quilt_ops = QuiltOpsFactory.create()
+        return self.quilt_ops
 
     def _check_admin_available(self) -> Optional[Dict[str, Any]]:
         """Check if admin functionality is available."""
@@ -68,12 +79,34 @@ class GovernanceService:
             return format_error_response(
                 "Admin functionality not available - check Quilt authentication and admin privileges"
             )
+        try:
+            self._get_quilt_ops()
+            return None
+        except Exception as e:
+            return format_error_response(f"QuiltOps instance not available - admin functionality disabled: {str(e)}")
         return None
 
     def _handle_admin_error(self, e: Exception, operation: str) -> Dict[str, Any]:
         """Handle admin operation errors with appropriate messaging."""
         try:
-            # Use module-level exception classes so tests can patch them
+            # Handle domain exceptions from QuiltOps.admin
+            if isinstance(e, NotFoundError):
+                if "user_not_found" in e.context.get("error_type", ""):
+                    return format_error_response(f"User not found: {str(e)}")
+                elif "bucket_not_found" in e.context.get("error_type", ""):
+                    return format_error_response(f"Bucket not found: {str(e)}")
+                else:
+                    return format_error_response(f"Not found: {str(e)}")
+            elif isinstance(e, BackendError):
+                return format_error_response(f"Admin operation failed: {str(e)}")
+            elif isinstance(e, ValidationError):
+                return format_error_response(f"Validation error: {str(e)}")
+            elif isinstance(e, AuthenticationError):
+                return format_error_response(f"Authentication error: {str(e)}")
+            elif isinstance(e, PermissionError):
+                return format_error_response(f"Permission denied: {str(e)}")
+
+            # Fallback to legacy exception handling for backward compatibility
             if isinstance(e, UserNotFoundError):
                 return format_error_response(f"User not found: {str(e)}")
             elif isinstance(e, BucketNotFoundError):
@@ -90,12 +123,85 @@ class GovernanceService:
             logger.error(f"Error handling failed: {format_error}")
             return format_error_response("Admin operation failed due to an error in error handling")
 
+    def _transform_domain_user_to_response(self, user) -> Dict[str, Any]:
+        """Transform domain User object to expected response format."""
+        return {
+            "name": user.name,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_admin": user.is_admin,
+            "is_sso_only": user.is_sso_only,
+            "is_service": user.is_service,
+            "date_joined": user.date_joined,
+            "last_login": user.last_login,
+            "role": user.role.name if user.role else None,
+            "extra_roles": [role.name for role in user.extra_roles] if user.extra_roles else [],
+        }
+
+    def _transform_domain_user_to_detailed_response(self, user) -> Dict[str, Any]:
+        """Transform domain User object to detailed response format."""
+        return {
+            "name": user.name,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_admin": user.is_admin,
+            "is_sso_only": user.is_sso_only,
+            "is_service": user.is_service,
+            "date_joined": user.date_joined,
+            "last_login": user.last_login,
+            "role": (
+                {
+                    "name": user.role.name,
+                    "id": user.role.id,
+                    "arn": user.role.arn,
+                    "type": user.role.type,
+                }
+                if user.role
+                else None
+            ),
+            "extra_roles": (
+                [
+                    {
+                        "name": role.name,
+                        "id": role.id,
+                        "arn": role.arn,
+                        "type": role.type,
+                    }
+                    for role in user.extra_roles
+                ]
+                if user.extra_roles
+                else []
+            ),
+        }
+
+    def _transform_domain_role_to_response(self, role) -> Dict[str, Any]:
+        """Transform domain Role object to expected response format."""
+        return {
+            "id": role.id,
+            "name": role.name,
+            "arn": role.arn,
+            "type": role.type,
+        }
+
+    def _transform_domain_sso_config_to_response(self, sso_config) -> Dict[str, Any]:
+        """Transform domain SSOConfig object to expected response format."""
+        return {
+            "text": sso_config.text,
+            "timestamp": sso_config.timestamp,
+            "uploader": (
+                {"name": sso_config.uploader.name, "email": sso_config.uploader.email} if sso_config.uploader else None
+            ),
+        }
+
 
 # User Management Functions
 
 
-async def admin_users_list() -> Dict[str, Any]:
+async def admin_users_list(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
     """List all users in the registry with detailed information - Quilt governance and administrative operations
+
+    Args:
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing:
@@ -115,32 +221,18 @@ async def admin_users_list() -> Dict[str, Any]:
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
 
-        import quilt3.admin.users as admin_users
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_users = quilt_ops_instance.admin.list_users()
 
-        users = admin_users.list()
-
-        # Convert users to dictionaries for better handling
-        users_data = []
-        for user in users:
-            user_dict = {
-                "name": user.name,
-                "email": user.email,
-                "is_active": user.is_active,
-                "is_admin": user.is_admin,
-                "is_sso_only": user.is_sso_only,
-                "is_service": user.is_service,
-                "date_joined": (user.date_joined.isoformat() if user.date_joined else None),
-                "last_login": user.last_login.isoformat() if user.last_login else None,
-                "role": user.role.name if user.role else None,
-                "extra_roles": ([role.name for role in user.extra_roles] if user.extra_roles else []),
-            }
-            users_data.append(user_dict)
+        # Transform domain users to response format
+        users_data = [service._transform_domain_user_to_response(user) for user in domain_users]
 
         result = {
             "success": True,
@@ -155,7 +247,6 @@ async def admin_users_list() -> Dict[str, Any]:
         return result
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, "list users")
 
 
@@ -167,11 +258,13 @@ async def admin_user_get(
             examples=["john-doe", "admin-user"],
         ),
     ],
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Get detailed information about a specific user - Quilt governance and administrative operations
 
     Args:
         name: Username to retrieve
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing user information or error details
@@ -189,8 +282,8 @@ async def admin_user_get(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -198,46 +291,11 @@ async def admin_user_get(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        import quilt3.admin.users as admin_users
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_user = quilt_ops_instance.admin.get_user(name)
 
-        user = admin_users.get(name)
-
-        if user is None:
-            return format_error_response(f"User '{name}' not found")
-
-        user_data = {
-            "name": user.name,
-            "email": user.email,
-            "is_active": user.is_active,
-            "is_admin": user.is_admin,
-            "is_sso_only": user.is_sso_only,
-            "is_service": user.is_service,
-            "date_joined": user.date_joined.isoformat() if user.date_joined else None,
-            "last_login": user.last_login.isoformat() if user.last_login else None,
-            "role": (
-                {
-                    "name": user.role.name,
-                    "id": user.role.id,
-                    "arn": user.role.arn,
-                    "type": user.role.typename__,
-                }
-                if user.role
-                else None
-            ),
-            "extra_roles": (
-                [
-                    {
-                        "name": role.name,
-                        "id": role.id,
-                        "arn": role.arn,
-                        "type": role.typename__,
-                    }
-                    for role in user.extra_roles
-                ]
-                if user.extra_roles
-                else []
-            ),
-        }
+        user_data = service._transform_domain_user_to_detailed_response(domain_user)
 
         return {
             "success": True,
@@ -246,7 +304,6 @@ async def admin_user_get(
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"get user '{name}'")
 
 
@@ -280,6 +337,7 @@ async def admin_user_create(
             examples=[["data-scientist", "analyst"], []],
         ),
     ] = None,
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Create a new user in the registry - Quilt governance and administrative operations
 
@@ -288,6 +346,7 @@ async def admin_user_create(
         email: Email address for the new user
         role: Primary role for the user
         extra_roles: Additional roles to assign to the user
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing creation result and user information
@@ -307,8 +366,8 @@ async def admin_user_create(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -325,18 +384,13 @@ async def admin_user_create(
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        import quilt3.admin.users as admin_users
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_user = quilt_ops_instance.admin.create_user(
+            name=name, email=email, role=role, extra_roles=extra_roles or []
+        )
 
-        user = admin_users.create(name=name, email=email, role=role, extra_roles=extra_roles or [])
-
-        user_data = {
-            "name": user.name,
-            "email": user.email,
-            "is_active": user.is_active,
-            "is_admin": user.is_admin,
-            "role": user.role.name if user.role else None,
-            "extra_roles": ([role.name for role in user.extra_roles] if user.extra_roles else []),
-        }
+        user_data = service._transform_domain_user_to_response(domain_user)
 
         return {
             "success": True,
@@ -345,7 +399,6 @@ async def admin_user_create(
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"create user '{name}'")
 
 
@@ -357,11 +410,13 @@ async def admin_user_delete(
             examples=["user-to-remove", "inactive-user"],
         ),
     ],
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Delete a user from the registry - Quilt governance and administrative operations
 
     Args:
         name: Username to delete
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing deletion result
@@ -379,8 +434,8 @@ async def admin_user_delete(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -388,14 +443,13 @@ async def admin_user_delete(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        import quilt3.admin.users as admin_users
-
-        admin_users.delete(name)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        quilt_ops_instance.admin.delete_user(name)
 
         return {"success": True, "message": f"Successfully deleted user '{name}'"}
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"delete user '{name}'")
 
 
@@ -414,12 +468,14 @@ async def admin_user_set_email(
             examples=["newemail@example.com", "updated@company.org"],
         ),
     ],
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Update a user's email address - Quilt governance and administrative operations
 
     Args:
         name: Username to update
         email: New email address
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing update result and user information
@@ -438,8 +494,8 @@ async def admin_user_set_email(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -453,18 +509,17 @@ async def admin_user_set_email(
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        import quilt3.admin.users as admin_users
-
-        user = admin_users.set_email(name, email)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_user = quilt_ops_instance.admin.set_user_email(name, email)
 
         return {
             "success": True,
-            "user": {"name": user.name, "email": user.email},
+            "user": {"name": domain_user.name, "email": domain_user.email},
             "message": f"Successfully updated email for user '{name}' to '{email}'",
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"set email for user '{name}'")
 
 
@@ -483,12 +538,14 @@ async def admin_user_set_admin(
             examples=[True, False],
         ),
     ],
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Set the admin status for a user - Quilt governance and administrative operations
 
     Args:
         name: Username to update
         admin: Whether the user should have admin privileges
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing update result and user information
@@ -507,8 +564,8 @@ async def admin_user_set_admin(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -516,18 +573,17 @@ async def admin_user_set_admin(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        import quilt3.admin.users as admin_users
-
-        user = admin_users.set_admin(name, admin)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_user = quilt_ops_instance.admin.set_user_admin(name, admin)
 
         return {
             "success": True,
-            "user": {"name": user.name, "is_admin": user.is_admin},
+            "user": {"name": domain_user.name, "is_admin": domain_user.is_admin},
             "message": f"Successfully {'granted' if admin else 'revoked'} admin privileges for user '{name}'",
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"set admin status for user '{name}'")
 
 
@@ -546,12 +602,14 @@ async def admin_user_set_active(
             examples=[True, False],
         ),
     ],
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Set the active status for a user - Quilt governance and administrative operations
 
     Args:
         name: Username to update
         active: Whether the user should be active
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing update result and user information
@@ -570,8 +628,8 @@ async def admin_user_set_active(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -579,18 +637,17 @@ async def admin_user_set_active(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        import quilt3.admin.users as admin_users
-
-        user = admin_users.set_active(name, active)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_user = quilt_ops_instance.admin.set_user_active(name, active)
 
         return {
             "success": True,
-            "user": {"name": user.name, "is_active": user.is_active},
+            "user": {"name": domain_user.name, "is_active": domain_user.is_active},
             "message": f"Successfully {'activated' if active else 'deactivated'} user '{name}'",
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"set active status for user '{name}'")
 
 
@@ -602,11 +659,13 @@ async def admin_user_reset_password(
             examples=["john-doe", "user123"],
         ),
     ],
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Reset a user's password - Quilt governance and administrative operations
 
     Args:
         name: Username to reset password for
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing reset result
@@ -624,8 +683,8 @@ async def admin_user_reset_password(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -633,9 +692,9 @@ async def admin_user_reset_password(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        import quilt3.admin.users as admin_users
-
-        admin_users.reset_password(name)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        quilt_ops_instance.admin.reset_user_password(name)
 
         return {
             "success": True,
@@ -643,7 +702,6 @@ async def admin_user_reset_password(
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"reset password for user '{name}'")
 
 
@@ -677,6 +735,7 @@ async def admin_user_set_role(
             description="Whether to append extra roles to existing ones (True) or replace them (False)",
         ),
     ] = False,
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Set the primary and extra roles for a user - Quilt governance and administrative operations
 
@@ -685,6 +744,7 @@ async def admin_user_set_role(
         role: Primary role to assign
         extra_roles: Additional roles to assign
         append: Whether to append extra roles to existing ones (True) or replace them (False)
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing update result and user information
@@ -703,8 +763,8 @@ async def admin_user_set_role(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -714,22 +774,23 @@ async def admin_user_set_role(
         if not role:
             return format_error_response("Role cannot be empty")
 
-        import quilt3.admin.users as admin_users
-
-        user = admin_users.set_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_user = quilt_ops_instance.admin.set_user_role(
+            name=name, role=role, extra_roles=extra_roles or [], append=append
+        )
 
         return {
             "success": True,
             "user": {
-                "name": user.name,
-                "role": user.role.name if user.role else None,
-                "extra_roles": ([r.name for r in user.extra_roles] if user.extra_roles else []),
+                "name": domain_user.name,
+                "role": domain_user.role.name if domain_user.role else None,
+                "extra_roles": [r.name for r in domain_user.extra_roles] if domain_user.extra_roles else [],
             },
             "message": f"Successfully updated roles for user '{name}'",
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"set roles for user '{name}'")
 
 
@@ -748,12 +809,14 @@ async def admin_user_add_roles(
             examples=[["data-scientist", "analyst"], ["viewer"]],
         ),
     ],
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Add roles to a user - Quilt governance and administrative operations
 
     Args:
         name: Username to update
         roles: List of roles to add
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing update result and user information
@@ -772,8 +835,8 @@ async def admin_user_add_roles(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -783,23 +846,25 @@ async def admin_user_add_roles(
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
-        import quilt3.admin.users as admin_users
-
-        user = admin_users.add_roles(name, roles)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_user = quilt_ops_instance.admin.add_user_roles(name, roles)
 
         return {
             "success": True,
             "user": {
-                "name": user.name,
-                "role": user.role.name if user.role else None,
-                "extra_roles": ([r.name for r in user.extra_roles] if user.extra_roles else []),
+                "name": domain_user.name,
+                "role": domain_user.role.name if domain_user.role else None,
+                "extra_roles": [r.name for r in domain_user.extra_roles] if domain_user.extra_roles else [],
             },
             "message": f"Successfully added roles {roles} to user '{name}'",
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"add roles to user '{name}'")
+
+
+# Role Management Functions
 
 
 async def admin_user_remove_roles(
@@ -825,6 +890,7 @@ async def admin_user_remove_roles(
             examples=["viewer", "editor"],
         ),
     ] = None,
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Remove roles from a user - Quilt governance and administrative operations
 
@@ -832,6 +898,7 @@ async def admin_user_remove_roles(
         name: Username to update
         roles: List of roles to remove
         fallback: Fallback role if the primary role is removed
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing update result and user information
@@ -850,8 +917,8 @@ async def admin_user_remove_roles(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -861,30 +928,32 @@ async def admin_user_remove_roles(
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
-        import quilt3.admin.users as admin_users
-
-        user = admin_users.remove_roles(name, roles, fallback)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_user = quilt_ops_instance.admin.remove_user_roles(name, roles, fallback)
 
         return {
             "success": True,
             "user": {
-                "name": user.name,
-                "role": user.role.name if user.role else None,
-                "extra_roles": ([r.name for r in user.extra_roles] if user.extra_roles else []),
+                "name": domain_user.name,
+                "role": domain_user.role.name if domain_user.role else None,
+                "extra_roles": [r.name for r in domain_user.extra_roles] if domain_user.extra_roles else [],
             },
             "message": f"Successfully removed roles {roles} from user '{name}'",
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, f"remove roles from user '{name}'")
 
 
 # Role Management Functions
 
 
-async def admin_roles_list() -> Dict[str, Any]:
+async def admin_roles_list(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
     """List all available roles in the registry - Quilt governance and administrative operations
+
+    Args:
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing:
@@ -904,26 +973,18 @@ async def admin_roles_list() -> Dict[str, Any]:
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
 
-        import quilt3.admin.roles as admin_roles
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_roles = quilt_ops_instance.admin.list_roles()
 
-        roles = admin_roles.list()
-
-        # Convert roles to dictionaries for better handling
-        roles_data = []
-        for role in roles:
-            role_dict = {
-                "id": getattr(role, "id", None),
-                "name": getattr(role, "name", None),
-                "arn": getattr(role, "arn", None),
-                "type": getattr(role, "typename", getattr(role, "type", "unknown")),
-            }
-            roles_data.append(role_dict)
+        # Transform domain roles to response format
+        roles_data = [service._transform_domain_role_to_response(role) for role in domain_roles]
 
         result = {
             "success": True,
@@ -938,15 +999,17 @@ async def admin_roles_list() -> Dict[str, Any]:
         return result
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, "list roles")
 
 
 # SSO Configuration Functions
 
 
-async def admin_sso_config_get() -> Dict[str, Any]:
+async def admin_sso_config_get(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
     """Get the current SSO configuration - Quilt governance and administrative operations
+
+    Args:
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing SSO configuration or None if not configured
@@ -962,30 +1025,24 @@ async def admin_sso_config_get() -> Dict[str, Any]:
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
 
-        import quilt3.admin.sso_config as admin_sso_config
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_sso_config = quilt_ops_instance.admin.get_sso_config()
 
-        sso_config = admin_sso_config.get()
-
-        if sso_config is None:
+        if domain_sso_config is None:
             return {
                 "success": True,
                 "sso_config": None,
                 "message": "No SSO configuration found",
             }
 
-        config_data = {
-            "text": sso_config.text,
-            "timestamp": (sso_config.timestamp.isoformat() if sso_config.timestamp else None),
-            "uploader": (
-                {"name": sso_config.uploader.name, "email": sso_config.uploader.email} if sso_config.uploader else None
-            ),
-        }
+        config_data = service._transform_domain_sso_config_to_response(domain_sso_config)
 
         return {
             "success": True,
@@ -994,7 +1051,6 @@ async def admin_sso_config_get() -> Dict[str, Any]:
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, "get SSO configuration")
 
 
@@ -1006,11 +1062,13 @@ async def admin_sso_config_set(
             examples=["<saml_config>...</saml_config>", "provider_config_string"],
         ),
     ],
+    quilt_ops: Optional[QuiltOps] = None,
 ) -> Dict[str, Any]:
     """Set the SSO configuration - Quilt governance and administrative operations
 
     Args:
         config: SSO configuration text
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing update result and configuration information
@@ -1028,8 +1086,8 @@ async def admin_sso_config_set(
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
@@ -1037,20 +1095,11 @@ async def admin_sso_config_set(
         if not config:
             return format_error_response("SSO configuration cannot be empty")
 
-        import quilt3.admin.sso_config as admin_sso_config
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        domain_sso_config = quilt_ops_instance.admin.set_sso_config(config)
 
-        sso_config = admin_sso_config.set(config)
-
-        if sso_config is None:
-            return format_error_response("Failed to set SSO configuration")
-
-        config_data = {
-            "text": sso_config.text,
-            "timestamp": (sso_config.timestamp.isoformat() if sso_config.timestamp else None),
-            "uploader": (
-                {"name": sso_config.uploader.name, "email": sso_config.uploader.email} if sso_config.uploader else None
-            ),
-        }
+        config_data = service._transform_domain_sso_config_to_response(domain_sso_config)
 
         return {
             "success": True,
@@ -1059,12 +1108,14 @@ async def admin_sso_config_set(
         }
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, "set SSO configuration")
 
 
-async def admin_sso_config_remove() -> Dict[str, Any]:
+async def admin_sso_config_remove(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
     """Remove the SSO configuration - Quilt governance and administrative operations
+
+    Args:
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing removal result
@@ -1080,28 +1131,30 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
     """
+    service = GovernanceService(quilt_ops)
     try:
-        service = GovernanceService()
         error_check = service._check_admin_available()
         if error_check:
             return error_check
 
-        import quilt3.admin.sso_config as admin_sso_config
-
-        admin_sso_config.set(None)
+        # Use QuiltOps.admin interface
+        quilt_ops_instance = service._get_quilt_ops()
+        quilt_ops_instance.admin.remove_sso_config()
 
         return {"success": True, "message": "Successfully removed SSO configuration"}
 
     except Exception as e:
-        service = GovernanceService()
         return service._handle_admin_error(e, "remove SSO configuration")
 
 
 # Enhanced Tabulator Administration Functions
 
 
-async def admin_tabulator_open_query_get() -> Dict[str, Any]:
+async def admin_tabulator_open_query_get(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
     """Get the current tabulator open query status - Quilt governance and administrative operations
+
+    Args:
+        quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
         Dict containing open query status
@@ -1118,11 +1171,13 @@ async def admin_tabulator_open_query_get() -> Dict[str, Any]:
         ```
     """
     try:
-        service = GovernanceService()
+        service = GovernanceService(quilt_ops)
         error_check = service._check_admin_available()
         if error_check:
             return error_check
 
+        # Note: Tabulator operations are not yet part of AdminOps interface
+        # Using direct import for backward compatibility
         import quilt3.admin.tabulator as admin_tabulator
 
         open_query_enabled = admin_tabulator.get_open_query()
@@ -1134,7 +1189,7 @@ async def admin_tabulator_open_query_get() -> Dict[str, Any]:
         }
 
     except Exception as e:
-        service = GovernanceService()
+        service = GovernanceService(quilt_ops)
         return service._handle_admin_error(e, "get tabulator open query status")
 
 

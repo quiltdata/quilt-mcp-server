@@ -43,17 +43,9 @@ requires_collapse = pytest.mark.xfail(
 
 
 @pytest.fixture
-def backend():
-    """Get Quilt3_Backend instance."""
-    from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-    return Quilt3_Backend()
-
-
-@pytest.fixture
-def backend(quilt_service):
+def backend(quilt3_backend):
     """Get initialized Elasticsearch backend."""
-    backend = Quilt3ElasticsearchBackend(quilt_service=quilt_service)
+    backend = Quilt3ElasticsearchBackend(backend=quilt3_backend)
     backend._initialize()
     return backend
 

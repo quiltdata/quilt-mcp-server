@@ -25,6 +25,7 @@ from quilt_mcp.backends.quilt3_backend_packages import Quilt3_Backend_Packages
 from quilt_mcp.backends.quilt3_backend_content import Quilt3_Backend_Content
 from quilt_mcp.backends.quilt3_backend_buckets import Quilt3_Backend_Buckets
 from quilt_mcp.backends.quilt3_backend_session import Quilt3_Backend_Session
+from quilt_mcp.backends.quilt3_backend_admin import Quilt3_Backend_Admin
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class Quilt3_Backend(
     Quilt3_Backend_Buckets,
     Quilt3_Backend_Content,
     Quilt3_Backend_Packages,
+    Quilt3_Backend_Admin,
     Quilt3_Backend_Base,
     QuiltOps,
 ):
@@ -45,8 +47,26 @@ class Quilt3_Backend(
     - Content: Content browsing and URL generation
     - Buckets: Bucket listing and transformations
     - Session: Auth status, catalog config, GraphQL, and boto3 access
+    - Admin: User management, role management, and SSO configuration
 
     The mixin order is important for proper method resolution order (MRO).
     """
+
+    @property
+    def admin(self):
+        """Access to admin operations.
+
+        Provides access to administrative operations including user management,
+        role management, and SSO configuration through the AdminOps interface.
+
+        Returns:
+            AdminOps interface (self, since this class inherits from Quilt3_Backend_Admin)
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When admin functionality is not available or fails to initialize
+            PermissionError: When user lacks admin privileges
+        """
+        return self
 
     pass

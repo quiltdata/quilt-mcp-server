@@ -76,6 +76,7 @@ class PhaseStats:
     tests_failed: int = 0
     tests_total: int = 0
     failures: list[TestFailure] = field(default_factory=list)
+    error_lines: list[str] = field(default_factory=list)  # Capture error output
     completed: bool = False
 
 
@@ -189,12 +190,17 @@ class TestRunnerState:
         if completed:
             lines.append(f"{DIM}✅ COMPLETED: {' | '.join(completed)}{RESET}")
 
-        # Section 6: All failures
-        if self.all_failures:
+        # Section 6: All errors (expanding list at bottom)
+        all_errors = []
+        for phase in self.phases:
+            for error_line in phase.error_lines:
+                all_errors.append(error_line)
+
+        if all_errors:
             lines.append("")
-            for failure in self.all_failures:
-                line_info = f":{failure.line}" if failure.line else ""
-                lines.append(f"❌ {failure.phase}: {failure.test_path}{line_info}")
+            lines.append("🔍 ERRORS:")
+            for error_line in all_errors:
+                lines.append(f"  {error_line}")
 
         return "\n".join(lines)
 
@@ -377,6 +383,14 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
             parse_subtask_transition(line, state)
             parse_pytest_output(line, state)
 
+            # Capture error-related lines for display in TUI bottom section
+            phase = state.current_phase_stats()
+            is_error = any(keyword in line for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
+
+            if phase and is_error:
+                # Add to error list (no limit - show all errors)
+                phase.error_lines.append(line)
+
     process.wait()
 
     # Stop refresh thread
@@ -431,13 +445,19 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
                     for failure in phase.failures:
                         line_info = f":{failure.line}" if failure.line else ""
                         print(f"    • {failure.test_path}{line_info}")
+                elif phase.error_lines:
+                    # Show captured error lines if we didn't parse specific failures
+                    print(f"    Error output:")
+                    for error_line in phase.error_lines:
+                        print(f"      {error_line}")
                 else:
-                    # Show count only if we didn't capture details
-                    print(f"    Run with --verbose to see details")
+                    # Shouldn't happen, but handle gracefully
+                    print(f"    No detailed error information captured")
                 print()
 
         print(f"  Total: {state.total_passed} passed, {state.total_failed} failed")
-        print("\n  Run with --verbose for full output")
+        if not USE_TUI:
+            print("\n  Run with --verbose for full command output")
 
 
 def run_phase(phase_idx: int, cmd: list[str], state: TestRunnerState, live: Optional["Live"] = None) -> int:
@@ -506,8 +526,9 @@ def main() -> int:
                     exit_code = code
                     # Continue running remaining phases to collect all failures
 
-            # Show final status
-            live.update(Text(f"✅ Test run completed in {state.elapsed_time()}"))
+            # Show final status with all errors visible
+            final_status = state.format_status_line()
+            live.update(Text(final_status))
     else:
         # Run without TUI
         for phase_idx, cmd in phases_cmds:
@@ -515,8 +536,8 @@ def main() -> int:
             if code != 0 and exit_code == 0:
                 exit_code = code
 
-    # Print summary
-    print_summary(state, exit_code)
+        # Print summary only in non-TUI mode
+        print_summary(state, exit_code)
 
     return exit_code
 

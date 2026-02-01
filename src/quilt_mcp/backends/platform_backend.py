@@ -145,3 +145,10 @@ class Platform_Backend(QuiltOps):
         raise NotImplementedError(
             "Platform GraphQL backend not yet implemented. Use QUILT_MULTITENANT_MODE=false for local development."
         )
+
+    @property
+    def admin(self):
+        """Access to admin operations."""
+        raise NotImplementedError(
+            "Platform GraphQL backend not yet implemented. Use QUILT_MULTITENANT_MODE=false for local development."
+        )
