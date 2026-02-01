@@ -57,7 +57,7 @@ from .tools.packages import (
     package_update,
     packages_list,
 )
-from .services.tabulator_service import (
+from .tools.tabulator import (
     tabulator_tables_list,
     tabulator_table_create,
     tabulator_table_delete,

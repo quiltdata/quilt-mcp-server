@@ -305,7 +305,7 @@ def register_resources(mcp: "FastMCP") -> None:
     )
     async def tabulator_buckets() -> str:
         """List tabulator buckets."""
-        from quilt_mcp.services.tabulator_service import tabulator_buckets_list
+        from quilt_mcp.services.tabulator_service import list_tabulator_buckets
 
-        result = await tabulator_buckets_list()
+        result = list_tabulator_buckets()
         return _serialize_result(result)
