@@ -191,8 +191,8 @@ class TestIndexPatternBuilder:
                 ]
             }
         }
-        # Mock the search_api import directly since it's imported in the backend
-        with patch('quilt_mcp.search.backends.elasticsearch.search_api', mock_search_api):
+        # Mock the search_api import from quilt3.search_util since it's imported inside the method
+        with patch('quilt3.search_util.search_api', mock_search_api):
             # Execute search with empty bucket
             response = await self.backend.search(query="test", scope="file", bucket="", limit=10)
 

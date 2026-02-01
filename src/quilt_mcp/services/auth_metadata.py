@@ -25,24 +25,12 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
             raise ModuleNotFoundError("quilt3 is required for QuiltOpsFactory")
 
 
+from quilt_mcp.utils import get_dns_name_from_url as _extract_catalog_name_from_url
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _extract_catalog_name_from_url(url: str) -> str:
-    """Return a human-friendly catalog hostname for status messages."""
-    if not url:
-        return "unknown"
-
-    try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname or parsed.netloc
-        if hostname and hostname.startswith("www."):
-            return hostname[4:]
-        return hostname or url
-    except Exception:
-        return url
 
 
 def _extract_bucket_from_registry(registry: str) -> str:

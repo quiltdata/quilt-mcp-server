@@ -37,6 +37,9 @@ from ..exceptions import (
     BackendError,
 )
 
+# Import search_api at module level for better testability and performance
+from quilt3.search_util import search_api
+
 logger = logging.getLogger(__name__)
 
 

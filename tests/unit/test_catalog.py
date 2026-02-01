@@ -38,27 +38,15 @@ class TestExtractCatalogNameFromUrl:
 
     def test_extract_catalog_name_with_no_hostname(self):
         """Test URL parsing with no hostname - covers line 33."""
-        # This will cause parsed.hostname to be None, triggering the fallback
+        # This will cause parsed.hostname to be None, returning "unknown"
         result = _extract_catalog_name_from_url("not-a-valid-url")
-        assert result == "not-a-valid-url"
+        assert result == "unknown"
 
-    def test_extract_catalog_name_with_parsing_exception(self):
-        """Test exception handling during URL parsing - covers lines 34-35."""
-        with patch('quilt_mcp.services.auth_metadata.urlparse', side_effect=Exception("Parse error")):
-            result = _extract_catalog_name_from_url("https://example.com")
-            assert result == "https://example.com"
-
-    def test_extract_catalog_name_with_netloc_fallback(self):
-        """Test using netloc when hostname is None."""
-        # Create a mock parsed result where hostname is None but netloc exists
-        with patch('quilt_mcp.services.auth_metadata.urlparse') as mock_urlparse:
-            mock_parsed = Mock()
-            mock_parsed.hostname = None
-            mock_parsed.netloc = "example.com:8080"
-            mock_urlparse.return_value = mock_parsed
-
-            result = _extract_catalog_name_from_url("https://example.com:8080")
-            assert result == "example.com:8080"
+    def test_extract_catalog_name_with_port(self):
+        """Test URL with port - hostname is extracted without port."""
+        # The utility extracts DNS hostname which doesn't include port numbers
+        result = _extract_catalog_name_from_url("https://example.com:8080")
+        assert result == "example.com"
 
 
 class TestGetCatalogHostFromConfig:

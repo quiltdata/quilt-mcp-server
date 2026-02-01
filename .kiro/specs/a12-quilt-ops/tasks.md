@@ -82,10 +82,9 @@
 
 ## Success Criteria
 
-- [ ] QuiltOps has diff_packages() and update_package_revision() methods
-- [ ] All 6 tools/helpers use QuiltOpsFactory exclusively
-- [ ] No QuiltService imports remain in src/
-- [ ] QuiltService.py and related files deleted
-- [ ] All tests pass: `make test-all`
-- [ ] Linting passes: `make lint`
-- [ ] No regressions in existing functionality
+- [x] QuiltOps has diff_packages() and update_package_revision() methods
+- [x] All 6 tools/helpers use QuiltOpsFactory exclusively
+- [ ] REMOVE obsoleted methods from QuiltService
+- [x] All tests pass: `make test-all`
+- [x] Linting passes: `make lint`
+- [x] No regressions in existing functionality

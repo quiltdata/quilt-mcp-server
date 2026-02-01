@@ -57,6 +57,7 @@ class Quilt3_Backend_Session:
             catalog_name: Optional[str] = None
             if is_authenticated and logged_in_url:
                 from quilt_mcp.utils import get_dns_name_from_url
+
                 catalog_name = get_dns_name_from_url(logged_in_url)
 
             # Get registry URL if authenticated

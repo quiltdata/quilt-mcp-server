@@ -10,7 +10,6 @@ import yaml
 from quilt_mcp.formatting import format_tabulator_results_as_table
 from quilt_mcp.services import auth_metadata
 from quilt_mcp.services import athena_read_service as athena_glue
-from quilt_mcp.services.quilt_service import QuiltService
 from quilt_mcp.utils import format_error_response
 
 logger = logging.getLogger(__name__)
@@ -25,9 +24,6 @@ except ImportError:
 
 if not ADMIN_AVAILABLE:
     logger.warning("quilt3.admin not available - tabulator functionality disabled")
-
-# Create global quilt_service instance for backward compatibility with tests
-quilt_service = QuiltService()
 
 
 class TabulatorService:

@@ -78,23 +78,23 @@ class TestAuthStatusImplementation:
         assert result.logged_in_url == "https://example.quiltdata.com"
         assert result.registry_url is None
 
-    def test_extract_catalog_name_from_url_simple_hostname(self, mock_backend):
-        """Test _extract_catalog_name_from_url extracts hostname correctly."""
-        result = mock_backend._extract_catalog_name_from_url("https://nightly.quilttest.com")
+    def test_get_dns_name_from_url_simple_hostname(self):
+        """Test get_dns_name_from_url extracts hostname correctly."""
+        result = get_dns_name_from_url("https://nightly.quilttest.com")
         assert result == "nightly.quilttest.com"
 
-    def test_extract_catalog_name_from_url_removes_www(self, mock_backend):
-        """Test _extract_catalog_name_from_url removes www prefix."""
-        result = mock_backend._extract_catalog_name_from_url("https://www.example.com")
+    def test_get_dns_name_from_url_removes_www(self):
+        """Test get_dns_name_from_url removes www prefix."""
+        result = get_dns_name_from_url("https://www.example.com")
         assert result == "example.com"
 
-    def test_extract_catalog_name_from_url_empty_string(self, mock_backend):
-        """Test _extract_catalog_name_from_url handles empty string."""
-        result = mock_backend._extract_catalog_name_from_url("")
+    def test_get_dns_name_from_url_empty_string(self):
+        """Test get_dns_name_from_url handles empty string."""
+        result = get_dns_name_from_url("")
         assert result == "unknown"
 
-    def test_extract_catalog_name_from_url_invalid_url(self, mock_backend):
-        """Test _extract_catalog_name_from_url handles invalid URLs gracefully."""
-        result = mock_backend._extract_catalog_name_from_url("not a url")
+    def test_get_dns_name_from_url_invalid_url(self):
+        """Test get_dns_name_from_url handles invalid URLs gracefully."""
+        result = get_dns_name_from_url("not a url")
         # Should return "unknown" or the netloc part depending on parsing
         assert isinstance(result, str)
