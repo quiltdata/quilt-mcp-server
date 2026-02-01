@@ -239,7 +239,7 @@ def demo_create_table(backend, bucket, table_name, state_manager, verbose=False)
             config=EXAMPLE_CONFIG_YAML
         )
 
-        if result.get('__typename') == 'BucketSetTabulatorTableSuccess':
+        if result.get('__typename') == 'BucketConfig':
             print(f"  ✅ Table created successfully")
             if verbose:
                 print_result("Response:", result, indent=4)
@@ -340,7 +340,7 @@ def demo_rename_table(backend, bucket, old_name, new_name, state_manager, verbos
     try:
         result = backend.rename_tabulator_table(bucket, old_name, new_name)
 
-        if result.get('__typename') == 'BucketSetTabulatorTableSuccess':
+        if result.get('__typename') == 'BucketConfig':
             print(f"  ✅ Table renamed successfully")
             if verbose:
                 print_result("Response:", result, indent=4)
@@ -443,7 +443,7 @@ def demo_delete_table(backend, bucket, table_name, state_manager, verbose=False)
     try:
         result = backend.delete_tabulator_table(bucket, table_name)
 
-        if result.get('__typename') == 'BucketSetTabulatorTableSuccess':
+        if result.get('__typename') == 'BucketConfig':
             print(f"  ✅ Table deleted successfully")
             if verbose:
                 print_result("Response:", result, indent=4)

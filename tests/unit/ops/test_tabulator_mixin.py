@@ -106,7 +106,7 @@ def test_create_tabulator_table_success():
     backend.execute_graphql_query.return_value = {
         'data': {
             'bucketSetTabulatorTable': {
-                '__typename': 'BucketSetTabulatorTableSuccess',
+                '__typename': 'BucketConfig',
                 'bucketConfig': {
                     'name': 'test-bucket',
                     'tabulatorTables': [{'name': 'my-table', 'config': 'schema: ...'}],
@@ -117,7 +117,7 @@ def test_create_tabulator_table_success():
 
     result = backend.create_tabulator_table('test-bucket', 'my-table', 'schema: ...')
 
-    assert result['__typename'] == 'BucketSetTabulatorTableSuccess'
+    assert result['__typename'] == 'BucketConfig'
     assert result['bucketConfig']['name'] == 'test-bucket'
 
     # Verify mutation call
@@ -174,7 +174,7 @@ def test_update_tabulator_table():
     backend.execute_graphql_query.return_value = {
         'data': {
             'bucketSetTabulatorTable': {
-                '__typename': 'BucketSetTabulatorTableSuccess',
+                '__typename': 'BucketConfig',
                 'bucketConfig': {'name': 'test-bucket'},
             }
         }
@@ -182,7 +182,7 @@ def test_update_tabulator_table():
 
     result = backend.update_tabulator_table('test-bucket', 'my-table', 'updated: config')
 
-    assert result['__typename'] == 'BucketSetTabulatorTableSuccess'
+    assert result['__typename'] == 'BucketConfig'
 
     # Verify it used the create mutation
     call_args = backend.execute_graphql_query.call_args
@@ -195,7 +195,7 @@ def test_rename_tabulator_table_success():
     backend.execute_graphql_query.return_value = {
         'data': {
             'bucketRenameTabulatorTable': {
-                '__typename': 'BucketSetTabulatorTableSuccess',
+                '__typename': 'BucketConfig',
                 'bucketConfig': {
                     'name': 'test-bucket',
                     'tabulatorTables': [{'name': 'new-name', 'config': 'schema: ...'}],
@@ -206,7 +206,7 @@ def test_rename_tabulator_table_success():
 
     result = backend.rename_tabulator_table('test-bucket', 'old-name', 'new-name')
 
-    assert result['__typename'] == 'BucketSetTabulatorTableSuccess'
+    assert result['__typename'] == 'BucketConfig'
 
     # Verify mutation call
     call_args = backend.execute_graphql_query.call_args
@@ -251,7 +251,7 @@ def test_delete_tabulator_table_success():
     backend.execute_graphql_query.return_value = {
         'data': {
             'bucketSetTabulatorTable': {
-                '__typename': 'BucketSetTabulatorTableSuccess',
+                '__typename': 'BucketConfig',
                 'bucketConfig': {'name': 'test-bucket'},
             }
         }
@@ -259,7 +259,7 @@ def test_delete_tabulator_table_success():
 
     result = backend.delete_tabulator_table('test-bucket', 'my-table')
 
-    assert result['__typename'] == 'BucketSetTabulatorTableSuccess'
+    assert result['__typename'] == 'BucketConfig'
 
     # Verify it called create with config=None
     call_args = backend.execute_graphql_query.call_args

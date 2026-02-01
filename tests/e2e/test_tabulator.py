@@ -115,7 +115,7 @@ class TestTabulatorTableCreate:
         mock_create.return_value = mock_backend
 
         mock_backend.create_tabulator_table.return_value = {
-            "__typename": "BucketSetTabulatorTableSuccess",
+            "__typename": "BucketConfig",
             "bucketConfig": {"name": "test-bucket"},
         }
 
@@ -163,7 +163,7 @@ class TestTabulatorTableDelete:
         mock_backend = Mock()
         mock_create.return_value = mock_backend
 
-        mock_backend.delete_tabulator_table.return_value = {"__typename": "BucketSetTabulatorTableSuccess"}
+        mock_backend.delete_tabulator_table.return_value = {"__typename": "BucketConfig"}
 
         result = await tabulator_table_delete("test-bucket", "test_table")
 
@@ -195,7 +195,7 @@ class TestTabulatorTableRename:
         mock_backend = Mock()
         mock_create.return_value = mock_backend
 
-        mock_backend.rename_tabulator_table.return_value = {"__typename": "BucketSetTabulatorTableSuccess"}
+        mock_backend.rename_tabulator_table.return_value = {"__typename": "BucketConfig"}
 
         result = await tabulator_table_rename("test-bucket", "old_table", "new_table")
 

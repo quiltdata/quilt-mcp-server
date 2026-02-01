@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 class Quilt3_Backend(
-    TabulatorMixin,
     Quilt3_Backend_Session,
+    TabulatorMixin,
     Quilt3_Backend_Buckets,
     Quilt3_Backend_Content,
     Quilt3_Backend_Packages,
@@ -44,16 +44,16 @@ class Quilt3_Backend(
     """Backend implementation using quilt3 library.
 
     This class composes multiple mixins to provide the complete QuiltOps interface:
+    - Session: Auth status, catalog config, GraphQL, and boto3 access
     - TabulatorMixin: Tabulator table management operations
     - Base: Core initialization and shared utilities
     - Packages: Package search, retrieval, and transformations
     - Content: Content browsing and URL generation
     - Buckets: Bucket listing and transformations
-    - Session: Auth status, catalog config, GraphQL, and boto3 access
     - Admin: User management, role management, and SSO configuration
 
     The mixin order is important for proper method resolution order (MRO).
-    TabulatorMixin is first to ensure highest priority for tabulator operations.
+    Session is first to ensure execute_graphql_query() is found before TabulatorMixin's stub.
     """
 
     @property

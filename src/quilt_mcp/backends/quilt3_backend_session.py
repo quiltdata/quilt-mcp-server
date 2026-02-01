@@ -314,8 +314,8 @@ class Quilt3_Backend_Session:
         try:
             logger.debug("Executing GraphQL query against catalog")
 
-            # Get authenticated session
-            session = self.quilt3.session.get_session()
+            # Get authenticated session to copy auth headers
+            quilt_session = self.quilt3.session.get_session()
 
             # Get GraphQL endpoint
             if registry:
@@ -338,12 +338,28 @@ class Quilt3_Backend_Session:
             if variables:
                 payload["variables"] = variables  # Variables is Dict[str, Any]  # type: ignore[assignment]
 
-            # Execute GraphQL query
-            response = session.post(api_url, json=payload)
+            # Execute GraphQL query using requests directly to avoid quilt3's response hooks
+            # Copy authentication headers from quilt3 session
+            headers = {}
+            if hasattr(quilt_session, 'headers'):
+                headers.update(quilt_session.headers)
+
+            response = self.requests.post(api_url, json=payload, headers=headers)
             response.raise_for_status()
 
             logger.debug("GraphQL query executed successfully")
             result: Dict[str, Any] = response.json()
+
+            # Check for GraphQL errors in the response
+            if 'errors' in result:
+                error_messages = []
+                for error in result['errors']:
+                    msg = error.get('message', str(error))
+                    error_messages.append(msg)
+                error_text = '; '.join(error_messages)
+                logger.error(f"GraphQL query returned errors: {error_text}")
+                raise BackendError(f"GraphQL query failed: {error_text}")
+
             return result
 
         except self.requests.HTTPError as e:
@@ -353,7 +369,34 @@ class Quilt3_Backend_Session:
             else:
                 error_text = e.response.text if hasattr(e, 'response') and e.response else str(e)
                 logger.error(f"GraphQL query HTTP error: {error_text}")
+                # Try to parse GraphQL errors from response
+                if hasattr(e, 'response') and e.response:
+                    try:
+                        error_data = e.response.json()
+                        if 'errors' in error_data:
+                            error_messages = [err.get('message', str(err)) for err in error_data['errors']]
+                            error_text = '; '.join(error_messages)
+                            logger.error(f"GraphQL errors: {error_text}")
+                    except Exception:
+                        pass
                 raise BackendError(f"GraphQL query failed: {error_text}")
+        except KeyError as e:
+            # Handle KeyError from quilt3's _handle_response trying to access data['message']
+            # This happens when GraphQL returns an error in a different format
+            logger.error(f"GraphQL response format error: {str(e)}")
+            try:
+                # Try to get the actual response data
+                if 'response' in locals() and hasattr(response, 'text'):
+                    error_data = response.json() if response.text else {}
+                    if 'errors' in error_data:
+                        error_msg = '; '.join(err.get('message', str(err)) for err in error_data['errors'])
+                        logger.error(f"GraphQL errors: {error_msg}")
+                        raise BackendError(f"GraphQL query failed: {error_msg}")
+                    logger.error(f"GraphQL response: {error_data}")
+                    raise BackendError(f"GraphQL query failed with unexpected response format")
+            except Exception:
+                pass
+            raise BackendError(f"GraphQL query failed with response format error: {str(e)}")
         except AuthenticationError:
             raise
         except Exception as e:

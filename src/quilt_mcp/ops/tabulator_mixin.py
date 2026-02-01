@@ -110,22 +110,23 @@ class TabulatorMixin:
             tableName: $tableName
             config: $config
           ) {
-            ... on BucketSetTabulatorTableSuccess {
-              bucketConfig {
+            __typename
+            ... on BucketConfig {
+              name
+              tabulatorTables {
                 name
-                tabulatorTables {
-                  name
-                  config
-                }
+                config
               }
             }
             ... on InvalidInput {
-              message
+              errors {
+                path
+                message
+                name
+                context
+              }
             }
-            ... on BucketNotFound {
-              message
-            }
-            ... on BucketNotAllowed {
+            ... on OperationError {
               message
             }
           }
@@ -147,11 +148,11 @@ class TabulatorMixin:
         typename = data.get('__typename')
 
         if typename == 'InvalidInput':
-            raise ValidationError(f"Invalid configuration: {data.get('message')}")
-        elif typename == 'BucketNotFound':
-            raise ValidationError(f"Bucket not found: {data.get('message')}")
-        elif typename == 'BucketNotAllowed':
-            raise PermissionError(f"Not authorized for bucket: {data.get('message')}")
+            errors = data.get('errors', [])
+            error_messages = [f"{err.get('path', 'unknown')}: {err.get('message', str(err))}" for err in errors]
+            raise ValidationError(f"Invalid configuration: {'; '.join(error_messages)}")
+        elif typename == 'OperationError':
+            raise BackendError(f"Operation failed: {data.get('message')}")
 
         return data
 
@@ -197,22 +198,23 @@ class TabulatorMixin:
             tableName: $tableName
             newTableName: $newTableName
           ) {
-            ... on BucketSetTabulatorTableSuccess {
-              bucketConfig {
+            __typename
+            ... on BucketConfig {
+              name
+              tabulatorTables {
                 name
-                tabulatorTables {
-                  name
-                  config
-                }
+                config
               }
             }
             ... on InvalidInput {
-              message
+              errors {
+                path
+                message
+                name
+                context
+              }
             }
-            ... on BucketNotFound {
-              message
-            }
-            ... on BucketNotAllowed {
+            ... on OperationError {
               message
             }
           }
@@ -234,11 +236,11 @@ class TabulatorMixin:
         typename = data.get('__typename')
 
         if typename == 'InvalidInput':
-            raise ValidationError(f"Invalid rename: {data.get('message')}")
-        elif typename == 'BucketNotFound':
-            raise ValidationError(f"Bucket not found: {data.get('message')}")
-        elif typename == 'BucketNotAllowed':
-            raise PermissionError(f"Not authorized: {data.get('message')}")
+            errors = data.get('errors', [])
+            error_messages = [f"{err.get('path', 'unknown')}: {err.get('message', str(err))}" for err in errors]
+            raise ValidationError(f"Invalid rename: {'; '.join(error_messages)}")
+        elif typename == 'OperationError':
+            raise BackendError(f"Operation failed: {data.get('message')}")
 
         return data
 

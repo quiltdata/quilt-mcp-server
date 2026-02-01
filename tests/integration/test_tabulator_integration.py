@@ -117,7 +117,7 @@ def created_table(backend, test_bucket, test_table_name):
         result = backend.create_tabulator_table(bucket=test_bucket, table_name=table_name, config=EXAMPLE_CONFIG_YAML)
 
         # Verify creation succeeded
-        assert result.get('__typename') == 'BucketSetTabulatorTableSuccess', f"Failed to create table: {result}"
+        assert result.get('__typename') == 'BucketConfig', f"Failed to create table: {result}"
 
         print(f"\n✅ Created test table: {table_name} in {test_bucket}")
 
@@ -195,7 +195,7 @@ def test_create_table_real(backend, test_bucket, test_table_name):
         )
 
         # Verify success
-        assert result.get('__typename') == 'BucketSetTabulatorTableSuccess', f"Create failed: {result}"
+        assert result.get('__typename') == 'BucketConfig', f"Create failed: {result}"
 
         print(f"\n✅ Created table '{unique_table}' in {test_bucket}")
 
@@ -252,11 +252,11 @@ def test_rename_table_real(backend, test_bucket, test_table_name):
         result = backend.create_tabulator_table(
             bucket=test_bucket, table_name=original_name, config=EXAMPLE_CONFIG_YAML
         )
-        assert result.get('__typename') == 'BucketSetTabulatorTableSuccess'
+        assert result.get('__typename') == 'BucketConfig'
 
         # Rename table
         rename_result = backend.rename_tabulator_table(test_bucket, original_name, new_name)
-        assert rename_result.get('__typename') == 'BucketSetTabulatorTableSuccess', f"Rename failed: {rename_result}"
+        assert rename_result.get('__typename') == 'BucketConfig', f"Rename failed: {rename_result}"
 
         print(f"\n✅ Renamed '{original_name}' → '{new_name}' in {test_bucket}")
 
@@ -289,11 +289,11 @@ def test_delete_table_real(backend, test_bucket, test_table_name):
         create_result = backend.create_tabulator_table(
             bucket=test_bucket, table_name=unique_table, config=EXAMPLE_CONFIG_YAML
         )
-        assert create_result.get('__typename') == 'BucketSetTabulatorTableSuccess'
+        assert create_result.get('__typename') == 'BucketConfig'
 
         # Delete table
         delete_result = backend.delete_tabulator_table(test_bucket, unique_table)
-        assert delete_result.get('__typename') == 'BucketSetTabulatorTableSuccess', f"Delete failed: {delete_result}"
+        assert delete_result.get('__typename') == 'BucketConfig', f"Delete failed: {delete_result}"
 
         print(f"\n✅ Deleted table '{unique_table}' from {test_bucket}")
 
@@ -372,7 +372,7 @@ def test_full_lifecycle_real(backend, test_bucket, test_table_name):
         create_result = backend.create_tabulator_table(
             bucket=test_bucket, table_name=original_name, config=EXAMPLE_CONFIG_YAML
         )
-        assert create_result.get('__typename') == 'BucketSetTabulatorTableSuccess'
+        assert create_result.get('__typename') == 'BucketConfig'
         print("✅ Created")
 
         # Step 2: List (verify exists)
@@ -392,7 +392,7 @@ def test_full_lifecycle_real(backend, test_bucket, test_table_name):
         # Step 4: Rename
         print(f"[Step 4] Renaming '{original_name}' → '{renamed_name}'...")
         rename_result = backend.rename_tabulator_table(test_bucket, original_name, renamed_name)
-        assert rename_result.get('__typename') == 'BucketSetTabulatorTableSuccess'
+        assert rename_result.get('__typename') == 'BucketConfig'
         print("✅ Renamed")
 
         # Step 5: Verify new name
@@ -406,7 +406,7 @@ def test_full_lifecycle_real(backend, test_bucket, test_table_name):
         # Step 6: Delete
         print(f"[Step 6] Deleting table '{renamed_name}'...")
         delete_result = backend.delete_tabulator_table(test_bucket, renamed_name)
-        assert delete_result.get('__typename') == 'BucketSetTabulatorTableSuccess'
+        assert delete_result.get('__typename') == 'BucketConfig'
         print("✅ Deleted")
 
         # Step 7: Verify deletion
