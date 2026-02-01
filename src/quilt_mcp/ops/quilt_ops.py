@@ -263,8 +263,8 @@ class QuiltOps(ABC):
         metadata: Optional[Dict] = None,
         registry: Optional[str] = None,
         message: str = "Package created via QuiltOps",
-        auto_organize: bool = False,
-        copy: str = "none",
+        auto_organize: bool = True,
+        copy: bool = False,
     ) -> Package_Creation_Result:
         """Create and push a package revision in a single operation.
 
@@ -278,8 +278,11 @@ class QuiltOps(ABC):
             metadata: Optional metadata dictionary to attach to the package
             registry: Target registry URL (uses default if None)
             message: Commit message for the package revision
-            auto_organize: Smart folders vs flat structure
-            copy: Copy mode: "all", "same_bucket", "none"
+            auto_organize: If True, preserve S3 folder structure as logical keys.
+                         If False, flatten to just filenames (default: True)
+            copy: Whether to copy files to registry bucket (default: False)
+                - True: Deep copy objects to registry bucket
+                - False: Create shallow references to original S3 locations (no copy)
 
         Returns:
             Package_Creation_Result with creation details and status

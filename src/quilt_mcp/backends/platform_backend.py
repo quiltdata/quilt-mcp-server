@@ -104,8 +104,8 @@ class Platform_Backend(QuiltOps):
         metadata: Optional[Dict] = None,
         registry: Optional[str] = None,
         message: str = "Package created via QuiltOps",
-        auto_organize: bool = False,
-        copy: str = "none",
+        auto_organize: bool = True,
+        copy: bool = False,
     ) -> Package_Creation_Result:
         """Create and push a package revision in a single operation."""
         raise NotImplementedError(

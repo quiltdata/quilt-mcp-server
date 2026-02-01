@@ -127,42 +127,20 @@ def _collect_objects_into_package(
     return added
 
 
-def _build_selector_fn(copy_mode: str, target_registry: str):
+def _build_selector_fn(copy: bool, target_registry: str):
     """Build a Quilt selector_fn based on desired copy behavior.
 
-    copy_mode options:
-    - "all": copy all objects to target (default Quilt behavior)
-    - "none": copy none; keep references to external locations
-    - "same_bucket": copy only objects whose physical_key bucket matches target bucket
+    Args:
+        copy: True to copy all objects, False to keep references only
+        target_registry: Target registry (unused but kept for compatibility)
     """
-    # Normalize and extract target bucket
-    target_bucket = target_registry.replace("s3://", "").split("/", 1)[0]
-
     def selector_all(_logical_key, _entry):
         return True
 
     def selector_none(_logical_key, _entry):
         return False
 
-    def selector_same_bucket(_logical_key, entry):
-        try:
-            physical_key = str(getattr(entry, "physical_key", ""))
-        except Exception:
-            physical_key = ""
-        if not physical_key.startswith("s3://"):
-            return False
-        try:
-            bucket = physical_key.split("/", 3)[2]
-        except Exception:
-            return False
-        return bucket == target_bucket
-
-    if copy_mode == "none":
-        return selector_none
-    if copy_mode == "same_bucket":
-        return selector_same_bucket
-    # Default
-    return selector_all
+    return selector_all if copy else selector_none
 
 
 # S3-to-package helpers and constants
@@ -567,6 +545,8 @@ def _create_enhanced_package(
         # Create package using QuiltOps.create_package_revision with auto_organize=True
         # This preserves the smart organization behavior of s3_package.py
         quilt_ops = QuiltOpsFactory.create()
+        # Convert copy_mode string to boolean
+        copy_bool = copy_mode != "none"
         result = quilt_ops.create_package_revision(
             package_name=package_name,
             s3_uris=s3_uris,
@@ -574,7 +554,7 @@ def _create_enhanced_package(
             registry=target_registry,
             message=message,
             auto_organize=True,  # Preserve smart organization behavior
-            copy=copy_mode,
+            copy=copy_bool,
         )
 
         # Handle the result - it's now a Package_Creation_Result domain object
@@ -1145,13 +1125,13 @@ def package_create(
             description="Use only filenames as logical paths (true) instead of full S3 keys (false)",
         ),
     ] = True,
-    copy_mode: Annotated[
-        Literal["all", "same_bucket", "none"],
+    copy: Annotated[
+        bool,
         Field(
-            default="all",
-            description="Copy policy for the underlying data: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            default=False,
+            description="Whether to copy files to registry bucket (false=reference only, true=copy all)",
         ),
-    ] = "all",
+    ] = False,
 ) -> PackageCreateSuccess | PackageCreateError:
     """Create a new Quilt package from S3 objects - Core package creation, update, and deletion workflows
 
@@ -1162,7 +1142,7 @@ def package_create(
         metadata: Optional metadata to attach to the package (JSON object)
         message: Commit message for package creation
         flatten: Use only filenames as logical paths (true) instead of full S3 keys (false)
-        copy_mode: Copy policy for the underlying data
+        copy: Whether to copy files to registry bucket
 
     Returns:
         PackageCreateSuccess with package details, or PackageCreateError on failure.
@@ -1275,7 +1255,7 @@ def package_create(
             registry=normalized_registry,
             message=message,
             auto_organize=False,  # Preserve flattening behavior like _collect_objects_into_package
-            copy=copy_mode,
+            copy=copy,
         )
 
         # Handle the result - it's now a Package_Creation_Result domain object
@@ -1380,13 +1360,13 @@ def package_update(
             description="Use only filenames as logical paths (true) instead of full S3 keys (false)",
         ),
     ] = True,
-    copy_mode: Annotated[
-        Literal["all", "same_bucket", "none"],
+    copy: Annotated[
+        bool,
         Field(
-            default="all",
-            description="Copy policy for the source objects: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            default=False,
+            description="Whether to copy files to registry bucket (false=reference only, true=copy all)",
         ),
-    ] = "all",
+    ] = False,
 ) -> PackageUpdateSuccess | PackageUpdateError:
     """Update an existing Quilt package by adding new S3 objects - Core package creation, update, and deletion workflows
 
@@ -1397,7 +1377,7 @@ def package_update(
         metadata: Optional metadata to merge with existing package metadata
         message: Commit message for package update
         flatten: Use only filenames as logical paths (true) instead of full S3 keys (false)
-        copy_mode: Copy policy for the source objects
+        copy: Whether to copy files to registry bucket
 
     Returns:
         PackageUpdateSuccess with update details, or PackageUpdateError on failure.
@@ -1513,7 +1493,7 @@ def package_update(
         from ..utils import suppress_stdout
 
         with suppress_stdout():
-            selector_fn = _build_selector_fn(copy_mode, normalized_registry)
+            selector_fn = _build_selector_fn(copy, normalized_registry)
             top_hash = updated_pkg.push(
                 package_name,
                 registry=normalized_registry,
@@ -1719,13 +1699,13 @@ def package_create_from_s3(
             description="Metadata template to use",
         ),
     ] = "standard",
-    copy_mode: Annotated[
-        Literal["all", "same_bucket", "none"],
+    copy: Annotated[
+        bool,
         Field(
-            default="all",
-            description="Copy policy for package materialization: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            default=False,
+            description="Whether to copy files to registry bucket (false=reference only, true=copy all)",
         ),
-    ] = "all",
+    ] = False,
     auto_organize: Annotated[
         bool,
         Field(
@@ -1780,7 +1760,7 @@ def package_create_from_s3(
         include_patterns: File patterns to include (glob style)
         exclude_patterns: File patterns to exclude (glob style)
         metadata_template: Metadata template to use
-        copy_mode: Copy policy for package materialization
+        copy: Whether to copy files to registry bucket
         auto_organize: Enable smart folder organization
         generate_readme: Generate comprehensive README.md
         confirm_structure: Require user confirmation of structure

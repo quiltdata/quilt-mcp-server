@@ -126,7 +126,7 @@ class Quilt3_Backend_Packages:
                 bucket_name = registry.replace("s3://", "").split("/")[0]
                 raise BackendError(
                     f"Quilt3 backend search failed: bucket '{bucket_name}' not found or not accessible",
-                    context={'query': query, 'registry': registry, 'bucket': bucket_name}
+                    context={'query': query, 'registry': registry, 'bucket': bucket_name},
                 )
             raise BackendError(
                 f"Quilt3 backend search failed: {error_msg}", context={'query': query, 'registry': registry}
