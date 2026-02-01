@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **TabulatorMixin for Shared GraphQL Operations**: Implemented `TabulatorMixin` providing shared tabulator table management operations for both backends:
+  - `list_tabulator_tables()` - Query all tables in a bucket
+  - `get_tabulator_table()` - Get specific table configuration
+  - `create_tabulator_table()` - Create or update table with YAML config
+  - `update_tabulator_table()` - Alias for create (GraphQL handles both)
+  - `rename_tabulator_table()` - Rename existing table
+  - `delete_tabulator_table()` - Delete table (sets config to null)
+- Comprehensive error handling with `BackendError`, `ValidationError`, and `PermissionError`
+- 19 unit tests for `TabulatorMixin` covering all operations and error cases
+
+### Changed
+
+- **BREAKING**: Migrated tabulator table operations from standalone service to backend layer
+  - `Quilt3_Backend` now inherits `TabulatorMixin` for tabulator operations
+  - `Platform_Backend` now inherits `TabulatorMixin` for tabulator operations
+  - Table management tools now use `QuiltOpsFactory.create()` to access backend methods
+  - `TabulatorService` reduced from 586 lines to 199 lines (66% reduction)
+  - Removed table CRUD methods and validation helpers from service
+  - Retained: Open query admin operations and Athena query operations in service (temporary)
+
+### Technical Details
+
+- Template method pattern: Mixin calls `execute_graphql_query()` implemented by backends
+- Works with any backend implementing `execute_graphql_query()`
+- All backend unit tests passing (732 passed, 5 skipped)
+- All tabulator tests updated and passing (22 passed, 2 skipped)
+
 ## [0.11.0] - 2026-02-01
 
 ### Added

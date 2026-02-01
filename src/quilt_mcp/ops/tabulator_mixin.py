@@ -18,6 +18,12 @@ class TabulatorMixin:
         - execute_graphql_query(query: str, variables: Optional[Dict]) -> Dict
     """
 
+    def execute_graphql_query(
+        self, query: str, variables: Optional[Dict[str, Any]] = None, registry: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Execute GraphQL query - must be implemented by backend."""
+        raise NotImplementedError("Backend must implement execute_graphql_query()")
+
     def list_tabulator_tables(self, bucket: str) -> List[Dict[str, str]]:
         """List all tabulator tables in a bucket.
 
@@ -45,17 +51,14 @@ class TabulatorMixin:
         try:
             result = self.execute_graphql_query(query, {"name": bucket})
         except Exception as e:
-            raise BackendError(
-                f"Failed to list tabulator tables: {str(e)}",
-                context={"bucket": bucket}
-            ) from e
+            raise BackendError(f"Failed to list tabulator tables: {str(e)}", context={"bucket": bucket}) from e
 
         # Extract tables from GraphQL response
         bucket_config = result.get('data', {}).get('bucketConfig')
         if not bucket_config:
             raise ValidationError(f"Bucket not found: {bucket}")
 
-        tables = bucket_config.get('tabulatorTables', [])
+        tables: List[Dict[str, str]] = bucket_config.get('tabulatorTables', [])
         return tables
 
     def get_tabulator_table(self, bucket: str, table_name: str) -> Dict[str, str]:
@@ -80,12 +83,7 @@ class TabulatorMixin:
 
         raise ValidationError(f"Table not found: {table_name}")
 
-    def create_tabulator_table(
-        self,
-        bucket: str,
-        table_name: str,
-        config: str
-    ) -> Dict[str, Any]:
+    def create_tabulator_table(self, bucket: str, table_name: str, config: Optional[str]) -> Dict[str, Any]:
         """Create or update a tabulator table.
 
         Args:
@@ -135,19 +133,17 @@ class TabulatorMixin:
         """
 
         try:
-            result = self.execute_graphql_query(mutation, {
-                "bucketName": bucket,
-                "tableName": table_name,
-                "config": config
-            })
+            result = self.execute_graphql_query(
+                mutation, {"bucketName": bucket, "tableName": table_name, "config": config}
+            )
         except Exception as e:
             raise BackendError(
                 f"Failed to create/update tabulator table: {str(e)}",
-                context={"bucket": bucket, "table_name": table_name}
+                context={"bucket": bucket, "table_name": table_name},
             ) from e
 
         # Check for GraphQL errors
-        data = result.get('data', {}).get('bucketSetTabulatorTable', {})
+        data: Dict[str, Any] = result.get('data', {}).get('bucketSetTabulatorTable', {})
         typename = data.get('__typename')
 
         if typename == 'InvalidInput':
@@ -159,12 +155,7 @@ class TabulatorMixin:
 
         return data
 
-    def update_tabulator_table(
-        self,
-        bucket: str,
-        table_name: str,
-        config: str
-    ) -> Dict[str, Any]:
+    def update_tabulator_table(self, bucket: str, table_name: str, config: str) -> Dict[str, Any]:
         """Update an existing tabulator table configuration.
 
         This is an alias for create_tabulator_table() since the GraphQL
@@ -180,12 +171,7 @@ class TabulatorMixin:
         """
         return self.create_tabulator_table(bucket, table_name, config)
 
-    def rename_tabulator_table(
-        self,
-        bucket: str,
-        old_name: str,
-        new_name: str
-    ) -> Dict[str, Any]:
+    def rename_tabulator_table(self, bucket: str, old_name: str, new_name: str) -> Dict[str, Any]:
         """Rename a tabulator table.
 
         Args:
@@ -234,19 +220,17 @@ class TabulatorMixin:
         """
 
         try:
-            result = self.execute_graphql_query(mutation, {
-                "bucketName": bucket,
-                "tableName": old_name,
-                "newTableName": new_name
-            })
+            result = self.execute_graphql_query(
+                mutation, {"bucketName": bucket, "tableName": old_name, "newTableName": new_name}
+            )
         except Exception as e:
             raise BackendError(
                 f"Failed to rename tabulator table: {str(e)}",
-                context={"bucket": bucket, "old_name": old_name, "new_name": new_name}
+                context={"bucket": bucket, "old_name": old_name, "new_name": new_name},
             ) from e
 
         # Check for GraphQL errors
-        data = result.get('data', {}).get('bucketRenameTabulatorTable', {})
+        data: Dict[str, Any] = result.get('data', {}).get('bucketRenameTabulatorTable', {})
         typename = data.get('__typename')
 
         if typename == 'InvalidInput':
@@ -258,11 +242,7 @@ class TabulatorMixin:
 
         return data
 
-    def delete_tabulator_table(
-        self,
-        bucket: str,
-        table_name: str
-    ) -> Dict[str, Any]:
+    def delete_tabulator_table(self, bucket: str, table_name: str) -> Dict[str, Any]:
         """Delete a tabulator table.
 
         Deletion is implemented by setting config to null.

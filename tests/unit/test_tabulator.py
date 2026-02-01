@@ -36,33 +36,6 @@ def test_create_table_normalizes_parser_format(monkeypatch: pytest.MonkeyPatch):
     """
     pytest.skip("Table creation moved to TabulatorMixin - test deprecated")
 
-    # Create a successful response with no __typename attribute
-    # (When response has no __typename, the function returns success)
-    mock_response = SimpleNamespace()  # No __typename = success path
-
-    # Mock the actual set_table function that gets imported inside create_table
-    def mock_set_table(**kwargs):
-        return mock_response
-
-    # The function does `import quilt3.admin.tabulator as admin_tabulator` then calls it
-    # So we need to mock the module itself
-    import quilt3.admin.tabulator
-
-    monkeypatch.setattr(quilt3.admin.tabulator, "set_table", mock_set_table)
-
-    result = service.create_table(
-        bucket_name="demo-bucket",
-        table_name="demo-table",
-        schema=[{"name": "id", "type": "STRING"}],
-        package_pattern=r"namespace/.+",
-        logical_key_pattern=r".*",
-        parser_config={"format": "CSV"},
-    )
-
-    assert result["success"] is True
-    assert result["parser_config"]["format"] == "csv"
-    assert result["parser_config"]["delimiter"] == ","
-
 
 def test_create_table_returns_validation_errors(monkeypatch: pytest.MonkeyPatch):
     """Test validation errors - DEPRECATED TEST.

@@ -31,7 +31,7 @@ async def tabulator_tables_list(bucket: str) -> Dict[str, Any]:
 
         enriched_tables = []
         for table in tables:
-            table_info = {
+            table_info: Dict[str, Any] = {
                 "name": table["name"],
                 "config_yaml": table["config"],
             }
@@ -41,7 +41,7 @@ async def tabulator_tables_list(bucket: str) -> Dict[str, Any]:
                     table_info["schema"] = config.get("schema", [])
                     table_info["source"] = config.get("source", {})
                     table_info["parser"] = config.get("parser", {})
-                    table_info["column_count"] = len(config.get("schema", []))
+                    table_info["column_count"] = str(len(config.get("schema", [])))
             except yaml.YAMLError as exc:
                 table_info["config_error"] = str(exc)
 
@@ -161,9 +161,7 @@ async def tabulator_table_delete(bucket_name: str, table_name: str) -> Dict[str,
         return format_error_response(str(e))
 
 
-async def tabulator_table_rename(
-    bucket_name: str, table_name: str, new_table_name: str
-) -> Dict[str, Any]:
+async def tabulator_table_rename(bucket_name: str, table_name: str, new_table_name: str) -> Dict[str, Any]:
     """Rename a tabulator table.
 
     Args:

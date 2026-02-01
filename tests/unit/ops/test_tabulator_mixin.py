@@ -21,7 +21,7 @@ def test_list_tabulator_tables_success():
             'bucketConfig': {
                 'tabulatorTables': [
                     {'name': 'table1', 'config': 'schema: ...'},
-                    {'name': 'table2', 'config': 'schema: ...'}
+                    {'name': 'table2', 'config': 'schema: ...'},
                 ]
             }
         }
@@ -43,9 +43,7 @@ def test_list_tabulator_tables_success():
 def test_list_tabulator_tables_bucket_not_found():
     """Test error when bucket not found."""
     backend = MockBackend()
-    backend.execute_graphql_query.return_value = {
-        'data': {'bucketConfig': None}
-    }
+    backend.execute_graphql_query.return_value = {'data': {'bucketConfig': None}}
 
     with pytest.raises(ValidationError, match="Bucket not found"):
         backend.list_tabulator_tables('nonexistent')
@@ -54,13 +52,7 @@ def test_list_tabulator_tables_bucket_not_found():
 def test_list_tabulator_tables_empty():
     """Test listing tables when bucket has no tables."""
     backend = MockBackend()
-    backend.execute_graphql_query.return_value = {
-        'data': {
-            'bucketConfig': {
-                'tabulatorTables': []
-            }
-        }
-    }
+    backend.execute_graphql_query.return_value = {'data': {'bucketConfig': {'tabulatorTables': []}}}
 
     tables = backend.list_tabulator_tables('test-bucket')
 
@@ -85,7 +77,7 @@ def test_get_tabulator_table_success():
             'bucketConfig': {
                 'tabulatorTables': [
                     {'name': 'table1', 'config': 'schema: ...'},
-                    {'name': 'table2', 'config': 'config: ...'}
+                    {'name': 'table2', 'config': 'config: ...'},
                 ]
             }
         }
@@ -101,13 +93,7 @@ def test_get_tabulator_table_not_found():
     """Test error when table not found."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {
-            'bucketConfig': {
-                'tabulatorTables': [
-                    {'name': 'table1', 'config': 'schema: ...'}
-                ]
-            }
-        }
+        'data': {'bucketConfig': {'tabulatorTables': [{'name': 'table1', 'config': 'schema: ...'}]}}
     }
 
     with pytest.raises(ValidationError, match="Table not found: nonexistent"):
@@ -123,19 +109,13 @@ def test_create_tabulator_table_success():
                 '__typename': 'BucketSetTabulatorTableSuccess',
                 'bucketConfig': {
                     'name': 'test-bucket',
-                    'tabulatorTables': [
-                        {'name': 'my-table', 'config': 'schema: ...'}
-                    ]
-                }
+                    'tabulatorTables': [{'name': 'my-table', 'config': 'schema: ...'}],
+                },
             }
         }
     }
 
-    result = backend.create_tabulator_table(
-        'test-bucket',
-        'my-table',
-        'schema: ...'
-    )
+    result = backend.create_tabulator_table('test-bucket', 'my-table', 'schema: ...')
 
     assert result['__typename'] == 'BucketSetTabulatorTableSuccess'
     assert result['bucketConfig']['name'] == 'test-bucket'
@@ -143,23 +123,14 @@ def test_create_tabulator_table_success():
     # Verify mutation call
     call_args = backend.execute_graphql_query.call_args
     assert 'bucketSetTabulatorTable' in call_args[0][0]
-    assert call_args[0][1] == {
-        'bucketName': 'test-bucket',
-        'tableName': 'my-table',
-        'config': 'schema: ...'
-    }
+    assert call_args[0][1] == {'bucketName': 'test-bucket', 'tableName': 'my-table', 'config': 'schema: ...'}
 
 
 def test_create_tabulator_table_invalid_config():
     """Test error handling for invalid config."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {
-            'bucketSetTabulatorTable': {
-                '__typename': 'InvalidInput',
-                'message': 'Invalid YAML syntax'
-            }
-        }
+        'data': {'bucketSetTabulatorTable': {'__typename': 'InvalidInput', 'message': 'Invalid YAML syntax'}}
     }
 
     with pytest.raises(ValidationError, match="Invalid configuration"):
@@ -170,12 +141,7 @@ def test_create_tabulator_table_bucket_not_found():
     """Test error handling when bucket not found."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {
-            'bucketSetTabulatorTable': {
-                '__typename': 'BucketNotFound',
-                'message': 'Bucket does not exist'
-            }
-        }
+        'data': {'bucketSetTabulatorTable': {'__typename': 'BucketNotFound', 'message': 'Bucket does not exist'}}
     }
 
     with pytest.raises(ValidationError, match="Bucket not found"):
@@ -186,12 +152,7 @@ def test_create_tabulator_table_permission_denied():
     """Test error handling when user lacks permission."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {
-            'bucketSetTabulatorTable': {
-                '__typename': 'BucketNotAllowed',
-                'message': 'Permission denied'
-            }
-        }
+        'data': {'bucketSetTabulatorTable': {'__typename': 'BucketNotAllowed', 'message': 'Permission denied'}}
     }
 
     with pytest.raises(PermissionError, match="Not authorized for bucket"):
@@ -214,16 +175,12 @@ def test_update_tabulator_table():
         'data': {
             'bucketSetTabulatorTable': {
                 '__typename': 'BucketSetTabulatorTableSuccess',
-                'bucketConfig': {'name': 'test-bucket'}
+                'bucketConfig': {'name': 'test-bucket'},
             }
         }
     }
 
-    result = backend.update_tabulator_table(
-        'test-bucket',
-        'my-table',
-        'updated: config'
-    )
+    result = backend.update_tabulator_table('test-bucket', 'my-table', 'updated: config')
 
     assert result['__typename'] == 'BucketSetTabulatorTableSuccess'
 
@@ -241,42 +198,27 @@ def test_rename_tabulator_table_success():
                 '__typename': 'BucketSetTabulatorTableSuccess',
                 'bucketConfig': {
                     'name': 'test-bucket',
-                    'tabulatorTables': [
-                        {'name': 'new-name', 'config': 'schema: ...'}
-                    ]
-                }
+                    'tabulatorTables': [{'name': 'new-name', 'config': 'schema: ...'}],
+                },
             }
         }
     }
 
-    result = backend.rename_tabulator_table(
-        'test-bucket',
-        'old-name',
-        'new-name'
-    )
+    result = backend.rename_tabulator_table('test-bucket', 'old-name', 'new-name')
 
     assert result['__typename'] == 'BucketSetTabulatorTableSuccess'
 
     # Verify mutation call
     call_args = backend.execute_graphql_query.call_args
     assert 'bucketRenameTabulatorTable' in call_args[0][0]
-    assert call_args[0][1] == {
-        'bucketName': 'test-bucket',
-        'tableName': 'old-name',
-        'newTableName': 'new-name'
-    }
+    assert call_args[0][1] == {'bucketName': 'test-bucket', 'tableName': 'old-name', 'newTableName': 'new-name'}
 
 
 def test_rename_tabulator_table_invalid():
     """Test error handling for invalid rename."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {
-            'bucketRenameTabulatorTable': {
-                '__typename': 'InvalidInput',
-                'message': 'Table not found'
-            }
-        }
+        'data': {'bucketRenameTabulatorTable': {'__typename': 'InvalidInput', 'message': 'Table not found'}}
     }
 
     with pytest.raises(ValidationError, match="Invalid rename"):
@@ -287,12 +229,7 @@ def test_rename_tabulator_table_permission_denied():
     """Test error handling when rename permission denied."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {
-            'bucketRenameTabulatorTable': {
-                '__typename': 'BucketNotAllowed',
-                'message': 'No write access'
-            }
-        }
+        'data': {'bucketRenameTabulatorTable': {'__typename': 'BucketNotAllowed', 'message': 'No write access'}}
     }
 
     with pytest.raises(PermissionError, match="Not authorized"):
@@ -315,7 +252,7 @@ def test_delete_tabulator_table_success():
         'data': {
             'bucketSetTabulatorTable': {
                 '__typename': 'BucketSetTabulatorTableSuccess',
-                'bucketConfig': {'name': 'test-bucket'}
+                'bucketConfig': {'name': 'test-bucket'},
             }
         }
     }
@@ -341,6 +278,7 @@ def test_delete_tabulator_table_backend_error():
 
 def test_mixin_requires_execute_graphql_query():
     """Test that mixin requires execute_graphql_query method."""
+
     class IncompleteBackend(TabulatorMixin):
         pass
 

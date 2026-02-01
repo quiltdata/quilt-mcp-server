@@ -116,7 +116,7 @@ class TestTabulatorTableCreate:
 
         mock_backend.create_tabulator_table.return_value = {
             "__typename": "BucketSetTabulatorTableSuccess",
-            "bucketConfig": {"name": "test-bucket"}
+            "bucketConfig": {"name": "test-bucket"},
         }
 
         schema = [{"name": "col1", "type": "STRING"}]
@@ -163,9 +163,7 @@ class TestTabulatorTableDelete:
         mock_backend = Mock()
         mock_create.return_value = mock_backend
 
-        mock_backend.delete_tabulator_table.return_value = {
-            "__typename": "BucketSetTabulatorTableSuccess"
-        }
+        mock_backend.delete_tabulator_table.return_value = {"__typename": "BucketSetTabulatorTableSuccess"}
 
         result = await tabulator_table_delete("test-bucket", "test_table")
 
@@ -197,18 +195,14 @@ class TestTabulatorTableRename:
         mock_backend = Mock()
         mock_create.return_value = mock_backend
 
-        mock_backend.rename_tabulator_table.return_value = {
-            "__typename": "BucketSetTabulatorTableSuccess"
-        }
+        mock_backend.rename_tabulator_table.return_value = {"__typename": "BucketSetTabulatorTableSuccess"}
 
         result = await tabulator_table_rename("test-bucket", "old_table", "new_table")
 
         assert result["success"] is True
         assert result["old_table_name"] == "old_table"
         assert result["new_table_name"] == "new_table"
-        mock_backend.rename_tabulator_table.assert_called_once_with(
-            "test-bucket", "old_table", "new_table"
-        )
+        mock_backend.rename_tabulator_table.assert_called_once_with("test-bucket", "old_table", "new_table")
 
     @patch("quilt_mcp.ops.factory.QuiltOpsFactory.create")
     @pytest.mark.asyncio
