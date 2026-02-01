@@ -314,3 +314,82 @@ class QuiltOps(ABC):
             ValidationError: When registry parameter is invalid
         """
         pass
+
+    @abstractmethod
+    def diff_packages(
+        self,
+        package1_name: str,
+        package2_name: str,
+        registry: str,
+        package1_hash: Optional[str] = None,
+        package2_hash: Optional[str] = None,
+    ) -> Dict[str, List[str]]:
+        """Compare two package versions and return differences.
+
+        Compares the contents of two package versions and returns the differences
+        between them. This includes files that were added, deleted, or modified
+        between the two package versions.
+
+        Args:
+            package1_name: Full name of the first package in "user/package" format
+            package2_name: Full name of the second package in "user/package" format
+            registry: Registry URL where both packages are stored
+            package1_hash: Optional specific hash/version of the first package.
+                         If None, uses the latest version.
+            package2_hash: Optional specific hash/version of the second package.
+                         If None, uses the latest version.
+
+        Returns:
+            Dict[str, List[str]]: Dictionary with difference categories:
+                - "added": List of file paths that were added in package2
+                - "deleted": List of file paths that were deleted from package1
+                - "modified": List of file paths that were modified between versions
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When the backend operation fails or packages are not found
+            ValidationError: When package names, registry, or hash parameters are invalid
+            NotFoundError: When one or both packages don't exist in the registry
+        """
+        pass
+
+    @abstractmethod
+    def update_package_revision(
+        self,
+        package_name: str,
+        s3_uris: List[str],
+        registry: str,
+        metadata: Optional[Dict] = None,
+        message: str = "Package updated via QuiltOps",
+        auto_organize: bool = False,
+        copy: str = "none",
+    ) -> Package_Creation_Result:
+        """Update an existing package with new files.
+
+        Updates an existing package by adding new files from the specified S3 URIs.
+        This operation browses the existing package, adds the new files, and pushes
+        the updated package to the registry.
+
+        Args:
+            package_name: Full package name in "user/package" format
+            s3_uris: List of S3 URIs to add to the package
+            registry: Registry URL where the package is stored
+            metadata: Optional metadata dictionary to merge with existing package metadata
+            message: Commit message for the package update
+            auto_organize: If True, preserve S3 folder structure as logical keys.
+                         If False, flatten to just filenames (default: False)
+            copy: Copy behavior for files:
+                - "none": Create shallow references to original S3 locations (no copy)
+                - "all": Deep copy all objects to registry bucket
+
+        Returns:
+            Package_Creation_Result with update details and status
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid or missing
+            BackendError: When the backend operation fails (S3 access, push errors, etc.)
+            ValidationError: When parameters are invalid (malformed URIs, invalid names)
+            NotFoundError: When the package doesn't exist in the registry
+            PermissionError: When user lacks permission to update packages in registry
+        """
+        pass

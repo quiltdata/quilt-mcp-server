@@ -17,7 +17,7 @@ from .quilt_summary import create_quilt_summary_files
 from ..context.exceptions import ContextNotAvailableError
 from ..context.propagation import get_current_context
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
-from ..services.quilt_service import QuiltService
+
 from ..utils import format_error_response, generate_signed_url, get_s3_client, validate_package_name
 from ..ops.factory import QuiltOpsFactory
 from ..domain import Package_Creation_Result
@@ -50,12 +50,6 @@ def _current_permission_service():
     except ContextNotAvailableError:
         return None
 
-
-# Initialize service
-quilt_service = QuiltService()
-
-# Export quilt3 module for backward compatibility with tests
-quilt3 = quilt_service.get_quilt3_module()
 
 # Helpers
 
@@ -1019,48 +1013,19 @@ def package_diff(
     normalized_registry = _normalize_registry(registry)
 
     try:
-        # Browse packages with optional hash specification
-        # Suppress stdout during browse operations to avoid JSON-RPC interference
+        # Use QuiltOps.diff_packages() for business logic
+        from ..ops.factory import QuiltOpsFactory
         from ..utils import suppress_stdout
 
-        quilt_service = QuiltService()
+        quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
-            if package1_hash:
-                pkg1 = quilt_service.browse_package(
-                    package1_name, registry=normalized_registry, top_hash=package1_hash
-                )
-            else:
-                pkg1 = quilt_service.browse_package(package1_name, registry=normalized_registry)
-
-            if package2_hash:
-                pkg2 = quilt_service.browse_package(
-                    package2_name, registry=normalized_registry, top_hash=package2_hash
-                )
-            else:
-                pkg2 = quilt_service.browse_package(package2_name, registry=normalized_registry)
-
-    except Exception as e:
-        return PackageDiffError(
-            error=f"Failed to browse packages: {e}",
-            package1=package1_name,
-            package2=package2_name,
-        )
-
-    try:
-        # Use quilt3's built-in diff functionality
-        diff_result = pkg1.diff(pkg2)
-
-        # Convert the diff tuple (added, deleted, modified) to a dictionary
-        if isinstance(diff_result, tuple) and len(diff_result) == 3:
-            added, deleted, modified = diff_result
-            diff_dict = {
-                "added": list(added) if added else [],
-                "deleted": list(deleted) if deleted else [],
-                "modified": list(modified) if modified else [],
-            }
-        else:
-            # If diff_result is already a dict or unexpected format, use as-is
-            diff_dict = diff_result if isinstance(diff_result, dict) else {"raw": [str(diff_result)]}
+            diff_dict = quilt_ops.diff_packages(
+                package1_name=package1_name,
+                package2_name=package2_name,
+                registry=normalized_registry,
+                package1_hash=package1_hash if package1_hash else None,
+                package2_hash=package2_hash if package2_hash else None,
+            )
 
         return PackageDiffSuccess(
             package1=package1_name,
@@ -1430,99 +1395,68 @@ def package_update(
             registry=registry,
             suggested_actions=["Check your permissions", "Verify package exists", "Confirm registry access"],
         )
+
     try:
-        # Suppress stdout during browse to avoid JSON-RPC interference
+        # Use QuiltOps.update_package_revision() for business logic
+        from ..ops.factory import QuiltOpsFactory
         from ..utils import suppress_stdout
 
-        with suppress_stdout():
-            quilt_service = QuiltService()
-            existing_pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
-    except Exception as e:
-        return PackageUpdateError(
-            error=f"Failed to browse existing package '{package_name}': {e}",
-            package_name=package_name,
-            registry=registry,
-            suggested_actions=[
-                "Verify package exists in the registry",
-                "Check package name format",
-                "Ensure you have read permissions",
-            ],
-        )
-    # Use the existing package as the base instead of creating a new one
-    updated_pkg = existing_pkg
-    added = _collect_objects_into_package(updated_pkg, s3_uris, flatten, warnings)
-    if not added:
-        return PackageUpdateError(
-            error="No new S3 objects were added",
-            package_name=package_name,
-            registry=registry,
-            suggested_actions=[
-                "Check that S3 URIs are valid and accessible",
-                "Verify URIs point to actual files, not directories",
-                "Ensure files don't already exist in package",
-            ],
-            warnings=warnings,
-        )
-    if metadata:
-        try:
-            combined = {}
-            try:
-                combined.update(existing_pkg.meta)
-            except Exception:
-                pass
-            combined.update(metadata)
-            updated_pkg.set_meta(combined)
-        except Exception as e:
-            warnings.append(f"Failed to set merged metadata: {e}")
-    try:
-        # Suppress stdout during push to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
+        quilt_ops = QuiltOpsFactory.create()
+
+        # Convert parameters to match QuiltOps interface
+        copy_behavior = "all" if copy else "none"
+        auto_organize = not flatten  # flatten=True means auto_organize=False
 
         with suppress_stdout():
-            selector_fn = _build_selector_fn(copy, normalized_registry)
-            top_hash = updated_pkg.push(
-                package_name,
+            result = quilt_ops.update_package_revision(
+                package_name=package_name,
+                s3_uris=s3_uris,
                 registry=normalized_registry,
+                metadata=metadata,
                 message=message,
-                selector_fn=selector_fn,
-                force=True,
+                auto_organize=auto_organize,
+                copy=copy_behavior,
             )
 
+        if not result.success:
+            return PackageUpdateError(
+                error="Package update failed - no files were added or push failed",
+                package_name=package_name,
+                registry=registry,
+                suggested_actions=[
+                    "Check that S3 URIs are valid and accessible",
+                    "Verify URIs point to actual files, not directories",
+                    "Ensure you have write permissions to the registry",
+                ],
+                warnings=warnings,
+            )
+
+        # Transform QuiltOps result to tool response format
+        return PackageUpdateSuccess(
+            package_name=package_name,
+            registry=registry,
+            top_hash=result.top_hash,
+            files_added=result.file_count,
+            package_url=result.catalog_url or "",
+            files=[],  # QuiltOps doesn't return detailed file list, but that's OK
+            message=message,
+            warnings=warnings,
+            auth_type=auth_ctx.auth_type if auth_ctx else None,
+        )
+
     except Exception as e:
         return PackageUpdateError(
-            error=f"Failed to push updated package: {e}",
+            error=f"Package update failed: {e}",
             package_name=package_name,
             registry=registry,
             suggested_actions=[
-                "Check write permissions for the registry",
-                "Verify network connectivity",
-                "Ensure no conflicts with existing package state",
+                "Check that the package exists in the registry",
+                "Verify S3 URIs are valid and accessible",
+                "Ensure you have read/write permissions",
+                "Check network connectivity",
             ],
             warnings=warnings,
         )
-
-    # Build package URL
-    from .catalog import catalog_url
-
-    catalog_result = catalog_url(
-        registry=normalized_registry,
-        package_name=package_name,
-        path="",
-        catalog_host="",
-    )
-    package_url = catalog_result.catalog_url if isinstance(catalog_result, CatalogUrlSuccess) else ""
-
-    return PackageUpdateSuccess(
-        package_name=package_name,
-        registry=registry,
-        top_hash=str(top_hash),
-        files_added=len(added),
-        package_url=package_url,
-        files=added,
-        message=message,
-        warnings=warnings,
-        auth_type=auth_ctx.auth_type if auth_ctx else None,
-    )
 
 
 def package_delete(
@@ -1600,6 +1534,7 @@ def package_delete(
 
         # Suppress stdout during delete to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+        import quilt3
 
         with suppress_stdout():
             quilt3.delete_package(package_name, registry=normalized_registry)

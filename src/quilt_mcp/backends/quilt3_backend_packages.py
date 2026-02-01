@@ -413,12 +413,230 @@ class Quilt3_Backend_Packages:
                 f"Quilt3 backend create_package_revision failed: {str(e)}", context=error_context
             ) from e
 
+    def diff_packages(
+        self,
+        package1_name: str,
+        package2_name: str,
+        registry: str,
+        package1_hash: Optional[str] = None,
+        package2_hash: Optional[str] = None,
+    ) -> Dict[str, List[str]]:
+        """Compare two package versions and return differences.
+
+        Compares the contents of two package versions and returns the differences
+        between them. This includes files that were added, deleted, or modified
+        between the two package versions.
+
+        Args:
+            package1_name: Full name of the first package in "user/package" format
+            package2_name: Full name of the second package in "user/package" format
+            registry: Registry URL where both packages are stored
+            package1_hash: Optional specific hash/version of the first package.
+                         If None, uses the latest version.
+            package2_hash: Optional specific hash/version of the second package.
+                         If None, uses the latest version.
+
+        Returns:
+            Dict[str, List[str]]: Dictionary with difference categories:
+                - "added": List of file paths that were added in package2
+                - "deleted": List of file paths that were deleted from package1
+                - "modified": List of file paths that were modified between versions
+
+        Raises:
+            BackendError: When the backend operation fails or packages are not found
+            ValidationError: When package names, registry, or hash parameters are invalid
+        """
+        try:
+            logger.debug(f"Diffing packages: {package1_name} vs {package2_name} in registry: {registry}")
+
+            # Browse packages with optional hash specification
+            if package1_hash:
+                pkg1 = self.quilt3.Package.browse(package1_name, registry=registry, top_hash=package1_hash)
+            else:
+                pkg1 = self.quilt3.Package.browse(package1_name, registry=registry)
+
+            if package2_hash:
+                pkg2 = self.quilt3.Package.browse(package2_name, registry=registry, top_hash=package2_hash)
+            else:
+                pkg2 = self.quilt3.Package.browse(package2_name, registry=registry)
+
+            # Use quilt3's built-in diff functionality
+            diff_result = pkg1.diff(pkg2)
+
+            # Convert the diff tuple (added, deleted, modified) to a dictionary
+            if isinstance(diff_result, tuple) and len(diff_result) == 3:
+                added, deleted, modified = diff_result
+                diff_dict = {
+                    "added": [str(path) for path in added] if added else [],
+                    "deleted": [str(path) for path in deleted] if deleted else [],
+                    "modified": [str(path) for path in modified] if modified else [],
+                }
+            else:
+                # If diff_result is already a dict or unexpected format, use as-is
+                diff_dict = diff_result if isinstance(diff_result, dict) else {"raw": [str(diff_result)]}
+
+            logger.debug(f"Successfully diffed packages: {package1_name} vs {package2_name}")
+            return diff_dict
+
+        except Exception as e:
+            error_context = {
+                'package1_name': package1_name,
+                'package2_name': package2_name,
+                'registry': registry,
+                'package1_hash': package1_hash,
+                'package2_hash': package2_hash,
+            }
+            logger.error(f"Package diff failed: {str(e)}", extra={'context': error_context})
+            raise BackendError(f"Quilt3 backend diff_packages failed: {str(e)}", context=error_context) from e
+
     def list_all_packages(self, registry: str) -> List[str]:
         """List all package names (stub implementation).
 
         This method is not yet implemented. See Task 3.3 in the migration tasks.
         """
         raise NotImplementedError("list_all_packages() not yet implemented - see Task 3.3")
+
+    def update_package_revision(
+        self,
+        package_name: str,
+        s3_uris: List[str],
+        registry: str,
+        metadata: Optional[Dict] = None,
+        message: str = "Package updated via QuiltOps",
+        auto_organize: bool = False,
+        copy: str = "none",
+    ):
+        """Update an existing package with new files.
+
+        Updates an existing package by adding new files from the specified S3 URIs.
+        This operation browses the existing package, adds the new files, and pushes
+        the updated package to the registry.
+
+        Args:
+            package_name: Full package name in "user/package" format
+            s3_uris: List of S3 URIs to add to the package
+            registry: Registry URL where the package is stored
+            metadata: Optional metadata dictionary to merge with existing package metadata
+            message: Commit message for the package update
+            auto_organize: If True, preserve S3 folder structure as logical keys.
+                         If False, flatten to just filenames (default: False)
+            copy: Copy behavior for files:
+                - "none": Create shallow references to original S3 locations (no copy)
+                - "all": Deep copy all objects to registry bucket
+
+        Returns:
+            Package_Creation_Result with update details and status
+
+        Raises:
+            ValidationError: When parameters are invalid (malformed URIs, invalid names)
+            BackendError: When the backend operation fails (S3 access, push errors, etc.)
+        """
+        from quilt_mcp.domain.package_creation import Package_Creation_Result
+        from quilt_mcp.ops.exceptions import BackendError, ValidationError
+
+        try:
+            logger.debug(f"Updating package: {package_name} with {len(s3_uris)} files")
+
+            # Validate inputs
+            self._validate_package_update_inputs(package_name, s3_uris, registry)
+
+            # Browse existing package (extracted from package_update() tool)
+            existing_pkg = self.quilt3.Package.browse(package_name, registry=registry)
+
+            # Use the existing package as the base (extracted from package_update() tool)
+            updated_pkg = existing_pkg
+
+            # Add S3 URIs to package (extracted logic from _collect_objects_into_package)
+            added_files = []
+            for s3_uri in s3_uris:
+                if not s3_uri.startswith("s3://"):
+                    continue  # Skip non-S3 URIs
+
+                without_scheme = s3_uri[5:]
+                if "/" not in without_scheme:
+                    continue  # Skip bucket-only URIs
+
+                bucket, key = without_scheme.split("/", 1)
+                if not key or key.endswith("/"):
+                    continue  # Skip directory URIs
+
+                # Extract logical key based on auto_organize setting
+                if auto_organize:
+                    logical_path = key  # Preserve folder structure
+                else:
+                    logical_path = key.split("/")[-1]  # Flatten to filename
+
+                # Add file to package
+                updated_pkg.set(logical_path, s3_uri)
+                added_files.append({"logical_path": logical_path, "source": s3_uri})
+
+            # Handle metadata merging (extracted from package_update() tool)
+            if metadata:
+                try:
+                    combined = {}
+                    try:
+                        combined.update(existing_pkg.meta)
+                    except Exception:
+                        pass  # If existing package has no metadata, start fresh
+                    combined.update(metadata)
+                    updated_pkg.set_meta(combined)
+                except Exception as e:
+                    logger.warning(f"Failed to set merged metadata: {e}")
+
+            # Build selector function based on copy parameter (extracted from _build_selector_fn)
+            if copy == "all":
+                selector_fn = lambda _logical_key, _entry: True  # Copy all objects
+            else:  # copy == "none"
+                selector_fn = lambda _logical_key, _entry: False  # Reference only
+
+            # Push updated package (extracted from package_update() tool)
+            top_hash = updated_pkg.push(
+                package_name,
+                registry=registry,
+                message=message,
+                selector_fn=selector_fn,
+                force=True,
+            )
+
+            # Generate catalog URL
+            catalog_url = self._build_catalog_url(package_name, registry)
+
+            # Handle push failure
+            if not top_hash:
+                return Package_Creation_Result(
+                    package_name=package_name,
+                    top_hash="",
+                    registry=registry,
+                    catalog_url=catalog_url,
+                    file_count=len(added_files),
+                    success=False,
+                )
+
+            result = Package_Creation_Result(
+                package_name=package_name,
+                top_hash=top_hash,
+                registry=registry,
+                catalog_url=catalog_url,
+                file_count=len(added_files),
+                success=True,
+            )
+
+            logger.debug(f"Successfully updated package: {package_name} with hash: {top_hash}")
+            return result
+
+        except ValidationError:
+            # Re-raise validation errors as-is
+            raise
+        except Exception as e:
+            error_context = {
+                'package_name': package_name,
+                'registry': registry,
+                'file_count': len(s3_uris),
+            }
+            logger.error(f"Package update failed: {str(e)}", extra={'context': error_context})
+            raise BackendError(
+                f"Quilt3 backend update_package_revision failed: {str(e)}", context=error_context
+            ) from e
 
     def _validate_package_creation_inputs(self, package_name: str, s3_uris: List[str]) -> None:
         """Validate inputs for package creation.
@@ -457,6 +675,49 @@ class Quilt3_Backend_Packages:
                     f"Invalid S3 URI at index {i}: must include bucket and key",
                     {"field": "s3_uris", "index": i, "uri": s3_uri},
                 )
+
+    def _validate_package_update_inputs(self, package_name: str, s3_uris: List[str], registry: str) -> None:
+        """Validate inputs for package update.
+
+        Args:
+            package_name: Package name to validate
+            s3_uris: List of S3 URIs to validate
+            registry: Registry URL to validate
+
+        Raises:
+            ValidationError: If inputs are invalid
+        """
+        import re
+
+        # Validate package name format (user/package)
+        if not package_name or not isinstance(package_name, str):
+            raise ValidationError("Package name must be a non-empty string", {"field": "package_name"})
+
+        if not re.match(r'^[^/]+/[^/]+$', package_name):
+            raise ValidationError("Package name must be in 'user/package' format", {"field": "package_name"})
+
+        # Validate registry
+        if not registry or not isinstance(registry, str):
+            raise ValidationError("Registry must be a non-empty string", {"field": "registry"})
+
+        if not registry.startswith('s3://'):
+            raise ValidationError("Registry must be an S3 URI starting with 's3://'", {"field": "registry"})
+
+        # Validate S3 URIs list structure (but allow individual URIs to be invalid - they'll be skipped)
+        if not s3_uris or not isinstance(s3_uris, list):
+            raise ValidationError("S3 URIs must be a non-empty list", {"field": "s3_uris"})
+
+        # Check that at least one URI could potentially be valid
+        has_potential_valid_uri = any(
+            isinstance(uri, str) and uri.startswith('s3://') and '/' in uri[5:] and not uri.endswith('/')
+            for uri in s3_uris
+        )
+
+        if not has_potential_valid_uri:
+            raise ValidationError(
+                "No potentially valid S3 URIs found in list",
+                {"field": "s3_uris", "note": "URIs must be strings starting with 's3://' and include bucket and key"},
+            )
 
     def _extract_logical_key(self, s3_uri: str, auto_organize: bool = True) -> str:
         """Extract logical key from S3 URI for package.

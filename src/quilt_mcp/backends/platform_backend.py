@@ -117,3 +117,16 @@ class Platform_Backend(QuiltOps):
         raise NotImplementedError(
             "Platform GraphQL backend not yet implemented. Use QUILT_MULTITENANT_MODE=false for local development."
         )
+
+    def diff_packages(
+        self,
+        package1_name: str,
+        package2_name: str,
+        registry: str,
+        package1_hash: Optional[str] = None,
+        package2_hash: Optional[str] = None,
+    ) -> Dict[str, List[str]]:
+        """Compare two package versions and return differences."""
+        raise NotImplementedError(
+            "Platform GraphQL backend not yet implemented. Use QUILT_MULTITENANT_MODE=false for local development."
+        )

@@ -101,7 +101,7 @@ class TestQuiltServiceAuthentication:
 
         with (
             patch.object(service, 'has_session_support', return_value=True),
-            patch.object(service, 'get_session', return_value=mock_session),
+            patch('quilt3.session.get_session', return_value=mock_session),
         ):
             result = service.get_catalog_config('https://nightly.quilttest.com')
 
@@ -160,7 +160,7 @@ class TestQuiltServiceAuthentication:
 
         with (
             patch.object(service, 'has_session_support', return_value=True),
-            patch.object(service, 'get_session', return_value=mock_session),
+            patch('quilt3.session.get_session', return_value=mock_session),
         ):
             result = service.get_catalog_config('https://example.quiltdata.com')
             assert result is None
@@ -253,15 +253,6 @@ class TestQuiltServicePackageOperations:
             assert result == mock_package
             mock_browse.assert_called_once_with('user/package', registry='s3://test-bucket', top_hash='abc123')
 
-    def test_create_bucket_returns_bucket_instance(self):
-        """Test create_bucket returns a Bucket instance."""
-        service = QuiltService()
-        mock_bucket = Mock()
-        with patch('quilt3.Bucket', return_value=mock_bucket) as mock_bucket_class:
-            result = service.create_bucket('s3://test-bucket')
-            assert result == mock_bucket
-            mock_bucket_class.assert_called_once_with('s3://test-bucket')
-
     def test_get_search_api_returns_search_module(self):
         """Test get_search_api returns the search_util.search_api module."""
         service = QuiltService()
@@ -286,17 +277,6 @@ class TestQuiltServicePackageOperations:
             result = service.has_session_support()
             assert result is False
 
-    def test_get_session_when_available(self):
-        """Test get_session returns session object when available."""
-        service = QuiltService()
-        mock_session_obj = Mock()
-        mock_session = Mock()
-        mock_session.get_session = Mock(return_value=mock_session_obj)
-        with patch('quilt3.session', mock_session):
-            result = service.get_session()
-            assert result == mock_session_obj
-            mock_session.get_session.assert_called_once()
-
     def test_get_registry_url_when_available(self):
         """Test get_registry_url returns URL when available."""
         service = QuiltService()
@@ -314,22 +294,6 @@ class TestQuiltServicePackageOperations:
         with patch('quilt3.session', mock_session):
             result = service.get_registry_url()
             assert result is None
-
-    def test_create_botocore_session_returns_session_object(self):
-        """Test create_botocore_session returns a botocore session object."""
-        service = QuiltService()
-        mock_botocore_session = Mock()
-        with patch('quilt3.session.create_botocore_session', return_value=mock_botocore_session) as mock_create:
-            result = service.create_botocore_session()
-            assert result == mock_botocore_session
-            mock_create.assert_called_once()
-
-    def test_create_botocore_session_raises_exception_on_failure(self):
-        """Test create_botocore_session raises exception when underlying call fails."""
-        service = QuiltService()
-        with patch('quilt3.session.create_botocore_session', side_effect=Exception("Authentication failed")):
-            with pytest.raises(Exception, match="Authentication failed"):
-                service.create_botocore_session()
 
 
 class TestQuiltServiceAdmin:

@@ -12,7 +12,10 @@ This backend simply:
 
 import logging
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...backends.quilt3_backend import Quilt3_Backend
 
 from .base import (
     SearchBackend,
@@ -100,9 +103,14 @@ def escape_elasticsearch_query(query: str) -> str:
 class Quilt3ElasticsearchBackend(SearchBackend):
     """Simplified Elasticsearch backend using quilt3 search API."""
 
-    def __init__(self, quilt_service: Optional[QuiltService] = None):
+    def __init__(
+        self,
+        quilt_service: Optional[QuiltService] = None,
+        backend: Optional["Quilt3_Backend"] = None,
+    ):
         super().__init__(BackendType.ELASTICSEARCH)
         self.quilt_service = quilt_service or QuiltService()
+        self.backend = backend
         self._session_available = False
 
         # Initialize scope handlers
@@ -225,25 +233,39 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             Exception if GraphQL query fails
         """
         try:
-            session = self.quilt_service.get_session()
-            registry_url = self.quilt_service.get_registry_url()
+            # Prefer backend for proper abstraction
+            if self.backend:
+                result = self.backend.execute_graphql_query("{ bucketConfigs { name } }")
+                configs = result.get("data", {}).get("bucketConfigs", [])
+                return [config["name"] for config in configs if isinstance(config, dict) and "name" in config]
+            else:
+                # Fall back to quilt3 session directly
+                import quilt3
 
-            if not session or not registry_url:
-                return []
+                if not hasattr(quilt3, "session") or not hasattr(quilt3.session, "get_session"):
+                    return []
 
-            resp = session.post(
-                f"{registry_url.rstrip('/')}/graphql",
-                json={"query": "{ bucketConfigs { name } }"},
-                timeout=30,
-            )
+                session = quilt3.session.get_session()
+                registry_url = (
+                    quilt3.session.get_registry_url() if hasattr(quilt3.session, "get_registry_url") else None
+                )
 
-            if resp.status_code != 200:
-                logger.warning(f"Failed to fetch bucket list: HTTP {resp.status_code}")
-                return []
+                if not session or not registry_url:
+                    return []
 
-            data = resp.json()
-            configs = data.get("data", {}).get("bucketConfigs", [])
-            return [config["name"] for config in configs if isinstance(config, dict) and "name" in config]
+                resp = session.post(
+                    f"{registry_url.rstrip('/')}/graphql",
+                    json={"query": "{ bucketConfigs { name } }"},
+                    timeout=30,
+                )
+
+                if resp.status_code != 200:
+                    logger.warning(f"Failed to fetch bucket list: HTTP {resp.status_code}")
+                    return []
+
+                data = resp.json()
+                configs = data.get("data", {}).get("bucketConfigs", [])
+                return [config["name"] for config in configs if isinstance(config, dict) and "name" in config]
         except Exception as e:
             logger.warning(f"Failed to fetch bucket list: {e}")
             return []

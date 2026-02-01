@@ -20,9 +20,13 @@ from sqlalchemy.exc import SQLAlchemyError
 if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient  # type: ignore[import-not-found]
     from mypy_boto3_s3 import S3Client  # type: ignore[import-not-found]
+    from mypy_boto3_athena import AthenaClient  # type: ignore[import-not-found]
+    from ..backends.quilt3_backend import Quilt3_Backend
 else:
     GlueClient = Any
     S3Client = Any
+    AthenaClient = Any
+    Quilt3_Backend = Any
 
 from ..utils import format_error_response, suppress_stdout
 from .quilt_service import QuiltService
@@ -37,6 +41,7 @@ class AthenaQueryService:
         self,
         use_quilt_auth: bool = True,
         quilt_service: Optional[QuiltService] = None,
+        backend: Optional[Quilt3_Backend] = None,
         workgroup_name: Optional[str] = None,
         data_catalog_name: Optional[str] = None,
     ):
@@ -44,12 +49,14 @@ class AthenaQueryService:
 
         Args:
             use_quilt_auth: Whether to use quilt3 authentication
-            quilt_service: Optional QuiltService instance for dependency injection
+            quilt_service: Optional QuiltService instance for dependency injection (deprecated, use backend)
+            backend: Optional Quilt3_Backend instance for proper backend abstraction
             workgroup_name: Optional Athena workgroup name (auto-discovered if not provided)
             data_catalog_name: Optional data catalog name (defaults to "AwsDataCatalog")
         """
         self.use_quilt_auth = use_quilt_auth
         self.quilt_service = quilt_service
+        self.backend = backend
         self.workgroup_name = workgroup_name
         self.data_catalog_name = data_catalog_name or "AwsDataCatalog"
         self.query_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
@@ -57,6 +64,7 @@ class AthenaQueryService:
         # Initialize clients
         self._glue_client: Optional[GlueClient] = None
         self._s3_client: Optional[S3Client] = None
+        self._athena_client: Optional[AthenaClient] = None
         self._engine: Optional[Engine] = None
         self._base_connection_string: Optional[str] = None  # Store for creating engines with schema_name
 
@@ -85,9 +93,11 @@ class AthenaQueryService:
         """Create SQLAlchemy engine with PyAthena driver."""
         try:
             if self.use_quilt_auth:
-                # Use QuiltService for complete abstraction
-                quilt_service = self.quilt_service or QuiltService()
-                botocore_session = quilt_service.create_botocore_session()
+                # Get credentials from quilt3 session
+                # Note: Using quilt3.session directly since we need credentials for connection string
+                import quilt3
+
+                botocore_session = quilt3.session.create_botocore_session()
                 credentials = botocore_session.get_credentials()
 
                 # Force region to us-east-1 for Quilt Athena workgroup
@@ -185,11 +195,16 @@ class AthenaQueryService:
         """Create Glue client for metadata operations."""
         if self.use_quilt_auth:
             try:
-                # Use QuiltService for complete abstraction
-                quilt_service = self.quilt_service or QuiltService()
-                botocore_session = quilt_service.create_botocore_session()
-                # Use us-east-1 region for Quilt Athena workgroup resources
-                return botocore_session.create_client("glue", region_name="us-east-1")
+                # Prefer backend for proper abstraction
+                if self.backend:
+                    return self.backend.get_boto3_client("glue", region="us-east-1")
+                else:
+                    # Fall back to quilt3 session directly
+                    import quilt3
+
+                    botocore_session = quilt3.session.create_botocore_session()
+                    # Use us-east-1 region for Quilt Athena workgroup resources
+                    return botocore_session.create_client("glue", region_name="us-east-1")
             except Exception:
                 # Fallback to default credentials
                 pass
@@ -199,10 +214,15 @@ class AthenaQueryService:
         """Create S3 client for result management."""
         if self.use_quilt_auth:
             try:
-                # Use QuiltService for complete abstraction
-                quilt_service = self.quilt_service or QuiltService()
-                botocore_session = quilt_service.create_botocore_session()
-                return botocore_session.create_client("s3")
+                # Prefer backend for proper abstraction
+                if self.backend:
+                    return self.backend.get_boto3_client("s3")
+                else:
+                    # Fall back to quilt3 session directly
+                    import quilt3
+
+                    botocore_session = quilt3.session.create_botocore_session()
+                    return botocore_session.create_client("s3")
             except Exception:
                 # Fallback to default credentials
                 pass
@@ -490,19 +510,25 @@ class AthenaQueryService:
 
             # Use the same auth pattern as other service methods
             if self.use_quilt_auth:
-                # Use QuiltService for complete abstraction
-                quilt_service = self.quilt_service or QuiltService()
-                botocore_session = quilt_service.create_botocore_session()
-                credentials = botocore_session.get_credentials()
                 region = "us-east-1"  # Force region for Quilt Athena workgroups
 
-                athena_client = boto3.client(
-                    "athena",
-                    region_name=region,
-                    aws_access_key_id=credentials.access_key,
-                    aws_secret_access_key=credentials.secret_key,
-                    aws_session_token=credentials.token,
-                )
+                # Prefer backend for proper abstraction
+                if self.backend:
+                    athena_client = self.backend.get_boto3_client("athena", region=region)
+                else:
+                    # Fall back to quilt3 session directly
+                    import quilt3
+
+                    botocore_session = quilt3.session.create_botocore_session()
+                    credentials = botocore_session.get_credentials()
+
+                    athena_client = boto3.client(
+                        "athena",
+                        region_name=region,
+                        aws_access_key_id=credentials.access_key,
+                        aws_secret_access_key=credentials.secret_key,
+                        aws_session_token=credentials.token,
+                    )
             else:
                 region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
                 athena_client = boto3.client("athena", region_name=region)

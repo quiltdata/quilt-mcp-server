@@ -160,7 +160,6 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_service.get_session.return_value = mock_session
         self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return results from multiple buckets
@@ -238,7 +237,6 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_service.get_session.return_value = mock_session
         self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return package entry results from multiple buckets
@@ -318,7 +316,6 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_service.get_session.return_value = mock_session
         self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return BOTH file and package entry results from multiple buckets

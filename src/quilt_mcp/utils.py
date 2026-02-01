@@ -6,6 +6,7 @@ import contextlib
 import inspect
 import io
 import os
+import pathlib
 import re
 import sys
 from typing import Any, Callable, Dict, Literal, Optional
@@ -54,6 +55,57 @@ def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
         raise ValueError(f"Unexpected S3 query string: {parsed.query!r}")
 
     return bucket, path, version_id
+
+
+def fix_url(url: str) -> str:
+    """Convert non-URL paths to file:// URLs.
+
+    This function normalizes file paths and URLs to ensure consistent URL format.
+    Paths are expanded (tilde expansion), resolved to absolute paths, and converted
+    to file:// URLs. URLs with existing schemes are returned as-is (except Windows
+    drive letters which are treated as paths).
+
+    Args:
+        url: File path or URL to normalize
+
+    Returns:
+        Normalized URL string (file:// URL for paths, unchanged for existing URLs)
+
+    Raises:
+        ValueError: If url is empty or None
+
+    Examples:
+        >>> fix_url("~/data/file.csv")
+        'file:///home/user/data/file.csv'
+        >>> fix_url("./relative/path/")
+        'file:///absolute/path/relative/path/'
+        >>> fix_url("s3://bucket/key")
+        's3://bucket/key'
+        >>> fix_url("C:/Users/data")  # Windows
+        'file:///C:/Users/data'
+    """
+    if not url:
+        raise ValueError("Empty URL")
+
+    url = str(url)
+
+    parsed = urlparse(url)
+    # If it has a scheme, we assume it's a URL.
+    # On Windows, we ignore schemes that look like drive letters, e.g. C:/users/foo
+    if parsed.scheme and not os.path.splitdrive(url)[0]:
+        return url
+
+    # `expanduser()` expands any leading "~" or "~user" path components, as a user convenience
+    # `resolve()` _tries_ to make the URI absolute - but doesn't guarantee anything.
+    # In particular, on Windows, non-existent files won't be resolved.
+    # `absolute()` makes the URI absolute, though it can still contain '..'
+    fixed_url = pathlib.Path(url).expanduser().resolve().absolute().as_uri()
+
+    # pathlib likes to remove trailing slashes, so add it back if needed.
+    if url[-1:] in (os.sep, os.altsep) and not fixed_url.endswith('/'):
+        fixed_url += '/'
+
+    return fixed_url
 
 
 def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:

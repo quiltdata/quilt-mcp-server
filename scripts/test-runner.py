@@ -2,13 +2,12 @@
 """
 Test Runner TUI - Orchestrates all test phases with single-line progress updates.
 
-Runs 6 phases of testing with hierarchical progress tracking:
+Runs 5 phases of testing with hierarchical progress tracking:
 1. Lint (ruff format, ruff check, mypy)
 2. Coverage (unit, integration, e2e tests + analysis + validation)
 3. Docker (check, build)
 4. Script Tests (pytest scripts/tests + MCP integration tests)
 5. MCPB Validate (check-tools, build, validate, UVX test)
-6. Main Tests (pytest tests/ - all remaining tests)
 
 Usage:
     python scripts/test-runner.py [--verbose] [--no-tui]
@@ -85,6 +84,7 @@ class TestRunnerState:
     """State tracking for the entire test run."""
 
     start_time: float = field(default_factory=time.time)
+    last_progress_time: float = field(default_factory=time.time)
     current_phase: int = 0
     phases: list[PhaseStats] = field(default_factory=list)
     total_passed: int = 0
@@ -98,6 +98,20 @@ class TestRunnerState:
         seconds = elapsed % 60
         return f"{minutes}m {seconds}s"
 
+    def reset_lap_timer(self) -> None:
+        """Reset lap timer on any progress event."""
+        self.last_progress_time = time.time()
+
+    def lap_time(self) -> str:
+        """Get formatted lap time since last progress."""
+        elapsed = int(time.time() - self.last_progress_time)
+        if elapsed < 60:
+            return f"{elapsed}s"
+        else:
+            minutes = elapsed // 60
+            seconds = elapsed % 60
+            return f"{minutes}m {seconds}s"
+
     def current_phase_stats(self) -> Optional[PhaseStats]:
         """Get current phase statistics."""
         if 0 <= self.current_phase < len(self.phases):
@@ -108,26 +122,30 @@ class TestRunnerState:
         """Format three-line hierarchical status for TUI."""
         lines = []
 
-        # Line 1: Phase overview with all 6 phases
-        phase_statuses = []
+        # Line 1: Active phase | Completed | Pending
+        phase = self.current_phase_stats()
+        phase_num = self.current_phase + 1
+        total_phases = len(self.phases)
+
+        active = f"[{phase_num}.⏳ {phase.name}]" if phase else ""
+
+        completed = []
+        pending = []
         for i, p in enumerate(self.phases):
             if i < self.current_phase:
-                status = "✅"
-            elif i == self.current_phase:
-                status = "⏳"
-            else:
-                status = "💤"
+                completed.append(p.name)
+            elif i > self.current_phase:
+                pending.append(p.name)
 
-            if i == self.current_phase:
-                phase_statuses.append(f"[{i + 1}.{status} {p.name}]")
-            else:
-                phase_statuses.append(f"{i + 1}.{status} {p.name}")
+        completed_str = f"✅ {', '.join(completed)}" if completed else ""
+        pending_str = f"💤 {', '.join(pending)}" if pending else ""
 
-        phase_num = self.current_phase + 1
-        lines.append(f"Phase {phase_num}/6: {' '.join(phase_statuses)}")
+        status_parts = [active, completed_str, pending_str]
+        phase_line = " | ".join(p for p in status_parts if p)
+
+        lines.append(f"Phase {phase_num}/{total_phases}: {phase_line}")
 
         # Line 2: Current phase subtasks
-        phase = self.current_phase_stats()
         if phase and phase.subtasks:
             subtask_parts = []
             letters = "abcdefghijklmnopqrstuvwxyz"
@@ -139,14 +157,13 @@ class TestRunnerState:
                 else:
                     subtask_parts.append(f"{letters[i]}. {subtask}")
 
-            num_subtasks = len(phase.subtasks)
-            completed_subtasks = phase.current_subtask_idx
-            lines.append(f"{phase_num}. {phase.name} {completed_subtasks}/{num_subtasks}: {' '.join(subtask_parts)}")
+            lines.append(f"{phase.name}: {' | '.join(subtask_parts)}")
         elif phase:
-            lines.append(f"{phase_num}. {phase.name}")
+            lines.append(f"{phase.name}")
 
-        # Line 3: Current subtask details with progress and timer
+        # Line 3: Current subtask details with cumulative progress and timers
         if phase:
+            letters = "abcdefghijklmnopqrstuvwxyz"
             current_letter = (
                 letters[phase.current_subtask_idx] if phase.current_subtask_idx < len(phase.subtasks) else ""
             )
@@ -156,18 +173,23 @@ class TestRunnerState:
 
             progress = ""
             if phase.tests_total > 0:
-                current = phase.tests_passed + phase.tests_failed
-                progress = f"[Test {current}/{phase.tests_total}"
+                # Calculate cumulative position across ALL phases
+                prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
+                current_test_num = prior_tests + phase.tests_passed + phase.tests_failed
+                total_tests = sum(p.tests_total for p in self.phases)
+
+                progress = f"[Test {current_test_num}/{total_tests}"
                 if self.total_passed > 0:
                     progress += f" | ✅ {self.total_passed} passed"
                 if self.total_failed > 0:
                     progress += f" | ❌ {self.total_failed} failed"
                 progress += "]"
 
+            lap = self.lap_time()
             if current_subtask:
-                lines.append(f"{phase_num}.{current_letter} {current_subtask} {progress} | ⏱️  {self.elapsed_time()}")
+                lines.append(f"{current_subtask} {progress} | ⏱️  {self.elapsed_time()} | 🔄 {lap}")
             else:
-                lines.append(f"⏱️  {self.elapsed_time()}")
+                lines.append(f"⏱️  {self.elapsed_time()} | 🔄 {lap}")
         else:
             lines.append(f"⏱️  {self.elapsed_time()}")
 
@@ -185,7 +207,7 @@ def init_phases() -> list[PhaseStats]:
         PhaseStats(
             name="Coverage",
             subtasks=["unit", "integration", "e2e", "analysis", "validation"],
-            tests_total=975,  # Approximate from spec
+            tests_total=975,  # All main tests
         ),
         PhaseStats(
             name="Docker",
@@ -202,11 +224,6 @@ def init_phases() -> list[PhaseStats]:
             subtasks=["check-tools", "mcpb build", "mcpb validate"],
             tests_total=0,
         ),
-        PhaseStats(
-            name="Main Tests",
-            subtasks=["e2e", "integration", "unit"],
-            tests_total=975,
-        ),
     ]
 
 
@@ -221,9 +238,11 @@ def parse_pytest_output(line: str, state: TestRunnerState) -> None:
         if "PASSED" in line:
             phase.tests_passed += 1
             state.total_passed += 1
+            state.reset_lap_timer()
         elif "FAILED" in line:
             phase.tests_failed += 1
             state.total_failed += 1
+            state.reset_lap_timer()
             # Extract test path
             match = re.search(r"(tests/[^:]+)::", line)
             if match:
@@ -242,6 +261,7 @@ def parse_pytest_output(line: str, state: TestRunnerState) -> None:
         if passed > phase.tests_passed:
             phase.tests_passed = passed
             state.total_passed = sum(p.tests_passed for p in state.phases)
+            state.reset_lap_timer()
 
     match = re.search(r"(\d+) failed", line)
     if match:
@@ -249,6 +269,7 @@ def parse_pytest_output(line: str, state: TestRunnerState) -> None:
         if failed > phase.tests_failed:
             phase.tests_failed = failed
             state.total_failed = sum(p.tests_failed for p in state.phases)
+            state.reset_lap_timer()
 
 
 def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
@@ -256,6 +277,8 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
     phase = state.current_phase_stats()
     if not phase:
         return
+
+    old_subtask_idx = phase.current_subtask_idx
 
     # Lint phase transitions
     if phase.name == "Lint":
@@ -302,14 +325,9 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
         elif "mcpb validate" in line or "validating" in line.lower():
             phase.current_subtask_idx = 2
 
-    # Main Tests phase - detect by directory
-    elif phase.name == "Main Tests":
-        if "tests/e2e" in line:
-            phase.current_subtask_idx = 0
-        elif "tests/integration" in line:
-            phase.current_subtask_idx = 1
-        elif "tests/unit" in line:
-            phase.current_subtask_idx = 2
+    # Reset lap timer if subtask changed
+    if phase.current_subtask_idx != old_subtask_idx:
+        state.reset_lap_timer()
 
 
 def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] = None) -> int:
@@ -420,9 +438,11 @@ def run_phase(phase_idx: int, cmd: list[str], state: TestRunnerState, live: Opti
 
     if not USE_TUI:
         print(f"\n{'=' * 80}")
-        print(f"Phase {phase_idx + 1}/6: {phase.name}")
+        print(f"Phase {phase_idx + 1}/5: {phase.name}")
         print(f"{'=' * 80}\n")
 
+    # Reset lap timer at start of new phase
+    state.reset_lap_timer()
     exit_code = run_command(cmd, state, live)
     phase.completed = True
     return exit_code
@@ -464,22 +484,6 @@ def main() -> int:
             ],
         ),
         (4, base_make + ["mcpb-validate"]),
-        (
-            5,
-            [
-                "uv",
-                "run",
-                "python",
-                "-m",
-                "pytest",
-                "tests/",
-                "-v",
-                "--cov=quilt_mcp",
-                f"--cov-report=xml:{results_dir}/coverage-all.xml",
-                "--cov-report=term-missing",
-                "--durations=7",
-            ],
-        ),
     ]
 
     exit_code = 0

@@ -92,7 +92,7 @@ class QuiltService:
 
         try:
             # Use requests session to fetch config.json from catalog
-            session = self.get_session()
+            session = quilt3.session.get_session()
             # Normalize URL - ensure no trailing slash
             normalized_url = catalog_url.rstrip("/")
             config_url = f"{normalized_url}/config.json"
@@ -253,19 +253,6 @@ class QuiltService:
         except Exception:
             return False
 
-    def get_session(self) -> Any:
-        """Get authenticated requests session.
-
-        Returns:
-            Authenticated session object
-
-        Raises:
-            Exception: If session is not available
-        """
-        if not self.has_session_support():
-            raise Exception("quilt3 session not available")
-        return quilt3.session.get_session()
-
     def get_registry_url(self) -> str | None:
         """Get registry URL from session.
 
@@ -278,17 +265,6 @@ class QuiltService:
             return None
         except Exception:
             return None
-
-    def create_botocore_session(self) -> Any:
-        """Create authenticated botocore session.
-
-        Returns:
-            Botocore session object
-
-        Raises:
-            Exception: If session creation fails
-        """
-        return quilt3.session.create_botocore_session()
 
     # Package Operations Methods
     # Based on usage analysis: 18 calls across packages.py, package_ops.py, etc.
@@ -322,20 +298,6 @@ class QuiltService:
             Iterator of package names
         """
         return quilt3.list_packages(registry=registry)  # type: ignore[no-any-return]
-
-    # Bucket Operations Methods
-    # Based on usage analysis: 4 calls in packages.py and buckets.py
-
-    def create_bucket(self, bucket_uri: str) -> Any:
-        """Create a Bucket instance for S3 operations.
-
-        Args:
-            bucket_uri: S3 URI for the bucket
-
-        Returns:
-            Bucket instance
-        """
-        return quilt3.Bucket(bucket_uri)
 
     # Search Operations Methods
     # Based on usage analysis: 1 call in packages.py

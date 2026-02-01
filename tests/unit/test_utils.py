@@ -10,6 +10,7 @@ from quilt_mcp.tools import buckets, catalog, packages
 from quilt_mcp.utils import (
     create_configured_server,
     create_mcp_server,
+    fix_url,
     generate_signed_url,
     get_tool_modules,
     parse_s3_uri,
@@ -235,6 +236,56 @@ class TestUtils(unittest.TestCase):
             parse_s3_uri("https://bucket/key?versionId=abc123")
 
         self.assertIn("Invalid S3 URI scheme", str(context.exception))
+
+    # fix_url tests
+
+    def test_fix_url_preserves_existing_url_schemes(self):
+        """Test fix_url preserves URLs with existing schemes."""
+        # S3 URL
+        self.assertEqual(fix_url("s3://bucket/key"), "s3://bucket/key")
+
+        # HTTPS URL
+        self.assertEqual(fix_url("https://example.com/path"), "https://example.com/path")
+
+        # HTTP URL
+        self.assertEqual(fix_url("http://example.com"), "http://example.com")
+
+    def test_fix_url_converts_relative_path_to_file_url(self):
+        """Test fix_url converts relative paths to file:// URLs."""
+        result = fix_url("./test.txt")
+        self.assertTrue(result.startswith("file:///"))
+        self.assertTrue(result.endswith("/test.txt"))
+
+    def test_fix_url_converts_absolute_path_to_file_url(self):
+        """Test fix_url converts absolute paths to file:// URLs."""
+        result = fix_url("/tmp/test.txt")  # noqa: S108
+        # On macOS, /tmp is a symlink to /private/tmp, so resolve() expands it
+        self.assertTrue(result.startswith("file:///"))
+        self.assertTrue(result.endswith("/tmp/test.txt"))  # noqa: S108
+
+    def test_fix_url_expands_tilde_in_paths(self):
+        """Test fix_url expands ~ to user's home directory."""
+        result = fix_url("~/test.txt")
+        self.assertTrue(result.startswith("file:///"))
+        self.assertNotIn("~", result)
+        self.assertTrue(result.endswith("/test.txt"))
+
+    def test_fix_url_preserves_trailing_slash_for_directories(self):
+        """Test fix_url preserves trailing slashes."""
+        result = fix_url("/tmp/dir/")  # noqa: S108
+        self.assertTrue(result.endswith("/"))
+
+    def test_fix_url_raises_on_empty_string(self):
+        """Test fix_url raises ValueError on empty string."""
+        with self.assertRaises(ValueError) as context:
+            fix_url("")
+        self.assertIn("Empty URL", str(context.exception))
+
+    def test_fix_url_raises_on_none(self):
+        """Test fix_url raises ValueError on None."""
+        with self.assertRaises(ValueError) as context:
+            fix_url(None)
+        self.assertIn("Empty URL", str(context.exception))
 
 
 class TestMCPServerConfiguration(unittest.TestCase):
