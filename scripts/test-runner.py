@@ -190,17 +190,18 @@ class TestRunnerState:
         if completed:
             lines.append(f"{DIM}✅ COMPLETED: {' | '.join(completed)}{RESET}")
 
-        # Section 6: All errors (expanding list at bottom)
-        all_errors = []
-        for phase in self.phases:
-            for error_line in phase.error_lines:
-                all_errors.append(error_line)
+        # Section 6: All errors grouped by phase (expanding list at bottom)
+        has_errors = any(phase.error_lines for phase in self.phases)
 
-        if all_errors:
+        if has_errors:
             lines.append("")
             lines.append("🔍 ERRORS:")
-            for error_line in all_errors:
-                lines.append(f"  {error_line}")
+            for phase in self.phases:
+                if phase.error_lines:
+                    # Add phase header to group errors
+                    lines.append(f"  [{phase.name}]")
+                    for error_line in phase.error_lines:
+                        lines.append(f"    {error_line}")
 
         return "\n".join(lines)
 
@@ -436,10 +437,13 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
     else:
         print(f"❌ Test suite failed in {state.elapsed_time()}\n")
 
-        # Show all phases with failures
+        # Show all phases with failures or errors
         for phase in state.phases:
-            if phase.tests_failed > 0:
-                print(f"  {phase.name} - ❌ {phase.tests_failed} failed:")
+            if phase.tests_failed > 0 or phase.error_lines:
+                if phase.tests_failed > 0:
+                    print(f"  {phase.name} - ❌ {phase.tests_failed} failed:")
+                else:
+                    print(f"  {phase.name} - ❌ Errors detected:")
                 if phase.failures:
                     # Show detailed failures if we captured them
                     for failure in phase.failures:
@@ -447,12 +451,12 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
                         print(f"    • {failure.test_path}{line_info}")
                 elif phase.error_lines:
                     # Show captured error lines if we didn't parse specific failures
-                    print(f"    Error output:")
+                    print("    Error output:")
                     for error_line in phase.error_lines:
                         print(f"      {error_line}")
                 else:
                     # Shouldn't happen, but handle gracefully
-                    print(f"    No detailed error information captured")
+                    print("    No detailed error information captured")
                 print()
 
         print(f"  Total: {state.total_passed} passed, {state.total_failed} failed")

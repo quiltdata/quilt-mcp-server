@@ -49,7 +49,7 @@ def _get_catalog_info() -> Dict[str, Any]:
     # Transform Auth_Status to the expected dictionary format
     return {
         "catalog_name": auth_status.catalog_name or "unknown",
-        "navigator_url": auth_status.navigator_url,
+        "navigator_url": auth_status.logged_in_url,  # navigator_url is legacy alias for logged_in_url
         "registry_url": auth_status.registry_url,
         "is_authenticated": auth_status.is_authenticated,
         "logged_in_url": auth_status.logged_in_url,
@@ -67,11 +67,6 @@ def _get_catalog_host_from_config() -> str | None:
 
         if auth_status.logged_in_url:
             parsed = urlparse(auth_status.logged_in_url)
-            hostname = parsed.hostname
-            return hostname if hostname else None
-
-        if auth_status.navigator_url:
-            parsed = urlparse(auth_status.navigator_url)
             hostname = parsed.hostname
             return hostname if hostname else None
     except Exception:
@@ -494,7 +489,7 @@ def configure_catalog(catalog_url: str) -> Dict[str, Any]:
 
         # Verify configuration
         auth_status_obj = quilt_ops.get_auth_status()
-        configured_url = auth_status_obj.navigator_url
+        configured_url = auth_status_obj.logged_in_url
 
         return {
             "status": "success",

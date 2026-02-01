@@ -375,7 +375,7 @@ class Quilt3_Backend_Packages:
             # Build catalog URL from logged-in catalog
             catalog_url = None
             try:
-                logged_in_url = self.quilt3.logged_in()  # type: ignore[attr-defined]
+                logged_in_url = self.quilt3.logged_in()
                 if logged_in_url:
                     # Build catalog URL from actual catalog domain
                     from quilt_mcp.utils import normalize_url
@@ -385,7 +385,7 @@ class Quilt3_Backend_Packages:
             except Exception:
                 # Fallback: try to build from registry if available
                 if effective_registry and effective_registry != "s3://unknown-registry":
-                    catalog_url = self._build_catalog_url(package_name, effective_registry)  # type: ignore[attr-defined]
+                    catalog_url = self._build_catalog_url(package_name, effective_registry)
 
             # Handle push failure (when top_hash is None or empty)
             if not top_hash:

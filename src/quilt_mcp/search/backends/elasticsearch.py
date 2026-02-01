@@ -32,6 +32,7 @@ from .scope_handlers import (
     GlobalScopeHandler,
 )
 from ...ops.factory import QuiltOpsFactory
+from ...ops.quilt_ops import QuiltOps
 from ..exceptions import (
     AuthenticationRequired,
     BackendError,
@@ -112,6 +113,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     ):
         super().__init__(BackendType.ELASTICSEARCH)
         self.backend = backend
+        self.quilt_ops: Optional[QuiltOps]
         if self.backend is None:
             # Create QuiltOps instance for backward compatibility
             factory = QuiltOpsFactory()
@@ -202,6 +204,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 auth_status = self.backend.get_auth_status()
                 registry_url = auth_status.registry_url
             else:
+                assert self.quilt_ops is not None, "quilt_ops should be set when backend is None"
                 auth_status = self.quilt_ops.get_auth_status()
                 registry_url = auth_status.registry_url
             self._session_available = bool(registry_url)
@@ -228,6 +231,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 auth_status = self.backend.get_auth_status()
                 registry_url = auth_status.registry_url
             else:
+                assert self.quilt_ops is not None, "quilt_ops should be set when backend is None"
                 auth_status = self.quilt_ops.get_auth_status()
                 registry_url = auth_status.registry_url
             if registry_url:
@@ -550,6 +554,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                         if self.backend:
                             auth_status = self.backend.get_auth_status()
                         else:
+                            assert self.quilt_ops is not None, "quilt_ops should be set when backend is None"
                             auth_status = self.quilt_ops.get_auth_status()
                         catalog_url = auth_status.logged_in_url
                     except Exception:
