@@ -8,6 +8,7 @@ import sys
 import traceback
 from dotenv import load_dotenv
 from quilt_mcp.utils import run_server
+from quilt_mcp.config import get_mode_config, ConfigurationError
 
 
 def print_startup_error(error: Exception, error_type: str = "Startup Error") -> None:
@@ -42,6 +43,14 @@ def print_startup_error(error: Exception, error_type: str = "Startup Error") -> 
 
         print(file=sys.stderr)
         print("3. Restart your MCP client (e.g., Claude Desktop)", file=sys.stderr)
+    elif error_type == "Configuration Error":
+        print("Troubleshooting:", file=sys.stderr)
+        print("1. Check the error message above for missing configuration", file=sys.stderr)
+        print("2. For multitenant mode, ensure these environment variables are set:", file=sys.stderr)
+        print("   - MCP_JWT_SECRET", file=sys.stderr)
+        print("   - MCP_JWT_ISSUER", file=sys.stderr)
+        print("   - MCP_JWT_AUDIENCE", file=sys.stderr)
+        print("3. For local development, set QUILT_MULTITENANT_MODE=false or leave unset", file=sys.stderr)
     else:
         print("Troubleshooting:", file=sys.stderr)
         print("1. Check the error message above for specific issues", file=sys.stderr)
@@ -79,9 +88,26 @@ def main() -> None:
         # Production (uvx) uses shell environment or MCP config instead
         load_dotenv()  # Loads from .env in current working directory
 
-        # Default to stdio transport when unset to preserve MCPB compatibility,
-        # but allow callers (e.g., container entrypoints) to override.
-        os.environ.setdefault("FASTMCP_TRANSPORT", "stdio")
+        # Validate configuration early in startup before accepting requests
+        try:
+            mode_config = get_mode_config()
+            mode_config.validate()
+
+            # Log successful validation and current mode
+            mode_name = "multitenant" if mode_config.is_multitenant else "local development"
+            print(f"Quilt MCP Server starting in {mode_name} mode", file=sys.stderr)
+            print(f"Backend type: {mode_config.backend_type}", file=sys.stderr)
+            print(f"JWT required: {mode_config.requires_jwt}", file=sys.stderr)
+            print(f"Default transport: {mode_config.default_transport}", file=sys.stderr)
+
+        except ConfigurationError as e:
+            print_startup_error(e, "Configuration Error")
+            sys.exit(1)
+
+        # Set transport protocol based on deployment mode
+        # HTTP for multitenant mode, stdio for local development mode
+        # Allow callers (e.g., container entrypoints) to override via environment
+        os.environ.setdefault("FASTMCP_TRANSPORT", mode_config.default_transport)
 
         # Determine skip_banner setting with precedence: CLI flag > env var > default
         skip_banner = args.skip_banner

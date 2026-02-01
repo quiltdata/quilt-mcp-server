@@ -19,7 +19,7 @@ from cachetools import TTLCache
 import requests
 from urllib.parse import urljoin
 
-from quilt_mcp.config import http_config
+from quilt_mcp.config import get_mode_config, http_config
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class UserIdentity(NamedTuple):
 class AWSPermissionDiscovery:
     """AWS permission discovery and caching engine."""
 
-    def __init__(self, cache_ttl: int = 3600):
+    def __init__(self, cache_ttl: int = 3600, *, session: Optional[boto3.Session] = None):
         """Initialize the permission discovery engine.
 
         Args:
@@ -75,27 +75,27 @@ class AWSPermissionDiscovery:
 
         # Initialize AWS clients
         try:
-            # Prefer Quilt3-provided STS-backed session, if logged in
-            session = None
-            try:
-                disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
-                # If quilt3 is mocked in tests, always allow using it regardless of env flag
+            if session is None:
+                # Prefer Quilt3-provided STS-backed session, if logged in
                 try:
-                    is_quilt3_mock = "unittest.mock" in type(quilt3).__module__
+                    mode_config = get_mode_config()
+                    # If quilt3 is mocked in tests, always allow using it regardless of mode flag
+                    try:
+                        is_quilt3_mock = "unittest.mock" in type(quilt3).__module__
+                    except Exception:
+                        is_quilt3_mock = False
+                    if (
+                        (mode_config.allows_quilt3_library or is_quilt3_mock)
+                        and hasattr(quilt3, "logged_in")
+                        and quilt3.logged_in()
+                    ):
+                        if hasattr(quilt3, "get_boto3_session"):
+                            session = quilt3.get_boto3_session()
                 except Exception:
-                    is_quilt3_mock = False
-                if (
-                    (not disable_quilt3_session or is_quilt3_mock)
-                    and hasattr(quilt3, "logged_in")
-                    and quilt3.logged_in()
-                ):
-                    if hasattr(quilt3, "get_boto3_session"):
-                        session = quilt3.get_boto3_session()
-            except Exception:
-                session = None
+                    session = None
 
             if session is not None:
-                logger.info("Using Quilt3-backed boto3 session for permission discovery")
+                logger.info("Using provided boto3 session for permission discovery")
                 self.sts_client = session.client("sts")
                 self.iam_client = session.client("iam")
                 self.s3_client = session.client("s3")
@@ -586,16 +586,41 @@ class AWSPermissionDiscovery:
         """Discover buckets by querying the Quilt catalog's GraphQL endpoint."""
         try:
             # Get the authenticated session from quilt3
-            if hasattr(quilt3, "session") and hasattr(quilt3.session, "get_session"):
-                session = quilt3.session.get_session()
-                registry_url = quilt3.session.get_registry_url()
+            if not hasattr(quilt3, "logged_in"):
+                logger.warning("quilt3.logged_in not available")
+                return set()
+
+            logged_in_url = quilt3.logged_in()
+            if not logged_in_url:
+                logger.warning("Not logged in to any catalog")
+                return set()
+
+            session = quilt3.session.get_session() if hasattr(quilt3, "session") else None
+            if not session:
+                logger.warning("quilt3 session not available")
+                return set()
+
+            # Get catalog config to find registry URL
+            from quilt_mcp.utils import normalize_url
+
+            normalized_catalog = normalize_url(logged_in_url)
+            config_url = f"{normalized_catalog}/config.json"
+
+            try:
+                config_response = session.get(config_url, timeout=10)
+                config_response.raise_for_status()
+                config_data = config_response.json()
+                registry_url = config_data.get("registryUrl")
 
                 if not registry_url:
-                    logger.warning("No registry URL available for GraphQL query")
+                    logger.warning("No registry URL in catalog config")
                     return set()
 
                 # Construct GraphQL endpoint URL
-                graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
+                graphql_url = urljoin(normalize_url(registry_url) + "/", "graphql")
+            except Exception as e:
+                logger.warning(f"Failed to get catalog config: {e}")
+                return set()
                 logger.info(f"Querying GraphQL endpoint: {graphql_url}")
 
                 # Query for bucket configurations

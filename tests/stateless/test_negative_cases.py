@@ -78,28 +78,26 @@ def test_detects_missing_jwt_requirement(writable_container: Container):
             key, value = env_var.split("=", 1)
             env_dict[key] = value
 
-    # This container should have MCP_REQUIRE_JWT=false or missing
-    jwt_required = env_dict.get("MCP_REQUIRE_JWT", "false").lower() == "true"
+    # This container should have QUILT_MULTITENANT_MODE=false or missing
+    multitenant_mode = env_dict.get("QUILT_MULTITENANT_MODE", "false").lower() == "true"
 
-    assert not jwt_required, "Test setup error: writable_container should not require JWT"
+    assert not multitenant_mode, "Test setup error: writable_container should not be in multitenant mode"
 
     # Verify our detection logic would catch this
-    if "MCP_REQUIRE_JWT" not in env_dict:
+    if "QUILT_MULTITENANT_MODE" not in env_dict:
         violation_detected = True
-        error_message = "❌ FAIL: MCP_REQUIRE_JWT environment variable not set"
-    elif env_dict["MCP_REQUIRE_JWT"].lower() != "true":
+        error_message = "❌ FAIL: QUILT_MULTITENANT_MODE environment variable not set"
+    elif env_dict["QUILT_MULTITENANT_MODE"].lower() != "true":
         violation_detected = True
-        error_message = (
-            f"❌ FAIL: MCP_REQUIRE_JWT should be 'true'\nActual: MCP_REQUIRE_JWT={env_dict['MCP_REQUIRE_JWT']}\n"
-        )
+        error_message = f"❌ FAIL: QUILT_MULTITENANT_MODE should be 'true'\nActual: QUILT_MULTITENANT_MODE={env_dict['QUILT_MULTITENANT_MODE']}\n"
     else:
         violation_detected = False
         error_message = ""
 
-    assert violation_detected, "Test should detect missing JWT requirement"
-    assert "MCP_REQUIRE_JWT" in error_message, "Error should mention the variable"
+    assert violation_detected, "Test should detect missing multitenant mode requirement"
+    assert "QUILT_MULTITENANT_MODE" in error_message, "Error should mention the variable"
 
-    print("✅ Test correctly detects missing JWT requirement")
+    print("✅ Test correctly detects missing multitenant mode requirement")
 
 
 def test_error_messages_are_actionable():
@@ -116,7 +114,7 @@ def test_error_messages_are_actionable():
         (
             "❌ FAIL: Server accepted request without JWT token\n"
             "Stateless mode MUST enforce JWT authentication:\n"
-            "  1. Set MCP_REQUIRE_JWT=true in environment\n"
+            "  1. Set QUILT_MULTITENANT_MODE=true in environment\n"
             "  2. Reject requests without Authorization header\n"
         ),
         # From test_filesystem_writes.py

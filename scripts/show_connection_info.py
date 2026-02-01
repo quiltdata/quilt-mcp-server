@@ -2,7 +2,7 @@
 """Show actual connection information for Elasticsearch cluster."""
 
 import os
-from quilt_mcp.services.quilt_service import QuiltService
+from quilt_mcp.ops.factory import QuiltOpsFactory
 
 print("=" * 80)
 print("ELASTICSEARCH CONNECTION INFO")
@@ -16,12 +16,16 @@ print(f"  AWS_ACCOUNT_ID: {os.getenv('AWS_ACCOUNT_ID', '(not set)')}")
 print(f"  QUILT_CATALOG_URL: {os.getenv('QUILT_CATALOG_URL', '(not set)')}")
 print(f"  QUILT_TEST_BUCKET: {os.getenv('QUILT_TEST_BUCKET', '(not set)')}")
 
-# Service info
-service = QuiltService()
-registry_url = service.get_registry_url()
+# QuiltOps info
+factory = QuiltOpsFactory()
+quilt_ops = factory.create()
+auth_status = quilt_ops.get_auth_status()
+registry_url = auth_status.registry_url
 
-print("\nQuilt Service:")
+print("\nQuilt Auth Status:")
+print(f"  Authenticated: {auth_status.is_authenticated}")
 print(f"  Registry URL: {registry_url}")
+print(f"  Catalog URL: {auth_status.logged_in_url}")
 
 # Extract domain from registry URL
 if registry_url:

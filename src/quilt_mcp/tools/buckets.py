@@ -25,7 +25,6 @@ from ..models import (
     S3Object,
     UploadResult,
 )
-from ..services.quilt_service import QuiltService
 from ..utils import generate_signed_url, parse_s3_uri
 from .auth_helpers import AuthorizationContext, check_s3_authorization
 

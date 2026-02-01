@@ -8,41 +8,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-01
+
 ### Added
 
-- **JWT Authentication Support for Testing**: Complete JWT authentication integration for mcp-test.py (#a11-client-testing)
-  - Added JWT token support to `mcp-test.py` for testing stateless MCP deployments
-  - New `scripts/tests/jwt_helper.py` utility for generating HS256 JWT tokens for testing
-  - JWT token can be provided via `--jwt-token` argument or `MCP_JWT_TOKEN` environment variable
-  - Added `QUILT_TEST_ROLE_ARN` environment variable for real AWS role testing
-  - Comprehensive test suite with unit and integration tests for JWT authentication flow
+- **QuiltOps Abstraction Layer**: Complete backend abstraction replacing QuiltService
+  - New domain objects (`Auth_Status`, `Package_Info`, `Content_Info`, `Bucket_Info`, `Role`, `User`, etc.)
+  - `QuiltOps` and `Admin_Ops` interfaces for backend-agnostic operations
+  - `QuiltOpsFactory` for automatic backend detection and instantiation
+  - Comprehensive error handling with typed exceptions
 
-- **Enhanced MCP Protocol Testing**: Improved MCP protocol compliance testing
-  - Unskipped and enhanced MCP protocol compliance tests
-  - Better error handling and validation for protocol testing
-  - Reorganized JWT client testing specifications into dedicated a11-client-testing directory
+- **Request Context Architecture**: Multi-tenant support and request-scoped services
+  - `RequestContext` for propagating tenant, auth, and service state
+  - `RequestContextFactory` for mode-aware context creation
+  - Tenant extraction and validation for multi-tenant deployments
+  - Request context propagation through MCP handler layer
+
+- **Modular Backend Architecture**: Split `Quilt3_Backend` into focused mixins
+  - `quilt3_backend_base.py` - Initialization and utilities
+  - `quilt3_backend_packages.py` - Package operations
+  - `quilt3_backend_content.py` - Content operations
+  - `quilt3_backend_buckets.py` - Bucket operations
+  - `quilt3_backend_session.py` - Auth and AWS operations
+  - `quilt3_backend_admin.py` - Admin operations (users, roles, SSO)
+
+- **Test Infrastructure**: Enhanced test runner with improved error display and hierarchical test organization
 
 ### Changed
 
-- **Development Environment**: Enhanced IDE support and development workflow
-  - Added `.vscode/` and `.kiro/` directories to .gitignore for better IDE integration
-  - Fixed make target environment variable syntax for `QUILT_TEST_ROLE_ARN`
-  - Added docker-check to .PHONY targets in Makefile
+- **Service Layer**: Migrated all services from `QuiltService` to `QuiltOps`/`Admin_Ops`
+  - Governance, workflow, auth, permissions, tabulator services refactored
+  - Removed 775-line obsolete `QuiltService` implementation
+
+- **Type Safety**: Improved type hints and removed `type: ignore` comments throughout codebase
 
 ### Fixed
 
-- **JWT Testing Infrastructure**: Resolved JWT authentication testing issues
-  - Fixed JWT testing with real AWS role ARN integration
-  - Improved error messages and troubleshooting for JWT authentication failures
-  - Enhanced test reliability for stateless MCP deployments
+- **GraphQL Endpoint URLs**: Standardized `/api/graphql` endpoint handling across services
+- **Legacy Aliases**: Replaced `navigator_url` with `logged_in_url` throughout
+- **Test Runner**: Grouped error output by phase for better readability
 
 ### Documentation
 
-- **JWT Testing Guide**: Comprehensive documentation for JWT authentication testing
-  - Added `docs/JWT_TESTING.md` with complete JWT testing workflow
-  - Detailed instructions for token generation and testing procedures
-  - Troubleshooting guide for common JWT authentication issues
-  - Reorganized client testing specifications for better organization
+- **Architecture Docs**: Added comprehensive guides for QuiltOps, domain objects, error handling, request-scoped services
+- **Migration Specs**: Detailed specifications and task breakdowns for QuiltOps migration
 
 ## [0.10.1] - 2026-01-29
 

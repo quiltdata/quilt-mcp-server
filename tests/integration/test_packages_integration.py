@@ -8,6 +8,7 @@ Based on spec/a10-no-default-registry.md Phase 8, Section 3.
 
 import time
 import pytest
+from unittest.mock import patch
 
 from quilt_mcp.tools.packages import (
     package_create,
@@ -26,9 +27,17 @@ from quilt_mcp.models import (
 )
 
 
+@pytest.fixture
+def mock_quilt_session():
+    """Mock quilt3 session for integration tests."""
+    with patch("quilt_mcp.ops.factory.quilt3") as mock_quilt3:
+        mock_quilt3.session.get_session_info.return_value = {"registry": "s3://quilt-ernest-staging"}
+        yield
+
+
 @pytest.mark.integration
 @pytest.mark.search  # Requires catalog session, skip in CI
-def test_package_create_update_delete_workflow(test_bucket, test_registry):
+def test_package_create_update_delete_workflow(mock_quilt_session, test_bucket, test_registry):
     """Test complete package lifecycle with explicit registry parameter.
 
     This test verifies the full workflow:
@@ -128,7 +137,7 @@ def test_package_create_update_delete_workflow(test_bucket, test_registry):
 
 @pytest.mark.integration
 @pytest.mark.search  # Requires catalog session, skip in CI
-def test_packages_list_integration(test_bucket, test_registry):
+def test_packages_list_integration(mock_quilt_session, test_bucket, test_registry):
     """Test packages_list with registry-scoped queries.
 
     This test verifies:
@@ -289,7 +298,7 @@ def test_packages_list_requires_registry_currently():
 
 @pytest.mark.integration
 @pytest.mark.search  # Requires catalog session, skip in CI
-def test_package_browse_requires_registry(test_bucket, test_registry):
+def test_package_browse_requires_registry(mock_quilt_session, test_bucket, test_registry):
     """Test that package_browse requires explicit registry parameter.
 
     This ensures browsing is always scoped to a specific registry.

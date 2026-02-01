@@ -93,9 +93,9 @@ class TestScriptExecution:
         assert "usage:" in result.stdout.lower() or "MCP" in result.stdout
 
     def test_docker_unified_script(self):
-        """Ensure docker.py generates expected tags and functions correctly."""
-        script = SCRIPTS_DIR / "docker.py"
-        assert script.exists(), "docker.py must exist"
+        """Ensure docker_manager.py generates expected tags and functions correctly."""
+        script = SCRIPTS_DIR / "docker_manager.py"
+        assert script.exists(), "docker_manager.py must exist"
 
         # Test tags command (replaces docker_image.py functionality)
         result = subprocess.run(
@@ -164,9 +164,9 @@ class TestScriptExecution:
         assert "test.registry.com/quiltdata/mcp:latest" not in output
 
     def test_docker_script_help(self):
-        """Test docker.py shows help properly."""
-        script = SCRIPTS_DIR / "docker.py"
-        assert script.exists(), "docker.py must exist"
+        """Test docker_manager.py shows help properly."""
+        script = SCRIPTS_DIR / "docker_manager.py"
+        assert script.exists(), "docker_manager.py must exist"
 
         result = subprocess.run(
             [sys.executable, str(script), "--help"],
@@ -182,9 +182,9 @@ class TestScriptExecution:
         assert "info" in result.stdout
 
     def test_docker_info_command(self):
-        """Test docker.py info command for getting image URIs."""
-        script = SCRIPTS_DIR / "docker.py"
-        assert script.exists(), "docker.py must exist"
+        """Test docker_manager.py info command for getting image URIs."""
+        script = SCRIPTS_DIR / "docker_manager.py"
+        assert script.exists(), "docker_manager.py must exist"
 
         # Test text output
         result = subprocess.run(
@@ -318,7 +318,7 @@ class TestScriptSyntax:
         "coverage_analysis.py",
         "mcp-test.py",
         "mcp-list.py",
-        "docker.py",
+        "docker_manager.py",
         "post_release_status.py"
     ])
     def test_script_syntax(self, script_name):

@@ -1,0 +1,1 @@
+"""Domain object tests."""

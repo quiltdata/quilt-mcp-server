@@ -278,8 +278,19 @@ def register_resources(mcp: "FastMCP") -> None:
     async def workflows() -> str:
         """List all workflows."""
         from quilt_mcp.services.workflow_service import workflow_list_all
+        from quilt_mcp.context.factory import RequestContextFactory
+        from quilt_mcp.context.propagation import reset_current_context, set_current_context
 
-        result = await asyncio.to_thread(workflow_list_all)
+        def _call_with_context():
+            factory = RequestContextFactory(mode="auto")
+            context = factory.create_context()
+            token = set_current_context(context)
+            try:
+                return workflow_list_all()
+            finally:
+                reset_current_context(token)
+
+        result = await asyncio.to_thread(_call_with_context)
         return _serialize_result(result)
 
     # ====================

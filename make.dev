@@ -22,13 +22,13 @@ test:
 	@echo "Running unit tests (default)..."
 	@$(MAKE) test-unit
 
-test-all: lint test-catalog test-scripts mcpb-validate | $(RESULTS_DIR)
-	@echo "Running all tests..."
+test-all: test-catalog | $(RESULTS_DIR)
+	@echo "Running all test phases with TUI..."
 	@uv sync --group test
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
 		export QUILT_DISABLE_CACHE=true && \
 		export PYTHONPATH="src" && \
-		uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing --durations=7
+		uv run python scripts/test-runner.py
 
 
 test-ci: | $(RESULTS_DIR)

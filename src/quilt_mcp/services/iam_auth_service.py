@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import os
-from typing import Literal, Optional
+from typing import Literal, Optional, TYPE_CHECKING
 
 import boto3
+
+from quilt_mcp.config import get_mode_config
+
+if TYPE_CHECKING:
+    from quilt_mcp.services.auth_service import AuthService
 
 
 class IAMAuthService:
@@ -23,9 +28,9 @@ class IAMAuthService:
         except Exception:
             return None
 
-        disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
+        mode_config = get_mode_config()
         try:
-            if disable_quilt3_session and "unittest.mock" not in type(quilt3).__module__:
+            if not mode_config.allows_quilt3_library and "unittest.mock" not in type(quilt3).__module__:
                 return None
             if hasattr(quilt3, "logged_in") and quilt3.logged_in():
                 if hasattr(quilt3, "get_boto3_session"):
@@ -36,7 +41,7 @@ class IAMAuthService:
             return None
         return None
 
-    def get_boto3_session(self) -> boto3.Session:
+    def get_session(self) -> boto3.Session:
         """Return (and cache) the IAM/quilt3 boto3 session."""
         if self._iam_session is not None:
             return self._iam_session
@@ -44,3 +49,26 @@ class IAMAuthService:
         session = self._quilt3_session() or boto3.Session()
         self._iam_session = session
         return session
+
+    def get_boto3_session(self) -> boto3.Session:
+        return self.get_session()
+
+    def is_valid(self) -> bool:
+        try:
+            session = self.get_session()
+            credentials = session.get_credentials()
+        except Exception:
+            return False
+        return credentials is not None
+
+    def get_user_identity(self) -> dict[str, str | None]:
+        session = self.get_session()
+        try:
+            sts = session.client("sts")
+            response = sts.get_caller_identity()
+            return {
+                "user_id": response.get("Arn"),
+                "account_id": response.get("Account"),
+            }
+        except Exception:
+            return {"user_id": None, "account_id": None}

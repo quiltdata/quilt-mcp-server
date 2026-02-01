@@ -14,32 +14,23 @@ from typing import Any, Dict
 from urllib.parse import urlparse
 
 try:
-    from quilt_mcp.services.quilt_service import QuiltService
+    from quilt_mcp.ops.factory import QuiltOpsFactory
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    # Provide a stub so tests can patch QuiltService without requiring quilt3.
-    class QuiltService:  # type: ignore[no-redef]
+    # Provide a stub so tests can patch QuiltOpsFactory without requiring quilt3.
+    class QuiltOpsFactory:  # type: ignore[no-redef]
         def __init__(self, *args: object, **kwargs: object) -> None:
-            raise ModuleNotFoundError("quilt3 is required for QuiltService")
+            raise ModuleNotFoundError("quilt3 is required for QuiltOpsFactory")
+
+        def create(self, *args: object, **kwargs: object) -> None:
+            raise ModuleNotFoundError("quilt3 is required for QuiltOpsFactory")
+
+
+from quilt_mcp.utils import get_dns_name_from_url as _extract_catalog_name_from_url
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _extract_catalog_name_from_url(url: str) -> str:
-    """Return a human-friendly catalog hostname for status messages."""
-    if not url:
-        return "unknown"
-
-    try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname or parsed.netloc
-        if hostname and hostname.startswith("www."):
-            return hostname[4:]
-        return hostname or url
-    except Exception:
-        return url
 
 
 def _extract_bucket_from_registry(registry: str) -> str:
@@ -50,26 +41,32 @@ def _extract_bucket_from_registry(registry: str) -> str:
 
 
 def _get_catalog_info() -> Dict[str, Any]:
-    """Return catalog configuration details by delegating to ``QuiltService``."""
-    service = QuiltService()
-    return service.get_catalog_info()
+    """Return catalog configuration details by delegating to QuiltOps."""
+    factory = QuiltOpsFactory()
+    quilt_ops = factory.create()
+    auth_status = quilt_ops.get_auth_status()
+
+    # Transform Auth_Status to the expected dictionary format
+    return {
+        "catalog_name": auth_status.catalog_name or "unknown",
+        "navigator_url": auth_status.logged_in_url,  # navigator_url is legacy alias for logged_in_url
+        "registry_url": auth_status.registry_url,
+        "is_authenticated": auth_status.is_authenticated,
+        "logged_in_url": auth_status.logged_in_url,
+        "region": getattr(auth_status, 'region', None),
+        "tabulator_data_catalog": getattr(auth_status, 'tabulator_data_catalog', None),
+    }
 
 
 def _get_catalog_host_from_config() -> str | None:
     """Detect the catalog hostname from current Quilt configuration."""
     try:
-        service = QuiltService()
+        factory = QuiltOpsFactory()
+        quilt_ops = factory.create()
+        auth_status = quilt_ops.get_auth_status()
 
-        logged_in_url = service.get_logged_in_url()
-        if logged_in_url:
-            parsed = urlparse(logged_in_url)
-            hostname = parsed.hostname
-            return hostname if hostname else None
-
-        config = service.get_config()
-        if config and config.get("navigator_url"):
-            nav_url = config["navigator_url"]
-            parsed = urlparse(nav_url)
+        if auth_status.logged_in_url:
+            parsed = urlparse(auth_status.logged_in_url)
             hostname = parsed.hostname
             return hostname if hostname else None
     except Exception:
@@ -151,16 +148,15 @@ def catalog_info() -> Dict[str, Any]:
 def auth_status() -> Dict[str, Any]:
     """Audit Quilt authentication status and suggest next actions."""
     try:
-        service = QuiltService()
-        info = service.get_catalog_info()
-        logged_in_url = service.get_logged_in_url()
+        factory = QuiltOpsFactory()
+        quilt_ops = factory.create()
+        auth_status_obj = quilt_ops.get_auth_status()
 
-        if logged_in_url:
+        if auth_status_obj.logged_in_url:
             registry_bucket = None
             try:
-                config = service.get_config()
-                if config and config.get("registryUrl"):
-                    registry_bucket = _extract_bucket_from_registry(config["registryUrl"])
+                if auth_status_obj.registry_url:
+                    registry_bucket = _extract_bucket_from_registry(auth_status_obj.registry_url)
             except Exception:
                 pass
 
@@ -174,8 +170,8 @@ def auth_status() -> Dict[str, Any]:
 
             return {
                 "status": "authenticated",
-                "catalog_url": logged_in_url,
-                "catalog_name": info.get("catalog_name", "unknown"),
+                "catalog_url": auth_status_obj.logged_in_url,
+                "catalog_name": auth_status_obj.catalog_name or "unknown",
                 "registry_bucket": registry_bucket,
                 "write_permissions": "unknown",
                 "user_info": user_info,
@@ -185,7 +181,7 @@ def auth_status() -> Dict[str, Any]:
                     "Discover your writable buckets with: aws_permissions_discover()",
                     "Create your first package with: package_create_from_s3()",
                 ],
-                "message": f"Successfully authenticated to {info.get('catalog_name', 'Quilt catalog')}",
+                "message": f"Successfully authenticated to {auth_status_obj.catalog_name or 'Quilt catalog'}",
                 "search_available": True,
                 "next_steps": {
                     "immediate": "Try: aws_permissions_discover() to see your bucket access",
@@ -203,7 +199,7 @@ def auth_status() -> Dict[str, Any]:
 
         return {
             "status": "not_authenticated",
-            "catalog_name": info.get("catalog_name", "none"),
+            "catalog_name": auth_status_obj.catalog_name or "none",
             "message": "Not logged in to Quilt catalog",
             "search_available": False,
             "setup_instructions": setup_instructions,
@@ -487,12 +483,13 @@ def configure_catalog(catalog_url: str) -> Dict[str, Any]:
             friendly_name = _extract_catalog_name_from_url(catalog_url)
 
         # Configure the catalog
-        service = QuiltService()
-        service.set_config(catalog_url)
+        factory = QuiltOpsFactory()
+        quilt_ops = factory.create()
+        quilt_ops.configure_catalog(catalog_url)
 
         # Verify configuration
-        config = service.get_config()
-        configured_url = config.get("navigator_url") if config else None
+        auth_status_obj = quilt_ops.get_auth_status()
+        configured_url = auth_status_obj.logged_in_url
 
         return {
             "status": "success",

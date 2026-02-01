@@ -39,7 +39,7 @@ class QueryAnalysis:
     filters: Dict[str, Any] | None = None
     keywords: List[str] | None = None
     file_extensions: List[str] | None = None
-    size_filters: Dict[str, Union[str, int]] | None = None
+    size_filters: Dict[str, str | int] | None = None
     date_filters: Dict[str, str] | None = None
     confidence: float = 1.0
     suggested_backends: List[str] | None = None

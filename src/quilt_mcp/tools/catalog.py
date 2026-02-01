@@ -123,8 +123,10 @@ def catalog_url(
         # Build URL based on whether it's a package or bucket view
         if package_name:
             # Package view: https://{catalog_host}/b/{bucket}/packages/{package_name}/tree/latest/{path}
+            from quilt_mcp.utils import normalize_url
+
             url_parts = [
-                host.rstrip("/"),
+                normalize_url(host),
                 "b",
                 bucket,
                 "packages",
@@ -140,7 +142,9 @@ def catalog_url(
             view_type = "package"
         else:
             # Bucket view: https://{catalog_host}/b/{bucket}/tree/{path}
-            url_parts = [host.rstrip("/"), "b", bucket, "tree"]
+            from quilt_mcp.utils import normalize_url
+
+            url_parts = [normalize_url(host), "b", bucket, "tree"]
             if path:
                 # URL encode the path components
                 path_parts = [quote(part, safe="") for part in path.strip("/").split("/") if part]
@@ -321,7 +325,7 @@ def catalog_configure(catalog_url: str) -> dict:
     WORKFLOW:
         1. Map friendly catalog names (demo, sandbox, open) to their canonical URLs if applicable.
         2. Validate that the provided/resolved URL includes an HTTP(S) scheme.
-        3. Persist the catalog setting through ``QuiltService.set_config``.
+        3. Persist the catalog setting through ``QuiltOps.configure_catalog``.
         4. Return confirmation and recommended actions (login, status check, exploration tools).
 
     Args:

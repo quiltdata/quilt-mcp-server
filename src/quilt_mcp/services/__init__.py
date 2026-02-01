@@ -6,6 +6,5 @@ to avoid importing optional dependencies at package import time.
 
 from .athena_service import AthenaQueryService
 from .permission_discovery import AWSPermissionDiscovery
-from .quilt_service import QuiltService
 
-__all__ = ["QuiltService", "AthenaQueryService", "AWSPermissionDiscovery"]
+__all__ = ["AthenaQueryService", "AWSPermissionDiscovery"]

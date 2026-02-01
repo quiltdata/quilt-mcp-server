@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.10.1"
+version = "0.11.0"
 description = "Secure MCP server for accessing Quilt data with IAM or JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -74,6 +74,7 @@ test = [
     "quilt3>=5.6.0",
     "docker>=7.0.0",
     "httpx>=0.27.0",
+    "rich>=13.0.0",
 ]
 deploy = [
     "aws-cdk-lib>=2.100.0",
@@ -92,6 +93,7 @@ dev = [
     "wheel>=0.45.1",
     "build>=1.0.0",
     "python-dotenv>=1.0.0",
+    "pytest-asyncio>=1.1.0",
 ]
 
 [tool.pytest.ini_options]
@@ -128,7 +130,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 strict_equality = true
-strict_concatenate = true
+extra_checks = true
 
 # Allow gradual typing - don't require all code to be typed yet
 [[tool.mypy.overrides]]

@@ -28,9 +28,10 @@ from pathlib import Path
 
 import requests
 
-# Add tests dir to path for jwt_helper
-sys.path.insert(0, str(Path(__file__).parent))
-from jwt_helper import extract_catalog_token_from_session, get_current_catalog_url
+# Add tests dir to path for jwt_helpers
+repo_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(repo_root / 'tests'))
+from jwt_helpers import extract_catalog_token_from_session, get_current_catalog_url
 
 # Configuration
 CONTAINER_NAME = "mcp-search-bug-repro"

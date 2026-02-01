@@ -150,7 +150,9 @@ class HTTPTransport(TelemetryTransport):
     """HTTP-based telemetry transport."""
 
     def __init__(self, endpoint: str, api_key: Optional[str] = None, timeout: int = 30):
-        self.endpoint = endpoint.rstrip("/")
+        from quilt_mcp.utils import normalize_url
+
+        self.endpoint = normalize_url(endpoint)
         self.api_key = api_key
         self.timeout = timeout
         self.session = None

@@ -133,13 +133,21 @@ def pytest_configure(config):
     # Disable JWT authentication for all tests
     os.environ["MCP_REQUIRE_JWT"] = "false"
 
-    # Disable quilt3 session (which uses JWT credentials from Quilt catalog login)
+    # Explicitly ensure unit tests run in local mode (not multitenant mode)
     # This forces tests to use local AWS credentials (AWS_PROFILE or default)
-    os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
+    os.environ["QUILT_MULTITENANT_MODE"] = "false"
 
     # Remove JWT secrets to prevent development fallback behavior
     os.environ.pop("MCP_JWT_SECRET", None)
     os.environ.pop("MCP_JWT_SECRET_SSM_PARAMETER", None)
+
+    # Reset ModeConfig singleton to pick up test environment variables
+    try:
+        from quilt_mcp.config import reset_mode_config
+
+        reset_mode_config()
+    except ImportError:
+        pass
 
     # Configure boto3 default session to use AWS_PROFILE if set
     # This must be done very early before any imports that create boto3 clients
@@ -166,6 +174,14 @@ def reset_runtime_auth_state():
     except Exception:
         pass
 
+    # Reset ModeConfig singleton to ensure test environment variables are used
+    try:
+        from quilt_mcp.config import reset_mode_config
+
+        reset_mode_config()
+    except Exception:
+        pass
+
     yield
 
     try:
@@ -173,6 +189,14 @@ def reset_runtime_auth_state():
 
         clear_runtime_auth()
         update_runtime_metadata(jwt_assumed_session=None, jwt_assumed_expiration=None)
+    except Exception:
+        pass
+
+    # Reset ModeConfig singleton after test
+    try:
+        from quilt_mcp.config import reset_mode_config
+
+        reset_mode_config()
     except Exception:
         pass
 
@@ -242,3 +266,41 @@ def cached_athena_service_constructor(athena_service_factory):
         yield
     finally:
         athena_glue.AthenaQueryService = original_constructor
+
+
+# ============================================================================
+# Quilt3 Backend Fixture
+# ============================================================================
+
+
+@pytest.fixture(scope="session")
+def quilt3_backend():
+    """Provide initialized Quilt3_Backend for integration tests.
+
+    This fixture creates a session-scoped Quilt3_Backend instance that uses
+    the current quilt3 session and AWS credentials from the environment.
+
+    Returns:
+        Quilt3_Backend: Initialized backend instance
+
+    Raises:
+        pytest.skip: If quilt3 is not authenticated or backend initialization fails
+    """
+    try:
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        backend = Quilt3_Backend()
+
+        # Verify auth status is available
+        try:
+            auth_status = backend.get_auth_status()
+            if not auth_status.is_authenticated:
+                pytest.skip("Quilt3 not authenticated - skipping integration tests")
+        except Exception as e:
+            pytest.skip(f"Failed to verify auth status: {e}")
+
+        return backend
+    except ImportError as e:
+        pytest.skip(f"Failed to import Quilt3_Backend: {e}")
+    except Exception as e:
+        pytest.skip(f"Failed to initialize Quilt3_Backend: {e}")

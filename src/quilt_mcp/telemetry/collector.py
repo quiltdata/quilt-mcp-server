@@ -301,7 +301,7 @@ class TelemetryCollector:
         efficiency_score = (success_rate * 0.5) + (call_efficiency * 0.3) + (time_efficiency * 0.2)
         return round(efficiency_score, 3)
 
-    def export_data(self, format: str = "json") -> Union[str, Dict[str, Any]]:
+    def export_data(self, format: str = "json") -> str | Dict[str, Any]:
         """Export collected telemetry data."""
         if not self.config.enabled:
             return {} if format == "dict" else "{}"

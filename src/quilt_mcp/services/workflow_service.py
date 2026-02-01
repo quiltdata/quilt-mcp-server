@@ -8,10 +8,12 @@ from typing import Dict, List, Any, Optional, Annotated, Literal
 import logging
 from datetime import datetime, timezone
 import json
-import uuid
 from enum import Enum
 from pydantic import Field
 
+from quilt_mcp.context.propagation import get_current_context
+from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
+from quilt_mcp.storage.workflow_storage import WorkflowStorage
 from ..utils import format_error_response
 from ..models import (
     WorkflowAddStepResponse,
@@ -51,8 +53,404 @@ class StepStatus(Enum):
     SKIPPED = "skipped"
 
 
-# Global workflow storage (in production, this would be persistent)
-_workflows: Dict[str, Dict[str, Any]] = {}
+class WorkflowService:
+    """Workflow orchestration service with tenant-isolated storage."""
+
+    def __init__(self, tenant_id: str, storage: Optional[WorkflowStorage] = None) -> None:
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError("tenant_id is required")
+        self._tenant_id = tenant_id
+        self._storage = storage or FileBasedWorkflowStorage()
+
+    def create_workflow(
+        self,
+        workflow_id: str,
+        name: str,
+        description: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        try:
+            if not workflow_id or not workflow_id.strip():
+                return format_error_response("Workflow ID cannot be empty")
+
+            if self._storage.load(self._tenant_id, workflow_id) is not None:
+                return format_error_response(f"Workflow '{workflow_id}' already exists")
+
+            workflow: dict[str, Any] = {
+                "id": workflow_id,
+                "name": name,
+                "description": description,
+                "status": WorkflowStatus.CREATED.value,
+                "metadata": metadata or {},
+                "steps": [],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "started_at": None,
+                "completed_at": None,
+                "total_steps": 0,
+                "completed_steps": 0,
+                "failed_steps": 0,
+                "execution_log": [],
+            }
+
+            self._storage.save(self._tenant_id, workflow_id, workflow)
+
+            return {
+                "success": True,
+                "workflow_id": workflow_id,
+                "workflow": workflow,
+                "message": f"Workflow '{name}' created successfully",
+                "next_steps": [
+                    f"Add steps: workflow_add_step('{workflow_id}', 'step-name', 'description')",
+                    f"Start workflow: workflow_start('{workflow_id}')",
+                    f"Check status: workflow_get_status('{workflow_id}')",
+                ],
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to create workflow {workflow_id}: {e}")
+            return format_error_response(f"Failed to create workflow: {str(e)}")
+
+    def add_step(
+        self,
+        workflow_id: str,
+        step_id: str,
+        description: str,
+        step_type: str = "manual",
+        dependencies: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> WorkflowAddStepResponse:
+        try:
+            workflow = self._storage.load(self._tenant_id, workflow_id)
+            if workflow is None:
+                return ErrorResponse(error=f"Workflow '{workflow_id}' not found")
+
+            # Check if step already exists
+            existing_steps = {step["id"] for step in workflow["steps"]}
+            if step_id in existing_steps:
+                return ErrorResponse(error=f"Step '{step_id}' already exists in workflow")
+
+            # Validate dependencies
+            if dependencies:
+                invalid_deps = set(dependencies) - existing_steps
+                if invalid_deps:
+                    return ErrorResponse(error=f"Invalid dependencies: {list(invalid_deps)}")
+
+            step_dict = {
+                "id": step_id,
+                "description": description,
+                "step_type": step_type,
+                "status": StepStatus.PENDING.value,
+                "dependencies": dependencies or [],
+                "metadata": metadata or {},
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "started_at": None,
+                "completed_at": None,
+                "error_message": None,
+                "result": None,
+            }
+
+            workflow["steps"].append(step_dict)
+            workflow["total_steps"] = len(workflow["steps"])
+            workflow["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+            self._storage.save(self._tenant_id, workflow_id, workflow)
+
+            # Convert to Pydantic model
+            step_model = WorkflowStep(
+                step_id=step_id,
+                description=description,
+                status=StepStatus.PENDING.value,
+                step_type=step_type,
+                dependencies=dependencies or [],
+                result=None,
+                error_message=None,
+                started_at=None,
+                completed_at=None,
+            )
+
+            return WorkflowAddStepSuccess(
+                workflow_id=workflow_id,
+                step_id=step_id,
+                step=step_model,
+                workflow_summary={
+                    "total_steps": workflow["total_steps"],
+                    "status": workflow["status"],
+                },
+                message=f"Step '{step_id}' added to workflow '{workflow_id}'",
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to add step to workflow {workflow_id}: {e}")
+            return ErrorResponse(error=f"Failed to add step: {str(e)}")
+
+    def update_step(
+        self,
+        workflow_id: str,
+        step_id: str,
+        status: str,
+        result: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        try:
+            workflow = self._storage.load(self._tenant_id, workflow_id)
+            if workflow is None:
+                return format_error_response(f"Workflow '{workflow_id}' not found")
+
+            # Find the step
+            step = None
+            for s in workflow["steps"]:
+                if s["id"] == step_id:
+                    step = s
+                    break
+
+            if not step:
+                return format_error_response(f"Step '{step_id}' not found in workflow")
+
+            # Validate status
+            try:
+                new_status = StepStatus(status)
+            except ValueError:
+                return format_error_response(f"Invalid status: {status}")
+
+            # Update step
+            old_status = step["status"]
+            step["status"] = new_status.value
+            step["result"] = result
+            step["error_message"] = error_message
+
+            # Update timestamps
+            now = datetime.now(timezone.utc).isoformat()
+            if new_status == StepStatus.IN_PROGRESS and not step["started_at"]:
+                step["started_at"] = now
+            elif new_status in [
+                StepStatus.COMPLETED,
+                StepStatus.FAILED,
+                StepStatus.SKIPPED,
+            ]:
+                step["completed_at"] = now
+
+            # Update workflow counters
+            workflow["completed_steps"] = sum(
+                1 for s in workflow["steps"] if s["status"] == StepStatus.COMPLETED.value
+            )
+            workflow["failed_steps"] = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.FAILED.value)
+            workflow["updated_at"] = now
+
+            # Update workflow status if needed
+            if workflow["status"] == WorkflowStatus.CREATED.value and new_status == StepStatus.IN_PROGRESS:
+                workflow["status"] = WorkflowStatus.IN_PROGRESS.value
+                workflow["started_at"] = now
+            elif workflow["completed_steps"] == workflow["total_steps"]:
+                workflow["status"] = WorkflowStatus.COMPLETED.value
+                workflow["completed_at"] = now
+            elif workflow["failed_steps"] > 0 and workflow["status"] != WorkflowStatus.FAILED.value:
+                workflow["status"] = WorkflowStatus.FAILED.value
+
+            # Add to execution log
+            workflow["execution_log"].append(
+                {
+                    "timestamp": now,
+                    "step_id": step_id,
+                    "status_change": f"{old_status} -> {new_status.value}",
+                    "message": error_message or f"Step {new_status.value}",
+                }
+            )
+
+            self._storage.save(self._tenant_id, workflow_id, workflow)
+
+            return {
+                "success": True,
+                "workflow_id": workflow_id,
+                "step_id": step_id,
+                "step": step,
+                "workflow_status": workflow["status"],
+                "progress": {
+                    "completed_steps": workflow["completed_steps"],
+                    "total_steps": workflow["total_steps"],
+                    "failed_steps": workflow["failed_steps"],
+                    "percentage": round((workflow["completed_steps"] / workflow["total_steps"]) * 100, 1),
+                },
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to update step {step_id} in workflow {workflow_id}: {e}")
+            return format_error_response(f"Failed to update step: {str(e)}")
+
+    def get_status(self, workflow_id: str) -> WorkflowGetStatusResponse:
+        try:
+            workflow = self._storage.load(self._tenant_id, workflow_id)
+            if workflow is None:
+                return ErrorResponse(error=f"Workflow '{workflow_id}' not found")
+
+            # Calculate progress metrics
+            total_steps = workflow["total_steps"]
+            completed_steps = workflow["completed_steps"]
+            failed_steps = workflow["failed_steps"]
+            in_progress_steps = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.IN_PROGRESS.value)
+            pending_steps = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.PENDING.value)
+
+            # Get next available steps (dependencies satisfied)
+            next_steps = []
+            for step in workflow["steps"]:
+                if step["status"] == StepStatus.PENDING.value:
+                    # Check if all dependencies are completed
+                    deps_completed = (
+                        all(
+                            any(
+                                s["id"] == dep_id and s["status"] == StepStatus.COMPLETED.value
+                                for s in workflow["steps"]
+                            )
+                            for dep_id in step["dependencies"]
+                        )
+                        if step["dependencies"]
+                        else True
+                    )
+
+                    if deps_completed:
+                        next_steps.append(step["id"])
+
+            progress = WorkflowProgress(
+                total_steps=total_steps,
+                completed_steps=completed_steps,
+                failed_steps=failed_steps,
+                in_progress_steps=in_progress_steps,
+                pending_steps=pending_steps,
+                percentage=(round((completed_steps / total_steps) * 100, 1) if total_steps > 0 else 0),
+            )
+
+            return WorkflowGetStatusSuccess(
+                workflow=workflow,
+                progress=progress,
+                next_available_steps=next_steps,
+                can_proceed=len(next_steps) > 0 and failed_steps == 0,
+                recent_activity=workflow["execution_log"][-5:],  # Last 5 log entries
+                recommendations=_get_workflow_recommendations(workflow),
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get workflow status {workflow_id}: {e}")
+            return ErrorResponse(error=f"Failed to get workflow status: {str(e)}")
+
+    def list_all(self) -> WorkflowListAllResponse:
+        try:
+            workflows_summary = []
+
+            for workflow in self._storage.list_all(self._tenant_id):
+                workflow_id = workflow["id"]
+                summary = WorkflowSummary(
+                    id=workflow_id,
+                    name=workflow["name"],
+                    status=workflow["status"],
+                    progress={
+                        "completed_steps": workflow["completed_steps"],
+                        "total_steps": workflow["total_steps"],
+                        "percentage": (
+                            round(
+                                (workflow["completed_steps"] / workflow["total_steps"]) * 100,
+                                1,
+                            )
+                            if workflow["total_steps"] > 0
+                            else 0
+                        ),
+                    },
+                    created_at=workflow["created_at"],
+                    updated_at=workflow["updated_at"],
+                )
+                workflows_summary.append(summary)
+
+            # Sort by updated_at (most recent first)
+            workflows_summary.sort(key=lambda x: x.updated_at, reverse=True)
+
+            return WorkflowListAllSuccess(
+                workflows=workflows_summary,
+                total_workflows=len(workflows_summary),
+                active_workflows=sum(1 for w in workflows_summary if w.status in ["created", "in_progress"]),
+                completed_workflows=sum(1 for w in workflows_summary if w.status == "completed"),
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to list workflows: {e}")
+            return ErrorResponse(error=f"Failed to list workflows: {str(e)}")
+
+    def template_apply(
+        self, template_name: str, workflow_id: str, params: Dict[str, Any]
+    ) -> WorkflowTemplateApplyResponse:
+        try:
+            # Use string-based template selection instead of function references
+            # to avoid Pydantic serialization issues
+            available_templates = [
+                "cross-package-aggregation",
+                "environment-promotion",
+                "longitudinal-analysis",
+                "data-validation",
+            ]
+
+            if template_name not in available_templates:
+                return ErrorResponse(error=f"Unknown template '{template_name}'. Available: {available_templates}")
+
+            # Create workflow from template using string-based dispatch
+            if template_name == "cross-package-aggregation":
+                workflow_config = _create_cross_package_template(params)
+            elif template_name == "environment-promotion":
+                workflow_config = _create_promotion_template(params)
+            elif template_name == "longitudinal-analysis":
+                workflow_config = _create_analysis_template(params)
+            elif template_name == "data-validation":
+                workflow_config = _create_validation_template(params)
+            else:
+                return ErrorResponse(error=f"Template implementation not found: {template_name}")
+
+            # Create the workflow
+            create_result = self.create_workflow(
+                workflow_id=workflow_id,
+                name=workflow_config["name"],
+                description=workflow_config["description"],
+                metadata=workflow_config.get("metadata", {}),
+            )
+
+            if not create_result.get("success"):
+                if isinstance(create_result, dict):
+                    return ErrorResponse(error=create_result.get("error", "Unknown error"))
+                return create_result
+
+            # Add all template steps
+            for step_config in workflow_config["steps"]:
+                step_result = self.add_step(
+                    workflow_id=workflow_id,
+                    step_id=step_config["id"],
+                    description=step_config["description"],
+                    step_type=step_config.get("step_type", "manual"),
+                    dependencies=step_config.get("dependencies", []),
+                    metadata=step_config.get("metadata", {}),
+                )
+
+                # Check if step addition succeeded
+                if isinstance(step_result, ErrorResponse):
+                    return step_result
+                elif isinstance(step_result, dict) and not step_result.get("success"):
+                    return ErrorResponse(error=step_result.get("error", "Unknown error"))
+
+            workflow = self._storage.load(self._tenant_id, workflow_id)
+
+            return WorkflowTemplateApplySuccess(
+                workflow_id=workflow_id,
+                template_applied=template_name,
+                workflow=workflow or {},
+                message=f"Template '{template_name}' applied successfully",
+                next_steps=[
+                    f"Check status: workflow_get_status('{workflow_id}')",
+                    f"Start first step: workflow_update_step('{workflow_id}', 'step-1', 'in_progress')",
+                ],
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to apply template {template_name}: {e}")
+            return ErrorResponse(error=f"Failed to apply template: {str(e)}")
+
+
+def _current_workflow_service() -> WorkflowService:
+    return get_current_context().workflow_service  # type: ignore[no-any-return]
 
 
 def workflow_create(
@@ -110,47 +508,12 @@ def workflow_create(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    try:
-        if not workflow_id or not workflow_id.strip():
-            return format_error_response("Workflow ID cannot be empty")
-
-        if workflow_id in _workflows:
-            return format_error_response(f"Workflow '{workflow_id}' already exists")
-
-        workflow: dict[str, Any] = {
-            "id": workflow_id,
-            "name": name,
-            "description": description,
-            "status": WorkflowStatus.CREATED.value,
-            "metadata": metadata or {},
-            "steps": [],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "started_at": None,
-            "completed_at": None,
-            "total_steps": 0,
-            "completed_steps": 0,
-            "failed_steps": 0,
-            "execution_log": [],
-        }
-
-        _workflows[workflow_id] = workflow
-
-        return {
-            "success": True,
-            "workflow_id": workflow_id,
-            "workflow": workflow,
-            "message": f"Workflow '{name}' created successfully",
-            "next_steps": [
-                f"Add steps: workflow_add_step('{workflow_id}', 'step-name', 'description')",
-                f"Start workflow: workflow_start('{workflow_id}')",
-                f"Check status: workflow_get_status('{workflow_id}')",
-            ],
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to create workflow {workflow_id}: {e}")
-        return format_error_response(f"Failed to create workflow: {str(e)}")
+    return _current_workflow_service().create_workflow(
+        workflow_id=workflow_id,
+        name=name,
+        description=description,
+        metadata=metadata,
+    )
 
 
 def workflow_add_step(
@@ -225,68 +588,14 @@ def workflow_add_step(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    try:
-        if workflow_id not in _workflows:
-            return ErrorResponse(error=f"Workflow '{workflow_id}' not found")
-
-        workflow = _workflows[workflow_id]
-
-        # Check if step already exists
-        existing_steps = {step["id"] for step in workflow["steps"]}
-        if step_id in existing_steps:
-            return ErrorResponse(error=f"Step '{step_id}' already exists in workflow")
-
-        # Validate dependencies
-        if dependencies:
-            invalid_deps = set(dependencies) - existing_steps
-            if invalid_deps:
-                return ErrorResponse(error=f"Invalid dependencies: {list(invalid_deps)}")
-
-        step_dict = {
-            "id": step_id,
-            "description": description,
-            "step_type": step_type,
-            "status": StepStatus.PENDING.value,
-            "dependencies": dependencies or [],
-            "metadata": metadata or {},
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "started_at": None,
-            "completed_at": None,
-            "error_message": None,
-            "result": None,
-        }
-
-        workflow["steps"].append(step_dict)
-        workflow["total_steps"] = len(workflow["steps"])
-        workflow["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # Convert to Pydantic model
-        step_model = WorkflowStep(
-            step_id=step_id,
-            description=description,
-            status=StepStatus.PENDING.value,
-            step_type=step_type,
-            dependencies=dependencies or [],
-            result=None,
-            error_message=None,
-            started_at=None,
-            completed_at=None,
-        )
-
-        return WorkflowAddStepSuccess(
-            workflow_id=workflow_id,
-            step_id=step_id,
-            step=step_model,
-            workflow_summary={
-                "total_steps": workflow["total_steps"],
-                "status": workflow["status"],
-            },
-            message=f"Step '{step_id}' added to workflow '{workflow_id}'",
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to add step to workflow {workflow_id}: {e}")
-        return ErrorResponse(error=f"Failed to add step: {str(e)}")
+    return _current_workflow_service().add_step(
+        workflow_id=workflow_id,
+        step_id=step_id,
+        description=description,
+        step_type=step_type,
+        dependencies=dependencies,
+        metadata=metadata,
+    )
 
 
 def workflow_update_step(
@@ -350,87 +659,13 @@ def workflow_update_step(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    try:
-        if workflow_id not in _workflows:
-            return format_error_response(f"Workflow '{workflow_id}' not found")
-
-        workflow = _workflows[workflow_id]
-
-        # Find the step
-        step = None
-        for s in workflow["steps"]:
-            if s["id"] == step_id:
-                step = s
-                break
-
-        if not step:
-            return format_error_response(f"Step '{step_id}' not found in workflow")
-
-        # Validate status
-        try:
-            new_status = StepStatus(status)
-        except ValueError:
-            return format_error_response(f"Invalid status: {status}")
-
-        # Update step
-        old_status = step["status"]
-        step["status"] = new_status.value
-        step["result"] = result
-        step["error_message"] = error_message
-
-        # Update timestamps
-        now = datetime.now(timezone.utc).isoformat()
-        if new_status == StepStatus.IN_PROGRESS and not step["started_at"]:
-            step["started_at"] = now
-        elif new_status in [
-            StepStatus.COMPLETED,
-            StepStatus.FAILED,
-            StepStatus.SKIPPED,
-        ]:
-            step["completed_at"] = now
-
-        # Update workflow counters
-        workflow["completed_steps"] = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.COMPLETED.value)
-        workflow["failed_steps"] = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.FAILED.value)
-        workflow["updated_at"] = now
-
-        # Update workflow status if needed
-        if workflow["status"] == WorkflowStatus.CREATED.value and new_status == StepStatus.IN_PROGRESS:
-            workflow["status"] = WorkflowStatus.IN_PROGRESS.value
-            workflow["started_at"] = now
-        elif workflow["completed_steps"] == workflow["total_steps"]:
-            workflow["status"] = WorkflowStatus.COMPLETED.value
-            workflow["completed_at"] = now
-        elif workflow["failed_steps"] > 0 and workflow["status"] != WorkflowStatus.FAILED.value:
-            workflow["status"] = WorkflowStatus.FAILED.value
-
-        # Add to execution log
-        workflow["execution_log"].append(
-            {
-                "timestamp": now,
-                "step_id": step_id,
-                "status_change": f"{old_status} -> {new_status.value}",
-                "message": error_message or f"Step {new_status.value}",
-            }
-        )
-
-        return {
-            "success": True,
-            "workflow_id": workflow_id,
-            "step_id": step_id,
-            "step": step,
-            "workflow_status": workflow["status"],
-            "progress": {
-                "completed_steps": workflow["completed_steps"],
-                "total_steps": workflow["total_steps"],
-                "failed_steps": workflow["failed_steps"],
-                "percentage": round((workflow["completed_steps"] / workflow["total_steps"]) * 100, 1),
-            },
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to update step {step_id} in workflow {workflow_id}: {e}")
-        return format_error_response(f"Failed to update step: {str(e)}")
+    return _current_workflow_service().update_step(
+        workflow_id=workflow_id,
+        step_id=step_id,
+        status=status,
+        result=result,
+        error_message=error_message,
+    )
 
 
 def workflow_get_status(
@@ -463,57 +698,7 @@ def workflow_get_status(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    try:
-        if id not in _workflows:
-            return ErrorResponse(error=f"Workflow '{id}' not found")
-
-        workflow = _workflows[id]
-
-        # Calculate progress metrics
-        total_steps = workflow["total_steps"]
-        completed_steps = workflow["completed_steps"]
-        failed_steps = workflow["failed_steps"]
-        in_progress_steps = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.IN_PROGRESS.value)
-        pending_steps = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.PENDING.value)
-
-        # Get next available steps (dependencies satisfied)
-        next_steps = []
-        for step in workflow["steps"]:
-            if step["status"] == StepStatus.PENDING.value:
-                # Check if all dependencies are completed
-                deps_completed = (
-                    all(
-                        any(s["id"] == dep_id and s["status"] == StepStatus.COMPLETED.value for s in workflow["steps"])
-                        for dep_id in step["dependencies"]
-                    )
-                    if step["dependencies"]
-                    else True
-                )
-
-                if deps_completed:
-                    next_steps.append(step["id"])
-
-        progress = WorkflowProgress(
-            total_steps=total_steps,
-            completed_steps=completed_steps,
-            failed_steps=failed_steps,
-            in_progress_steps=in_progress_steps,
-            pending_steps=pending_steps,
-            percentage=(round((completed_steps / total_steps) * 100, 1) if total_steps > 0 else 0),
-        )
-
-        return WorkflowGetStatusSuccess(
-            workflow=workflow,
-            progress=progress,
-            next_available_steps=next_steps,
-            can_proceed=len(next_steps) > 0 and failed_steps == 0,
-            recent_activity=workflow["execution_log"][-5:],  # Last 5 log entries
-            recommendations=_get_workflow_recommendations(workflow),
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to get workflow status {id}: {e}")
-        return ErrorResponse(error=f"Failed to get workflow status: {str(e)}")
+    return _current_workflow_service().get_status(id)
 
 
 def workflow_list_all() -> WorkflowListAllResponse:
@@ -533,44 +718,7 @@ def workflow_list_all() -> WorkflowListAllResponse:
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    try:
-        workflows_summary = []
-
-        for workflow_id, workflow in _workflows.items():
-            summary = WorkflowSummary(
-                id=workflow_id,
-                name=workflow["name"],
-                status=workflow["status"],
-                progress={
-                    "completed_steps": workflow["completed_steps"],
-                    "total_steps": workflow["total_steps"],
-                    "percentage": (
-                        round(
-                            (workflow["completed_steps"] / workflow["total_steps"]) * 100,
-                            1,
-                        )
-                        if workflow["total_steps"] > 0
-                        else 0
-                    ),
-                },
-                created_at=workflow["created_at"],
-                updated_at=workflow["updated_at"],
-            )
-            workflows_summary.append(summary)
-
-        # Sort by updated_at (most recent first)
-        workflows_summary.sort(key=lambda x: x.updated_at, reverse=True)
-
-        return WorkflowListAllSuccess(
-            workflows=workflows_summary,
-            total_workflows=len(workflows_summary),
-            active_workflows=sum(1 for w in workflows_summary if w.status in ["created", "in_progress"]),
-            completed_workflows=sum(1 for w in workflows_summary if w.status == "completed"),
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to list workflows: {e}")
-        return ErrorResponse(error=f"Failed to list workflows: {str(e)}")
+    return _current_workflow_service().list_all()
 
 
 def workflow_template_apply(
@@ -630,76 +778,7 @@ def workflow_template_apply(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    try:
-        # Use string-based template selection instead of function references
-        # to avoid Pydantic serialization issues
-        available_templates = [
-            "cross-package-aggregation",
-            "environment-promotion",
-            "longitudinal-analysis",
-            "data-validation",
-        ]
-
-        if template_name not in available_templates:
-            return ErrorResponse(error=f"Unknown template '{template_name}'. Available: {available_templates}")
-
-        # Create workflow from template using string-based dispatch
-        if template_name == "cross-package-aggregation":
-            workflow_config = _create_cross_package_template(params)
-        elif template_name == "environment-promotion":
-            workflow_config = _create_promotion_template(params)
-        elif template_name == "longitudinal-analysis":
-            workflow_config = _create_analysis_template(params)
-        elif template_name == "data-validation":
-            workflow_config = _create_validation_template(params)
-        else:
-            return ErrorResponse(error=f"Template implementation not found: {template_name}")
-
-        # Create the workflow
-        create_result = workflow_create(
-            workflow_id=workflow_id,
-            name=workflow_config["name"],
-            description=workflow_config["description"],
-            metadata=workflow_config.get("metadata", {}),
-        )
-
-        if not create_result.get("success"):
-            # Convert dict error to ErrorResponse if needed
-            if isinstance(create_result, dict):
-                return ErrorResponse(error=create_result.get("error", "Unknown error"))
-            return create_result
-
-        # Add all template steps
-        for step_config in workflow_config["steps"]:
-            step_result = workflow_add_step(
-                workflow_id=workflow_id,
-                step_id=step_config["id"],
-                description=step_config["description"],
-                step_type=step_config.get("step_type", "manual"),
-                dependencies=step_config.get("dependencies", []),
-                metadata=step_config.get("metadata", {}),
-            )
-
-            # Check if step addition succeeded
-            if isinstance(step_result, ErrorResponse):
-                return step_result
-            elif isinstance(step_result, dict) and not step_result.get("success"):
-                return ErrorResponse(error=step_result.get("error", "Unknown error"))
-
-        return WorkflowTemplateApplySuccess(
-            workflow_id=workflow_id,
-            template_applied=template_name,
-            workflow=_workflows[workflow_id],
-            message=f"Template '{template_name}' applied successfully",
-            next_steps=[
-                f"Check status: workflow_get_status('{workflow_id}')",
-                f"Start first step: workflow_update_step('{workflow_id}', 'step-1', 'in_progress')",
-            ],
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to apply template {template_name}: {e}")
-        return ErrorResponse(error=f"Failed to apply template: {str(e)}")
+    return _current_workflow_service().template_apply(template_name, workflow_id, params)
 
 
 def _get_workflow_recommendations(workflow: Dict[str, Any]) -> List[str]:

@@ -14,9 +14,13 @@ from pydantic import Field
 # Rationale: MCP server should not manage default bucket state
 # LLM clients provide explicit bucket parameters based on conversation context
 from .quilt_summary import create_quilt_summary_files
+from ..context.exceptions import ContextNotAvailableError
+from ..context.propagation import get_current_context
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
-from ..services.quilt_service import QuiltService
+
 from ..utils import format_error_response, generate_signed_url, get_s3_client, validate_package_name
+from ..ops.factory import QuiltOpsFactory
+from ..domain import Package_Creation_Result
 from .auth_helpers import AuthorizationContext, check_package_authorization
 from ..models import (
     PackageBrowseSuccess,
@@ -39,11 +43,13 @@ from ..models import (
 
 logger = logging.getLogger(__name__)
 
-# Initialize service
-quilt_service = QuiltService()
 
-# Export quilt3 module for backward compatibility with tests
-quilt3 = quilt_service.get_quilt3_module()
+def _current_permission_service():
+    try:
+        return get_current_context().permission_service
+    except ContextNotAvailableError:
+        return None
+
 
 # Helpers
 
@@ -115,16 +121,13 @@ def _collect_objects_into_package(
     return added
 
 
-def _build_selector_fn(copy_mode: str, target_registry: str):
+def _build_selector_fn(copy: bool, target_registry: str):
     """Build a Quilt selector_fn based on desired copy behavior.
 
-    copy_mode options:
-    - "all": copy all objects to target (default Quilt behavior)
-    - "none": copy none; keep references to external locations
-    - "same_bucket": copy only objects whose physical_key bucket matches target bucket
+    Args:
+        copy: True to copy all objects, False to keep references only
+        target_registry: Target registry (unused but kept for compatibility)
     """
-    # Normalize and extract target bucket
-    target_bucket = target_registry.replace("s3://", "").split("/", 1)[0]
 
     def selector_all(_logical_key, _entry):
         return True
@@ -132,25 +135,7 @@ def _build_selector_fn(copy_mode: str, target_registry: str):
     def selector_none(_logical_key, _entry):
         return False
 
-    def selector_same_bucket(_logical_key, entry):
-        try:
-            physical_key = str(getattr(entry, "physical_key", ""))
-        except Exception:
-            physical_key = ""
-        if not physical_key.startswith("s3://"):
-            return False
-        try:
-            bucket = physical_key.split("/", 3)[2]
-        except Exception:
-            return False
-        return bucket == target_bucket
-
-    if copy_mode == "none":
-        return selector_none
-    if copy_mode == "same_bucket":
-        return selector_same_bucket
-    # Default
-    return selector_all
+    return selector_all if copy else selector_none
 
 
 # S3-to-package helpers and constants
@@ -521,7 +506,7 @@ def _create_enhanced_package(
     enhanced_metadata: dict[str, Any],
     readme_content: str | None = None,
     summary_files: dict[str, Any] | None = None,
-    copy_mode: str = "all",
+    copy: bool = False,
     force: bool = False,
 ) -> dict[str, Any]:
     """Create the enhanced Quilt package with organized structure and documentation."""
@@ -552,25 +537,25 @@ def _create_enhanced_package(
             else "Created via enhanced S3-to-package tool"
         )
 
-        # Create package using create_package_revision with auto_organize=True
+        # Create package using QuiltOps.create_package_revision with auto_organize=True
         # This preserves the smart organization behavior of s3_package.py
-        quilt_service = QuiltService()
-        result = quilt_service.create_package_revision(
+        quilt_ops = QuiltOpsFactory.create()
+        result = quilt_ops.create_package_revision(
             package_name=package_name,
             s3_uris=s3_uris,
             metadata=processed_metadata,
             registry=target_registry,
             message=message,
             auto_organize=True,  # Preserve smart organization behavior
-            copy=copy_mode,
+            copy=copy,
         )
 
-        # Handle the result
-        if result.get("error"):
-            logger.error(f"Package creation failed: {result['error']}")
-            raise Exception(result["error"])
+        # Handle the result - it's now a Package_Creation_Result domain object
+        if not result.success:
+            logger.error("Package creation failed: no error details available")
+            raise Exception("Package creation failed")
 
-        top_hash = result.get("top_hash")
+        top_hash = result.top_hash
         logger.info(f"Successfully created package {package_name} with hash {top_hash}")
 
         # TODO: Handle summary files and visualizations in future enhancement
@@ -649,14 +634,17 @@ def packages_list(
                 ],
             )
 
-        # Normalize registry and pass to QuiltService.list_packages(), then apply filtering
+        # Normalize registry and use QuiltOps.search_packages() for listing
         normalized_registry = _normalize_registry(registry)
-        # Suppress stdout during list_packages to avoid JSON-RPC interference
+        # Suppress stdout during search_packages to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+        from ..ops.factory import QuiltOpsFactory
 
-        quilt_service = QuiltService()
+        quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
-            pkgs = list(quilt_service.list_packages(registry=normalized_registry))  # Convert generator to list
+            # Use empty query to list all packages, then extract names from Package_Info objects
+            package_infos = quilt_ops.search_packages(query="", registry=normalized_registry)
+            pkgs = [pkg_info.name for pkg_info in package_infos]
 
         # Apply prefix filtering if specified
         if prefix:
@@ -793,10 +781,13 @@ def package_browse(
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+        from ..ops.factory import QuiltOpsFactory
+        from dataclasses import asdict
 
-        quilt_service = QuiltService()
+        quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
-            pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
+            # Use QuiltOps.browse_content() to get Content_Info objects directly
+            content_infos = quilt_ops.browse_content(package_name, registry=normalized_registry, path="")
 
     except Exception as e:
         return ErrorResponse(
@@ -813,30 +804,24 @@ def package_browse(
             ],
         )
 
-    # Get detailed information about each entry
+    # Process Content_Info objects directly instead of using MockPackage
     entries = []
     file_tree: dict[str, Any] | None = {} if recursive else None
-    keys = list(pkg.keys())
     total_size = 0
     file_types = set()
 
     # Apply top limit if specified
-    if top > 0:
-        keys = keys[:top]
+    content_list = content_infos[:top] if top > 0 else content_infos
 
-    for logical_key in keys:
+    for content_info in content_list:
         try:
-            entry = pkg[logical_key]
-
-            # Get file information
-            file_size = getattr(entry, "size", None)
-            file_hash = str(getattr(entry, "hash", ""))
-            physical_key = str(entry.physical_key) if hasattr(entry, "physical_key") else None
+            logical_key = content_info.path
+            file_size = content_info.size
+            is_directory = content_info.type == "directory"
 
             # Determine file type and properties
-            file_ext = logical_key.split(".")[-1].lower() if "." in logical_key else "unknown"
+            file_ext = logical_key.split(".")[-1].lower() if "." in logical_key and not is_directory else "unknown"
             file_types.add(file_ext)
-            is_directory = logical_key.endswith("/") or file_size is None
 
             # Track total size
             if file_size:
@@ -844,46 +829,24 @@ def package_browse(
 
             entry_data = {
                 "logical_key": logical_key,
-                "physical_key": physical_key,
+                "physical_key": None,  # Will be set below if available
                 "size": file_size,
                 "size_human": _format_file_size(file_size) if file_size else None,
-                "hash": file_hash,
+                "hash": "unknown",  # Content_Info doesn't provide hash
                 "file_type": file_ext,
                 "is_directory": is_directory,
             }
 
-            # Add enhanced file info if requested
-            if include_file_info and physical_key and physical_key.startswith("s3://"):
-                try:
-                    # Try to get additional S3 metadata
-                    import boto3
+            # Add enhanced file info if requested and we have a download URL
+            if include_file_info and content_info.download_url:
+                entry_data["physical_key"] = content_info.download_url
+                if content_info.modified_date:
+                    entry_data["last_modified"] = content_info.modified_date
 
-                    from ..utils import get_s3_client
-
-                    s3_client = get_s3_client()
-                    bucket_name = physical_key.split("/")[2]
-                    object_key = "/".join(physical_key.split("/")[3:])
-
-                    obj_info = s3_client.head_object(Bucket=bucket_name, Key=object_key)
-                    entry_data.update(
-                        {
-                            "last_modified": str(obj_info.get("LastModified")),
-                            "content_type": obj_info.get("ContentType"),
-                            "storage_class": obj_info.get("StorageClass", "STANDARD"),
-                        }
-                    )
-                except Exception:
-                    # Don't fail if we can't get additional info
-                    pass
-
-            # Add S3 URI and signed URL if this is an S3 object
-            if physical_key and physical_key.startswith("s3://"):
-                entry_data["s3_uri"] = physical_key
-
-                if include_signed_urls:
-                    signed_url = generate_signed_url(physical_key)
-                    if signed_url:
-                        entry_data["download_url"] = signed_url
+            # Add download URL if available and requested
+            if include_signed_urls and content_info.download_url:
+                entry_data["download_url"] = content_info.download_url
+                entry_data["s3_uri"] = content_info.download_url
 
             entries.append(entry_data)
 
@@ -895,7 +858,7 @@ def package_browse(
             # Include entry with error info
             entries.append(
                 {
-                    "logical_key": logical_key,
+                    "logical_key": content_info.path if hasattr(content_info, 'path') else "unknown",
                     "physical_key": None,
                     "size": None,
                     "hash": "",
@@ -913,13 +876,9 @@ def package_browse(
         total_directories=len([e for e in entries if e.get("is_directory", False)]),
     )
 
-    # Get package metadata if available
+    # Get package metadata - for now, we don't have metadata from Content_Info
+    # This could be enhanced in the future by adding a get_package_info() call
     pkg_metadata = None
-    try:
-        pkg_metadata = dict(pkg.meta) if hasattr(pkg, "meta") else None
-    except Exception:
-        # Don't fail if we can't get metadata
-        pass
 
     return PackageBrowseSuccess(
         package_name=package_name,
@@ -1054,48 +1013,19 @@ def package_diff(
     normalized_registry = _normalize_registry(registry)
 
     try:
-        # Browse packages with optional hash specification
-        # Suppress stdout during browse operations to avoid JSON-RPC interference
+        # Use QuiltOps.diff_packages() for business logic
+        from ..ops.factory import QuiltOpsFactory
         from ..utils import suppress_stdout
 
-        quilt_service = QuiltService()
+        quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
-            if package1_hash:
-                pkg1 = quilt_service.browse_package(
-                    package1_name, registry=normalized_registry, top_hash=package1_hash
-                )
-            else:
-                pkg1 = quilt_service.browse_package(package1_name, registry=normalized_registry)
-
-            if package2_hash:
-                pkg2 = quilt_service.browse_package(
-                    package2_name, registry=normalized_registry, top_hash=package2_hash
-                )
-            else:
-                pkg2 = quilt_service.browse_package(package2_name, registry=normalized_registry)
-
-    except Exception as e:
-        return PackageDiffError(
-            error=f"Failed to browse packages: {e}",
-            package1=package1_name,
-            package2=package2_name,
-        )
-
-    try:
-        # Use quilt3's built-in diff functionality
-        diff_result = pkg1.diff(pkg2)
-
-        # Convert the diff tuple (added, deleted, modified) to a dictionary
-        if isinstance(diff_result, tuple) and len(diff_result) == 3:
-            added, deleted, modified = diff_result
-            diff_dict = {
-                "added": list(added) if added else [],
-                "deleted": list(deleted) if deleted else [],
-                "modified": list(modified) if modified else [],
-            }
-        else:
-            # If diff_result is already a dict or unexpected format, use as-is
-            diff_dict = diff_result if isinstance(diff_result, dict) else {"raw": [str(diff_result)]}
+            diff_dict = quilt_ops.diff_packages(
+                package1_name=package1_name,
+                package2_name=package2_name,
+                registry=normalized_registry,
+                package1_hash=package1_hash if package1_hash else None,
+                package2_hash=package2_hash if package2_hash else None,
+            )
 
         return PackageDiffSuccess(
             package1=package1_name,
@@ -1159,13 +1089,13 @@ def package_create(
             description="Use only filenames as logical paths (true) instead of full S3 keys (false)",
         ),
     ] = True,
-    copy_mode: Annotated[
-        Literal["all", "same_bucket", "none"],
+    copy: Annotated[
+        bool,
         Field(
-            default="all",
-            description="Copy policy for the underlying data: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            default=False,
+            description="Whether to copy files to registry bucket (false=reference only, true=copy all)",
         ),
-    ] = "all",
+    ] = False,
 ) -> PackageCreateSuccess | PackageCreateError:
     """Create a new Quilt package from S3 objects - Core package creation, update, and deletion workflows
 
@@ -1176,7 +1106,7 @@ def package_create(
         metadata: Optional metadata to attach to the package (JSON object)
         message: Commit message for package creation
         flatten: Use only filenames as logical paths (true) instead of full S3 keys (false)
-        copy_mode: Copy policy for the underlying data
+        copy: Whether to copy files to registry bucket
 
     Returns:
         PackageCreateSuccess with package details, or PackageCreateError on failure.
@@ -1245,23 +1175,10 @@ def package_create(
             suggested_actions=["Provide metadata as a dict", "Example: {'description': 'My dataset'}"],
         )
 
-    # Process metadata to ensure README content is handled correctly
+    # Process metadata to remove README fields (not currently preserved)
     processed_metadata = metadata.copy() if metadata else {}
-
-    # Extract README content from metadata (it will be handled by create_package_revision)
-    # readme_content takes priority if both fields exist
-    if "readme_content" in processed_metadata:
-        processed_metadata.pop("readme_content")
-        warnings.append("README content moved from metadata to package file (README.md)")
-
-    elif "readme" in processed_metadata:
-        processed_metadata.pop("readme")
-        warnings.append("README content moved from metadata to package file (README.md)")
-
-    # Remove any remaining README fields to avoid duplication
-    if "readme" in processed_metadata:
-        processed_metadata.pop("readme")
-        warnings.append("Removed duplicate 'readme' field from metadata")
+    processed_metadata.pop("readme_content", None)
+    processed_metadata.pop("readme", None)
 
     normalized_registry = _normalize_registry(registry)
 
@@ -1279,22 +1196,23 @@ def package_create(
         )
 
     try:
-        # Use the new create_package_revision method with auto_organize=False
+        # Use QuiltOps.create_package_revision method with auto_organize=False
         # to preserve the existing flattening behavior
-        result = quilt_service.create_package_revision(
+        quilt_ops = QuiltOpsFactory.create()
+        result = quilt_ops.create_package_revision(
             package_name=package_name,
             s3_uris=s3_uris,
             metadata=processed_metadata,
             registry=normalized_registry,
             message=message,
             auto_organize=False,  # Preserve flattening behavior like _collect_objects_into_package
-            copy=copy_mode,
+            copy=copy,
         )
 
-        # Handle the result based on its structure
-        if result.get("error"):
+        # Handle the result - it's now a Package_Creation_Result domain object
+        if not result.success:
             return PackageCreateError(
-                error=result["error"],
+                error="Package creation failed",
                 package_name=package_name,
                 registry=registry,
                 suggested_actions=[
@@ -1305,10 +1223,10 @@ def package_create(
                 warnings=warnings,
             )
 
-        # Extract the top_hash from the result
-        top_hash = result.get("top_hash")
-        entries_added = result.get("entries_added", len(s3_uris))
-        files = result.get("files", [])
+        # Extract details from the Package_Creation_Result domain object
+        top_hash = result.top_hash
+        entries_added = result.file_count
+        files: list[dict[str, Any]] = []  # Files list not available in domain object yet
 
         # Build package URL
         from .catalog import catalog_url
@@ -1393,13 +1311,13 @@ def package_update(
             description="Use only filenames as logical paths (true) instead of full S3 keys (false)",
         ),
     ] = True,
-    copy_mode: Annotated[
-        Literal["all", "same_bucket", "none"],
+    copy: Annotated[
+        bool,
         Field(
-            default="all",
-            description="Copy policy for the source objects: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            default=False,
+            description="Whether to copy files to registry bucket (false=reference only, true=copy all)",
         ),
-    ] = "all",
+    ] = False,
 ) -> PackageUpdateSuccess | PackageUpdateError:
     """Update an existing Quilt package by adding new S3 objects - Core package creation, update, and deletion workflows
 
@@ -1410,7 +1328,7 @@ def package_update(
         metadata: Optional metadata to merge with existing package metadata
         message: Commit message for package update
         flatten: Use only filenames as logical paths (true) instead of full S3 keys (false)
-        copy_mode: Copy policy for the source objects
+        copy: Whether to copy files to registry bucket
 
     Returns:
         PackageUpdateSuccess with update details, or PackageUpdateError on failure.
@@ -1477,99 +1395,68 @@ def package_update(
             registry=registry,
             suggested_actions=["Check your permissions", "Verify package exists", "Confirm registry access"],
         )
+
     try:
-        # Suppress stdout during browse to avoid JSON-RPC interference
+        # Use QuiltOps.update_package_revision() for business logic
+        from ..ops.factory import QuiltOpsFactory
         from ..utils import suppress_stdout
 
-        with suppress_stdout():
-            quilt_service = QuiltService()
-            existing_pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
-    except Exception as e:
-        return PackageUpdateError(
-            error=f"Failed to browse existing package '{package_name}': {e}",
-            package_name=package_name,
-            registry=registry,
-            suggested_actions=[
-                "Verify package exists in the registry",
-                "Check package name format",
-                "Ensure you have read permissions",
-            ],
-        )
-    # Use the existing package as the base instead of creating a new one
-    updated_pkg = existing_pkg
-    added = _collect_objects_into_package(updated_pkg, s3_uris, flatten, warnings)
-    if not added:
-        return PackageUpdateError(
-            error="No new S3 objects were added",
-            package_name=package_name,
-            registry=registry,
-            suggested_actions=[
-                "Check that S3 URIs are valid and accessible",
-                "Verify URIs point to actual files, not directories",
-                "Ensure files don't already exist in package",
-            ],
-            warnings=warnings,
-        )
-    if metadata:
-        try:
-            combined = {}
-            try:
-                combined.update(existing_pkg.meta)
-            except Exception:
-                pass
-            combined.update(metadata)
-            updated_pkg.set_meta(combined)
-        except Exception as e:
-            warnings.append(f"Failed to set merged metadata: {e}")
-    try:
-        # Suppress stdout during push to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
+        quilt_ops = QuiltOpsFactory.create()
+
+        # Convert parameters to match QuiltOps interface
+        copy_behavior = "all" if copy else "none"
+        auto_organize = not flatten  # flatten=True means auto_organize=False
 
         with suppress_stdout():
-            selector_fn = _build_selector_fn(copy_mode, normalized_registry)
-            top_hash = updated_pkg.push(
-                package_name,
+            result = quilt_ops.update_package_revision(
+                package_name=package_name,
+                s3_uris=s3_uris,
                 registry=normalized_registry,
+                metadata=metadata,
                 message=message,
-                selector_fn=selector_fn,
-                force=True,
+                auto_organize=auto_organize,
+                copy=copy_behavior,
             )
 
+        if not result.success:
+            return PackageUpdateError(
+                error="Package update failed - no files were added or push failed",
+                package_name=package_name,
+                registry=registry,
+                suggested_actions=[
+                    "Check that S3 URIs are valid and accessible",
+                    "Verify URIs point to actual files, not directories",
+                    "Ensure you have write permissions to the registry",
+                ],
+                warnings=warnings,
+            )
+
+        # Transform QuiltOps result to tool response format
+        return PackageUpdateSuccess(
+            package_name=package_name,
+            registry=registry,
+            top_hash=result.top_hash,
+            files_added=result.file_count,
+            package_url=result.catalog_url or "",
+            files=[],  # QuiltOps doesn't return detailed file list, but that's OK
+            message=message,
+            warnings=warnings,
+            auth_type=auth_ctx.auth_type if auth_ctx else None,
+        )
+
     except Exception as e:
         return PackageUpdateError(
-            error=f"Failed to push updated package: {e}",
+            error=f"Package update failed: {e}",
             package_name=package_name,
             registry=registry,
             suggested_actions=[
-                "Check write permissions for the registry",
-                "Verify network connectivity",
-                "Ensure no conflicts with existing package state",
+                "Check that the package exists in the registry",
+                "Verify S3 URIs are valid and accessible",
+                "Ensure you have read/write permissions",
+                "Check network connectivity",
             ],
             warnings=warnings,
         )
-
-    # Build package URL
-    from .catalog import catalog_url
-
-    catalog_result = catalog_url(
-        registry=normalized_registry,
-        package_name=package_name,
-        path="",
-        catalog_host="",
-    )
-    package_url = catalog_result.catalog_url if isinstance(catalog_result, CatalogUrlSuccess) else ""
-
-    return PackageUpdateSuccess(
-        package_name=package_name,
-        registry=registry,
-        top_hash=str(top_hash),
-        files_added=len(added),
-        package_url=package_url,
-        files=added,
-        message=message,
-        warnings=warnings,
-        auth_type=auth_ctx.auth_type if auth_ctx else None,
-    )
 
 
 def package_delete(
@@ -1647,6 +1534,7 @@ def package_delete(
 
         # Suppress stdout during delete to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+        import quilt3
 
         with suppress_stdout():
             quilt3.delete_package(package_name, registry=normalized_registry)
@@ -1732,13 +1620,13 @@ def package_create_from_s3(
             description="Metadata template to use",
         ),
     ] = "standard",
-    copy_mode: Annotated[
-        Literal["all", "same_bucket", "none"],
+    copy: Annotated[
+        bool,
         Field(
-            default="all",
-            description="Copy policy for package materialization: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            default=False,
+            description="Whether to copy files to registry bucket (false=reference only, true=copy all)",
         ),
-    ] = "all",
+    ] = False,
     auto_organize: Annotated[
         bool,
         Field(
@@ -1793,7 +1681,7 @@ def package_create_from_s3(
         include_patterns: File patterns to include (glob style)
         exclude_patterns: File patterns to exclude (glob style)
         metadata_template: Metadata template to use
-        copy_mode: Copy policy for package materialization
+        copy: Whether to copy files to registry bucket
         auto_organize: Enable smart folder organization
         generate_readme: Generate comprehensive README.md
         confirm_structure: Require user confirmation of structure
@@ -1865,7 +1753,9 @@ def package_create_from_s3(
             # Try to get smart recommendations based on actual permissions
             try:
                 recommendations = bucket_recommendations_get(
-                    source_bucket=source_bucket, operation_type="package_creation"
+                    source_bucket=source_bucket,
+                    operation_type="package_creation",
+                    context=get_current_context(),
                 )
 
                 if recommendations.get("success") and recommendations.get("recommendations", {}).get(
@@ -1888,7 +1778,10 @@ def package_create_from_s3(
         # Validate target registry permissions
         target_bucket_name = resolved_target_registry.replace("s3://", "")
         try:
-            access_check = check_bucket_access(target_bucket_name)
+            access_check = check_bucket_access(
+                target_bucket_name,
+                context=get_current_context(),
+            )
             if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
                 return PackageCreateFromS3Error(
                     error="Cannot create package in target registry",
@@ -2059,7 +1952,7 @@ def package_create_from_s3(
             enhanced_metadata=enhanced_metadata,
             readme_content=final_readme_content,
             summary_files=summary_files_dict,
-            copy_mode=copy_mode,
+            copy=copy,
             force=force,
         )
 

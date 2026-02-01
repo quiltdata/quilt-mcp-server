@@ -120,16 +120,18 @@ class TestGovernanceErrorHandling:
     @pytest.mark.asyncio
     async def test_network_error_handling(self):
         """Test handling of network errors."""
-        # This test simulates network connectivity issues
+        # This test simulates network connectivity issues by mocking QuiltOps.admin methods
 
-        with patch(
-            "quilt_mcp.services.governance_service.admin_users.list",
-            side_effect=Exception("Network error"),
-        ):
-            result = await governance.admin_users_list()
+        from unittest.mock import MagicMock
 
-            assert result["success"] is False
-            assert "Failed to list users" in result["error"]
+        # Create a mock QuiltOps instance that raises an exception
+        mock_quilt_ops = MagicMock()
+        mock_quilt_ops.admin.list_users.side_effect = Exception("Network error")
+
+        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+
+        assert result["success"] is False
+        assert "Failed to list users" in result["error"]
 
     @pytest.mark.asyncio
     async def test_invalid_input_handling(self):
