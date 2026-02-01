@@ -13,11 +13,13 @@
 Based on the dependencies in `test-all: lint test-catalog test-scripts mcpb-validate`:
 
 **Phase 1: lint** → Runs first (no dependencies)
+
 - ruff format
 - ruff check --fix
 - mypy type checking
 
 **Phase 2: coverage** → Triggered by test-scripts dependency chain
+
 - Runs test-unit → generates coverage-unit.xml
 - Runs test-integration → generates coverage-integration.xml
 - Runs test-e2e → generates coverage-e2e.xml
@@ -25,19 +27,23 @@ Based on the dependencies in `test-all: lint test-catalog test-scripts mcpb-vali
 - Validates coverage thresholds
 
 **Phase 3: docker-build** → Triggered by test-scripts dependency
+
 - docker-check (verify docker available)
 - docker build quilt-mcp:test image
 
 **Phase 4: test-scripts** → Explicit dependency of test-all
+
 - pytest scripts/tests/ (24 tests: coverage_analysis, scripts validation)
 - MCP integration tests via test_mcp.py --docker (39 tool/resource tests)
 
 **Phase 5: mcpb-validate** → Explicit dependency of test-all
+
 - check-tools (verify npx, uv, mcpb installed)
 - mcpb (build MCPB package from build/mcpb/)
 - mcpb validate (validate manifest, structure, content, UVX execution, prerequisites)
 
 **Phase 6: pytest tests/** → Final command in test-all target
+
 - All tests in tests/ directory (975 tests across e2e/, integration/, unit/)
 
 **Note:** `test-catalog` appears to be a no-op target (nothing to be done)
@@ -80,31 +86,37 @@ Updates in-place at 2-4 Hz refresh rate.
 ### What to Track Per Phase
 
 **Phase 1: Lint (3 subtasks)**
+
 - Track: ruff format → ruff check → mypy
 - Parse: "Running ruff", "Running mypy" output
 - No test counts, just task completion
 
 **Phase 2: Coverage (5 subtasks = 3 test runs + 1 analysis + 1 validation)**
+
 - Track: unit → integration → e2e → analysis → validation
 - Parse pytest output during each test run (cumulative test counts)
 - Track: 975 total tests across 3 directories
 
 **Phase 3: Docker (2 subtasks)**
+
 - Track: docker-check → docker-build
 - Parse: "Docker available", "Building Docker image", "Successfully built"
 - No test counts
 
 **Phase 4: Script Tests (2 subtasks = 24 pytest + 39 MCP tests)**
+
 - Track: pytest scripts/tests → MCP integration tests
 - Parse pytest output for scripts/tests (24 tests)
 - Parse MCP test_mcp.py output for tool/resource tests (39 tests)
 
 **Phase 5: MCPB Validate (4 subtasks)**
+
 - Track: check-tools → mcpb build → mcpb validate → UVX test
 - Parse: "All required tools found", "Built dist/*.mcpb", validation steps
 - No test counts
 
 **Phase 6: Main Tests (975 tests across 3 directories)**
+
 - Track: current directory (e2e → integration → unit)
 - Parse pytest verbose output with directory context
 - Cumulative test count: 975 total
@@ -112,6 +124,7 @@ Updates in-place at 2-4 Hz refresh rate.
 ### Cumulative Tracking
 
 Track across ALL phases:
+
 - Total tests run (from Phase 2 coverage + Phase 4 scripts + Phase 4 MCP + Phase 6 main)
 - Total pass count
 - Total fail count
@@ -157,6 +170,7 @@ Run with --verbose for full output
 ```
 
 Show:
+
 - Which phase each failure occurred in
 - Full test path with file:line reference
 - Total pass/fail across all phases
@@ -174,6 +188,7 @@ Show:
 **Phase Detection:**
 
 Track which subprocess is running by monitoring:
+
 1. Command invocations (make lint, make coverage, docker build, etc.)
 2. Output parsing to detect phase transitions
 3. Pytest directory detection from test paths

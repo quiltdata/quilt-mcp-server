@@ -70,11 +70,13 @@ Loads existing package, adds files, pushes update.
 Add implementations to `Quilt3_Backend` (quilt3_backend_packages.py):
 
 **`diff_packages()`:**
+
 - Browse both packages with `quilt3.Package.browse()`
 - Call `pkg1.diff(pkg2)`
 - Transform result to domain dict
 
 **`update_package_revision()`:**
+
 - Browse existing package
 - Add S3 URIs using `pkg.set()` or `pkg.set_dir()`
 - Handle auto_organize for folder structure
@@ -96,19 +98,23 @@ Add test coverage in `tests/unit/backends/test_quilt3_backend_packages.py`:
 Replace QuiltService with QuiltOpsFactory in packages.py:
 
 **`package_create()` (line 1103):**
+
 - Already uses `quilt_service.create_package_revision()`
 - Change to `quilt_ops = QuiltOpsFactory.create()`
 - Call `quilt_ops.create_package_revision()`
 - Update result handling
 
 **`package_create_from_s3()` (line 1661):**
+
 - Same changes as package_create()
 
 **`package_update()` (line 1338):**
+
 - Replace `quilt_service.browse_package()` call
 - Use `quilt_ops.update_package_revision()` directly
 
 **`package_diff()` (line 963):**
+
 - Replace two `quilt_service.browse_package()` calls
 - Use `quilt_ops.diff_packages()` directly
 
