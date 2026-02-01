@@ -76,7 +76,7 @@ class PhaseStats:
     tests_failed: int = 0
     tests_total: int = 0
     failures: list[TestFailure] = field(default_factory=list)
-    error_lines: list[str] = field(default_factory=list)  # Capture error output
+    error_lines: list[tuple[int, str]] = field(default_factory=list)  # (subtask_idx, error_line)
     completed: bool = False
 
 
@@ -190,7 +190,7 @@ class TestRunnerState:
         if completed:
             lines.append(f"{DIM}✅ COMPLETED: {' | '.join(completed)}{RESET}")
 
-        # Section 6: All errors grouped by phase (expanding list at bottom)
+        # Section 6: All errors grouped by phase and subtask (expanding list at bottom)
         has_errors = any(phase.error_lines for phase in self.phases)
 
         if has_errors:
@@ -198,10 +198,19 @@ class TestRunnerState:
             lines.append("🔍 ERRORS:")
             for phase in self.phases:
                 if phase.error_lines:
-                    # Add phase header to group errors
-                    lines.append(f"  [{phase.name}]")
-                    for error_line in phase.error_lines:
-                        lines.append(f"    {error_line}")
+                    # Group errors by subtask
+                    errors_by_subtask: dict[int, list[str]] = {}
+                    for subtask_idx, error_line in phase.error_lines:
+                        if subtask_idx not in errors_by_subtask:
+                            errors_by_subtask[subtask_idx] = []
+                        errors_by_subtask[subtask_idx].append(error_line)
+
+                    # Display errors grouped by subtask
+                    for subtask_idx in sorted(errors_by_subtask.keys()):
+                        subtask_name = phase.subtasks[subtask_idx] if subtask_idx < len(phase.subtasks) else "unknown"
+                        lines.append(f"  [{phase.name} → {subtask_name}]")
+                        for error_line in errors_by_subtask[subtask_idx]:
+                            lines.append(f"    {error_line}")
 
         return "\n".join(lines)
 
@@ -389,8 +398,8 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
             is_error = any(keyword in line for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
 
             if phase and is_error:
-                # Add to error list (no limit - show all errors)
-                phase.error_lines.append(line)
+                # Add to error list with subtask info (no limit - show all errors)
+                phase.error_lines.append((phase.current_subtask_idx, line))
 
     process.wait()
 
@@ -450,10 +459,18 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
                         line_info = f":{failure.line}" if failure.line else ""
                         print(f"    • {failure.test_path}{line_info}")
                 elif phase.error_lines:
-                    # Show captured error lines if we didn't parse specific failures
-                    print("    Error output:")
-                    for error_line in phase.error_lines:
-                        print(f"      {error_line}")
+                    # Show captured error lines grouped by subtask
+                    errors_by_subtask: dict[int, list[str]] = {}
+                    for subtask_idx, error_line in phase.error_lines:
+                        if subtask_idx not in errors_by_subtask:
+                            errors_by_subtask[subtask_idx] = []
+                        errors_by_subtask[subtask_idx].append(error_line)
+
+                    for subtask_idx in sorted(errors_by_subtask.keys()):
+                        subtask_name = phase.subtasks[subtask_idx] if subtask_idx < len(phase.subtasks) else "unknown"
+                        print(f"    From subtask: {subtask_name}")
+                        for error_line in errors_by_subtask[subtask_idx]:
+                            print(f"      {error_line}")
                 else:
                     # Shouldn't happen, but handle gracefully
                     print("    No detailed error information captured")
