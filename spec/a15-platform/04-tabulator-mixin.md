@@ -601,6 +601,56 @@ def test_tabulator_platform_backend(jwt_auth_context):
 - [ ] Add error handling and transformations
 - [ ] Write unit tests for mixin
 
+### Phase 1.5: Create Test Script for Current Implementation
+
+**Purpose:** Create a demonstration script that showcases the current `TabulatorService` functionality before migration. This serves as:
+
+- Living documentation of the service behavior
+- Baseline for comparison after mixin migration
+- Validation that the service works as designed
+
+**Tasks:**
+
+- [ ] Create design document: `spec/a15-platform/05-tabulator-test.md` ✅
+- [ ] Create test script: `scripts/tests/demo_tabulator_lifecycle.py`
+- [ ] Implement complete lifecycle demo (create → list → delete)
+- [ ] Add validation error scenarios
+- [ ] Add admin unavailable scenario
+- [ ] Test script in mock mode (no credentials)
+- [ ] Document usage in script docstring
+
+**Script Features:**
+
+- Directly instantiates `TabulatorService(use_quilt_auth=False)`
+- Uses realistic genomics sample tracking schema (5 columns)
+- Mock mode (default) - no AWS/Quilt credentials needed
+- Real mode (--no-mock) - tests against actual Quilt catalog
+- Clear output with status indicators (✅ ❌ ℹ️)
+- Complete error handling and graceful degradation
+
+**Run Commands:**
+
+```bash
+# Mock mode (default)
+uv run python scripts/tests/demo_tabulator_lifecycle.py
+
+# Real mode (requires quilt3 login)
+uv run python scripts/tests/demo_tabulator_lifecycle.py --no-mock
+
+# Verbose mode
+uv run python scripts/tests/demo_tabulator_lifecycle.py --verbose
+```
+
+**Success Criteria:**
+
+- [ ] Script runs successfully in mock mode
+- [ ] All 6 demonstration scenarios pass
+- [ ] Output is clear and well-formatted
+- [ ] Design document accurately describes implementation
+- [ ] Script passes linting (`make lint`)
+
+**Reference:** See [05-tabulator-test.md](./05-tabulator-test.md) for complete design.
+
 ### Phase 2: Integrate with Backends
 
 - [ ] Add TabulatorMixin to Quilt3_Backend inheritance
