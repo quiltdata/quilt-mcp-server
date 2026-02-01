@@ -395,7 +395,10 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
 
             # Capture error-related lines for display in TUI bottom section
             phase = state.current_phase_stats()
-            is_error = any(keyword in line for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
+            # Only flag as error if line contains error keywords AND doesn't indicate a passing test
+            has_error_keyword = any(keyword in line for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
+            is_passing_test = " PASSED" in line or "passed" in line.lower() and "failed" not in line.lower()
+            is_error = has_error_keyword and not is_passing_test
 
             if phase and is_error:
                 # Add to error list with subtask info (no limit - show all errors)
