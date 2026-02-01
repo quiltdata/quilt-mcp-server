@@ -329,10 +329,9 @@ class Quilt3_Backend_Session:
 
                 catalog_config = self.get_catalog_config(logged_in_url)
                 # Construct GraphQL endpoint from catalog's registry URL
-                from quilt_mcp.utils import normalize_url
+                from quilt_mcp.utils import graphql_endpoint
 
-                normalized_registry = normalize_url(catalog_config.registry_url)
-                api_url = f"{normalized_registry}/api/graphql"
+                api_url = graphql_endpoint(catalog_config.registry_url)
 
             # Prepare request payload
             payload: Dict[str, Any] = {"query": query}
@@ -434,7 +433,9 @@ class Quilt3_Backend_Session:
             # Construct GraphQL endpoint
             # This is a simplified implementation - in practice, this might need
             # to query the catalog config to get the actual API endpoint
-            api_endpoint = f"https://{bucket_name}.quiltdata.com/api/graphql"
+            from quilt_mcp.utils import graphql_endpoint
+
+            api_endpoint = graphql_endpoint(f"https://{bucket_name}.quiltdata.com")
 
             logger.debug(f"Constructed GraphQL endpoint: {api_endpoint}")
             return api_endpoint

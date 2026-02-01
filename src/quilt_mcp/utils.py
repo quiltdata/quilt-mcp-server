@@ -90,6 +90,31 @@ def normalize_url(url: str, *, strip_trailing_slash: bool = True) -> str:
     return url
 
 
+def graphql_endpoint(registry_url: str) -> str:
+    """Construct GraphQL endpoint URL from registry URL.
+
+    Standardizes GraphQL endpoint URL construction to ensure consistency
+    across the codebase. The GraphQL endpoint is always at /graphql
+    (not /api/graphql).
+
+    Args:
+        registry_url: Registry URL (HTTPS format, e.g., "https://registry.quiltdata.com")
+
+    Returns:
+        GraphQL endpoint URL (e.g., "https://registry.quiltdata.com/graphql")
+
+    Examples:
+        >>> graphql_endpoint("https://registry.quiltdata.com")
+        'https://registry.quiltdata.com/graphql'
+        >>> graphql_endpoint("https://registry.quiltdata.com/")
+        'https://registry.quiltdata.com/graphql'
+        >>> graphql_endpoint("https://nightly-registry.quilttest.com")
+        'https://nightly-registry.quilttest.com/graphql'
+    """
+    normalized = normalize_url(registry_url)
+    return f"{normalized}/graphql"
+
+
 def get_dns_name_from_url(url: str) -> str:
     """Extract DNS hostname from a URL.
 

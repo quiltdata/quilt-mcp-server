@@ -284,8 +284,10 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 if not registry_url:
                     return []
 
+                from quilt_mcp.utils import graphql_endpoint
+
                 resp = session.post(
-                    f"{normalize_url(registry_url)}/graphql",
+                    graphql_endpoint(registry_url),
                     json={"query": "{ bucketConfigs { name } }"},
                     timeout=30,
                 )
@@ -499,9 +501,6 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                         }
 
             # Execute search with retry logic for 403 errors (too many indices)
-            # Import search_api directly since QuiltOps doesn't expose this low-level API
-            from quilt3.search_util import search_api
-
             # Try search with full index pattern first
             try:
                 response = search_api(query=dsl_query, index=index_pattern, limit=limit)
