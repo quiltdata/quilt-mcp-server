@@ -134,6 +134,7 @@ def _build_selector_fn(copy: bool, target_registry: str):
         copy: True to copy all objects, False to keep references only
         target_registry: Target registry (unused but kept for compatibility)
     """
+
     def selector_all(_logical_key, _entry):
         return True
 
@@ -511,7 +512,7 @@ def _create_enhanced_package(
     enhanced_metadata: dict[str, Any],
     readme_content: str | None = None,
     summary_files: dict[str, Any] | None = None,
-    copy_mode: str = "all",
+    copy: bool = False,
     force: bool = False,
 ) -> dict[str, Any]:
     """Create the enhanced Quilt package with organized structure and documentation."""
@@ -545,8 +546,6 @@ def _create_enhanced_package(
         # Create package using QuiltOps.create_package_revision with auto_organize=True
         # This preserves the smart organization behavior of s3_package.py
         quilt_ops = QuiltOpsFactory.create()
-        # Convert copy_mode string to boolean
-        copy_bool = copy_mode != "none"
         result = quilt_ops.create_package_revision(
             package_name=package_name,
             s3_uris=s3_uris,
@@ -554,7 +553,7 @@ def _create_enhanced_package(
             registry=target_registry,
             message=message,
             auto_organize=True,  # Preserve smart organization behavior
-            copy=copy_bool,
+            copy=copy,
         )
 
         # Handle the result - it's now a Package_Creation_Result domain object
@@ -1211,23 +1210,10 @@ def package_create(
             suggested_actions=["Provide metadata as a dict", "Example: {'description': 'My dataset'}"],
         )
 
-    # Process metadata to ensure README content is handled correctly
+    # Process metadata to remove README fields (not currently preserved)
     processed_metadata = metadata.copy() if metadata else {}
-
-    # Extract README content from metadata (it will be handled by create_package_revision)
-    # readme_content takes priority if both fields exist
-    if "readme_content" in processed_metadata:
-        processed_metadata.pop("readme_content")
-        warnings.append("README content moved from metadata to package file (README.md)")
-
-    elif "readme" in processed_metadata:
-        processed_metadata.pop("readme")
-        warnings.append("README content moved from metadata to package file (README.md)")
-
-    # Remove any remaining README fields to avoid duplication
-    if "readme" in processed_metadata:
-        processed_metadata.pop("readme")
-        warnings.append("Removed duplicate 'readme' field from metadata")
+    processed_metadata.pop("readme_content", None)
+    processed_metadata.pop("readme", None)
 
     normalized_registry = _normalize_registry(registry)
 
@@ -2031,7 +2017,7 @@ def package_create_from_s3(
             enhanced_metadata=enhanced_metadata,
             readme_content=final_readme_content,
             summary_files=summary_files_dict,
-            copy_mode=copy_mode,
+            copy=copy,
             force=force,
         )
 

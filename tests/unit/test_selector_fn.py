@@ -54,7 +54,7 @@ class MockEntry:
 
 @patch("quilt3.Package")
 @patch("quilt_mcp.tools.packages.get_s3_client")
-def test_package_ops_copy_mode_none(mock_get_s3_client, mock_package_class):
+def test_package_ops_copy_false(mock_get_s3_client, mock_package_class):
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
 
@@ -70,7 +70,7 @@ def test_package_ops_copy_mode_none(mock_get_s3_client, mock_package_class):
             "s3://bucket-b/file2.json",
         ],
         registry="s3://target-bucket",
-        copy_mode="none",
+        copy=False,
         flatten=True,
     )
 
@@ -81,7 +81,7 @@ def test_package_ops_copy_mode_none(mock_get_s3_client, mock_package_class):
 
 @patch("quilt3.Package")
 @patch("quilt_mcp.tools.packages.get_s3_client")
-def test_package_ops_copy_mode_same_bucket(mock_get_s3_client, mock_package_class):
+def test_package_ops_copy_true(mock_get_s3_client, mock_package_class):
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
 
@@ -97,7 +97,7 @@ def test_package_ops_copy_mode_same_bucket(mock_get_s3_client, mock_package_clas
             "s3://other-bucket/file2.json",
         ],
         registry="s3://target-bucket",
-        copy_mode="same_bucket",
+        copy=True,
         flatten=True,
     )
 
