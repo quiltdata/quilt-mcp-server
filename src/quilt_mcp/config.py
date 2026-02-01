@@ -30,3 +30,158 @@ class HttpConfig:
 # Global config instances
 resource_config = ResourceConfig()
 http_config = HttpConfig()
+
+# Mode Configuration Management
+
+from typing import List, Literal, Optional
+
+
+class ConfigurationError(Exception):
+    """Raised when configuration validation fails."""
+
+    pass
+
+
+class ModeConfig:
+    """Centralized mode configuration management.
+
+    This singleton class manages all deployment mode decisions through a single
+    boolean environment variable QUILT_MULTITENANT_MODE, providing properties
+    for all mode-related decisions and validation of required configuration.
+    """
+
+    def __init__(self, multitenant_mode: Optional[bool] = None):
+        """Initialize ModeConfig with environment variable parsing.
+
+        Args:
+            multitenant_mode: Override for testing. If None, reads from environment.
+        """
+        if multitenant_mode is not None:
+            self._multitenant_mode = multitenant_mode
+        else:
+            self._multitenant_mode = self._parse_bool(os.getenv("QUILT_MULTITENANT_MODE"), default=False)
+
+    @staticmethod
+    def _parse_bool(value: Optional[str], default: bool = False) -> bool:
+        """Parse boolean environment variable value."""
+        if value is None:
+            return default
+        return value.lower() in ("true", "1", "yes", "on")
+
+    @property
+    def is_multitenant(self) -> bool:
+        """True if running in multitenant production mode."""
+        return self._multitenant_mode
+
+    @property
+    def is_local_dev(self) -> bool:
+        """True if running in local development mode."""
+        return not self._multitenant_mode
+
+    @property
+    def backend_type(self) -> Literal["quilt3", "graphql"]:
+        """Backend type based on deployment mode."""
+        return "graphql" if self.is_multitenant else "quilt3"
+
+    @property
+    def requires_jwt(self) -> bool:
+        """True if JWT authentication is required."""
+        return self.is_multitenant
+
+    @property
+    def allows_filesystem_state(self) -> bool:
+        """True if filesystem state persistence is allowed."""
+        return self.is_local_dev
+
+    @property
+    def allows_quilt3_library(self) -> bool:
+        """True if quilt3 library session usage is allowed."""
+        return self.is_local_dev
+
+    @property
+    def tenant_mode(self) -> Literal["single-user", "multitenant"]:
+        """Tenant mode for context factory."""
+        return "multitenant" if self.is_multitenant else "single-user"
+
+    @property
+    def requires_graphql(self) -> bool:
+        """True if GraphQL backend is required."""
+        return self.is_multitenant
+
+    @property
+    def default_transport(self) -> Literal["stdio", "http"]:
+        """Default transport protocol based on deployment mode."""
+        return "http" if self.is_multitenant else "stdio"
+
+    def validate(self) -> None:
+        """Validate configuration for current mode.
+
+        Raises:
+            ConfigurationError: When configuration validation fails
+        """
+        errors = self.get_validation_errors()
+        if errors:
+            raise ConfigurationError(f"Invalid configuration: {'; '.join(errors)}")
+
+    def get_validation_errors(self) -> List[str]:
+        """Return list of configuration validation errors."""
+        errors = []
+        if self.is_multitenant:
+            errors.extend(self._get_multitenant_validation_errors())
+        return errors
+
+    def _get_multitenant_validation_errors(self) -> List[str]:
+        """Get validation errors specific to multitenant mode."""
+        errors = []
+
+        # Check required JWT configuration
+        if not os.getenv("MCP_JWT_SECRET"):
+            errors.append("Multitenant mode requires MCP_JWT_SECRET environment variable")
+
+        if not os.getenv("MCP_JWT_ISSUER"):
+            errors.append("Multitenant mode requires MCP_JWT_ISSUER environment variable")
+
+        if not os.getenv("MCP_JWT_AUDIENCE"):
+            errors.append("Multitenant mode requires MCP_JWT_AUDIENCE environment variable")
+
+        return errors
+
+
+# Global singleton instance
+_mode_config_instance: Optional[ModeConfig] = None
+
+
+def get_mode_config() -> ModeConfig:
+    """Get singleton ModeConfig instance."""
+    global _mode_config_instance
+    if _mode_config_instance is None:
+        _mode_config_instance = ModeConfig()
+    return _mode_config_instance
+
+
+def reset_mode_config() -> None:
+    """Reset ModeConfig singleton (used in tests)."""
+    global _mode_config_instance
+    _mode_config_instance = None
+
+
+def create_test_mode_config(multitenant_mode: bool) -> ModeConfig:
+    """Create a ModeConfig instance for testing without affecting the singleton.
+
+    Args:
+        multitenant_mode: Whether to enable multitenant mode
+
+    Returns:
+        ModeConfig instance configured for testing
+    """
+    return ModeConfig(multitenant_mode=multitenant_mode)
+
+
+def set_test_mode_config(multitenant_mode: bool) -> None:
+    """Set a test ModeConfig instance as the singleton (used in tests).
+
+    Args:
+        multitenant_mode: Whether to enable multitenant mode
+    """
+    global _mode_config_instance
+    _mode_config_instance = ModeConfig(multitenant_mode=multitenant_mode)

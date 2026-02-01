@@ -15,16 +15,16 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
-from quilt_mcp.services.auth_service import reset_auth_service
+from quilt_mcp.config import set_test_mode_config
 from quilt_mcp.tools.auth_helpers import check_s3_authorization
 
 
 @pytest.mark.integration
 def test_iam_mode_allows_requests(monkeypatch):
-    monkeypatch.setenv("MCP_REQUIRE_JWT", "false")
+    # Still need AWS credentials for IAM testing
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
-    reset_auth_service()
+    set_test_mode_config(multitenant_mode=False)
 
     async def handler(request):
         auth_ctx = check_s3_authorization("auth_echo", {})
@@ -45,10 +45,10 @@ def test_iam_mode_allows_requests(monkeypatch):
 
 @pytest.mark.integration
 def test_iam_mode_ignores_authorization_header(monkeypatch):
-    monkeypatch.setenv("MCP_REQUIRE_JWT", "false")
+    # Still need AWS credentials for IAM testing
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
-    reset_auth_service()
+    set_test_mode_config(multitenant_mode=False)
 
     async def handler(request):
         auth_ctx = check_s3_authorization("auth_echo", {})
@@ -78,8 +78,7 @@ def test_iam_mode_allows_profile_credentials(monkeypatch, tmp_path: Path):
     )
     monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", str(credentials))
     monkeypatch.setenv("AWS_PROFILE", "test")
-    monkeypatch.setenv("MCP_REQUIRE_JWT", "false")
-    reset_auth_service()
+    set_test_mode_config(multitenant_mode=False)
 
     async def handler(request):
         auth_ctx = check_s3_authorization("auth_echo", {})
@@ -97,9 +96,9 @@ def test_iam_mode_allows_profile_credentials(monkeypatch, tmp_path: Path):
 @pytest.mark.integration
 def test_jwt_mode_requires_valid_token(monkeypatch):
     secret = "test-secret"
-    monkeypatch.setenv("MCP_REQUIRE_JWT", "true")
+    # Still need JWT secret for JWT testing
     monkeypatch.setenv("MCP_JWT_SECRET", secret)
-    reset_auth_service()
+    set_test_mode_config(multitenant_mode=True)
 
     async def handler(request):
         auth_ctx = check_s3_authorization("auth_echo", {})
@@ -167,9 +166,9 @@ def test_jwt_mode_requires_valid_token(monkeypatch):
 @pytest.mark.integration
 def test_jwt_mode_rejects_invalid_token(monkeypatch):
     secret = "test-secret"
-    monkeypatch.setenv("MCP_REQUIRE_JWT", "true")
+    # Still need JWT secret for JWT testing
     monkeypatch.setenv("MCP_JWT_SECRET", secret)
-    reset_auth_service()
+    set_test_mode_config(multitenant_mode=True)
 
     async def handler(request):
         return JSONResponse({"ok": True})

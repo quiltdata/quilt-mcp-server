@@ -14,7 +14,8 @@ import asyncio
 import json
 import os
 import sys
-from quilt_mcp.services.quilt_service import QuiltService
+import quilt3
+from quilt_mcp.ops.factory import QuiltOpsFactory
 
 
 async def main():
@@ -36,13 +37,21 @@ async def main():
             print("Usage: python scripts/list_all_indices.py [bucket_name]")
             return
 
-    # Initialize service
-    service = QuiltService()
-    registry_url = service.get_registry_url()
-    session = service.get_session()
+    # Initialize QuiltOps
+    factory = QuiltOpsFactory()
+    quilt_ops = factory.create()
 
-    if not registry_url or not session:
-        print("ERROR: Could not get registry URL or session")
+    # Get auth status
+    auth_status = quilt_ops.get_auth_status()
+    if not auth_status.is_authenticated or not auth_status.registry_url:
+        print("ERROR: Not authenticated or no registry URL available")
+        return
+
+    registry_url = auth_status.registry_url
+    session = quilt3.session.get_session() if hasattr(quilt3, "session") else None
+
+    if not session:
+        print("ERROR: Could not get quilt3 session")
         return
 
     print(f"\nRegistry URL: {registry_url}")

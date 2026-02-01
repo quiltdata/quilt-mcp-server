@@ -168,7 +168,7 @@ class SearchBackend(ABC):
 
     def _normalize_query_for_backend(
         self, query: str, filters: Optional[Dict[str, Any]] = None
-    ) -> Union[str, Dict[str, Any]]:
+    ) -> str | Dict[str, Any]:
         """Normalize query for this specific backend.
 
         Subclasses should override this to convert the generic query

@@ -330,7 +330,7 @@ class OptimizationTester:
         """Add a test scenario."""
         self.scenarios.append(scenario)
 
-    def load_scenarios_from_file(self, file_path: Union[str, Path]) -> None:
+    def load_scenarios_from_file(self, file_path: str | Path) -> None:
         """Load test scenarios from a JSON file."""
         with open(file_path, "r") as f:
             scenarios_data = json.load(f)

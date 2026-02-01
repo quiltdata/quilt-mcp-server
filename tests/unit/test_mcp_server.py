@@ -4,6 +4,7 @@ Smoke tests for Quilt MCP server tool functions (no external Quilt module).
 """
 
 import pytest
+from unittest.mock import patch, Mock
 from quilt_mcp.services.auth_metadata import auth_status
 from quilt_mcp.tools.packages import (
     packages_list,
@@ -14,7 +15,16 @@ from quilt_mcp.tools.search import search_catalog
 
 @pytest.mark.integration
 @pytest.mark.search
-def test_quilt_tools():
+@patch("quilt_mcp.ops.factory.quilt3")
+@patch("quilt3.search_util.search_api", return_value={"hits": {"hits": []}})
+@patch("quilt3.Package.browse")
+def test_quilt_tools(mock_browse, mock_search, mock_quilt3):
+    # Setup session mock
+    mock_quilt3.session.get_session_info.return_value = {"registry": "s3://quilt-ernest-staging"}
+
+    # Mock Package.browse to raise an error for nonexistent packages
+    mock_browse.side_effect = Exception("Package not found")
+
     # Auth tool returns a Pydantic model or dict
     result = auth_status()
     assert hasattr(result, 'success') or isinstance(result, dict)

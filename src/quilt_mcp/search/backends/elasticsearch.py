@@ -12,7 +12,10 @@ This backend simply:
 
 import logging
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ...backends.quilt3_backend import Quilt3_Backend
 
 from .base import (
     SearchBackend,
@@ -28,11 +31,15 @@ from .scope_handlers import (
     PackageScopeHandler,
     GlobalScopeHandler,
 )
-from ...services.quilt_service import QuiltService
+from ...ops.factory import QuiltOpsFactory
+from ...ops.quilt_ops import QuiltOps
 from ..exceptions import (
     AuthenticationRequired,
     BackendError,
 )
+
+# Import search_api at module level for better testability and performance
+from quilt3.search_util import search_api
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +107,19 @@ def escape_elasticsearch_query(query: str) -> str:
 class Quilt3ElasticsearchBackend(SearchBackend):
     """Simplified Elasticsearch backend using quilt3 search API."""
 
-    def __init__(self, quilt_service: Optional[QuiltService] = None):
+    def __init__(
+        self,
+        backend: Optional["Quilt3_Backend"] = None,
+    ):
         super().__init__(BackendType.ELASTICSEARCH)
-        self.quilt_service = quilt_service or QuiltService()
+        self.backend = backend
+        self.quilt_ops: Optional[QuiltOps]
+        if self.backend is None:
+            # Create QuiltOps instance for backward compatibility
+            factory = QuiltOpsFactory()
+            self.quilt_ops = factory.create()
+        else:
+            self.quilt_ops = None
         self._session_available = False
 
         # Initialize scope handlers
@@ -183,7 +200,13 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     def _check_session(self):
         """Check if quilt3 session is available."""
         try:
-            registry_url = self.quilt_service.get_registry_url()
+            if self.backend:
+                auth_status = self.backend.get_auth_status()
+                registry_url = auth_status.registry_url
+            else:
+                assert self.quilt_ops is not None, "quilt_ops should be set when backend is None"
+                auth_status = self.quilt_ops.get_auth_status()
+                registry_url = auth_status.registry_url
             self._session_available = bool(registry_url)
             if self._session_available:
                 self._update_status(BackendStatus.AVAILABLE)
@@ -204,7 +227,13 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     async def health_check(self) -> bool:
         """Check if Elasticsearch backend is healthy."""
         try:
-            registry_url = self.quilt_service.get_registry_url()
+            if self.backend:
+                auth_status = self.backend.get_auth_status()
+                registry_url = auth_status.registry_url
+            else:
+                assert self.quilt_ops is not None, "quilt_ops should be set when backend is None"
+                auth_status = self.quilt_ops.get_auth_status()
+                registry_url = auth_status.registry_url
             if registry_url:
                 self._update_status(BackendStatus.AVAILABLE)
                 return True
@@ -225,25 +254,55 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             Exception if GraphQL query fails
         """
         try:
-            session = self.quilt_service.get_session()
-            registry_url = self.quilt_service.get_registry_url()
+            # Prefer backend for proper abstraction
+            if self.backend:
+                result = self.backend.execute_graphql_query("{ bucketConfigs { name } }")
+                configs = result.get("data", {}).get("bucketConfigs", [])
+                return [config["name"] for config in configs if isinstance(config, dict) and "name" in config]
+            else:
+                # Fall back to quilt3 session directly
+                import quilt3
 
-            if not session or not registry_url:
-                return []
+                if not hasattr(quilt3, "logged_in"):
+                    return []
 
-            resp = session.post(
-                f"{registry_url.rstrip('/')}/graphql",
-                json={"query": "{ bucketConfigs { name } }"},
-                timeout=30,
-            )
+                logged_in_url = quilt3.logged_in()
+                if not logged_in_url:
+                    return []
 
-            if resp.status_code != 200:
-                logger.warning(f"Failed to fetch bucket list: HTTP {resp.status_code}")
-                return []
+                session = quilt3.session.get_session() if hasattr(quilt3, "session") else None
+                if not session:
+                    return []
 
-            data = resp.json()
-            configs = data.get("data", {}).get("bucketConfigs", [])
-            return [config["name"] for config in configs if isinstance(config, dict) and "name" in config]
+                # Get catalog config to find registry URL
+                from quilt_mcp.utils import normalize_url
+
+                normalized_catalog = normalize_url(logged_in_url)
+
+                # Fetch catalog config
+                config_response = session.get(f"{normalized_catalog}/config.json", timeout=10)
+                config_response.raise_for_status()
+                config_data = config_response.json()
+                registry_url = config_data.get("registryUrl")
+
+                if not registry_url:
+                    return []
+
+                from quilt_mcp.utils import graphql_endpoint
+
+                resp = session.post(
+                    graphql_endpoint(registry_url),
+                    json={"query": "{ bucketConfigs { name } }"},
+                    timeout=30,
+                )
+
+                if resp.status_code != 200:
+                    logger.warning(f"Failed to fetch bucket list: HTTP {resp.status_code}")
+                    return []
+
+                data = resp.json()
+                configs = data.get("data", {}).get("bucketConfigs", [])
+                return [config["name"] for config in configs if isinstance(config, dict) and "name" in config]
         except Exception as e:
             logger.warning(f"Failed to fetch bucket list: {e}")
             return []
@@ -446,8 +505,6 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                         }
 
             # Execute search with retry logic for 403 errors (too many indices)
-            search_api = self.quilt_service.get_search_api()
-
             # Try search with full index pattern first
             try:
                 response = search_api(query=dsl_query, index=index_pattern, limit=limit)
@@ -490,11 +547,24 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                     raise
 
             if "error" in response:
+                # Get catalog URL for error reporting
+                catalog_url = None
+                if self._session_available:
+                    try:
+                        if self.backend:
+                            auth_status = self.backend.get_auth_status()
+                        else:
+                            assert self.quilt_ops is not None, "quilt_ops should be set when backend is None"
+                            auth_status = self.quilt_ops.get_auth_status()
+                        catalog_url = auth_status.logged_in_url
+                    except Exception:
+                        pass
+
                 raise BackendError(
                     backend_name="elasticsearch",
                     cause=response["error"],
                     authenticated=self._session_available,
-                    catalog_url=self.quilt_service.get_registry_url() if self._session_available else None,
+                    catalog_url=catalog_url,
                 )
 
             # Convert results using scope handler

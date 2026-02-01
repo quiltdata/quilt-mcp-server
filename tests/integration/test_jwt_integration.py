@@ -12,16 +12,19 @@ import subprocess
 import unittest
 from pathlib import Path
 
-# Add scripts directory to path
-scripts_dir = Path(__file__).parent.parent.parent / "scripts"
-sys.path.insert(0, str(scripts_dir))
+# Add tests directory to path for jwt_helpers
+repo_root = Path(__file__).parent.parent.parent
+tests_dir = repo_root / "tests"
+scripts_dir = repo_root / "scripts"
+sys.path.insert(0, str(tests_dir))
 
-# Import JWT helper
-import importlib.util
+# Import JWT helper functions
+from jwt_helpers import generate_test_jwt
 
-jwt_helper_spec = importlib.util.spec_from_file_location("jwt_helper", scripts_dir / "tests" / "jwt_helper.py")
-jwt_helper = importlib.util.module_from_spec(jwt_helper_spec)
-jwt_helper_spec.loader.exec_module(jwt_helper)
+
+# Create a module-like object for backwards compatibility
+class jwt_helper:
+    generate_test_jwt = staticmethod(generate_test_jwt)
 
 
 class TestJWTIntegration(unittest.TestCase):

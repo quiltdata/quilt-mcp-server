@@ -8,7 +8,6 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from ..config import http_config
 from ..models.responses import (
     SearchCatalogError,
     SearchCatalogSuccess,
@@ -360,29 +359,19 @@ def search_explain(
 # GraphQL search functions (previously in separate graphql module)
 
 
-def _get_graphql_endpoint():
-    """Return (session, graphql_url) from QuiltService context or (None, None).
+def _get_quilt_ops():
+    """Return QuiltOps instance or None if unavailable.
 
-    Uses QuiltService to acquire the authenticated requests session and
-    the active registry URL, then constructs the GraphQL endpoint.
+    Uses QuiltOpsFactory to create a QuiltOps instance for GraphQL operations.
+    This replaces the old GraphQL endpoint helper with QuiltOps abstraction.
     """
     try:
-        from urllib.parse import urljoin
+        from ..ops.factory import QuiltOpsFactory
 
-        from ..services.quilt_service import QuiltService
-
-        quilt_service = QuiltService()
-
-        if not quilt_service.has_session_support():
-            return None, None
-        session = quilt_service.get_session()
-        registry_url = quilt_service.get_registry_url()
-        if not registry_url:
-            return None, None
-        graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
-        return session, graphql_url
+        quilt_ops = QuiltOpsFactory.create()
+        return quilt_ops
     except Exception:
-        return None, None
+        return None
 
 
 def search_graphql(
@@ -422,25 +411,21 @@ def search_graphql(
         # Next step: Summarize the search insight or refine the query with another search helper.
         ```
     """
-    session, graphql_url = _get_graphql_endpoint()
-    if not session or not graphql_url:
-        return SearchGraphQLError(
-            error="GraphQL endpoint or session unavailable. Ensure quilt3 is configured and authenticated."
-        )
+    quilt_ops = _get_quilt_ops()
+    if not quilt_ops:
+        return SearchGraphQLError(error="QuiltOps unavailable. Ensure quilt3 is configured and authenticated.")
 
     try:
-        resp = session.post(
-            graphql_url, json={"query": query, "variables": variables or {}}, timeout=http_config.SERVICE_TIMEOUT
-        )
-        if resp.status_code != 200:
-            return SearchGraphQLError(error=f"GraphQL HTTP {resp.status_code}: {resp.text}")
+        # Use QuiltOps.execute_graphql_query() which handles session and endpoint internally
+        result = quilt_ops.execute_graphql_query(query=query, variables=variables)
 
-        payload = resp.json()
-        if "errors" in payload:
-            return SearchGraphQLError(error=f"GraphQL errors: {payload.get('errors')}")
+        # Check for GraphQL errors in the response
+        if "errors" in result:
+            return SearchGraphQLError(error=f"GraphQL errors: {result.get('errors')}")
+
         return SearchGraphQLSuccess(
-            data=payload.get("data"),
-            errors=payload.get("errors"),
+            data=result.get("data"),
+            errors=result.get("errors"),
         )
     except Exception as e:
         return SearchGraphQLError(error=f"GraphQL request failed: {e}")

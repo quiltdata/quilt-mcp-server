@@ -12,6 +12,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Optional
 
+from quilt_mcp.config import get_mode_config
+
 
 @dataclass(frozen=True)
 class RuntimeAuthState:
@@ -32,7 +34,13 @@ class RuntimeContextState:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-_default_state = RuntimeContextState(environment="desktop")
+def _get_default_environment() -> str:
+    """Get default environment based on ModeConfig."""
+    mode_config = get_mode_config()
+    return "web" if mode_config.is_multitenant else "desktop"
+
+
+_default_state = RuntimeContextState(environment=_get_default_environment())
 _runtime_context_var: ContextVar[RuntimeContextState] = ContextVar(
     "quilt_runtime_context",
     default=_default_state,

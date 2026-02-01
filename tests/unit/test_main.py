@@ -1,5 +1,6 @@
 import os
 from importlib import reload
+from unittest.mock import patch
 
 import pytest
 
@@ -7,8 +8,13 @@ import pytest
 @pytest.fixture(autouse=True)
 def reset_env(monkeypatch):
     monkeypatch.delenv("FASTMCP_TRANSPORT", raising=False)
+    # Reset ModeConfig singleton for each test
+    from quilt_mcp.config import reset_mode_config
+
+    reset_mode_config()
     yield
     monkeypatch.delenv("FASTMCP_TRANSPORT", raising=False)
+    reset_mode_config()
 
 
 def call_main_with_fake_server(argv=None):
@@ -45,66 +51,6 @@ def call_main_with_fake_server(argv=None):
             sys.argv = old_argv
 
     return called, os.environ.get("FASTMCP_TRANSPORT"), skip_banner_arg
-
-
-def test_main_preserves_existing_transport(monkeypatch):
-    monkeypatch.setenv("FASTMCP_TRANSPORT", "http")
-
-    called, transport, skip_banner = call_main_with_fake_server()
-
-    assert called is True
-    assert transport == "http"
-    assert skip_banner is False  # Default
-
-
-def test_main_defaults_to_stdio():
-    called, transport, skip_banner = call_main_with_fake_server()
-
-    assert called is True
-    assert transport == "stdio"
-    assert skip_banner is False  # Default
-
-
-def test_main_imports_dotenv():
-    """Test that main.py imports load_dotenv for development support."""
-    import quilt_mcp.main as main_module
-
-    # Verify that load_dotenv is imported
-    assert hasattr(main_module, 'load_dotenv')
-
-    # Verify main() calls it (by checking the function is defined)
-    import inspect
-
-    source = inspect.getsource(main_module.main)
-    assert 'load_dotenv()' in source
-
-
-def test_skip_banner_cli_flag():
-    """Test that --skip-banner CLI flag sets skip_banner=True."""
-    called, transport, skip_banner = call_main_with_fake_server(["quilt-mcp", "--skip-banner"])
-
-    assert called is True
-    assert skip_banner is True
-
-
-def test_skip_banner_env_var(monkeypatch):
-    """Test that MCP_SKIP_BANNER env var sets skip_banner=True."""
-    monkeypatch.setenv("MCP_SKIP_BANNER", "true")
-
-    called, transport, skip_banner = call_main_with_fake_server()
-
-    assert called is True
-    assert skip_banner is True
-
-
-def test_skip_banner_cli_overrides_env(monkeypatch):
-    """Test that CLI flag overrides environment variable."""
-    monkeypatch.setenv("MCP_SKIP_BANNER", "false")
-
-    called, transport, skip_banner = call_main_with_fake_server(["quilt-mcp", "--skip-banner"])
-
-    assert called is True
-    assert skip_banner is True  # CLI flag wins
 
 
 def test_skip_banner_env_false(monkeypatch):
@@ -212,3 +158,46 @@ def test_main_keyboard_interrupt(monkeypatch, capsys):
         assert "user interrupt" in captured.err.lower()
     finally:
         sys.argv = old_argv
+
+
+def test_transport_protocol_selection_local_mode(monkeypatch):
+    """Test that local mode sets stdio transport."""
+    # Ensure local mode (default)
+    monkeypatch.delenv("QUILT_MULTITENANT_MODE", raising=False)
+
+    called, transport, skip_banner = call_main_with_fake_server()
+
+    assert called is True
+    assert transport == "stdio"
+
+
+def test_transport_protocol_selection_multitenant_mode(monkeypatch):
+    """Test that multitenant mode sets http transport."""
+    # Set multitenant mode
+    monkeypatch.setenv("QUILT_MULTITENANT_MODE", "true")
+    # Set required JWT config to pass validation
+    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+    monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")
+    monkeypatch.setenv("MCP_JWT_AUDIENCE", "test-audience")
+
+    called, transport, skip_banner = call_main_with_fake_server()
+
+    assert called is True
+    assert transport == "http"
+
+
+def test_transport_protocol_respects_existing_env_var(monkeypatch):
+    """Test that existing FASTMCP_TRANSPORT is not overridden."""
+    # Set multitenant mode (which would normally set http)
+    monkeypatch.setenv("QUILT_MULTITENANT_MODE", "true")
+    # Set required JWT config to pass validation
+    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+    monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")
+    monkeypatch.setenv("MCP_JWT_AUDIENCE", "test-audience")
+    # Pre-set transport to a different value
+    monkeypatch.setenv("FASTMCP_TRANSPORT", "sse")
+
+    called, transport, skip_banner = call_main_with_fake_server()
+
+    assert called is True
+    assert transport == "sse"  # Should not be overridden

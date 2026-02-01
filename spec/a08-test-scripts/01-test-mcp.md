@@ -2,7 +2,7 @@
 
 ## Overview
 
-This spec documents the optimized workflow for running MCP endpoint tests against local Docker builds, leveraging the existing `docker.py` infrastructure and Makefile targets.
+This spec documents the optimized workflow for running MCP endpoint tests against local Docker builds, leveraging the existing `docker_manager.py` infrastructure and Makefile targets.
 
 ## Current State Analysis
 
@@ -13,7 +13,7 @@ This spec documents the optimized workflow for running MCP endpoint tests agains
    - Calls `test_mcp.py --image quilt-mcp:test` after other script tests
    - Uses local image tag `quilt-mcp:test` (no registry prefix)
 
-2. **docker.py changes**:
+2. **docker_manager.py changes**:
    - `build_local()` method now creates tags WITHOUT registry prefix
    - Local tags format: `{image_name}:{version}` (e.g., `quilt-mcp:test`)
    - Registry prefix only added for remote push operations
@@ -26,7 +26,7 @@ This spec documents the optimized workflow for running MCP endpoint tests agains
 
 ### Existing Infrastructure
 
-#### docker.py Capabilities
+#### docker_manager.py Capabilities
 
 ```python
 class DockerManager:
@@ -39,7 +39,7 @@ class DockerManager:
 #### Makefile Targets
 
 **make.deploy** provides:
-- `docker-build` - Builds locally using docker.py
+- `docker-build` - Builds locally using docker_manager.py
 - `docker-tools` - Validates Docker availability and AWS setup
 - `docker-push` - Full build + push to ECR
 - `docker-validate` - Validates pushed images in registry
@@ -63,7 +63,7 @@ class DockerManager:
 │                     make test-scripts                        │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │ Step 1: docker-build (via docker.py)                   │ │
+│  │ Step 1: docker-build (via docker_manager.py)                   │ │
 │  │   → uv run python scripts/docker_manager.py build             │ │
 │  │   → Creates: quilt-mcp:test                           │ │
 │  └────────────────────────────────────────────────────────┘ │
@@ -92,11 +92,11 @@ class DockerManager:
 
 #### 1. **Local Tagging Without Registry**
 
-**Problem**: Original docker.py always prefixed tags with registry, requiring AWS credentials even for local builds.
+**Problem**: Original docker_manager.py always prefixed tags with registry, requiring AWS credentials even for local builds.
 
 **Solution**:
 ```python
-# docker.py build_local() now uses:
+# docker_manager.py build_local() now uses:
 local_tag = f"{self.image_name}:{version}"  # quilt-mcp:test
 # NOT: f"{self.registry}/{self.image_name}:{version}"
 ```
@@ -251,7 +251,7 @@ uv run python scripts/tests/test_mcp.py \
     --image quilt-mcp:test-amd64
 ```
 
-## docker.py Integration Details
+## docker_manager.py Integration Details
 
 ### Command Structure
 
@@ -269,7 +269,7 @@ uv run python scripts/docker_manager.py push --version VERSION
 ### Environment Variables
 
 ```bash
-# Required for docker.py
+# Required for docker_manager.py
 export DOCKER_IMAGE_NAME=quilt-mcp
 
 # Optional for push operations
@@ -436,7 +436,7 @@ test-scripts: docker-build scripts/tests/test_*.py | $(RESULTS_DIR)
 
 **Dependency Chain**:
 1. `test-scripts` depends on `docker-build`
-2. `docker-build` (from make.deploy) runs `docker.py build`
+2. `docker-build` (from make.deploy) runs `docker_manager.py build`
 3. Creates `quilt-mcp:test` image
 4. test_mcp.py uses that image
 

@@ -25,8 +25,10 @@ import yaml
 from jsonschema import validate
 
 # Import JWT helper functions for auto-generation
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'tests'))
-from jwt_helper import generate_test_jwt, validate_quilt3_session_exists
+# Add tests directory to path for jwt_helpers
+repo_root = Path(__file__).parent.parent
+sys.path.insert(0, str(repo_root / 'tests'))
+from jwt_helpers import generate_test_jwt, validate_quilt3_session_exists
 
 
 class ResourceFailureType(enum.Enum):
@@ -1221,7 +1223,23 @@ def load_test_config(config_path: Path) -> Dict[str, Any]:
     """Load test configuration from YAML file."""
     try:
         with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
+            config = yaml.safe_load(f)
+
+        # Validate required environment variables
+        env_vars = config.get("environment", {})
+        quilt_test_bucket = env_vars.get("QUILT_TEST_BUCKET")
+
+        if not quilt_test_bucket:
+            print("❌ QUILT_TEST_BUCKET must be set in test configuration")
+            print("   Edit scripts/tests/mcp-test.yaml and set environment.QUILT_TEST_BUCKET")
+            sys.exit(1)
+
+        # Ensure QUILT_TEST_BUCKET is also set in OS environment
+        if not os.environ.get("QUILT_TEST_BUCKET"):
+            os.environ["QUILT_TEST_BUCKET"] = quilt_test_bucket
+            print(f"ℹ️  Set QUILT_TEST_BUCKET={quilt_test_bucket} from config")
+
+        return config
     except FileNotFoundError:
         print(f"❌ Test config not found: {config_path}")
         sys.exit(1)
@@ -1483,8 +1501,8 @@ JWT Authentication:
   # Using command-line argument
   mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..." --tools-test
 
-  # Or generate token separately with jwt_helper
-  python scripts/tests/jwt_helper.py generate --role-arn arn:aws:iam::123456789012:role/TestRole --secret test-secret
+  # Or generate token separately with jwt_helpers
+  python tests/jwt_helpers.py generate --role-arn arn:aws:iam::123456789012:role/TestRole --secret test-secret --auto-extract
 
 For detailed JWT testing documentation, see: docs/JWT_TESTING.md
         """

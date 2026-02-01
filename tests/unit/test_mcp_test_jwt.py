@@ -169,7 +169,8 @@ class TestJWTHelperIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.jwt_helper_path = Path(__file__).parent.parent.parent / "scripts" / "tests" / "jwt_helper.py"
+        # JWT helper was moved to tests/jwt_helpers.py
+        self.jwt_helper_path = Path(__file__).parent.parent / "jwt_helpers.py"
 
     def test_jwt_helper_exists(self):
         """Test that JWT helper script exists."""

@@ -21,7 +21,6 @@ import pytest
 import logging
 from typing import List
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
-from quilt_mcp.services.quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
 QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
@@ -44,15 +43,9 @@ requires_collapse = pytest.mark.xfail(
 
 
 @pytest.fixture
-def quilt_service():
-    """Get authenticated QuiltService instance."""
-    return QuiltService()
-
-
-@pytest.fixture
-def backend(quilt_service):
+def backend(quilt3_backend):
     """Get initialized Elasticsearch backend."""
-    backend = Quilt3ElasticsearchBackend(quilt_service=quilt_service)
+    backend = Quilt3ElasticsearchBackend(backend=quilt3_backend)
     backend._initialize()
     return backend
 

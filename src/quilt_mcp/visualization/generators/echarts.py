@@ -190,7 +190,7 @@ class EChartsGenerator:
         y_values = chart_data[y_col].tolist()
 
         # Create scatter data
-        scatter_data = list(zip(x_values, y_values))
+        scatter_data = list(zip(x_values, y_values, strict=False))
 
         # Create chart configuration
         config = {

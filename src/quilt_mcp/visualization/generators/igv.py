@@ -285,7 +285,7 @@ class IGVGenerator:
         """
         tracks = []
 
-        for i, (file_path, track_type) in enumerate(zip(track_files, track_types)):
+        for i, (file_path, track_type) in enumerate(zip(track_files, track_types, strict=False)):
             track_config = self.create_genome_track(
                 file_path,
                 track_type,

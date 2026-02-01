@@ -2,19 +2,33 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
 
 from quilt_mcp.tools import workflow_orchestration as wo
+from quilt_mcp.context.propagation import reset_current_context, set_current_context
+from quilt_mcp.context.request_context import RequestContext
+from quilt_mcp.services.workflow_service import WorkflowService
+from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
 
 
 @pytest.fixture(autouse=True)
-def reset_workflows():
-    """Ensure workflow registry is isolated between tests."""
-    wo._workflows.clear()
-    yield
-    wo._workflows.clear()
+def workflow_context(tmp_path):
+    """Ensure workflow context uses isolated storage per test."""
+    storage = FileBasedWorkflowStorage(base_dir=tmp_path)
+    service = WorkflowService(tenant_id="tenant-a", storage=storage)
+    context = RequestContext(
+        request_id="req-1",
+        tenant_id="tenant-a",
+        user_id="user-1",
+        auth_service=object(),
+        permission_service=object(),
+        workflow_service=service,
+    )
+    token = set_current_context(context)
+    try:
+        yield
+    finally:
+        reset_current_context(token)
 
 
 def test_workflow_create_rejects_blank_identifier():

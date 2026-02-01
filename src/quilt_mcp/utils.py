@@ -6,6 +6,7 @@ import contextlib
 import inspect
 import io
 import os
+import pathlib
 import re
 import sys
 from typing import Any, Callable, Dict, Literal, Optional
@@ -54,6 +55,153 @@ def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
         raise ValueError(f"Unexpected S3 query string: {parsed.query!r}")
 
     return bucket, path, version_id
+
+
+def normalize_url(url: str, *, strip_trailing_slash: bool = True) -> str:
+    """Normalize URL by removing trailing slashes.
+
+    This function is useful for constructing consistent URLs when building paths
+    or endpoints. By default, removes trailing slashes to ensure predictable
+    URL joining behavior.
+
+    Args:
+        url: URL string to normalize
+        strip_trailing_slash: If True (default), remove trailing slash
+
+    Returns:
+        Normalized URL string
+
+    Examples:
+        >>> normalize_url("https://example.com/")
+        'https://example.com'
+        >>> normalize_url("https://api.quiltdata.com/")
+        'https://api.quiltdata.com'
+        >>> normalize_url("s3://bucket/")
+        's3://bucket'
+        >>> normalize_url("https://example.com/", strip_trailing_slash=False)
+        'https://example.com/'
+    """
+    if not url:
+        return url
+
+    if strip_trailing_slash:
+        return url.rstrip("/")
+
+    return url
+
+
+def graphql_endpoint(registry_url: str) -> str:
+    """Construct GraphQL endpoint URL from registry URL.
+
+    Standardizes GraphQL endpoint URL construction to ensure consistency
+    across the codebase. The GraphQL endpoint is always at /graphql
+    (not /api/graphql).
+
+    Args:
+        registry_url: Registry URL (HTTPS format, e.g., "https://registry.quiltdata.com")
+
+    Returns:
+        GraphQL endpoint URL (e.g., "https://registry.quiltdata.com/graphql")
+
+    Examples:
+        >>> graphql_endpoint("https://registry.quiltdata.com")
+        'https://registry.quiltdata.com/graphql'
+        >>> graphql_endpoint("https://registry.quiltdata.com/")
+        'https://registry.quiltdata.com/graphql'
+        >>> graphql_endpoint("https://nightly-registry.quilttest.com")
+        'https://nightly-registry.quilttest.com/graphql'
+    """
+    normalized = normalize_url(registry_url)
+    return f"{normalized}/graphql"
+
+
+def get_dns_name_from_url(url: str) -> str:
+    """Extract DNS hostname from a URL.
+
+    Extracts the DNS hostname from a URL, removing common prefixes like 'www.'
+    to provide a clean, human-readable catalog name.
+
+    Args:
+        url: URL string to extract hostname from (e.g., 'https://nightly.quilttest.com')
+
+    Returns:
+        DNS hostname (e.g., 'nightly.quilttest.com'), or 'unknown' if extraction fails
+
+    Examples:
+        >>> get_dns_name_from_url("https://nightly.quilttest.com")
+        'nightly.quilttest.com'
+        >>> get_dns_name_from_url("https://www.example.com")
+        'example.com'
+        >>> get_dns_name_from_url("")
+        'unknown'
+    """
+    from urllib.parse import urlparse
+
+    if not url:
+        return "unknown"
+
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or parsed.netloc
+        if hostname:
+            # Remove common subdomain prefixes that don't add semantic value
+            if hostname.startswith("www."):
+                hostname = hostname[4:]
+            return hostname
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+
+def fix_url(url: str) -> str:
+    """Convert non-URL paths to file:// URLs.
+
+    This function normalizes file paths and URLs to ensure consistent URL format.
+    Paths are expanded (tilde expansion), resolved to absolute paths, and converted
+    to file:// URLs. URLs with existing schemes are returned as-is (except Windows
+    drive letters which are treated as paths).
+
+    Args:
+        url: File path or URL to normalize
+
+    Returns:
+        Normalized URL string (file:// URL for paths, unchanged for existing URLs)
+
+    Raises:
+        ValueError: If url is empty or None
+
+    Examples:
+        >>> fix_url("~/data/file.csv")
+        'file:///home/user/data/file.csv'
+        >>> fix_url("./relative/path/")
+        'file:///absolute/path/relative/path/'
+        >>> fix_url("s3://bucket/key")
+        's3://bucket/key'
+        >>> fix_url("C:/Users/data")  # Windows
+        'file:///C:/Users/data'
+    """
+    if not url:
+        raise ValueError("Empty URL")
+
+    url = str(url)
+
+    parsed = urlparse(url)
+    # If it has a scheme, we assume it's a URL.
+    # On Windows, we ignore schemes that look like drive letters, e.g. C:/users/foo
+    if parsed.scheme and not os.path.splitdrive(url)[0]:
+        return url
+
+    # `expanduser()` expands any leading "~" or "~user" path components, as a user convenience
+    # `resolve()` _tries_ to make the URI absolute - but doesn't guarantee anything.
+    # In particular, on Windows, non-existent files won't be resolved.
+    # `absolute()` makes the URI absolute, though it can still contain '..'
+    fixed_url = pathlib.Path(url).expanduser().resolve().absolute().as_uri()
+
+    # pathlib likes to remove trailing slashes, so add it back if needed.
+    if url[-1:] in (os.sep, os.altsep) and not fixed_url.endswith('/'):
+        fixed_url += '/'
+
+    return fixed_url
 
 
 def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
@@ -116,6 +264,11 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     if tool_modules is None:
         tool_modules = get_tool_modules()
 
+    from quilt_mcp.context.factory import RequestContextFactory
+    from quilt_mcp.context.handler import wrap_tool_with_context
+
+    context_factory = RequestContextFactory(mode="auto")
+
     # Tools that are now available as resources MUST be excluded from MCP tool registration
     RESOURCE_AVAILABLE_TOOLS = [
         # Phase 1 - Core Discovery Resources
@@ -150,7 +303,6 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "list_tabulator_tables",  # Prefer tabulator_tables_list resource
         "packages_list",  # Prefer unified_search
         "get_tabulator_service",  # Internal use only
-        "get_permission_discovery",  # Internal helper - returns singleton instance
     }
 
     # Merge resource-available tools into excluded set
@@ -177,7 +329,8 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
                 continue
 
             # Register each function as an MCP tool
-            mcp.tool(func)
+            wrapped = wrap_tool_with_context(func, context_factory)
+            mcp.tool(wrapped)
             tools_registered += 1
             if verbose:
                 # Use stderr to avoid interfering with JSON-RPC on stdout
@@ -339,9 +492,23 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
     # Validate auth configuration early so startup fails fast.
     try:
-        from quilt_mcp.services.auth_service import get_auth_service
+        from quilt_mcp.services.auth_service import create_auth_service
+        from quilt_mcp.ops.factory import QuiltOpsFactory
 
-        get_auth_service()
+        create_auth_service()
+
+        # Also validate that QuiltOps can be created (Phase 1: quilt3 only)
+        # This ensures that the abstraction layer is properly configured
+        try:
+            QuiltOpsFactory.create()
+            if verbose:
+                print("QuiltOps abstraction layer validated successfully", file=sys.stderr)
+        except Exception as quilt_ops_exc:
+            if verbose:
+                print(f"QuiltOps validation failed: {quilt_ops_exc}", file=sys.stderr)
+            # For now, we'll continue even if QuiltOps fails, as some tools might not need it
+            # In the future, this could be made stricter based on which tools are enabled
+
     except Exception as exc:  # pragma: no cover - startup validation
         if verbose:
             print(f"Auth service initialization failed: {exc}", file=sys.stderr)
@@ -395,15 +562,16 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
     logger = logging.getLogger(__name__)
 
-    from quilt_mcp.services.auth_service import get_jwt_mode_enabled
+    from quilt_mcp.config import get_mode_config
 
-    # Check if we're running in stateless mode (for containerized deployments)
-    stateless_mode = os.environ.get("QUILT_MCP_STATELESS_MODE", "false").lower() == "true"
+    mode_config = get_mode_config()
 
     try:
-        # Use JSON responses in stateless mode for simpler HTTP client integration
+        # Use JSON responses in multitenant mode for simpler HTTP client integration
         # (SSE requires stream parsing which complicates testing and client implementations)
-        app = mcp.http_app(transport=transport, stateless_http=stateless_mode, json_response=stateless_mode)
+        app = mcp.http_app(
+            transport=transport, stateless_http=mode_config.is_multitenant, json_response=mode_config.is_multitenant
+        )
     except AttributeError as exc:  # pragma: no cover - FastMCP versions prior to HTTP support
         logger.error("HTTP transport requested but FastMCP does not expose http_app(): %s", exc)
         raise
@@ -464,18 +632,20 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     except ImportError:  # pragma: no cover - starlette optional guard
         logger.warning("CORS middleware unavailable; continuing without CORS configuration")
 
-    if get_jwt_mode_enabled():
-        try:
-            from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
+    mode_config = get_mode_config()
 
-            # Add last so it runs first in Starlette's middleware stack.
-            app.add_middleware(JwtAuthMiddleware, require_jwt=True)
+    try:
+        from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
+
+        # Add last so it runs first in Starlette's middleware stack.
+        app.add_middleware(JwtAuthMiddleware, require_jwt=mode_config.requires_jwt)
+        if mode_config.requires_jwt:
             logger.info("JWT middleware enabled for HTTP transport")
-        except ImportError as exc:  # pragma: no cover
-            logger.error("JWT middleware unavailable: %s", exc)
-            raise
-    else:
-        logger.info("JWT middleware disabled (IAM mode)")
+        else:
+            logger.info("JWT middleware present but not enforced (IAM mode)")
+    except ImportError as exc:  # pragma: no cover
+        logger.error("JWT middleware unavailable: %s", exc)
+        raise
 
     return app
 

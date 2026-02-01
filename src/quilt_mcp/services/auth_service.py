@@ -1,13 +1,15 @@
-"""Authentication service factory for Quilt MCP server."""
+"""Authentication service abstraction and factory for Quilt MCP server."""
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import logging
 import os
-from typing import Literal, Optional, Protocol, cast
+from typing import Literal, Optional, cast
 
 import boto3
 
+from quilt_mcp.config import get_mode_config
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.auth_metrics import record_auth_mode
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
@@ -26,38 +28,25 @@ class AuthServiceError(RuntimeError):
         self.code = code
 
 
-class AuthServiceProtocol(Protocol):
-    """Protocol for authentication services."""
+class AuthService(ABC):
+    """Abstract base class for authentication services."""
 
     auth_type: AuthMode
 
-    def get_boto3_session(self) -> boto3.Session:
+    @abstractmethod
+    def get_session(self) -> boto3.Session:
         """Return a boto3 session for the current request."""
 
+    @abstractmethod
+    def is_valid(self) -> bool:
+        """Return whether the credentials are valid."""
 
-_AUTH_SERVICE: Optional[AuthServiceProtocol] = None
-_JWT_MODE_ENABLED: Optional[bool] = None
+    @abstractmethod
+    def get_user_identity(self) -> dict[str, str | None]:
+        """Return user identity information for the current request."""
 
-
-def _parse_bool(value: str | None, *, default: bool = False) -> bool:
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def get_jwt_mode_enabled() -> bool:
-    """Return whether JWT mode is enabled (cached at first call)."""
-    global _JWT_MODE_ENABLED
-    if _JWT_MODE_ENABLED is None:
-        _JWT_MODE_ENABLED = _parse_bool(os.getenv("MCP_REQUIRE_JWT"), default=False)
-    return _JWT_MODE_ENABLED
-
-
-def reset_auth_service() -> None:
-    """Reset cached auth mode/service (used in tests)."""
-    global _AUTH_SERVICE, _JWT_MODE_ENABLED
-    _AUTH_SERVICE = None
-    _JWT_MODE_ENABLED = None
+    def get_boto3_session(self) -> boto3.Session:
+        return self.get_session()
 
 
 def _validate_jwt_mode() -> None:
@@ -68,18 +57,16 @@ def _validate_jwt_mode() -> None:
         raise AuthServiceError(str(exc), code="jwt_config_error") from exc
 
 
-def get_auth_service() -> AuthServiceProtocol:
-    """Return the shared auth service instance for the configured mode."""
-    global _AUTH_SERVICE
-    if _AUTH_SERVICE is None:
-        if get_jwt_mode_enabled():
-            _validate_jwt_mode()
-            _AUTH_SERVICE = cast(AuthServiceProtocol, JWTAuthService())
-            logger.info("Authentication mode selected: JWT")
-            record_auth_mode("jwt")
-        else:
-            _AUTH_SERVICE = cast(AuthServiceProtocol, IAMAuthService())
-            logger.info("Authentication mode selected: IAM")
-            record_auth_mode("iam")
-    assert _AUTH_SERVICE is not None
-    return _AUTH_SERVICE
+def create_auth_service() -> AuthService:
+    """Create a new auth service instance for the configured mode."""
+    mode_config = get_mode_config()
+
+    if mode_config.requires_jwt:
+        _validate_jwt_mode()
+        logger.info("Authentication mode selected: JWT")
+        record_auth_mode("jwt")
+        return cast(AuthService, JWTAuthService())
+
+    logger.info("Authentication mode selected: IAM")
+    record_auth_mode("iam")
+    return cast(AuthService, IAMAuthService())

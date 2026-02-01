@@ -11,7 +11,7 @@ pytestmark = pytest.mark.docker
 
 
 def test_jwt_required_environment_variable(stateless_container: Container):
-    """Verify container has MCP_REQUIRE_JWT enabled."""
+    """Verify container has QUILT_MULTITENANT_MODE enabled."""
     stateless_container.reload()
     env_vars = stateless_container.attrs["Config"]["Env"]
 
@@ -22,19 +22,19 @@ def test_jwt_required_environment_variable(stateless_container: Container):
             key, value = env_var.split("=", 1)
             env_dict[key] = value
 
-    assert "MCP_REQUIRE_JWT" in env_dict, (
-        "❌ FAIL: MCP_REQUIRE_JWT environment variable not set\n"
-        "Stateless mode requires JWT-only authentication\n"
-        "Fix: Add environment variable MCP_REQUIRE_JWT=true"
+    assert "QUILT_MULTITENANT_MODE" in env_dict, (
+        "❌ FAIL: QUILT_MULTITENANT_MODE environment variable not set\n"
+        "Stateless mode requires multitenant mode configuration\n"
+        "Fix: Add environment variable QUILT_MULTITENANT_MODE=true"
     )
 
-    assert env_dict["MCP_REQUIRE_JWT"].lower() == "true", (
-        f"❌ FAIL: MCP_REQUIRE_JWT should be 'true'\n"
-        f"Actual: MCP_REQUIRE_JWT={env_dict['MCP_REQUIRE_JWT']}\n"
-        "Fix: Set MCP_REQUIRE_JWT=true to enforce JWT authentication"
+    assert env_dict["QUILT_MULTITENANT_MODE"].lower() == "true", (
+        f"❌ FAIL: QUILT_MULTITENANT_MODE should be 'true'\n"
+        f"Actual: QUILT_MULTITENANT_MODE={env_dict['QUILT_MULTITENANT_MODE']}\n"
+        "Fix: Set QUILT_MULTITENANT_MODE=true to enforce JWT authentication"
     )
 
-    print("✅ JWT authentication is required")
+    print("✅ Multitenant mode is enabled (JWT authentication required)")
 
 
 def test_request_without_jwt_fails_clearly(container_url: str):
@@ -60,7 +60,7 @@ def test_request_without_jwt_fails_clearly(container_url: str):
                 "Actual: 200 OK (success)\n"
                 "\n"
                 "Stateless mode MUST enforce JWT authentication:\n"
-                "  1. Set MCP_REQUIRE_JWT=true in environment\n"
+                "  1. Set QUILT_MULTITENANT_MODE=true in environment\n"
                 "  2. Reject requests without Authorization header\n"
                 "  3. Return clear error: 'JWT token required'\n"
                 "\n"
@@ -182,7 +182,7 @@ def test_no_fallback_to_local_credentials(stateless_container: Container):
             "  ✓ Only JWT tokens for authentication\n"
             "\n"
             "Recommendations:\n"
-            "  1. Set MCP_REQUIRE_JWT=true to disable credential file access\n"
+            "  1. Set QUILT_MULTITENANT_MODE=true to disable credential file access\n"
             "  2. Configure HOME=/tmp to redirect home directory\n"
             "  3. Remove any code that reads ~/.quilt/ or ~/.aws/\n"
         )
@@ -242,7 +242,7 @@ def test_request_with_valid_jwt_succeeds(container_url: str):
     from .conftest import make_test_jwt
     import uuid
 
-    token = make_test_jwt(secret="test-secret-key-for-stateless-testing-only")
+    token = make_test_jwt(secret="test-secret", extra_claims={"iss": "test-issuer", "aud": "test-audience"})
     session_id = str(uuid.uuid4())
 
     # MCP HTTP protocol requires initialize first
