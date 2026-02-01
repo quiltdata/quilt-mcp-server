@@ -13,11 +13,15 @@ from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
 
 @pytest.mark.integration
+@pytest.mark.search
 def test_quilt3_authentication_is_configured():
     """Verify that quilt3 is authenticated before running integration tests.
 
     This test explicitly FAILS (not skips) if quilt3 is not authenticated,
     making it clear that authentication setup is required for integration tests.
+
+    Marked as @pytest.mark.search because it requires quilt3 login, which is
+    not available in CI environments.
     """
     backend = Quilt3_Backend()
     auth_status = backend.get_auth_status()
