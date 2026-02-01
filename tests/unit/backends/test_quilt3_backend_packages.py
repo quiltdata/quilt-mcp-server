@@ -151,7 +151,7 @@ class TestQuilt3BackendCreatePackageRevisionImplementation:
                     package_name="user/package",
                     s3_uris=["s3://bucket/file1.txt", "s3://bucket/folder/file2.csv"],
                     metadata={"description": "Test package"},
-                    message="Test commit"
+                    message="Test commit",
                 )
 
             # Verify package creation workflow
@@ -175,9 +175,7 @@ class TestQuilt3BackendCreatePackageRevisionImplementation:
             mock_package.push.return_value = "test-hash"
 
             result = backend.create_package_revision(
-                package_name="user/package",
-                s3_uris=["s3://bucket/file.txt"],
-                registry="s3://custom-registry"
+                package_name="user/package", s3_uris=["s3://bucket/file.txt"], registry="s3://custom-registry"
             )
 
             push_args = mock_package.push.call_args
@@ -192,10 +190,7 @@ class TestQuilt3BackendCreatePackageRevisionImplementation:
             mock_package.push.return_value = "test-hash"
 
             with patch.object(backend, 'get_registry_url', return_value="s3://default-registry"):
-                result = backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=["s3://bucket/file.txt"]
-                )
+                result = backend.create_package_revision(package_name="user/package", s3_uris=["s3://bucket/file.txt"])
 
             mock_package.set_meta.assert_not_called()
             assert result.success is True
@@ -210,9 +205,7 @@ class TestQuilt3BackendCreatePackageRevisionImplementation:
             with patch.object(backend, 'get_registry_url', return_value="s3://default-registry"):
                 # Test copy=False uses selector_fn
                 result = backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=["s3://bucket/file.txt"],
-                    copy=False
+                    package_name="user/package", s3_uris=["s3://bucket/file.txt"], copy=False
                 )
 
                 push_args = mock_package.push.call_args
@@ -222,9 +215,7 @@ class TestQuilt3BackendCreatePackageRevisionImplementation:
                 # Reset and test copy=True doesn't use selector_fn
                 mock_package.reset_mock()
                 result = backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=["s3://bucket/file.txt"],
-                    copy=True
+                    package_name="user/package", s3_uris=["s3://bucket/file.txt"], copy=True
                 )
 
                 push_args = mock_package.push.call_args
@@ -242,9 +233,7 @@ class TestQuilt3BackendCreatePackageRevisionImplementation:
             with patch.object(backend, 'get_registry_url', return_value="s3://default-registry"):
                 # Test auto_organize=True preserves folder structure
                 result = backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=s3_uris,
-                    auto_organize=True
+                    package_name="user/package", s3_uris=s3_uris, auto_organize=True
                 )
 
                 mock_package.set.assert_called_with("folder/subfolder/file.txt", s3_uris[0])
@@ -253,9 +242,7 @@ class TestQuilt3BackendCreatePackageRevisionImplementation:
                 # Test auto_organize=False flattens to filename
                 mock_package.reset_mock()
                 result = backend.create_package_revision(
-                    package_name="user/package2",
-                    s3_uris=s3_uris,
-                    auto_organize=False
+                    package_name="user/package2", s3_uris=s3_uris, auto_organize=False
                 )
 
                 mock_package.set.assert_called_with("file.txt", s3_uris[0])
@@ -278,7 +265,7 @@ class TestQuilt3BackendCreatePackageRevisionErrorHandling:
         with pytest.raises(ValidationError) as exc_info:
             backend.create_package_revision(
                 package_name="invalid-name",  # No slash
-                s3_uris=["s3://bucket/file.txt"]
+                s3_uris=["s3://bucket/file.txt"],
             )
 
         assert "Package name must be in 'user/package' format" in str(exc_info.value)
@@ -289,10 +276,7 @@ class TestQuilt3BackendCreatePackageRevisionErrorHandling:
             mock_quilt3.Package.side_effect = Exception("Package creation failed")
 
             with pytest.raises(BackendError) as exc_info:
-                backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=["s3://bucket/file.txt"]
-                )
+                backend.create_package_revision(package_name="user/package", s3_uris=["s3://bucket/file.txt"])
 
             assert "Quilt3 backend create_package_revision failed" in str(exc_info.value)
             assert "Package creation failed" in str(exc_info.value)
@@ -305,10 +289,7 @@ class TestQuilt3BackendCreatePackageRevisionErrorHandling:
             mock_package.push.side_effect = Exception("Registry not accessible")
 
             with pytest.raises(BackendError) as exc_info:
-                backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=["s3://bucket/file.txt"]
-                )
+                backend.create_package_revision(package_name="user/package", s3_uris=["s3://bucket/file.txt"])
 
             assert "Quilt3 backend create_package_revision failed" in str(exc_info.value)
 
@@ -321,8 +302,7 @@ class TestQuilt3BackendCreatePackageRevisionErrorHandling:
 
             with patch.object(backend, 'get_registry_url', return_value="s3://test-registry"):
                 result = backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=["s3://bucket/file1.txt", "s3://bucket/file2.txt"]
+                    package_name="user/package", s3_uris=["s3://bucket/file1.txt", "s3://bucket/file2.txt"]
                 )
 
             assert result.success is False
@@ -352,7 +332,7 @@ class TestQuilt3BackendCreatePackageRevisionResultGeneration:
                 package_name="user/package",
                 s3_uris=["s3://bucket/file1.txt", "s3://bucket/file2.txt"],
                 registry="s3://custom-registry",
-                metadata={"version": "1.0"}
+                metadata={"version": "1.0"},
             )
 
             assert result.success is True
@@ -370,10 +350,7 @@ class TestQuilt3BackendCreatePackageRevisionResultGeneration:
             mock_package.push.return_value = "xyz789abc123"
 
             with patch.object(backend, 'get_registry_url', return_value="s3://default-registry"):
-                result = backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=["s3://bucket/file.txt"]
-                )
+                result = backend.create_package_revision(package_name="user/package", s3_uris=["s3://bucket/file.txt"])
 
             assert result.success is True
             assert result.registry == "s3://default-registry"
@@ -388,8 +365,7 @@ class TestQuilt3BackendCreatePackageRevisionResultGeneration:
 
             with patch.object(backend, 'get_registry_url', return_value="s3://test-registry"):
                 result = backend.create_package_revision(
-                    package_name="user/package",
-                    s3_uris=["s3://bucket/file1.txt", "s3://bucket/file2.txt"]
+                    package_name="user/package", s3_uris=["s3://bucket/file1.txt", "s3://bucket/file2.txt"]
                 )
 
             assert result.success is False

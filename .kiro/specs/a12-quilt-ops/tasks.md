@@ -1,128 +1,145 @@
 # Tasks: Migration All MCP Tools → QuiltOps
 
-## Phase 1: Extend QuiltOps Interface
+## Feature 1: Package Diffing (Complete End-to-End)
 
 - [ ] 1.1 Add diff_packages() abstract method to QuiltOps base class
-  - Add method signature with proper type hints
+  - Copy method signature from design.md
   - Include comprehensive docstring with parameters and return format
   - Ensure method returns Dict[str, List[str]] with keys: added, deleted, modified
 
-- [ ] 1.2 Add update_package_revision() abstract method to QuiltOps base class
-  - Add method signature with all required parameters
+- [ ] 1.2 Extract package diffing logic from package_diff() tool to Quilt3_Backend.diff_packages()
+  - **EXTRACT** the package browsing logic from `package_diff()` tool (lines 1029-1040)
+  - **MOVE** the conditional hash handling: `if package1_hash:` logic to backend
+  - **MOVE** the quilt3.Package.browse() calls with registry and top_hash parameters to backend
+  - **MOVE** the pkg1.diff(pkg2) call and result processing (lines 1047-1058) to backend
+  - **MOVE** the tuple-to-dict transformation logic for diff results to backend
+  - Return domain dict format instead of raw quilt3 objects
+
+- [ ] 1.3 Add proper mocked unit tests for backend diff_packages() method
+  - Add tests in `tests/unit/backends/test_quilt3_backend_packages.py`
+  - Mock quilt3.Package.browse() calls with proper parameters
+  - Mock pkg1.diff(pkg2) calls and return values
+  - Test conditional hash handling logic
+  - Test tuple-to-dict transformation logic
+  - Test error handling for missing packages or invalid hashes
+  - Verify domain dict format is returned correctly
+
+- [ ] 1.4 Remove trivial unit tests for package_diff() tool
+  - Identify and remove unit tests that just test tool parameter validation
+  - Keep only tests that verify tool-specific error handling and response formatting
+  - Tools are now thin wrappers, so extensive unit testing is not needed
+
+- [ ] 1.5 Rewrite package_diff() tool as thin wrapper
+  - **REPLACE** lines 1029-1058 (all business logic) with single `quilt_ops.diff_packages()` call
+  - **REMOVE** all quilt3 manipulation logic (now in backend)
+  - Keep parameter validation and error handling
+  - Transform QuiltOps domain result to PackageDiffSuccess/PackageDiffError response format
+
+- [ ] 1.6 Ensure integration tests exist and pass for package diffing
+  - Verify integration tests exist for package_diff() tool in `tests/integration/`
+  - Run integration tests: `make test-integration`
+  - Fix any integration test failures
+  - Ensure end-to-end package diffing workflow works correctly
+
+## Feature 2: Package Updates (Complete End-to-End)
+
+- [ ] 2.1 Add update_package_revision() abstract method to QuiltOps base class
+  - Copy method signature from design.md
   - Include comprehensive docstring explaining package update workflow
   - Ensure method returns Package_Creation_Result domain object
 
-- [ ] 1.3 Run tests and fix any interface-related errors
-  - Execute: `make test`
-  - Fix any abstract method or type hint errors
-  - Ensure all existing QuiltOps implementations still work
+- [ ] 2.2 Extract package update logic from package_update() tool to Quilt3_Backend.update_package_revision()
+  - **EXTRACT** the package browsing logic from `package_update()` tool (line 1439)
+  - **MOVE** the `quilt_service.browse_package(package_name, registry=normalized_registry)` call to backend
+  - **MOVE** the `_collect_objects_into_package()` logic that adds S3 URIs to the package to backend
+  - **MOVE** the metadata merging logic (lines 1460-1470): `combined.update(existing_pkg.meta)` to backend
+  - **MOVE** the package push logic with selector_fn from the tool to backend
+  - Return Package_Creation_Result domain object instead of raw quilt3 objects
 
-## Phase 2: Implement Methods in Quilt3 Backend
+- [ ] 2.3 Add proper mocked unit tests for backend update_package_revision() method
+  - Add tests in `tests/unit/backends/test_quilt3_backend_packages.py`
+  - Mock quilt3.Package.browse() call for existing package
+  - Mock S3 URI collection and package modification logic
+  - Mock metadata merging behavior
+  - Mock package push logic and return values
+  - Test different parameter combinations (auto_organize, copy modes, metadata)
+  - Verify Package_Creation_Result domain object is returned correctly
 
-- [ ] 2.1 Implement diff_packages() in Quilt3_Backend
-  - Browse both packages using quilt3.Package.browse()
-  - Call pkg1.diff(pkg2) to get differences
-  - Transform quilt3 diff result to domain dict format
-  - Handle optional package hashes for specific versions
-  - Add proper error handling for missing packages
+- [ ] 2.4 Remove trivial unit tests for package_update() tool
+  - Identify and remove unit tests that just test tool parameter validation
+  - Keep only tests that verify tool-specific error handling and response formatting
+  - Tools are now thin wrappers, so extensive unit testing is not needed
 
-- [ ] 2.2 Implement update_package_revision() in Quilt3_Backend
-  - Browse existing package to get current state
-  - Add S3 URIs using pkg.set() or pkg.set_dir() methods
-  - Handle auto_organize parameter for folder structure
-  - Implement copy parameter logic with selector_fn
-  - Call pkg.push() with proper metadata and message
-  - Return Package_Creation_Result with all required fields
+- [ ] 2.5 Rewrite package_update() tool as thin wrapper
+  - **REPLACE** lines 1439-1480+ (all business logic) with single `quilt_ops.update_package_revision()` call
+  - **REMOVE** `_collect_objects_into_package()` call (now in backend)
+  - **REMOVE** metadata merging logic (now in backend)
+  - **REMOVE** package push logic (now in backend)
+  - Keep parameter validation and error handling
+  - Transform QuiltOps domain result to PackageUpdateSuccess/PackageUpdateError response format
 
-- [ ] 2.3 Run tests and fix any implementation errors
-  - Execute: `make test`
-  - Fix any quilt3 integration issues
-  - Ensure new methods work with existing backend infrastructure
+- [ ] 2.6 Ensure integration tests exist and pass for package updates
+  - Verify integration tests exist for package_update() tool in `tests/integration/`
+  - Run integration tests: `make test-integration`
+  - Fix any integration test failures
+  - Ensure end-to-end package update workflow works correctly
 
-## Phase 3: Add Comprehensive Test Coverage
+## Feature 3: Package Creation (Complete End-to-End)
 
-- [ ] 3.1 Add test_diff_packages_basic test
-  - Test basic package diffing functionality
-  - Mock quilt3.Package.browse() and diff() calls
-  - Verify correct transformation of diff results
-  - Test with different package states (added/deleted/modified files)
+- [ ] 3.1 Migrate package_create() tool by simple replacement
+  - **REPLACE** `quilt_service.create_package_revision()` call with `quilt_ops.create_package_revision()`
+  - **VERIFY** QuiltOps.create_package_revision() already exists and works
+  - Update result handling to match QuiltOps return format
+  - Keep all existing parameter validation and error handling
+  - Keep existing functionality and response formatting
 
-- [ ] 3.2 Add test_diff_packages_with_hashes test
-  - Test package diffing with specific version hashes
-  - Verify hash parameters are passed correctly to browse()
-  - Test error handling for invalid hashes
+- [ ] 3.2 Remove trivial unit tests for package creation tools
+  - Identify and remove unit tests that just test tool parameter validation
+  - Keep only tests that verify tool-specific error handling and response formatting
+  - Tools are now thin wrappers, so extensive unit testing is not needed
 
-- [ ] 3.3 Add test_update_package_revision_basic test
-  - Test basic package update functionality
-  - Mock package browsing, file addition, and push operations
-  - Verify S3 URIs are added correctly
-  - Test return value structure
+- [ ] 3.3 Migrate package_create_from_s3() tool by simple replacement
+  - **REPLACE** `quilt_service.create_package_revision()` call with `quilt_ops.create_package_revision()`
+  - Apply same changes as package_create() tool
+  - Ensure S3 URI handling remains consistent with existing behavior
 
-- [ ] 3.4 Add test_update_package_revision_with_metadata test
-  - Test package updates with custom metadata
-  - Verify metadata is passed correctly to push()
-  - Test custom commit messages
+- [ ] 3.4 Ensure integration tests exist and pass for package creation
+  - Verify integration tests exist for package_create() and package_create_from_s3() tools
+  - Run integration tests: `make test-integration`
+  - Fix any integration test failures
+  - Ensure end-to-end package creation workflows work correctly
 
-- [ ] 3.5 Add test_update_package_revision_auto_organize test
-  - Test auto_organize parameter functionality
-  - Verify folder structure organization logic
-  - Test different copy mode behaviors
+## Feature 4: GraphQL Search (Complete End-to-End)
 
-- [ ] 3.6 Run tests and fix any test-related errors
-  - Execute: `make test`
-  - Fix any mock setup or assertion issues
-  - Ensure all new tests pass consistently
-
-## Phase 4: Migrate Package Tools
-
-- [ ] 4.1 Migrate package_create() tool (line 1103)
-  - Replace quilt_service.create_package_revision() call
-  - Use QuiltOpsFactory.create() to get QuiltOps instance
-  - Update result handling for QuiltOps return format
-  - Maintain all existing functionality and error handling
-
-- [ ] 4.2 Migrate package_create_from_s3() tool (line 1661)
-  - Apply same changes as package_create()
-  - Replace QuiltService usage with QuiltOpsFactory
-  - Ensure S3 URI handling remains consistent
-
-- [ ] 4.3 Migrate package_update() tool (line 1338)
-  - Replace quilt_service.browse_package() call
-  - Use quilt_ops.update_package_revision() directly
-  - Update parameter mapping and result handling
-  - Maintain existing validation and error handling
-
-- [ ] 4.4 Migrate package_diff() tool (line 963)
-  - Replace two quilt_service.browse_package() calls
-  - Use quilt_ops.diff_packages() directly
-  - Update result formatting for tool response
-  - Maintain existing diff display logic
-
-- [ ] 4.5 Run tests and fix any tool migration errors
-  - Execute: `make test`
-  - Fix any parameter mapping or result handling issues
-  - Ensure all package tools work with QuiltOps
-
-## Phase 5: Migrate GraphQL Helpers
-
-- [ ] 5.1 Migrate search._get_graphql_endpoint() helper (line 363)
-  - Replace entire function with QuiltOpsFactory.create()
+- [ ] 4.1 Migrate search._get_graphql_endpoint() helper by translation
+  - **TRANSLATE** QuiltService session logic to QuiltOpsFactory pattern
+  - **REPLACE** entire function with QuiltOpsFactory.create() call
+  - **COPY** existing error handling patterns (return None on failure)
   - Update search_graphql() to use quilt_ops.execute_graphql_query()
-  - Remove session.post() usage
-  - Maintain existing error handling and response format
+  - **REPLACE** session.post() usage with QuiltOps method
+  - Keep existing response format and error handling
 
-- [ ] 5.2 Migrate stack_buckets._get_stack_buckets_via_graphql() helper (line 42)
+- [ ] 4.2 Test complete search workflow
+  - Execute: `make test`
+  - Test search_graphql() functionality end-to-end
+  - Verify same behavior as before migration
+  - Fix any issues before proceeding to next feature
+
+## Feature 5: Stack Buckets GraphQL (Complete End-to-End)
+
+- [ ] 5.1 Migrate stack_buckets._get_stack_buckets_via_graphql() helper (line 42)
   - Replace QuiltService session usage
   - Use QuiltOpsFactory.create() and execute_graphql_query()
   - Update BUCKET_CONFIGS_QUERY execution
   - Maintain existing result processing
 
-- [ ] 5.3 Run tests and fix any GraphQL migration errors
+- [ ] 5.2 Test complete stack buckets workflow
   - Execute: `make test`
-  - Fix any GraphQL query or response handling issues
-  - Ensure search and stack_buckets tools work correctly
+  - Test stack_buckets functionality end-to-end
+  - Verify bucket configuration queries work correctly
+  - Fix any issues before proceeding to cleanup
 
-## Phase 6: Cleanup and Verification
+## Feature 6: Cleanup and Final Verification
 
 - [ ] 6.1 Verify no remaining QuiltService imports
   - Execute: `grep -r "from.*quilt_service import" src/`
