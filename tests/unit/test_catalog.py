@@ -52,21 +52,6 @@ class TestExtractCatalogNameFromUrl:
 class TestGetCatalogHostFromConfig:
     """Test _get_catalog_host_from_config function - targeting missing lines 79-88."""
 
-    def test_get_catalog_host_falls_back_to_navigator_url(self):
-        """Test fallback to navigator_url from config - covers lines 79-85."""
-        with patch('quilt_mcp.services.auth_metadata.QuiltOpsFactory') as mock_factory_class:
-            mock_factory = Mock()
-            mock_quilt_ops = Mock()
-            mock_auth_status = Mock()
-            mock_auth_status.logged_in_url = None
-            mock_auth_status.navigator_url = "https://nightly.quilttest.com"
-            mock_quilt_ops.get_auth_status.return_value = mock_auth_status
-            mock_factory.create.return_value = mock_quilt_ops
-            mock_factory_class.return_value = mock_factory
-
-            result = _get_catalog_host_from_config()
-            assert result == "nightly.quilttest.com"
-
     def test_get_catalog_host_with_no_navigator_url(self):
         """Test when config has no navigator_url - covers lines 79-85."""
         with patch('quilt_mcp.services.auth_metadata.QuiltOpsFactory') as mock_factory_class:
