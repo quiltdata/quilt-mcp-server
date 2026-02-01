@@ -26,11 +26,13 @@ from quilt_mcp.backends.quilt3_backend_content import Quilt3_Backend_Content
 from quilt_mcp.backends.quilt3_backend_buckets import Quilt3_Backend_Buckets
 from quilt_mcp.backends.quilt3_backend_session import Quilt3_Backend_Session
 from quilt_mcp.backends.quilt3_backend_admin import Quilt3_Backend_Admin
+from quilt_mcp.ops.tabulator_mixin import TabulatorMixin
 
 logger = logging.getLogger(__name__)
 
 
 class Quilt3_Backend(
+    TabulatorMixin,
     Quilt3_Backend_Session,
     Quilt3_Backend_Buckets,
     Quilt3_Backend_Content,
@@ -42,6 +44,7 @@ class Quilt3_Backend(
     """Backend implementation using quilt3 library.
 
     This class composes multiple mixins to provide the complete QuiltOps interface:
+    - TabulatorMixin: Tabulator table management operations
     - Base: Core initialization and shared utilities
     - Packages: Package search, retrieval, and transformations
     - Content: Content browsing and URL generation
@@ -50,6 +53,7 @@ class Quilt3_Backend(
     - Admin: User management, role management, and SSO configuration
 
     The mixin order is important for proper method resolution order (MRO).
+    TabulatorMixin is first to ensure highest priority for tabulator operations.
     """
 
     @property

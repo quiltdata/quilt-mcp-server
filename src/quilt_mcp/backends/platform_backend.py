@@ -7,15 +7,19 @@ local development mode instead.
 
 from typing import List, Optional, Dict, Any
 from ..ops.quilt_ops import QuiltOps
+from ..ops.tabulator_mixin import TabulatorMixin
 from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config, Package_Creation_Result
 
 
-class Platform_Backend(QuiltOps):
+class Platform_Backend(TabulatorMixin, QuiltOps):
     """Platform GraphQL backend stub implementation.
 
     This is a stub implementation that raises NotImplementedError for all
     QuiltOps methods, providing clear error messages that direct users to
     use local development mode (QUILT_MULTITENANT_MODE=false) instead.
+
+    Note: TabulatorMixin is included in the inheritance chain, but will
+    raise NotImplementedError when execute_graphql_query() is called.
     """
 
     def __init__(self):
