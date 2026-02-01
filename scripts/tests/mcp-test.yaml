@@ -575,6 +575,89 @@ test_tools:
             type: object
       required:
       - content
+  search_catalog.global.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: README.md
+      limit: 10
+      scope: global
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 0
+      must_contain: []
+      description: Global search across all buckets (may return 0 if bucket enumeration
+        unavailable)
+  search_catalog.file.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: README.md
+      limit: 10
+      scope: file
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 0
+      must_contain: []
+      description: File search across all buckets (may return 0 if bucket enumeration
+        unavailable)
+      result_shape:
+        required_fields:
+        - id
+        - type
+        - title
+        - score
+  search_catalog.package.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: raw/test
+      limit: 10
+      scope: package
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 0
+      must_contain: []
+      description: Package search across all buckets (may return 0 if bucket enumeration
+        unavailable)
+      result_shape:
+        required_fields:
+        - id
+        - type
+        - score
   search_explain:
     description: Explain how a search query would be processed and executed - Catalog
       and package search experiences
