@@ -8,13 +8,13 @@ import json
 import sys
 from pathlib import Path
 
-# Add src and scripts to path
+# Add src and tests to path
 repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root / "src"))
-sys.path.insert(0, str(repo_root / "scripts" / "tests"))
+sys.path.insert(0, str(repo_root / "tests"))
 
 # Import JWT helper functions
-from jwt_helper import (
+from jwt_helpers import (
     extract_catalog_token_from_session,
     get_current_catalog_url,
     get_current_registry_url,

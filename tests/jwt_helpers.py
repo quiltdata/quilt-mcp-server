@@ -37,6 +37,7 @@ def extract_catalog_token_from_session() -> Optional[str]:
     try:
         # Use quilt3 API to load auth data
         import quilt3.session as session
+
         auth_data = session._load_auth()
 
         if not auth_data:
@@ -70,9 +71,7 @@ def get_current_catalog_url() -> Optional[str]:
         config = quilt3.config()
         if config:
             # Try different possible keys
-            return (config.get('navigator_url') or
-                    config.get('catalog_url') or
-                    os.getenv("QUILT_CATALOG_URL"))
+            return config.get('navigator_url') or config.get('catalog_url') or os.getenv("QUILT_CATALOG_URL")
 
         # Fallback to environment variable
         return os.getenv("QUILT_CATALOG_URL")
@@ -121,6 +120,7 @@ def get_quilt3_user_id() -> Optional[str]:
     try:
         # Use quilt3 API to load auth data
         import quilt3.session as session
+
         auth_data = session._load_auth()
 
         if not auth_data:
@@ -146,6 +146,7 @@ def get_quilt3_user_id() -> Optional[str]:
                 # Add padding if needed
                 payload_part += '=' * (4 - len(payload_part) % 4)
                 import base64
+
                 payload = json.loads(base64.b64decode(payload_part))
                 return payload.get("id") or payload.get("uuid") or "quilt-user"
             except Exception:
@@ -159,21 +160,23 @@ def get_quilt3_user_id() -> Optional[str]:
 
 def validate_quilt3_session_exists() -> bool:
     """Validate that an active quilt3 session exists.
-    
+
     Returns:
         True if session exists and is valid, False otherwise
     """
     catalog_token = extract_catalog_token_from_session()
     catalog_url = get_current_catalog_url()
-    
+
     if not catalog_token:
         print("❌ No quilt3 session found. Run 'quilt3 login' first.", file=sys.stderr)
         return False
-        
+
     if not catalog_url:
-        print("❌ No catalog URL configured. Run 'quilt3.config(\"https://your-catalog-url\")' first.", file=sys.stderr)
+        print(
+            "❌ No catalog URL configured. Run 'quilt3.config(\"https://your-catalog-url\")' first.", file=sys.stderr
+        )
         return False
-        
+
     return True
 
 
@@ -188,10 +191,10 @@ def generate_test_jwt(
     catalog_token: Optional[str] = None,
     catalog_url: Optional[str] = None,
     registry_url: Optional[str] = None,
-    auto_extract: bool = False
+    auto_extract: bool = False,
 ) -> str:
     """Generate a test JWT token for MCP authentication.
-    
+
     Args:
         role_arn: AWS IAM role ARN to assume
         secret: Secret key for HS256 signing
@@ -204,12 +207,12 @@ def generate_test_jwt(
         catalog_url: Optional catalog URL (if not provided, will auto-extract)
         registry_url: Optional registry URL (if not provided, will auto-extract)
         auto_extract: If True, automatically extract catalog auth from quilt3 session
-        
+
     Returns:
         JWT token string
     """
     now = datetime.now(timezone.utc)
-    
+
     # Auto-extract catalog authentication if requested or if not provided
     if auto_extract or (not catalog_token and not catalog_url):
         if not catalog_token:
@@ -218,25 +221,25 @@ def generate_test_jwt(
             catalog_url = get_current_catalog_url()
         if not registry_url:
             registry_url = get_current_registry_url()
-    
+
     # Standard JWT claims
     payload = {
         "iss": issuer,
         "aud": audience,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(seconds=expiry_seconds)).timestamp()),
-        "sub": get_quilt3_user_id() or "test-user"
+        "sub": get_quilt3_user_id() or "test-user",
     }
-    
+
     # MCP-specific claims for AWS role assumption
     payload["role_arn"] = role_arn
-    
+
     if external_id:
         payload["external_id"] = external_id
-        
+
     if session_tags:
         payload["session_tags"] = session_tags
-    
+
     # Add catalog authentication claims
     if catalog_token:
         payload["catalog_token"] = catalog_token
@@ -244,20 +247,20 @@ def generate_test_jwt(
         payload["catalog_url"] = catalog_url
     if registry_url:
         payload["registry_url"] = registry_url
-    
+
     # Generate token
     token = jwt.encode(payload, secret, algorithm="HS256")
-    
+
     return token
 
 
 def decode_jwt_for_inspection(token: str, secret: str) -> Dict[str, Any]:
     """Decode JWT token for inspection (testing only).
-    
+
     Args:
         token: JWT token string
         secret: Secret key for verification
-        
+
     Returns:
         Decoded payload dictionary
     """
@@ -276,62 +279,51 @@ def main():
         epilog="""
 Examples:
   # Generate token with auto-extracted catalog auth
-  python jwt_helper.py generate --role-arn arn:aws:iam::123456789:role/TestRole --secret test-secret --auto-extract
+  python jwt_helpers.py generate --role-arn arn:aws:iam::123456789:role/TestRole --secret test-secret --auto-extract
 
   # Generate token with custom expiry
-  python jwt_helper.py generate --role-arn arn:aws:iam::123456789:role/TestRole --secret test-secret --expiry 7200 --auto-extract
+  python jwt_helpers.py generate --role-arn arn:aws:iam::123456789:role/TestRole --secret test-secret --expiry 7200 --auto-extract
 
   # Inspect existing token
-  python jwt_helper.py inspect --token eyJhbGciOi... --secret test-secret
-        """
+  python jwt_helpers.py inspect --token eyJhbGciOi... --secret test-secret
+        """,
     )
-    
+
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
-    
+
     # Generate command
     gen_parser = subparsers.add_parser("generate", help="Generate a new JWT token")
-    gen_parser.add_argument("--role-arn", required=True, 
-                           help="AWS IAM role ARN to assume")
-    gen_parser.add_argument("--secret", required=True,
-                           help="Secret key for HS256 signing")
-    gen_parser.add_argument("--expiry", type=int, default=3600,
-                           help="Token expiry in seconds (default: 3600)")
-    gen_parser.add_argument("--external-id", 
-                           help="External ID for role assumption")
-    gen_parser.add_argument("--session-tags", 
-                           help="Session tags as JSON string")
-    gen_parser.add_argument("--issuer", default="mcp-test",
-                           help="Token issuer (default: mcp-test)")
-    gen_parser.add_argument("--audience", default="mcp-server", 
-                           help="Token audience (default: mcp-server)")
-    gen_parser.add_argument("--auto-extract", action="store_true",
-                           help="Auto-extract catalog authentication from quilt3 session")
-    gen_parser.add_argument("--catalog-token",
-                           help="Catalog bearer token (overrides auto-extract)")
-    gen_parser.add_argument("--catalog-url",
-                           help="Catalog URL (overrides auto-extract)")
-    gen_parser.add_argument("--registry-url",
-                           help="Registry URL (overrides auto-extract)")
-    
+    gen_parser.add_argument("--role-arn", required=True, help="AWS IAM role ARN to assume")
+    gen_parser.add_argument("--secret", required=True, help="Secret key for HS256 signing")
+    gen_parser.add_argument("--expiry", type=int, default=3600, help="Token expiry in seconds (default: 3600)")
+    gen_parser.add_argument("--external-id", help="External ID for role assumption")
+    gen_parser.add_argument("--session-tags", help="Session tags as JSON string")
+    gen_parser.add_argument("--issuer", default="mcp-test", help="Token issuer (default: mcp-test)")
+    gen_parser.add_argument("--audience", default="mcp-server", help="Token audience (default: mcp-server)")
+    gen_parser.add_argument(
+        "--auto-extract", action="store_true", help="Auto-extract catalog authentication from quilt3 session"
+    )
+    gen_parser.add_argument("--catalog-token", help="Catalog bearer token (overrides auto-extract)")
+    gen_parser.add_argument("--catalog-url", help="Catalog URL (overrides auto-extract)")
+    gen_parser.add_argument("--registry-url", help="Registry URL (overrides auto-extract)")
+
     # Inspect command
     inspect_parser = subparsers.add_parser("inspect", help="Inspect JWT token")
-    inspect_parser.add_argument("--token", required=True,
-                               help="JWT token to inspect")
-    inspect_parser.add_argument("--secret", required=True,
-                               help="Secret key for verification")
-    
+    inspect_parser.add_argument("--token", required=True, help="JWT token to inspect")
+    inspect_parser.add_argument("--secret", required=True, help="Secret key for verification")
+
     args = parser.parse_args()
-    
+
     if not args.command:
         parser.print_help()
         sys.exit(1)
-    
+
     try:
         if args.command == "generate":
             # Validate quilt3 session if auto-extract is requested
             if args.auto_extract and not validate_quilt3_session_exists():
                 sys.exit(1)
-            
+
             # Parse session tags if provided
             session_tags = None
             if args.session_tags:
@@ -340,7 +332,7 @@ Examples:
                 except json.JSONDecodeError:
                     print("❌ Invalid JSON for session tags", file=sys.stderr)
                     sys.exit(1)
-            
+
             # Generate token
             token = generate_test_jwt(
                 role_arn=args.role_arn,
@@ -353,18 +345,18 @@ Examples:
                 catalog_token=args.catalog_token,
                 catalog_url=args.catalog_url,
                 registry_url=args.registry_url,
-                auto_extract=args.auto_extract
+                auto_extract=args.auto_extract,
             )
-            
+
             print(token)
-            
+
         elif args.command == "inspect":
             # Decode and display token
             payload = decode_jwt_for_inspection(args.token, args.secret)
-            
+
             print("JWT Token Payload:")
             print(json.dumps(payload, indent=2))
-            
+
             # Show expiry in human-readable format
             if "exp" in payload:
                 exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
@@ -374,7 +366,7 @@ Examples:
                     print(f"\nToken expires in: {remaining}")
                 else:
                     print(f"\n⚠️  Token expired {now - exp_time} ago")
-                    
+
     except Exception as e:
         print(f"❌ Error: {e}", file=sys.stderr)
         sys.exit(1)
