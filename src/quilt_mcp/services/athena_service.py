@@ -29,7 +29,6 @@ else:
     Quilt3_Backend = Any
 
 from ..utils import format_error_response, suppress_stdout
-from .quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,6 @@ class AthenaQueryService:
     def __init__(
         self,
         use_quilt_auth: bool = True,
-        quilt_service: Optional[QuiltService] = None,
         backend: Optional[Quilt3_Backend] = None,
         workgroup_name: Optional[str] = None,
         data_catalog_name: Optional[str] = None,
@@ -49,13 +47,11 @@ class AthenaQueryService:
 
         Args:
             use_quilt_auth: Whether to use quilt3 authentication
-            quilt_service: Optional QuiltService instance for dependency injection (deprecated, use backend)
             backend: Optional Quilt3_Backend instance for proper backend abstraction
             workgroup_name: Optional Athena workgroup name (auto-discovered if not provided)
             data_catalog_name: Optional data catalog name (defaults to "AwsDataCatalog")
         """
         self.use_quilt_auth = use_quilt_auth
-        self.quilt_service = quilt_service
         self.backend = backend
         self.workgroup_name = workgroup_name
         self.data_catalog_name = data_catalog_name or "AwsDataCatalog"

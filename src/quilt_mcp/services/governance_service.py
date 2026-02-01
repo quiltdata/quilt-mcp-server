@@ -17,33 +17,42 @@ from ..formatting import format_users_as_table, format_roles_as_table
 
 logger = logging.getLogger(__name__)
 
-# QuiltService provides admin module access
-from ..services.quilt_service import QuiltService
+# Check admin availability and import modules directly
+try:
+    import quilt3.admin.users
+    import quilt3.admin.roles
+    import quilt3.admin.sso_config
+    import quilt3.admin.tabulator
+    import quilt3.admin.exceptions
 
-# Initialize service and check availability
-quilt_service = QuiltService()
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
+    ADMIN_AVAILABLE = True
 
-if not ADMIN_AVAILABLE:
-    logger.warning("quilt3.admin not available - governance functionality disabled")
+    # Export exception classes for backward compatibility with tests
+    UserNotFoundError = quilt3.admin.exceptions.UserNotFoundError
+    BucketNotFoundError = quilt3.admin.exceptions.BucketNotFoundError
+    Quilt3AdminError = quilt3.admin.exceptions.Quilt3AdminError
 
-# Export module-level admin objects for backward compatibility with tests
-admin_users = quilt_service.get_users_admin() if ADMIN_AVAILABLE else None
-admin_roles = quilt_service.get_roles_admin() if ADMIN_AVAILABLE else None
-admin_sso_config = quilt_service.get_sso_config_admin() if ADMIN_AVAILABLE else None
-admin_tabulator = quilt_service.get_tabulator_admin() if ADMIN_AVAILABLE else None
-
-# Export exception classes for backward compatibility with tests
-if ADMIN_AVAILABLE:
-    admin_exceptions = quilt_service.get_admin_exceptions()
-    UserNotFoundError = admin_exceptions.get('UserNotFoundError', Exception)
-    BucketNotFoundError = admin_exceptions.get('BucketNotFoundError', Exception)
-    Quilt3AdminError = admin_exceptions.get('Quilt3AdminError', Exception)
-else:
+except ImportError:
+    ADMIN_AVAILABLE = False
     # Fallback exception classes when admin is not available
     UserNotFoundError = Exception
     BucketNotFoundError = Exception
     Quilt3AdminError = Exception
+
+if not ADMIN_AVAILABLE:
+    logger.warning("quilt3.admin not available - governance functionality disabled")
+
+# Create module-level admin objects for backward compatibility with tests
+if ADMIN_AVAILABLE:
+    admin_users = quilt3.admin.users
+    admin_roles = quilt3.admin.roles
+    admin_sso_config = quilt3.admin.sso_config
+    admin_tabulator = quilt3.admin.tabulator
+else:
+    admin_users = None
+    admin_roles = None
+    admin_sso_config = None
+    admin_tabulator = None
 
 
 class GovernanceService:
@@ -112,7 +121,8 @@ async def admin_users_list() -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         users = admin_users.list()
 
         # Convert users to dictionaries for better handling
@@ -188,7 +198,8 @@ async def admin_user_get(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         user = admin_users.get(name)
 
         if user is None:
@@ -314,7 +325,8 @@ async def admin_user_create(
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         user = admin_users.create(name=name, email=email, role=role, extra_roles=extra_roles or [])
 
         user_data = {
@@ -376,7 +388,8 @@ async def admin_user_delete(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         admin_users.delete(name)
 
         return {"success": True, "message": f"Successfully deleted user '{name}'"}
@@ -440,7 +453,8 @@ async def admin_user_set_email(
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         user = admin_users.set_email(name, email)
 
         return {
@@ -502,7 +516,8 @@ async def admin_user_set_admin(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         user = admin_users.set_admin(name, admin)
 
         return {
@@ -564,7 +579,8 @@ async def admin_user_set_active(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         user = admin_users.set_active(name, active)
 
         return {
@@ -617,7 +633,8 @@ async def admin_user_reset_password(
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         admin_users.reset_password(name)
 
         return {
@@ -697,7 +714,8 @@ async def admin_user_set_role(
         if not role:
             return format_error_response("Role cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         user = admin_users.set_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
 
         return {
@@ -765,7 +783,8 @@ async def admin_user_add_roles(
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         user = admin_users.add_roles(name, roles)
 
         return {
@@ -842,7 +861,8 @@ async def admin_user_remove_roles(
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
+        import quilt3.admin.users as admin_users
+
         user = admin_users.remove_roles(name, roles, fallback)
 
         return {
@@ -890,7 +910,8 @@ async def admin_roles_list() -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_roles = quilt_service.get_roles_admin()
+        import quilt3.admin.roles as admin_roles
+
         roles = admin_roles.list()
 
         # Convert roles to dictionaries for better handling
@@ -947,7 +968,8 @@ async def admin_sso_config_get() -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
+        import quilt3.admin.sso_config as admin_sso_config
+
         sso_config = admin_sso_config.get()
 
         if sso_config is None:
@@ -1015,7 +1037,8 @@ async def admin_sso_config_set(
         if not config:
             return format_error_response("SSO configuration cannot be empty")
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
+        import quilt3.admin.sso_config as admin_sso_config
+
         sso_config = admin_sso_config.set(config)
 
         if sso_config is None:
@@ -1063,7 +1086,8 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
+        import quilt3.admin.sso_config as admin_sso_config
+
         admin_sso_config.set(None)
 
         return {"success": True, "message": "Successfully removed SSO configuration"}
@@ -1099,7 +1123,8 @@ async def admin_tabulator_open_query_get() -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_tabulator = quilt_service.get_tabulator_admin()
+        import quilt3.admin.tabulator as admin_tabulator
+
         open_query_enabled = admin_tabulator.get_open_query()
 
         return {
@@ -1149,7 +1174,8 @@ async def admin_tabulator_open_query_set(
         if error_check:
             return error_check
 
-        admin_tabulator = quilt_service.get_tabulator_admin()
+        import quilt3.admin.tabulator as admin_tabulator
+
         admin_tabulator.set_open_query(enabled)
 
         return {

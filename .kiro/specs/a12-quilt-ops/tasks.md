@@ -67,16 +67,16 @@
 
 ## Feature 5: Stack Buckets GraphQL (Complete End-to-End)
 
-- [-] 5.1 Complete stack_buckets GraphQL migration to QuiltOps (CONSOLIDATED)
+- [x] 5.1 Complete stack_buckets GraphQL migration to QuiltOps (CONSOLIDATED)
   - Migrate stack_buckets._get_stack_buckets_via_graphql() helper (line 42)
   - Test complete stack buckets workflow
 
 ## Feature 6: Cleanup and Final Verification
 
-- [ ] 6.1 Complete cleanup and final verification (CONSOLIDATED)
+- [x] 6.1 Complete cleanup and final verification (CONSOLIDATED)
   - Verify no remaining QuiltService imports
   - Verify no remaining QuiltService usage
-  - Delete QuiltService files
+  - Remove ENDPOINTs you replace from the QuiltService file
   - Run comprehensive tests and fix ALL errors
   - Final validation and cleanup
 

@@ -10,11 +10,10 @@ These tests verify:
 from __future__ import annotations
 
 import pytest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
 from quilt_mcp.search.backends.base import BackendStatus
-from quilt_mcp.services.quilt_service import QuiltService
 
 # Configure anyio for async tests
 pytestmark = pytest.mark.anyio
@@ -130,10 +129,12 @@ class TestIndexPatternBuilder:
     """Test the trivial index pattern builder."""
 
     def setup_method(self):
-        """Setup mock QuiltService for each test."""
-        self.mock_service = Mock(spec=QuiltService)
-        self.mock_service.get_registry_url.return_value = "s3://test-registry"
-        self.backend = Quilt3ElasticsearchBackend(quilt_service=self.mock_service)
+        """Setup mock backend for each test."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        self.mock_backend = Mock(spec=Quilt3_Backend)
+        self.mock_backend.get_registry_url.return_value = "s3://test-registry"
+        self.backend = Quilt3ElasticsearchBackend(backend=self.mock_backend)
 
     def test_file_scope_with_bucket(self):
         """scope='file', bucket='mybucket' → 'mybucket'"""
@@ -160,7 +161,7 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
+        self.mock_backend.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return results from multiple buckets
         mock_search_api = Mock()
@@ -190,10 +191,10 @@ class TestIndexPatternBuilder:
                 ]
             }
         }
-        self.mock_service.get_search_api.return_value = mock_search_api
-
-        # Execute search with empty bucket
-        response = await self.backend.search(query="test", scope="file", bucket="", limit=10)
+        # Mock the search_api import directly since it's imported in the backend
+        with patch('quilt_mcp.search.backends.elasticsearch.search_api', mock_search_api):
+            # Execute search with empty bucket
+            response = await self.backend.search(query="test", scope="file", bucket="", limit=10)
 
         # Verify we got results from multiple buckets
         assert response.status == BackendStatus.AVAILABLE
@@ -237,7 +238,7 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
+        self.mock_backend.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return package entry results from multiple buckets
         mock_search_api = Mock()
@@ -269,32 +270,32 @@ class TestIndexPatternBuilder:
                 ]
             }
         }
-        self.mock_service.get_search_api.return_value = mock_search_api
+        # Mock the search_api import directly
+        with patch('quilt_mcp.search.backends.elasticsearch.search_api', mock_search_api):
+            # Execute search with empty bucket
+            response = await self.backend.search(query="test", scope="packageEntry", bucket="", limit=10)
 
-        # Execute search with empty bucket
-        response = await self.backend.search(query="test", scope="packageEntry", bucket="", limit=10)
+            # Verify we got package entry results from multiple buckets
+            assert response.status == BackendStatus.AVAILABLE
+            assert len(response.results) == 2
 
-        # Verify we got package entry results from multiple buckets
-        assert response.status == BackendStatus.AVAILABLE
-        assert len(response.results) == 2
+            # Verify first result schema and content
+            result1 = response.results[0]
+            assert result1.type == "packageEntry"
+            assert result1.name == "data/file1.csv"  # entry_lk
+            assert result1.bucket == "bucket1"
+            assert result1.s3_uri == "s3://bucket1/data/file1.csv"
+            assert result1.size == 50000
+            assert result1.score == 3.2
 
-        # Verify first result schema and content
-        result1 = response.results[0]
-        assert result1.type == "packageEntry"
-        assert result1.name == "data/file1.csv"  # entry_lk
-        assert result1.bucket == "bucket1"
-        assert result1.s3_uri == "s3://bucket1/data/file1.csv"
-        assert result1.size == 50000
-        assert result1.score == 3.2
-
-        # Verify second result from different bucket
-        result2 = response.results[1]
-        assert result2.type == "packageEntry"
-        assert result2.name == "results/trial1.json"  # entry_lk
-        assert result2.bucket == "bucket2"
-        assert result2.s3_uri == "s3://bucket2/results/trial1.json"
-        assert result2.size == 75000
-        assert result2.score == 2.1
+            # Verify second result from different bucket
+            result2 = response.results[1]
+            assert result2.type == "packageEntry"
+            assert result2.name == "results/trial1.json"  # entry_lk
+            assert result2.bucket == "bucket2"
+            assert result2.s3_uri == "s3://bucket2/results/trial1.json"
+            assert result2.size == 75000
+            assert result2.score == 2.1
 
     def test_global_scope_with_bucket(self):
         """scope='global', bucket='mybucket' → 'mybucket,mybucket_packages'"""
@@ -316,7 +317,7 @@ class TestIndexPatternBuilder:
         }
         mock_session = Mock()
         mock_session.post.return_value = mock_response
-        self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
+        self.mock_backend.get_registry_url.return_value = "https://example.quiltdata.com"
 
         # Mock search API to return BOTH file and package entry results from multiple buckets
         mock_search_api = Mock()
@@ -357,43 +358,45 @@ class TestIndexPatternBuilder:
                 ]
             }
         }
-        self.mock_service.get_search_api.return_value = mock_search_api
+        # Mock the search_api import directly
+        with patch('quilt_mcp.search.backends.elasticsearch.search_api', mock_search_api):
+            # Execute search with empty bucket
+            response = await self.backend.search(query="test", scope="global", bucket="", limit=10)
 
-        # Execute search with empty bucket
-        response = await self.backend.search(query="test", scope="global", bucket="", limit=10)
+            # Verify we got BOTH file and package entry results from multiple buckets
+            assert response.status == BackendStatus.AVAILABLE
+            assert len(response.results) == 3
 
-        # Verify we got BOTH file and package entry results from multiple buckets
-        assert response.status == BackendStatus.AVAILABLE
-        assert len(response.results) == 3
+            # Verify file result
+            result1 = response.results[0]
+            assert result1.type == "file"
+            assert result1.name == "data/file1.csv"
+            assert result1.bucket == "bucket1"
+            assert result1.s3_uri == "s3://bucket1/data/file1.csv"
 
-        # Verify file result
-        result1 = response.results[0]
-        assert result1.type == "file"
-        assert result1.name == "data/file1.csv"
-        assert result1.bucket == "bucket1"
-        assert result1.s3_uri == "s3://bucket1/data/file1.csv"
+            # Verify package entry result
+            result2 = response.results[1]
+            assert result2.type == "packageEntry"
+            assert result2.name == "data/genes.csv"  # entry_lk
+            assert result2.bucket == "bucket1"
 
-        # Verify package entry result
-        result2 = response.results[1]
-        assert result2.type == "packageEntry"
-        assert result2.name == "data/genes.csv"  # entry_lk
-        assert result2.bucket == "bucket1"
-
-        # Verify file result from different bucket
-        result3 = response.results[2]
-        assert result3.type == "file"
-        assert result3.name == "experiments/file2.json"
-        assert result3.bucket == "bucket2"
+            # Verify file result from different bucket
+            result3 = response.results[2]
+            assert result3.type == "file"
+            assert result3.name == "experiments/file2.json"
+            assert result3.bucket == "bucket2"
 
 
 class TestResultNormalization:
     """Test result normalization from Elasticsearch hits."""
 
     def setup_method(self):
-        """Setup mock QuiltService for each test."""
-        self.mock_service = Mock(spec=QuiltService)
-        self.mock_service.get_registry_url.return_value = "s3://test-registry"
-        self.backend = Quilt3ElasticsearchBackend(quilt_service=self.mock_service)
+        """Setup mock backend for each test."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        self.mock_backend = Mock(spec=Quilt3_Backend)
+        self.mock_backend.get_registry_url.return_value = "s3://test-registry"
+        self.backend = Quilt3ElasticsearchBackend(backend=self.mock_backend)
 
     def test_normalize_file_result(self):
         """File results should have type='file' and name=key."""
@@ -490,15 +493,16 @@ class TestSearchExecution:
     """Test end-to-end search execution."""
 
     def setup_method(self):
-        """Setup mock QuiltService for each test."""
-        self.mock_service = Mock(spec=QuiltService)
-        self.mock_service.get_registry_url.return_value = "s3://test-registry"
+        """Setup mock backend for each test."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
-        # Mock search API
+        self.mock_backend = Mock(spec=Quilt3_Backend)
+        self.mock_backend.get_registry_url.return_value = "s3://test-registry"
+
+        # Mock search API - we'll patch it directly since it's imported in the backend
         self.mock_search_api = Mock()
-        self.mock_service.get_search_api.return_value = self.mock_search_api
 
-        self.backend = Quilt3ElasticsearchBackend(quilt_service=self.mock_service)
+        self.backend = Quilt3ElasticsearchBackend(backend=self.mock_backend)
 
     async def test_search_builds_correct_index_pattern(self):
         """Search should build correct index pattern and execute query."""
@@ -564,24 +568,25 @@ class TestSearchExecution:
 
 
 class TestDependencyInjection:
-    """Test QuiltService dependency injection."""
+    """Test backend dependency injection."""
 
-    def test_accepts_quilt_service_dependency(self):
-        """Backend should accept QuiltService as dependency."""
-        mock_service = Mock(spec=QuiltService)
-        mock_service.get_registry_url.return_value = "s3://test-bucket"
+    def test_accepts_backend_dependency(self):
+        """Backend should accept Quilt3_Backend as dependency."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
-        backend = Quilt3ElasticsearchBackend(quilt_service=mock_service)
+        mock_backend = Mock(spec=Quilt3_Backend)
+        mock_backend.get_registry_url.return_value = "s3://test-bucket"
 
-        assert backend.quilt_service == mock_service
+        backend = Quilt3ElasticsearchBackend(backend=mock_backend)
+
+        assert backend.backend == mock_backend
 
         # Verify dependency is used
         backend.ensure_initialized()
-        mock_service.get_registry_url.assert_called()
+        mock_backend.get_registry_url.assert_called()
 
-    def test_creates_default_service_if_none_provided(self):
-        """Backend should create default QuiltService if none provided."""
+    def test_creates_default_quilt_ops_if_none_provided(self):
+        """Backend should create default QuiltOps if none provided."""
         backend = Quilt3ElasticsearchBackend()
 
-        assert backend.quilt_service is not None
-        assert isinstance(backend.quilt_service, QuiltService)
+        assert backend.quilt_ops is not None

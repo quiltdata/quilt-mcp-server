@@ -130,3 +130,18 @@ class Platform_Backend(QuiltOps):
         raise NotImplementedError(
             "Platform GraphQL backend not yet implemented. Use QUILT_MULTITENANT_MODE=false for local development."
         )
+
+    def update_package_revision(
+        self,
+        package_name: str,
+        s3_uris: List[str],
+        registry: str,
+        metadata: Optional[Dict] = None,
+        message: str = "Package updated via QuiltOps",
+        auto_organize: bool = False,
+        copy: str = "none",
+    ) -> Package_Creation_Result:
+        """Update an existing package with new files."""
+        raise NotImplementedError(
+            "Platform GraphQL backend not yet implemented. Use QUILT_MULTITENANT_MODE=false for local development."
+        )

@@ -90,6 +90,44 @@ def normalize_url(url: str, *, strip_trailing_slash: bool = True) -> str:
     return url
 
 
+def get_dns_name_from_url(url: str) -> str:
+    """Extract DNS hostname from a URL.
+
+    Extracts the DNS hostname from a URL, removing common prefixes like 'www.'
+    to provide a clean, human-readable catalog name.
+
+    Args:
+        url: URL string to extract hostname from (e.g., 'https://nightly.quilttest.com')
+
+    Returns:
+        DNS hostname (e.g., 'nightly.quilttest.com'), or 'unknown' if extraction fails
+
+    Examples:
+        >>> get_dns_name_from_url("https://nightly.quilttest.com")
+        'nightly.quilttest.com'
+        >>> get_dns_name_from_url("https://www.example.com")
+        'example.com'
+        >>> get_dns_name_from_url("")
+        'unknown'
+    """
+    from urllib.parse import urlparse
+
+    if not url:
+        return "unknown"
+
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or parsed.netloc
+        if hostname:
+            # Remove common subdomain prefixes that don't add semantic value
+            if hostname.startswith("www."):
+                hostname = hostname[4:]
+            return hostname
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+
 def fix_url(url: str) -> str:
     """Convert non-URL paths to file:// URLs.
 

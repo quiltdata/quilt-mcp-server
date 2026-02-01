@@ -325,7 +325,7 @@ def catalog_configure(catalog_url: str) -> dict:
     WORKFLOW:
         1. Map friendly catalog names (demo, sandbox, open) to their canonical URLs if applicable.
         2. Validate that the provided/resolved URL includes an HTTP(S) scheme.
-        3. Persist the catalog setting through ``QuiltService.set_config``.
+        3. Persist the catalog setting through ``QuiltOps.configure_catalog``.
         4. Return confirmation and recommended actions (login, status check, exploration tools).
 
     Args:

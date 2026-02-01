@@ -66,54 +66,70 @@ class TestGetCatalogHostFromConfig:
 
     def test_get_catalog_host_falls_back_to_navigator_url(self):
         """Test fallback to navigator_url from config - covers lines 79-85."""
-        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
-            mock_service = Mock()
-            mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = {"navigator_url": "https://nightly.quilttest.com"}
-            mock_service_class.return_value = mock_service
+        with patch('quilt_mcp.services.auth_metadata.QuiltOpsFactory') as mock_factory_class:
+            mock_factory = Mock()
+            mock_quilt_ops = Mock()
+            mock_auth_status = Mock()
+            mock_auth_status.logged_in_url = None
+            mock_auth_status.navigator_url = "https://nightly.quilttest.com"
+            mock_quilt_ops.get_auth_status.return_value = mock_auth_status
+            mock_factory.create.return_value = mock_quilt_ops
+            mock_factory_class.return_value = mock_factory
 
             result = _get_catalog_host_from_config()
             assert result == "nightly.quilttest.com"
 
     def test_get_catalog_host_with_no_navigator_url(self):
         """Test when config has no navigator_url - covers lines 79-85."""
-        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
-            mock_service = Mock()
-            mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = {}
-            mock_service_class.return_value = mock_service
+        with patch('quilt_mcp.services.auth_metadata.QuiltOpsFactory') as mock_factory_class:
+            mock_factory = Mock()
+            mock_quilt_ops = Mock()
+            mock_auth_status = Mock()
+            mock_auth_status.logged_in_url = None
+            mock_auth_status.navigator_url = None
+            mock_quilt_ops.get_auth_status.return_value = mock_auth_status
+            mock_factory.create.return_value = mock_quilt_ops
+            mock_factory_class.return_value = mock_factory
 
             result = _get_catalog_host_from_config()
             assert result is None
 
     def test_get_catalog_host_with_none_config(self):
         """Test when get_config returns None - covers lines 79-80."""
-        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
-            mock_service = Mock()
-            mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = None
-            mock_service_class.return_value = mock_service
+        with patch('quilt_mcp.services.auth_metadata.QuiltOpsFactory') as mock_factory_class:
+            mock_factory = Mock()
+            mock_quilt_ops = Mock()
+            mock_auth_status = Mock()
+            mock_auth_status.logged_in_url = None
+            mock_auth_status.navigator_url = None
+            mock_quilt_ops.get_auth_status.return_value = mock_auth_status
+            mock_factory.create.return_value = mock_quilt_ops
+            mock_factory_class.return_value = mock_factory
 
             result = _get_catalog_host_from_config()
             assert result is None
 
     def test_get_catalog_host_with_empty_navigator_url(self):
         """Test when navigator_url is empty string - covers lines 82-85."""
-        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
-            mock_service = Mock()
-            mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = {"navigator_url": ""}
-            mock_service_class.return_value = mock_service
+        with patch('quilt_mcp.services.auth_metadata.QuiltOpsFactory') as mock_factory_class:
+            mock_factory = Mock()
+            mock_quilt_ops = Mock()
+            mock_auth_status = Mock()
+            mock_auth_status.logged_in_url = None
+            mock_auth_status.navigator_url = ""
+            mock_quilt_ops.get_auth_status.return_value = mock_auth_status
+            mock_factory.create.return_value = mock_quilt_ops
+            mock_factory_class.return_value = mock_factory
 
             result = _get_catalog_host_from_config()
             assert result is None
 
     def test_get_catalog_host_with_exception(self):
         """Test exception handling - covers lines 86-88."""
-        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
-            mock_service = Mock()
-            mock_service.get_logged_in_url.side_effect = Exception("Service error")
-            mock_service_class.return_value = mock_service
+        with patch('quilt_mcp.services.auth_metadata.QuiltOpsFactory') as mock_factory_class:
+            mock_factory = Mock()
+            mock_factory.create.side_effect = Exception("Service error")
+            mock_factory_class.return_value = mock_factory
 
             result = _get_catalog_host_from_config()
             assert result is None
@@ -261,7 +277,7 @@ class TestConfigureCatalog:
 
     def test_configure_catalog_with_exception(self):
         """Test exception handling in configure_catalog - covers lines 564-581."""
-        with patch('quilt_mcp.services.auth_metadata.QuiltService', side_effect=Exception("Config error")):
+        with patch('quilt_mcp.services.auth_metadata.QuiltOpsFactory', side_effect=Exception("Config error")):
             result = catalog_configure("https://demo.quiltdata.com")
 
             assert result["status"] == "error"

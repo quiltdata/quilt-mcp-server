@@ -9,17 +9,25 @@ import yaml
 
 from quilt_mcp.formatting import format_tabulator_results_as_table
 from quilt_mcp.services import auth_metadata
-from quilt_mcp.services.quilt_service import QuiltService
 from quilt_mcp.services import athena_read_service as athena_glue
+from quilt_mcp.services.quilt_service import QuiltService
 from quilt_mcp.utils import format_error_response
 
 logger = logging.getLogger(__name__)
 
-quilt_service = QuiltService()
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
+# Check admin availability directly
+try:
+    import quilt3.admin.tabulator
+
+    ADMIN_AVAILABLE = True
+except ImportError:
+    ADMIN_AVAILABLE = False
 
 if not ADMIN_AVAILABLE:
     logger.warning("quilt3.admin not available - tabulator functionality disabled")
+
+# Create global quilt_service instance for backward compatibility with tests
+quilt_service = QuiltService()
 
 
 class TabulatorService:
@@ -138,7 +146,8 @@ class TabulatorService:
             if not self.admin_available:
                 return format_error_response("Admin functionality not available - check Quilt authentication")
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            import quilt3.admin.tabulator as admin_tabulator
+
             tables = admin_tabulator.list_tables(bucket)
 
             enriched_tables = []
@@ -207,7 +216,8 @@ class TabulatorService:
 
             config_yaml = self._build_tabulator_config(schema, package_pattern, logical_key_pattern, parser_config)
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            import quilt3.admin.tabulator as admin_tabulator
+
             response = admin_tabulator.set_table(bucket_name=bucket_name, table_name=table_name, config=config_yaml)
 
             if hasattr(response, "__typename"):
@@ -250,7 +260,8 @@ class TabulatorService:
             if not table_name:
                 return format_error_response("Table name cannot be empty")
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            import quilt3.admin.tabulator as admin_tabulator
+
             response = admin_tabulator.set_table(bucket_name=bucket_name, table_name=table_name, config=None)
 
             if hasattr(response, "__typename"):
@@ -289,7 +300,8 @@ class TabulatorService:
             if not new_table_name:
                 return format_error_response("New table name cannot be empty")
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            import quilt3.admin.tabulator as admin_tabulator
+
             response = admin_tabulator.rename_table(
                 bucket_name=bucket_name,
                 table_name=table_name,
@@ -326,7 +338,8 @@ class TabulatorService:
             if not self.admin_available:
                 return format_error_response("Admin functionality not available - check Quilt authentication")
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            import quilt3.admin.tabulator as admin_tabulator
+
             response = admin_tabulator.get_open_query()
 
             enabled = response.admin.tabulator_open_query if hasattr(response, "admin") else False
@@ -345,7 +358,8 @@ class TabulatorService:
             if not self.admin_available:
                 return format_error_response("Admin functionality not available - check Quilt authentication")
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            import quilt3.admin.tabulator as admin_tabulator
+
             response = admin_tabulator.set_open_query(enabled=enabled)
 
             current = response.admin.tabulator_open_query if hasattr(response, "admin") else enabled

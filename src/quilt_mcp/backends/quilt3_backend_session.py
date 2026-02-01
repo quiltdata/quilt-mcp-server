@@ -37,9 +37,50 @@ class Quilt3_Backend_Session:
 
         Raises:
             BackendError: If auth status retrieval fails
-            NotImplementedError: This method must be implemented by concrete class
         """
-        raise NotImplementedError("get_auth_status must be implemented by concrete class")
+        try:
+            logger.debug("Getting authentication status")
+
+            # Get logged-in URL from quilt3
+            logged_in_url: Optional[str] = None
+            try:
+                if hasattr(self.quilt3, 'logged_in'):
+                    logged_in_url = self.quilt3.logged_in()
+            except Exception as e:
+                logger.debug(f"Failed to get logged_in URL: {e}")
+                logged_in_url = None
+
+            # Determine authentication status
+            is_authenticated = bool(logged_in_url)
+
+            # Extract catalog name from URL if authenticated
+            catalog_name: Optional[str] = None
+            if is_authenticated and logged_in_url:
+                from quilt_mcp.utils import get_dns_name_from_url
+                catalog_name = get_dns_name_from_url(logged_in_url)
+
+            # Get registry URL if authenticated
+            registry_url: Optional[str] = None
+            if is_authenticated:
+                try:
+                    registry_url = self.get_registry_url()
+                except Exception as e:
+                    logger.debug(f"Failed to get registry URL: {e}")
+                    registry_url = None
+
+            auth_status = Auth_Status(
+                is_authenticated=is_authenticated,
+                logged_in_url=logged_in_url,
+                catalog_name=catalog_name,
+                registry_url=registry_url,
+            )
+
+            logger.debug(f"Auth status: authenticated={is_authenticated}, catalog={catalog_name}")
+            return auth_status
+
+        except Exception as e:
+            logger.error(f"Auth status retrieval failed: {str(e)}")
+            raise BackendError(f"Failed to get authentication status: {str(e)}")
 
     def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
         """Get catalog configuration from the specified catalog URL.
