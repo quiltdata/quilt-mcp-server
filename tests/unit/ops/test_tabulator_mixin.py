@@ -141,10 +141,10 @@ def test_create_tabulator_table_bucket_not_found():
     """Test error handling when bucket not found."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {'bucketSetTabulatorTable': {'__typename': 'BucketNotFound', 'message': 'Bucket does not exist'}}
+        'data': {'bucketSetTabulatorTable': {'__typename': 'OperationError', 'message': 'Bucket does not exist'}}
     }
 
-    with pytest.raises(ValidationError, match="Bucket not found"):
+    with pytest.raises(BackendError, match="Operation failed"):
         backend.create_tabulator_table('nonexistent', 'my-table', 'schema: ...')
 
 
@@ -152,10 +152,10 @@ def test_create_tabulator_table_permission_denied():
     """Test error handling when user lacks permission."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {'bucketSetTabulatorTable': {'__typename': 'BucketNotAllowed', 'message': 'Permission denied'}}
+        'data': {'bucketSetTabulatorTable': {'__typename': 'OperationError', 'message': 'Permission denied'}}
     }
 
-    with pytest.raises(PermissionError, match="Not authorized for bucket"):
+    with pytest.raises(BackendError, match="Operation failed"):
         backend.create_tabulator_table('test-bucket', 'my-table', 'schema: ...')
 
 
@@ -218,7 +218,12 @@ def test_rename_tabulator_table_invalid():
     """Test error handling for invalid rename."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {'bucketRenameTabulatorTable': {'__typename': 'InvalidInput', 'message': 'Table not found'}}
+        'data': {
+            'bucketRenameTabulatorTable': {
+                '__typename': 'InvalidInput',
+                'errors': [{'path': 'tableName', 'message': 'Table not found'}],
+            }
+        }
     }
 
     with pytest.raises(ValidationError, match="Invalid rename"):
@@ -229,10 +234,10 @@ def test_rename_tabulator_table_permission_denied():
     """Test error handling when rename permission denied."""
     backend = MockBackend()
     backend.execute_graphql_query.return_value = {
-        'data': {'bucketRenameTabulatorTable': {'__typename': 'BucketNotAllowed', 'message': 'No write access'}}
+        'data': {'bucketRenameTabulatorTable': {'__typename': 'OperationError', 'message': 'No write access'}}
     }
 
-    with pytest.raises(PermissionError, match="Not authorized"):
+    with pytest.raises(BackendError, match="Operation failed"):
         backend.rename_tabulator_table('test-bucket', 'old', 'new')
 
 

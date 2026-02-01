@@ -238,6 +238,49 @@ class QuiltOps(ABC):
         pass
 
     @abstractmethod
+    def get_graphql_endpoint(self) -> str:
+        """Get the GraphQL API endpoint URL.
+
+        Returns the fully-qualified GraphQL endpoint URL for executing queries.
+        This is typically derived from the catalog or registry configuration.
+
+        Implementations:
+        - Quilt3Backend: Constructs from quilt3 catalog config
+        - HTTPBackend: Reads from environment or config
+        - TestBackend: Returns mock endpoint
+
+        Returns:
+            GraphQL endpoint URL (e.g., "https://example.quiltdata.com/graphql")
+
+        Raises:
+            AuthenticationError: When not authenticated or no catalog configured
+            BackendError: When endpoint cannot be determined
+        """
+        pass
+
+    @abstractmethod
+    def get_graphql_auth_headers(self) -> Dict[str, str]:
+        """Get authentication headers for GraphQL requests.
+
+        Returns HTTP headers containing authentication credentials (typically JWT)
+        for authenticating GraphQL requests. The specific auth mechanism depends
+        on the backend implementation.
+
+        Implementations:
+        - Quilt3Backend: Extracts JWT from quilt3 session
+        - HTTPBackend: Extracts from incoming request context
+        - TestBackend: Returns mock credentials
+
+        Returns:
+            Dict of HTTP headers (e.g., {"Authorization": "Bearer <token>"})
+
+        Raises:
+            AuthenticationError: When credentials are not available or invalid
+            BackendError: When auth headers cannot be retrieved
+        """
+        pass
+
+    @abstractmethod
     def execute_graphql_query(
         self,
         query: str,

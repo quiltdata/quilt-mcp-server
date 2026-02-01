@@ -303,6 +303,8 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "list_tabulator_tables",  # Prefer tabulator_tables_list resource
         "packages_list",  # Prefer unified_search
         "get_tabulator_service",  # Internal use only
+        "tabulator_open_query_status",  # Deprecated - use admin://config/tabulator resource
+        "tabulator_open_query_toggle",  # Deprecated - use admin_tabulator_open_query_set tool
     }
 
     # Merge resource-available tools into excluded set

@@ -1,28 +1,112 @@
 """Shared Tabulator operations using GraphQL.
 
 This mixin provides table management for Quilt tabulator functionality.
-Works with any backend implementing execute_graphql_query().
+Works with any backend implementing the required auth/endpoint methods.
 """
 
+import logging
 from typing import List, Dict, Any, Optional
-from quilt_mcp.ops.exceptions import BackendError, ValidationError
+from quilt_mcp.ops.exceptions import BackendError, ValidationError, AuthenticationError
+
+logger = logging.getLogger(__name__)
 
 
 class TabulatorMixin:
     """Shared Tabulator operations using GraphQL.
 
-    This mixin provides Tabulator table management operations that work
-    with any backend implementing execute_graphql_query().
+    This mixin provides backend-agnostic Tabulator table management operations.
+    It implements execute_graphql_query() generically by delegating auth and
+    endpoint discovery to the backend.
 
     Requires the including class to implement:
-        - execute_graphql_query(query: str, variables: Optional[Dict]) -> Dict
+        - get_graphql_endpoint() -> str
+        - get_graphql_auth_headers() -> Dict[str, str]
     """
+
+    # These must be implemented by the backend
+    def get_graphql_endpoint(self) -> str:
+        """Get GraphQL endpoint URL - must be implemented by backend."""
+        raise NotImplementedError("Backend must implement get_graphql_endpoint()")
+
+    def get_graphql_auth_headers(self) -> Dict[str, str]:
+        """Get auth headers - must be implemented by backend."""
+        raise NotImplementedError("Backend must implement get_graphql_auth_headers()")
 
     def execute_graphql_query(
         self, query: str, variables: Optional[Dict[str, Any]] = None, registry: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Execute GraphQL query - must be implemented by backend."""
-        raise NotImplementedError("Backend must implement execute_graphql_query()")
+        """Execute GraphQL query using backend-provided auth and endpoint.
+
+        This is a generic implementation that works with any backend. It delegates
+        auth credential retrieval and endpoint discovery to the backend through
+        the get_graphql_auth_headers() and get_graphql_endpoint() methods.
+
+        Args:
+            query: GraphQL query string
+            variables: Optional query variables
+            registry: Legacy parameter (ignored, endpoint comes from backend)
+
+        Returns:
+            GraphQL response dict
+
+        Raises:
+            AuthenticationError: When auth credentials are unavailable
+            BackendError: When query execution fails
+            ValidationError: When query syntax is invalid
+        """
+        try:
+            import requests
+
+            logger.debug("Executing GraphQL query")
+
+            # Get endpoint and auth from backend (polymorphic - no quilt3 coupling!)
+            endpoint = self.get_graphql_endpoint()
+            headers = self.get_graphql_auth_headers()
+
+            # Prepare payload (generic GraphQL)
+            payload: Dict[str, Any] = {"query": query}
+            if variables:
+                payload["variables"] = variables
+
+            # Execute query (generic HTTP request)
+            response = requests.post(endpoint, json=payload, headers=headers)
+            response.raise_for_status()
+
+            logger.debug("GraphQL query executed successfully")
+            result: Dict[str, Any] = response.json()
+
+            # Check for GraphQL errors (generic GraphQL error handling)
+            if 'errors' in result:
+                error_messages = []
+                for error in result['errors']:
+                    msg = error.get('message', str(error))
+                    error_messages.append(msg)
+                error_text = '; '.join(error_messages)
+                logger.error(f"GraphQL query returned errors: {error_text}")
+                raise BackendError(f"GraphQL query failed: {error_text}")
+
+            return result
+
+        except requests.HTTPError as e:
+            if hasattr(e, 'response') and e.response and e.response.status_code == 403:
+                logger.error("GraphQL query authorization failed")
+                raise AuthenticationError("GraphQL query not authorized")
+            else:
+                error_text = e.response.text if hasattr(e, 'response') and e.response else str(e)
+                logger.error(f"GraphQL query HTTP error: {error_text}")
+                # Try to parse GraphQL errors from response
+                if hasattr(e, 'response') and e.response:
+                    try:
+                        error_data = e.response.json()
+                        if 'errors' in error_data:
+                            error_messages = [err.get('message', str(err)) for err in error_data['errors']]
+                            error_text = '; '.join(error_messages)
+                    except Exception:
+                        pass
+                raise BackendError(f"GraphQL query failed: {error_text}")
+        except Exception as e:
+            logger.error(f"GraphQL query failed: {str(e)}")
+            raise BackendError(f"GraphQL query failed: {str(e)}")
 
     def list_tabulator_tables(self, bucket: str) -> List[Dict[str, str]]:
         """List all tabulator tables in a bucket.

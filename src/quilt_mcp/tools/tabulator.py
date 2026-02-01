@@ -236,11 +236,65 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
         return format_error_response(str(e))
 
 
+async def tabulator_buckets_list() -> Dict[str, Any]:
+    """List all buckets (databases) in the Tabulator catalog.
+
+    Returns:
+        Dict with success status, buckets list, and metadata
+    """
+    try:
+        from quilt_mcp.services.tabulator_service import list_tabulator_buckets
+
+        return list_tabulator_buckets()
+
+    except Exception as e:
+        logger.error(f"Error in tabulator_buckets_list: {e}")
+        return format_error_response(str(e))
+
+
+async def tabulator_bucket_query(
+    bucket_name: str,
+    query: str,
+    workgroup_name: Optional[str] = None,
+    max_results: int = 1000,
+    output_format: Literal["json", "csv", "parquet", "table"] = "json",
+    use_quilt_auth: bool = True,
+) -> Dict[str, Any]:
+    """Execute a bucket-scoped tabulator query.
+
+    Args:
+        bucket_name: S3 bucket name (database name in Athena)
+        query: SQL query to execute
+        workgroup_name: Optional Athena workgroup
+        max_results: Maximum number of rows to return
+        output_format: Output format (json, csv, parquet, table)
+        use_quilt_auth: Whether to use Quilt authentication
+
+    Returns:
+        Dict with query results
+    """
+    try:
+        from quilt_mcp.services.tabulator_service import tabulator_bucket_query as service_query
+
+        return await service_query(
+            bucket_name=bucket_name,
+            query=query,
+            workgroup_name=workgroup_name,
+            max_results=max_results,
+            output_format=output_format,
+            use_quilt_auth=use_quilt_auth,
+        )
+
+    except Exception as e:
+        logger.error(f"Error in tabulator_bucket_query: {e}")
+        return format_error_response(str(e))
+
+
 __all__ = [
     "tabulator_tables_list",
     "tabulator_table_create",
     "tabulator_table_delete",
     "tabulator_table_rename",
-    "tabulator_open_query_status",
-    "tabulator_open_query_toggle",
+    "tabulator_buckets_list",
+    "tabulator_bucket_query",
 ]

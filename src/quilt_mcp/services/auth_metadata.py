@@ -318,8 +318,6 @@ def filesystem_status() -> Dict[str, Any]:
                 "list_tabulator_tables",
                 "tabulator_bucket_query",
                 "tabulator_buckets_list",
-                "tabulator_open_query_status",
-                "tabulator_open_query_toggle",
                 "tabulator_table_create",
                 "tabulator_table_delete",
                 "tabulator_table_rename",
@@ -400,7 +398,6 @@ def filesystem_status() -> Dict[str, Any]:
                 "list_tabulator_tables",
                 "tabulator_bucket_query",
                 "tabulator_buckets_list",
-                "tabulator_open_query_status",
                 "tabulator_tables_list",
             ],
         )
@@ -442,7 +439,6 @@ def filesystem_status() -> Dict[str, Any]:
                 "list_tabulator_buckets",
                 "list_tabulator_tables",
                 "tabulator_buckets_list",
-                "tabulator_open_query_status",
                 "tabulator_tables_list",
             ],
         )

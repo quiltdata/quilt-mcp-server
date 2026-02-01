@@ -690,7 +690,7 @@ test_tools:
       required:
       - content
   tabulator_bucket_query:
-    description: Execute a bucket-scoped tabulator query (legacy tool signature).
+    description: Execute a bucket-scoped tabulator query.
     effect: none
     arguments:
       bucket_name: quilt-ernest-staging
@@ -705,34 +705,8 @@ test_tools:
             type: object
       required:
       - content
-  tabulator_open_query_status:
-    description: Return tabulator open query flag.
-    effect: none
-    arguments: {}
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  tabulator_open_query_toggle:
-    description: Toggle tabulator open query flag.
-    effect: configure
-    arguments: {}
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
   tabulator_table_create:
-    description: Create tabulator table (legacy tool signature).
+    description: Create or update a tabulator table.
     effect: create
     arguments: {}
     response_schema:
@@ -745,7 +719,7 @@ test_tools:
       required:
       - content
   tabulator_table_delete:
-    description: Delete tabulator table (legacy tool signature).
+    description: Delete a tabulator table.
     effect: remove
     arguments: {}
     response_schema:
@@ -758,7 +732,7 @@ test_tools:
       required:
       - content
   tabulator_table_rename:
-    description: Rename tabulator table (legacy tool signature).
+    description: Rename a tabulator table.
     effect: update
     arguments: {}
     response_schema:
@@ -771,7 +745,7 @@ test_tools:
       required:
       - content
   tabulator_tables_list:
-    description: Async wrapper mirroring the legacy tool interface for listing tables.
+    description: List all tabulator tables in a bucket.
     effect: none
     arguments: {}
     response_schema:

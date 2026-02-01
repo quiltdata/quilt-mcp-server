@@ -11,8 +11,6 @@ from quilt_mcp.tools.tabulator import (
     tabulator_table_create,
     tabulator_table_delete,
     tabulator_table_rename,
-    tabulator_open_query_status,
-    tabulator_open_query_toggle,
 )
 from quilt_mcp.services.tabulator_service import (
     TabulatorService,
@@ -219,71 +217,13 @@ class TestTabulatorTableRename:
 
 
 class TestTabulatorOpenQuery:
-    """Test tabulator open query functions."""
+    """Test tabulator open query functions.
 
-    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
-    @pytest.mark.asyncio
-    async def test_open_query_status(self, mock_get_service):
-        """Test getting open query status."""
-        mock_service = Mock()
-        mock_get_service.return_value = mock_service
+    NOTE: These tools have been deprecated and removed.
+    Use governance.admin_tabulator_open_query_get/set instead.
+    """
 
-        mock_service.get_open_query_status.return_value = {
-            "success": True,
-            "open_query_enabled": True,
-        }
-
-        result = await tabulator_open_query_status()
-
-        assert result["success"] is True
-        assert result["open_query_enabled"] is True
-        mock_service.get_open_query_status.assert_called_once()
-
-    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
-    @pytest.mark.asyncio
-    async def test_open_query_toggle(self, mock_get_service):
-        """Test toggling open query status."""
-        mock_service = Mock()
-        mock_get_service.return_value = mock_service
-
-        mock_service.set_open_query.return_value = {
-            "success": True,
-            "open_query_enabled": False,
-            "message": "Open query disabled",
-        }
-
-        result = await tabulator_open_query_toggle(False)
-
-        assert result["success"] is True
-        assert result["open_query_enabled"] is False
-        assert "disabled" in result["message"]
-        mock_service.set_open_query.assert_called_once_with(False)
-
-    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
-    @pytest.mark.asyncio
-    async def test_open_query_status_error_handling(self, mock_get_service):
-        """Test open query status error handling."""
-        mock_service = Mock()
-        mock_get_service.return_value = mock_service
-        mock_service.get_open_query_status.side_effect = Exception("Status check failed")
-
-        result = await tabulator_open_query_status()
-
-        assert result["success"] is False
-        assert "Status check failed" in result["error"]
-
-    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
-    @pytest.mark.asyncio
-    async def test_open_query_toggle_error_handling(self, mock_get_service):
-        """Test open query toggle error handling."""
-        mock_service = Mock()
-        mock_get_service.return_value = mock_service
-        mock_service.set_open_query.side_effect = Exception("Toggle failed")
-
-        result = await tabulator_open_query_toggle(True)
-
-        assert result["success"] is False
-        assert "Toggle failed" in result["error"]
+    pass
 
 
 if __name__ == "__main__":

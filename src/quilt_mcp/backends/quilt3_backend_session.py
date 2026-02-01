@@ -286,122 +286,75 @@ class Quilt3_Backend_Session:
             logger.error(f"Registry URL retrieval failed: {str(e)}")
             raise BackendError(f"Quilt3 backend get_registry_url failed: {str(e)}")
 
-    def execute_graphql_query(
-        self,
-        query: str,
-        variables: Optional[Dict] = None,
-        registry: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Execute a GraphQL query against the catalog.
+    def get_graphql_endpoint(self) -> str:
+        """Get GraphQL endpoint URL from quilt3 catalog config.
 
-        Executes a GraphQL query against the catalog API using the authenticated
-        quilt3 session. This provides access to catalog data and operations through
-        the GraphQL interface.
-
-        Args:
-            query: GraphQL query string to execute
-            variables: Optional dictionary of query variables
-            registry: Target registry URL (uses default if None)
+        Constructs the GraphQL API endpoint URL from the currently configured
+        catalog. Uses quilt3's logged_in() to determine the active catalog.
 
         Returns:
-            Dict[str, Any]: Dictionary containing the GraphQL response data
+            GraphQL endpoint URL (e.g., "https://example.quiltdata.com/graphql")
 
         Raises:
-            AuthenticationError: When authentication credentials are invalid or missing
-            BackendError: When the GraphQL query execution fails
-            ValidationError: When query syntax is invalid or variables are malformed
+            AuthenticationError: When not authenticated or no catalog configured
+            BackendError: When endpoint cannot be determined
         """
         try:
-            logger.debug("Executing GraphQL query against catalog")
+            logger.debug("Getting GraphQL endpoint from quilt3 catalog config")
 
-            # Get authenticated session to copy auth headers
+            # Get current catalog from quilt3
+            logged_in_url = self.quilt3.logged_in()
+            if not logged_in_url:
+                raise AuthenticationError("Not authenticated - no catalog configured")
+
+            # Get catalog config to extract registry URL
+            catalog_config = self.get_catalog_config(logged_in_url)
+
+            # Construct GraphQL endpoint from registry URL
+            from quilt_mcp.utils import graphql_endpoint
+
+            api_url = graphql_endpoint(catalog_config.registry_url)
+            logger.debug(f"GraphQL endpoint: {api_url}")
+            return api_url
+
+        except Exception as e:
+            logger.error(f"Failed to get GraphQL endpoint: {str(e)}")
+            raise BackendError(f"Failed to get GraphQL endpoint: {str(e)}")
+
+    def get_graphql_auth_headers(self) -> Dict[str, str]:
+        """Get authentication headers from quilt3 session.
+
+        Extracts authentication headers (typically containing JWT) from the
+        active quilt3 session. These headers are used to authenticate GraphQL
+        requests.
+
+        Returns:
+            Dict of HTTP headers with authentication credentials
+
+        Raises:
+            AuthenticationError: When quilt3 session is not authenticated
+            BackendError: When headers cannot be retrieved
+        """
+        try:
+            logger.debug("Getting auth headers from quilt3 session")
+
+            # Get quilt3 session
             quilt_session = self.quilt3.session.get_session()
 
-            # Get GraphQL endpoint
-            if registry:
-                # Legacy: registry parameter provided as S3 URL
-                api_url = self._get_graphql_endpoint(registry)
-            else:
-                # Modern: get registry URL from catalog config
-                logged_in_url = self.quilt3.logged_in()
-                if not logged_in_url:
-                    raise AuthenticationError("Not authenticated - no catalog configured")
-
-                catalog_config = self.get_catalog_config(logged_in_url)
-                # Construct GraphQL endpoint from catalog's registry URL
-                from quilt_mcp.utils import graphql_endpoint
-
-                api_url = graphql_endpoint(catalog_config.registry_url)
-
-            # Prepare request payload
-            payload: Dict[str, Any] = {"query": query}
-            if variables:
-                payload["variables"] = variables  # Variables is Dict[str, Any]  # type: ignore[assignment]
-
-            # Execute GraphQL query using requests directly to avoid quilt3's response hooks
-            # Copy authentication headers from quilt3 session
-            headers = {}
+            # Extract auth headers from session
+            headers: Dict[str, str] = {}
             if hasattr(quilt_session, 'headers'):
+                # Copy headers from quilt3 session (includes JWT)
                 headers.update(quilt_session.headers)
 
-            response = self.requests.post(api_url, json=payload, headers=headers)
-            response.raise_for_status()
+            if not headers:
+                logger.warning("No auth headers found in quilt3 session")
 
-            logger.debug("GraphQL query executed successfully")
-            result: Dict[str, Any] = response.json()
+            return headers
 
-            # Check for GraphQL errors in the response
-            if 'errors' in result:
-                error_messages = []
-                for error in result['errors']:
-                    msg = error.get('message', str(error))
-                    error_messages.append(msg)
-                error_text = '; '.join(error_messages)
-                logger.error(f"GraphQL query returned errors: {error_text}")
-                raise BackendError(f"GraphQL query failed: {error_text}")
-
-            return result
-
-        except self.requests.HTTPError as e:
-            if hasattr(e, 'response') and e.response and e.response.status_code == 403:
-                logger.error("GraphQL query authorization failed")
-                raise AuthenticationError("GraphQL query not authorized")
-            else:
-                error_text = e.response.text if hasattr(e, 'response') and e.response else str(e)
-                logger.error(f"GraphQL query HTTP error: {error_text}")
-                # Try to parse GraphQL errors from response
-                if hasattr(e, 'response') and e.response:
-                    try:
-                        error_data = e.response.json()
-                        if 'errors' in error_data:
-                            error_messages = [err.get('message', str(err)) for err in error_data['errors']]
-                            error_text = '; '.join(error_messages)
-                            logger.error(f"GraphQL errors: {error_text}")
-                    except Exception:
-                        pass
-                raise BackendError(f"GraphQL query failed: {error_text}")
-        except KeyError as e:
-            # Handle KeyError from quilt3's _handle_response trying to access data['message']
-            # This happens when GraphQL returns an error in a different format
-            logger.error(f"GraphQL response format error: {str(e)}")
-            try:
-                # Try to get the actual response data
-                if 'response' in locals() and hasattr(response, 'text'):
-                    error_data = response.json() if response.text else {}
-                    if 'errors' in error_data:
-                        error_msg = '; '.join(err.get('message', str(err)) for err in error_data['errors'])
-                        logger.error(f"GraphQL errors: {error_msg}")
-                        raise BackendError(f"GraphQL query failed: {error_msg}")
-                    logger.error(f"GraphQL response: {error_data}")
-                    raise BackendError(f"GraphQL query failed with unexpected response format")
-            except Exception:
-                pass
-            raise BackendError(f"GraphQL query failed with response format error: {str(e)}")
-        except AuthenticationError:
-            raise
         except Exception as e:
-            logger.error(f"GraphQL query execution error: {str(e)}")
-            raise BackendError(f"GraphQL execution error: {str(e)}")
+            logger.error(f"Failed to get auth headers: {str(e)}")
+            raise BackendError(f"Failed to get auth headers: {str(e)}")
 
     def get_boto3_client(
         self,
