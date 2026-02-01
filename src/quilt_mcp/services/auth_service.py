@@ -60,7 +60,7 @@ def _validate_jwt_mode() -> None:
 def create_auth_service() -> AuthService:
     """Create a new auth service instance for the configured mode."""
     mode_config = get_mode_config()
-    
+
     if mode_config.requires_jwt:
         _validate_jwt_mode()
         logger.info("Authentication mode selected: JWT")

@@ -372,7 +372,7 @@ The factory expects a dict with session info:
 ```python
 session_info = QuiltOpsFactory._detect_quilt3_session()
 if session_info is not None:
-    return Quilt3_Backend(session_info)
+    return Quilt3_Backend()
 ```
 
 But `Quilt3_Backend.__init__` then validates this:

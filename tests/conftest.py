@@ -141,6 +141,14 @@ def pytest_configure(config):
     os.environ.pop("MCP_JWT_SECRET", None)
     os.environ.pop("MCP_JWT_SECRET_SSM_PARAMETER", None)
 
+    # Reset ModeConfig singleton to pick up test environment variables
+    try:
+        from quilt_mcp.config import reset_mode_config
+
+        reset_mode_config()
+    except ImportError:
+        pass
+
     # Configure boto3 default session to use AWS_PROFILE if set
     # This must be done very early before any imports that create boto3 clients
     if os.getenv("AWS_PROFILE"):
@@ -166,6 +174,14 @@ def reset_runtime_auth_state():
     except Exception:
         pass
 
+    # Reset ModeConfig singleton to ensure test environment variables are used
+    try:
+        from quilt_mcp.config import reset_mode_config
+
+        reset_mode_config()
+    except Exception:
+        pass
+
     yield
 
     try:
@@ -173,6 +189,14 @@ def reset_runtime_auth_state():
 
         clear_runtime_auth()
         update_runtime_metadata(jwt_assumed_session=None, jwt_assumed_expiration=None)
+    except Exception:
+        pass
+
+    # Reset ModeConfig singleton after test
+    try:
+        from quilt_mcp.config import reset_mode_config
+
+        reset_mode_config()
     except Exception:
         pass
 

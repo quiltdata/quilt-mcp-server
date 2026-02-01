@@ -195,7 +195,7 @@ class QuiltOpsFactory:
         if mode_config.backend_type == "quilt3":
             session_info = QuiltOpsFactory._detect_quilt3_session()
             if session_info is not None:
-                return Quilt3_Backend(session_info)
+                return Quilt3_Backend()
             raise AuthenticationError("No valid quilt3 session found")
         
         elif mode_config.backend_type == "graphql":

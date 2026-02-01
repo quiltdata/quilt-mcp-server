@@ -421,7 +421,9 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     try:
         # Use JSON responses in multitenant mode for simpler HTTP client integration
         # (SSE requires stream parsing which complicates testing and client implementations)
-        app = mcp.http_app(transport=transport, stateless_http=mode_config.is_multitenant, json_response=mode_config.is_multitenant)
+        app = mcp.http_app(
+            transport=transport, stateless_http=mode_config.is_multitenant, json_response=mode_config.is_multitenant
+        )
     except AttributeError as exc:  # pragma: no cover - FastMCP versions prior to HTTP support
         logger.error("HTTP transport requested but FastMCP does not expose http_app(): %s", exc)
         raise
@@ -483,7 +485,7 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
         logger.warning("CORS middleware unavailable; continuing without CORS configuration")
 
     mode_config = get_mode_config()
-    
+
     try:
         from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
 

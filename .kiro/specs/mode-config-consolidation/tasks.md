@@ -130,21 +130,23 @@ This implementation plan consolidates scattered mode detection logic into a sing
 - [x] 6. Checkpoint - Ensure core functionality works
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Update test configurations
-  - [ ] 7.1 Update unit test configuration
+- [x] 7. Update test configurations
+  - [x] 7.1 Update unit test configuration
     - Modify `tests/conftest.py` line 138
     - Remove line: `os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"`
-    - Unit tests should run in default local mode
+    - Add line: `os.environ["QUILT_MULTITENANT_MODE"] = "false"`
+    - Explicitly ensure unit tests run in local mode
     - _Requirements: 9.1, 9.3_
 
-  - [ ] 7.2 Update stateless test configuration
+  - [x] 7.2 Update stateless test configuration
     - Modify `tests/stateless/conftest.py`
     - Set `QUILT_MULTITENANT_MODE=true` explicitly
     - Configure JWT test secrets: `MCP_JWT_SECRET=test-secret`, issuer, audience
     - Delete redundant environment variables: `QUILT_MCP_STATELESS_MODE`, `MCP_REQUIRE_JWT`, `QUILT_DISABLE_QUILT3_SESSION`
     - _Requirements: 9.2, 9.3, 9.4_
 
-  - [ ] 7.3 Fix malformed test in test_s3_package.py
+
+  - [x] 7.3 Fix malformed test in test_s3_package.py
     - Update test `test_create_enhanced_package_uses_create_package_revision` in
       `tests/unit/test_s3_package.py` lines 365-411
     - Change `@patch("quilt_mcp.tools.packages.QuiltService")` to
@@ -159,8 +161,8 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 14: Test Suite Mode Coverage**
     - **Validates: Requirements 9.5**
 
-- [ ] 8. Verify complete removal of redundant variables
-  - [ ] 8.1 Search codebase for deleted environment variables
+- [x] 8. Verify complete removal of redundant variables
+  - [x] 8.1 Search codebase for deleted environment variables
     - Run `grep -r "QUILT_MCP_STATELESS_MODE" src/quilt_mcp/` (should return zero results)
     - Run `grep -r "QUILT_DISABLE_QUILT3_SESSION" src/quilt_mcp/` (should return zero results)
     - Run `grep -r "MCP_REQUIRE_JWT" src/quilt_mcp/ | grep -v mode_config` (should return zero results except mode_config.py)
@@ -171,12 +173,13 @@ This implementation plan consolidates scattered mode detection logic into a sing
     - **Property 15: Local Mode Functionality**
     - **Validates: Requirements 7.1, 7.2, 7.4, 10.2, 10.3, 10.4**
 
-- [ ] 9. Final validation and testing
-  - [ ] 9.1 Run comprehensive test suite
+- [-] 9. Final validation and testing
+  - [ ] 9.1 Run and FIX ALL relevant test suites (no excuses: escalate to user if no obvious fix)
     - Execute `uv run pytest tests/unit/` (unit tests in local mode)
     - Execute `uv run pytest tests/stateless/` (multitenant mode tests)
     - Execute `uv run pytest tests/integration/` (integration tests)
-    - Verify all tests pass in both deployment modes
+    - Verify ALL tests pass in appropriate deployment modes
+    - Fix any simple issues; ask user about possibly architectural flaws
     - _Requirements: 9.5_
 
   - [ ] 9.2 Manual testing verification

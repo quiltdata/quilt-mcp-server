@@ -120,8 +120,16 @@ class Quilt3_Backend_Packages:
             logger.debug(f"Found {len(result)} packages")
             return result
         except Exception as e:
+            error_msg = str(e)
+            # Improve error message for invalid bucket/registry
+            if "No valid indices provided" in error_msg:
+                bucket_name = registry.replace("s3://", "").split("/")[0]
+                raise BackendError(
+                    f"Quilt3 backend search failed: bucket '{bucket_name}' not found or not accessible",
+                    context={'query': query, 'registry': registry, 'bucket': bucket_name}
+                )
             raise BackendError(
-                f"Quilt3 backend search failed: {str(e)}", context={'query': query, 'registry': registry}
+                f"Quilt3 backend search failed: {error_msg}", context={'query': query, 'registry': registry}
             )
 
     def get_package_info(self, package_name: str, registry: str) -> Package_Info:
@@ -295,7 +303,7 @@ class Quilt3_Backend_Packages:
         registry: Optional[str] = None,
         message: str = "Package created via QuiltOps",
         auto_organize: bool = True,
-        copy: str = "auto",
+        copy: bool = False,
     ):
         """Create and push a package revision in a single operation.
 
@@ -311,7 +319,9 @@ class Quilt3_Backend_Packages:
             message: Commit message for the package revision
             auto_organize: If True, preserve S3 folder structure as logical keys.
                          If False, flatten to just filenames (default: True)
-            copy: Copy strategy for package.push() - "auto", "always", or "never" (default: "auto")
+            copy: Whether to copy files to registry bucket (default: False)
+                - True: Deep copy objects to registry bucket
+                - False: Create shallow references to original S3 locations (no copy, default)
 
         Returns:
             Package_Creation_Result with creation details and status
@@ -341,8 +351,22 @@ class Quilt3_Backend_Packages:
             if metadata:
                 package.set_meta(metadata)
 
-            # Push to registry with copy parameter
-            top_hash = package.push(package_name, registry=registry, message=message, copy=copy)
+            # Push to registry with appropriate copy strategy
+            # quilt3.Package.push() uses selector_fn to control copying behavior:
+            # - selector_fn returns False: Don't copy, reference original S3 location
+            # - No selector_fn (default): Copy to registry bucket
+            if not copy:
+                # copy=False: Don't copy objects - just create metadata references to original S3 URIs
+                top_hash = package.push(
+                    package_name,
+                    registry=registry,
+                    message=message,
+                    selector_fn=lambda logical_key, entry: False,
+                )
+            else:
+                # copy=True: Let quilt3 copy objects to registry bucket
+                # (quilt3 default behavior is smart copying - only copies if bytes differ)
+                top_hash = package.push(package_name, registry=registry, message=message)
 
             # Determine effective registry for result
             effective_registry = registry or self.get_registry_url() or "s3://unknown-registry"  # type: ignore[attr-defined]

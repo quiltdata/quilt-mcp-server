@@ -1143,8 +1143,8 @@ class TestQuilt3BackendPackageCreation:
     # ========================================================================
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_create_package_revision_copy_auto_default(self, mock_quilt3):
-        """Test that copy parameter defaults to 'auto'."""
+    def test_create_package_revision_copy_default_false(self, mock_quilt3):
+        """Test that copy parameter defaults to False (no copy, use selector_fn)."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
@@ -1158,21 +1158,23 @@ class TestQuilt3BackendPackageCreation:
         mock_package.push.return_value = "hash123"
         mock_quilt3.Package.return_value = mock_package
 
-        # Execute without specifying copy parameter
+        # Execute without specifying copy parameter (defaults to False)
         backend.create_package_revision(
             package_name="test/package",
             s3_uris=["s3://bucket/file.txt"],
-            # copy not specified - should default to "auto"
+            # copy not specified - should default to False
         )
 
-        # Verify push was called with copy="auto"
+        # Verify push was called WITH selector_fn (copy=False behavior)
         mock_package.push.assert_called_once()
         push_kwargs = mock_package.push.call_args.kwargs
-        assert push_kwargs['copy'] == "auto"
+        assert 'selector_fn' in push_kwargs
+        selector_fn = push_kwargs['selector_fn']
+        assert selector_fn("any_key", "any_entry") is False
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_create_package_revision_copy_always(self, mock_quilt3):
-        """Test copy='always' parameter passes through to push()."""
+    def test_create_package_revision_copy_true(self, mock_quilt3):
+        """Test copy=True enables copying (no selector_fn)."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
@@ -1186,21 +1188,21 @@ class TestQuilt3BackendPackageCreation:
         mock_package.push.return_value = "hash456"
         mock_quilt3.Package.return_value = mock_package
 
-        # Execute with copy="always"
+        # Execute with copy=True
         backend.create_package_revision(
             package_name="test/package",
             s3_uris=["s3://bucket/file.txt"],
-            copy="always",  # Force copy
+            copy=True,  # Enable copy
         )
 
-        # Verify push was called with copy="always"
+        # Verify push was called WITHOUT selector_fn (allows quilt3 to copy)
         mock_package.push.assert_called_once()
         push_kwargs = mock_package.push.call_args.kwargs
-        assert push_kwargs['copy'] == "always"
+        assert 'selector_fn' not in push_kwargs
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_create_package_revision_copy_never(self, mock_quilt3):
-        """Test copy='never' parameter passes through to push()."""
+    def test_create_package_revision_copy_false(self, mock_quilt3):
+        """Test copy=False uses selector_fn to prevent copying."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
@@ -1214,53 +1216,28 @@ class TestQuilt3BackendPackageCreation:
         mock_package.push.return_value = "hash789"
         mock_quilt3.Package.return_value = mock_package
 
-        # Execute with copy="never"
+        # Execute with copy=False
         backend.create_package_revision(
             package_name="test/package",
             s3_uris=["s3://bucket/file.txt"],
-            copy="never",  # No copy (reference only)
+            copy=False,  # No copy (reference only)
         )
 
-        # Verify push was called with copy="never"
+        # Verify push was called WITH selector_fn that returns False
         mock_package.push.assert_called_once()
         push_kwargs = mock_package.push.call_args.kwargs
-        assert push_kwargs['copy'] == "never"
-
-    @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_create_package_revision_copy_auto_explicit(self, mock_quilt3):
-        """Test copy='auto' parameter explicitly specified."""
-        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
-
-        mock_session = {'registry': 's3://test-registry'}
-        backend = Quilt3_Backend()
-
-        # Mock get_registry_url to return a valid S3 URL
-        backend.get_registry_url = Mock(return_value="s3://test-registry")
-
-        # Mock quilt3.Package
-        mock_package = Mock()
-        mock_package.push.return_value = "hash999"
-        mock_quilt3.Package.return_value = mock_package
-
-        # Execute with copy="auto" explicitly
-        backend.create_package_revision(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            copy="auto",  # Explicit auto
-        )
-
-        # Verify push was called with copy="auto"
-        mock_package.push.assert_called_once()
-        push_kwargs = mock_package.push.call_args.kwargs
-        assert push_kwargs['copy'] == "auto"
+        assert 'selector_fn' in push_kwargs
+        # Verify the selector_fn returns False (don't copy)
+        selector_fn = push_kwargs['selector_fn']
+        assert selector_fn("any_key", "any_entry") is False
 
     # ========================================================================
     # Tests for combined auto_organize and copy parameters
     # ========================================================================
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_create_package_revision_auto_organize_and_copy_always(self, mock_quilt3):
-        """Test auto_organize=True with copy='always'."""
+    def test_create_package_revision_auto_organize_and_copy_true(self, mock_quilt3):
+        """Test auto_organize=True with copy=True."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
@@ -1283,7 +1260,7 @@ class TestQuilt3BackendPackageCreation:
             package_name="test/organized-copy",
             s3_uris=s3_uris,
             auto_organize=True,
-            copy="always",
+            copy=True,
         )
 
         # Verify logical keys preserve structure
@@ -1293,15 +1270,15 @@ class TestQuilt3BackendPackageCreation:
         ]
         mock_package.set.assert_has_calls(expected_calls, any_order=True)
 
-        # Verify copy parameter passed to push
+        # Verify push was called WITHOUT selector_fn (copy=True allows copying)
         mock_package.push.assert_called_once()
         push_kwargs = mock_package.push.call_args.kwargs
-        assert push_kwargs['copy'] == "always"
+        assert 'selector_fn' not in push_kwargs
         assert result.success is True
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
-    def test_create_package_revision_flatten_and_copy_never(self, mock_quilt3):
-        """Test auto_organize=False with copy='never'."""
+    def test_create_package_revision_flatten_and_copy_false(self, mock_quilt3):
+        """Test auto_organize=False with copy=False."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         mock_session = {'registry': 's3://test-registry'}
@@ -1324,7 +1301,7 @@ class TestQuilt3BackendPackageCreation:
             package_name="test/flat-ref",
             s3_uris=s3_uris,
             auto_organize=False,
-            copy="never",
+            copy=False,
         )
 
         # Verify logical keys are flattened
@@ -1334,10 +1311,13 @@ class TestQuilt3BackendPackageCreation:
         ]
         mock_package.set.assert_has_calls(expected_calls, any_order=True)
 
-        # Verify copy parameter passed to push
+        # Verify push was called WITH selector_fn that returns False
         mock_package.push.assert_called_once()
         push_kwargs = mock_package.push.call_args.kwargs
-        assert push_kwargs['copy'] == "never"
+        assert 'selector_fn' in push_kwargs
+        # Verify the selector_fn returns False (don't copy)
+        selector_fn = push_kwargs['selector_fn']
+        assert selector_fn("any_key", "any_entry") is False
         assert result.success is True
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')

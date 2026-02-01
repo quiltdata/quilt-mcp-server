@@ -83,7 +83,7 @@ def create() -> QuiltOps:
     session_info = QuiltOpsFactory._detect_quilt3_session()
     if session_info is not None:
         logger.info("Found valid quilt3 session, creating Quilt3_Backend")
-        return Quilt3_Backend(session_info)
+        return Quilt3_Backend()
 
     # No valid authentication found
     logger.warning("No valid authentication found")
@@ -226,7 +226,7 @@ else:
 ```python
 session_info = QuiltOpsFactory._detect_quilt3_session()
 if session_info is not None:
-    return Quilt3_Backend(session_info)
+    return Quilt3_Backend()
 else:
     raise AuthenticationError()  # ← NO FALLBACK!
 ```
@@ -464,7 +464,7 @@ class IAM_Backend(QuiltOps):
 def create() -> QuiltOps:
     # Try quilt3 session
     if session_info := _detect_quilt3_session():
-        return Quilt3_Backend(session_info)
+        return Quilt3_Backend()
 
     # Try JWT token
     if jwt_token := _detect_jwt_token():

@@ -94,7 +94,7 @@ User identified 4 orthogonal dimensions that define deployment behavior:
 # Phase 1: Only quilt3 backend exists
 session_info = QuiltOpsFactory._detect_quilt3_session()
 if session_info is not None:
-    return Quilt3_Backend(session_info)
+    return Quilt3_Backend()
 else:
     raise AuthenticationError()  # NO FALLBACK
 ```

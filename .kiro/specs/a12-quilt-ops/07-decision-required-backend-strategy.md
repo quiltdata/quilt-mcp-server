@@ -57,7 +57,7 @@ QuiltOpsFactory.create()
        # Check for quilt3 session (fix API)
        if not os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1":
            if session_info := _detect_quilt3_session():
-               return Quilt3_Backend(session_info)
+               return Quilt3_Backend()
 
        # Check for JWT token
        if jwt_token := _detect_jwt_token():
@@ -189,7 +189,7 @@ QuiltOpsFactory.create()
                    'registry': quilt3.session.get_registry_url(),
                    'logged_in': True,
                }
-               return Quilt3_Backend(session_info)
+               return Quilt3_Backend()
            else:
                # Pure IAM mode
                registry = os.getenv("QUILT_DEFAULT_REGISTRY")

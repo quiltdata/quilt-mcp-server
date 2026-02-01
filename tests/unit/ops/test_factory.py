@@ -29,29 +29,29 @@ class TestQuiltOpsFactoryStructure:
         assert callable(QuiltOpsFactory.create)
 
     def test_quilt_ops_factory_create_is_static_method(self):
-        """Test that create() is a static method that doesn't require instantiation."""
+        """Test that create() is a static method that works with mode configuration."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
+
+        # Set local mode for testing
+        set_test_mode_config(multitenant_mode=False)
 
         # Should be able to call without instantiating
-        # This will fail due to no session, but should not fail due to method access
-        with pytest.raises(AuthenticationError):
-            QuiltOpsFactory.create()
+        # This will succeed in local mode with quilt3 available
+        result = QuiltOpsFactory.create()
+        assert result is not None
 
 
 class TestQuiltOpsFactoryQuilt3SessionDetection:
     """Test quilt3 session detection and validation."""
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_create_with_valid_quilt3_session(self, mock_quilt3):
-        """Test create() with valid quilt3 session returns Quilt3_Backend."""
+    def test_create_with_valid_quilt3_session(self):
+        """Test create() in local mode returns Quilt3_Backend."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock valid session
-        mock_session_info = {
-            'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'},
-        }
-        mock_quilt3.session.get_session_info.return_value = mock_session_info
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
         # Execute
         result = QuiltOpsFactory.create()
@@ -60,67 +60,68 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         assert isinstance(result, Quilt3_Backend)
-        mock_quilt3.session.get_session_info.assert_called_once()
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_create_with_no_quilt3_session(self, mock_quilt3):
-        """Test create() with no quilt3 session raises AuthenticationError."""
+    def test_create_with_no_quilt3_session(self):
+        """Test create() in multitenant mode returns Platform_Backend."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock no session
-        mock_quilt3.session.get_session_info.return_value = None
+        # Set multitenant mode
+        set_test_mode_config(multitenant_mode=True)
 
-        # Execute and verify
-        with pytest.raises(AuthenticationError) as exc_info:
-            QuiltOpsFactory.create()
+        # Execute
+        result = QuiltOpsFactory.create()
 
-        error_message = str(exc_info.value).lower()
-        assert "no valid authentication" in error_message or "no authentication" in error_message
-        mock_quilt3.session.get_session_info.assert_called_once()
+        # Verify
+        from quilt_mcp.backends.platform_backend import Platform_Backend
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_create_with_invalid_quilt3_session(self, mock_quilt3):
-        """Test create() with invalid quilt3 session raises AuthenticationError."""
+        assert isinstance(result, Platform_Backend)
+
+    def test_create_with_invalid_quilt3_session(self):
+        """Test create() with quilt3 unavailable in local mode raises AuthenticationError."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock session that raises exception
-        mock_quilt3.session.get_session_info.side_effect = Exception("Session expired")
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
-        # Execute and verify
-        with pytest.raises(AuthenticationError) as exc_info:
-            QuiltOpsFactory.create()
+        # Mock quilt3 as unavailable
+        with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
+            with pytest.raises(AuthenticationError) as exc_info:
+                QuiltOpsFactory.create()
+            assert "quilt3 library is not available" in str(exc_info.value)
 
-        error_message = str(exc_info.value).lower()
-        assert "no valid authentication" in error_message or "no authentication" in error_message
-        mock_quilt3.session.get_session_info.assert_called_once()
-
-    @patch('quilt_mcp.ops.factory.quilt3', None)
     def test_create_with_no_quilt3_library(self):
-        """Test create() when quilt3 library is not available."""
+        """Test create() with no quilt3 library in local mode raises AuthenticationError."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Execute and verify
-        with pytest.raises(AuthenticationError) as exc_info:
-            QuiltOpsFactory.create()
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
-        error_message = str(exc_info.value).lower()
-        assert "no valid authentication" in error_message or "quilt3" in error_message
+        # Mock quilt3 as unavailable
+        with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
+            with pytest.raises(AuthenticationError) as exc_info:
+                QuiltOpsFactory.create()
+            assert "quilt3 library is not available" in str(exc_info.value)
 
 
 class TestQuiltOpsFactorySessionValidation:
     """Test session validation logic."""
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_session_validation_with_empty_session(self, mock_quilt3):
-        """Test that empty session info is handled correctly."""
+    def test_session_validation_with_empty_session(self):
+        """Test that local mode works without session validation."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock empty session
-        mock_quilt3.session.get_session_info.return_value = {}
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
-        # Execute and verify
-        with pytest.raises(AuthenticationError):
-            QuiltOpsFactory.create()
+        # Should create backend successfully in local mode
+        result = QuiltOpsFactory.create()
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        assert isinstance(result, Quilt3_Backend)
 
     @patch('quilt_mcp.ops.factory.quilt3')
     def test_session_validation_with_malformed_session(self, mock_quilt3):
@@ -139,164 +140,156 @@ class TestQuiltOpsFactorySessionValidation:
 
         assert isinstance(result, Quilt3_Backend)
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_session_validation_preserves_session_data(self, mock_quilt3):
-        """Test that session data is passed correctly to backend."""
+    def test_session_validation_preserves_session_data(self):
+        """Test that backend creation works with mode configuration."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock session with specific data
-        mock_session_info = {
-            'registry': 's3://custom-registry',
-            'credentials': {'access_key': 'custom_key', 'secret_key': 'custom_secret'},
-        }
-        mock_quilt3.session.get_session_info.return_value = mock_session_info
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
         # Execute
-        with patch('quilt_mcp.ops.factory.Quilt3_Backend') as mock_backend_class:
-            mock_backend_instance = Mock()
-            mock_backend_class.return_value = mock_backend_instance
+        result = QuiltOpsFactory.create()
 
-            result = QuiltOpsFactory.create()
+        # Verify backend was created correctly
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
-            # Verify backend was created with correct session data
-            mock_backend_class.assert_called_once_with(mock_session_info)
-            assert result == mock_backend_instance
+        assert isinstance(result, Quilt3_Backend)
 
 
 class TestQuiltOpsFactoryErrorHandling:
     """Test error handling and error message quality."""
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_error_handling_when_no_authentication_found(self, mock_quilt3):
-        """Test error handling when no authentication method is available."""
+    def test_error_handling_when_no_authentication_found(self):
+        """Test error handling when quilt3 is not available in local mode."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock no authentication available
-        mock_quilt3.session.get_session_info.return_value = None
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
-        # Execute and verify
-        with pytest.raises(AuthenticationError) as exc_info:
-            QuiltOpsFactory.create()
+        # Mock quilt3 as unavailable
+        with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
+            with pytest.raises(AuthenticationError) as exc_info:
+                QuiltOpsFactory.create()
 
-        error_message = str(exc_info.value)
-        # Should provide clear guidance on authentication options
-        assert "authentication" in error_message.lower()
-        # Should mention quilt3 login as an option (Phase 1 focus)
-        assert "quilt3" in error_message.lower() or "login" in error_message.lower()
+            error_message = str(exc_info.value)
+            assert "quilt3 library is not available" in error_message
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_error_messages_include_remediation_steps(self, mock_quilt3):
+    def test_error_messages_include_remediation_steps(self):
         """Test that error messages provide actionable remediation steps."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock no session
-        mock_quilt3.session.get_session_info.return_value = None
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
-        # Execute and verify
-        with pytest.raises(AuthenticationError) as exc_info:
-            QuiltOpsFactory.create()
+        # Mock quilt3 as unavailable
+        with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
+            with pytest.raises(AuthenticationError) as exc_info:
+                QuiltOpsFactory.create()
 
-        error_message = str(exc_info.value)
-        # Should provide specific steps user can take
-        assert any(keyword in error_message.lower() for keyword in ["login", "session", "quilt3", "authentication"])
+            error_message = str(exc_info.value)
+            assert "quilt3 library is not available" in error_message
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_error_handling_preserves_original_exception_context(self, mock_quilt3):
-        """Test that original exception context is preserved in error messages."""
+    def test_error_handling_preserves_original_exception_context(self):
+        """Test that backend creation works correctly in different modes."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock session that raises specific exception
-        original_error = "Network timeout connecting to registry"
-        mock_quilt3.session.get_session_info.side_effect = Exception(original_error)
+        # Test local mode
+        set_test_mode_config(multitenant_mode=False)
+        result = QuiltOpsFactory.create()
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
-        # Execute and verify
-        with pytest.raises(AuthenticationError) as exc_info:
-            QuiltOpsFactory.create()
+        assert isinstance(result, Quilt3_Backend)
 
-        # Error should still be AuthenticationError but may include context
-        assert isinstance(exc_info.value, AuthenticationError)
+        # Test multitenant mode
+        set_test_mode_config(multitenant_mode=True)
+        result = QuiltOpsFactory.create()
+        from quilt_mcp.backends.platform_backend import Platform_Backend
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_clear_error_message_content(self, mock_quilt3):
+        assert isinstance(result, Platform_Backend)
+
+    def test_clear_error_message_content(self):
         """Test that error messages are clear and user-friendly."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock no authentication
-        mock_quilt3.session.get_session_info.return_value = None
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
-        # Execute and verify
-        with pytest.raises(AuthenticationError) as exc_info:
-            QuiltOpsFactory.create()
+        # Mock quilt3 as unavailable
+        with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
+            with pytest.raises(AuthenticationError) as exc_info:
+                QuiltOpsFactory.create()
 
-        error_message = str(exc_info.value)
-        # Should be clear and actionable
-        assert len(error_message) > 20  # Not just a generic error
-        assert not error_message.startswith("Exception:")  # Not a raw exception
-        assert "authentication" in error_message.lower()
+            error_message = str(exc_info.value)
+            assert len(error_message) > 20  # Not just a generic error
+            assert "quilt3 library is not available" in error_message
 
 
 class TestQuiltOpsFactoryPhase1Scope:
-    """Test that factory correctly implements Phase 1 scope (quilt3 only)."""
+    """Test that factory correctly implements mode-based backend selection."""
 
     def test_factory_does_not_check_jwt_tokens_in_phase1(self):
-        """Test that factory doesn't check for JWT tokens in Phase 1."""
+        """Test that factory uses mode configuration instead of JWT tokens."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Set JWT token in environment (should be ignored in Phase 1)
+        # Set local mode (should ignore JWT tokens)
+        set_test_mode_config(multitenant_mode=False)
+
+        # Set JWT token in environment (should be ignored in local mode)
         with patch.dict(os.environ, {'QUILT_JWT_TOKEN': 'fake-jwt-token'}):
-            with patch('quilt_mcp.ops.factory.quilt3') as mock_quilt3:
-                # Mock no quilt3 session
-                mock_quilt3.session.get_session_info.return_value = None
+            # Should create Quilt3_Backend in local mode regardless of JWT
+            result = QuiltOpsFactory.create()
+            from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
-                # Should still fail because JWT is not supported in Phase 1
-                with pytest.raises(AuthenticationError):
-                    QuiltOpsFactory.create()
+            assert isinstance(result, Quilt3_Backend)
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_factory_only_creates_quilt3_backend_in_phase1(self, mock_quilt3):
-        """Test that factory only creates Quilt3_Backend in Phase 1."""
+    def test_factory_only_creates_quilt3_backend_in_phase1(self):
+        """Test that factory creates appropriate backends based on mode."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock valid session
-        mock_session_info = {'registry': 's3://test-registry'}
-        mock_quilt3.session.get_session_info.return_value = mock_session_info
-
-        # Execute
+        # Test local mode creates Quilt3_Backend
+        set_test_mode_config(multitenant_mode=False)
         result = QuiltOpsFactory.create()
-
-        # Verify only Quilt3_Backend is created
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         assert isinstance(result, Quilt3_Backend)
         assert type(result).__name__ == 'Quilt3_Backend'
 
+        # Test multitenant mode creates Platform_Backend
+        set_test_mode_config(multitenant_mode=True)
+        result = QuiltOpsFactory.create()
+        from quilt_mcp.backends.platform_backend import Platform_Backend
+
+        assert isinstance(result, Platform_Backend)
+        assert type(result).__name__ == 'Platform_Backend'
+
     def test_factory_phase1_documentation_mentions_scope(self):
-        """Test that factory class/module documentation mentions Phase 1 scope."""
+        """Test that factory class documentation exists."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
 
-        # Check class docstring mentions Phase 1 or scope limitation
-        class_doc = QuiltOpsFactory.__doc__ or ""
-        module_doc = QuiltOpsFactory.__module__
+        # Check class exists and has documentation
+        assert QuiltOpsFactory is not None
+        assert hasattr(QuiltOpsFactory, 'create')
+        assert callable(QuiltOpsFactory.create)
 
-        # Should have some documentation indicating this is Phase 1 implementation
-        # This is more of a documentation check than functional test
-        assert QuiltOpsFactory is not None  # Basic check that class exists
 
 class TestQuiltOpsFactoryIntegration:
     """Test integration scenarios and complete factory workflows."""
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_complete_factory_workflow_success(self, mock_quilt3):
-        """Test complete successful workflow from session detection to backend creation."""
+    def test_complete_factory_workflow_success(self):
+        """Test complete successful workflow from mode detection to backend creation."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
         from quilt_mcp.ops.quilt_ops import QuiltOps
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock valid session
-        mock_session_info = {
-            'registry': 's3://test-registry',
-            'credentials': {'access_key': 'test', 'secret_key': 'test'},
-        }
-        mock_quilt3.session.get_session_info.return_value = mock_session_info
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
         # Execute
         result = QuiltOpsFactory.create()
@@ -312,14 +305,13 @@ class TestQuiltOpsFactoryIntegration:
         assert hasattr(result, 'list_buckets')
         assert hasattr(result, 'get_content_url')
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_factory_handles_backend_initialization_errors(self, mock_quilt3):
+    def test_factory_handles_backend_initialization_errors(self):
         """Test that factory handles errors during backend initialization."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock session exists but backend initialization fails
-        mock_session_info = {'registry': 's3://test-registry'}
-        mock_quilt3.session.get_session_info.return_value = mock_session_info
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
         # Mock backend constructor to raise error
         with patch('quilt_mcp.ops.factory.Quilt3_Backend') as mock_backend_class:
@@ -331,19 +323,17 @@ class TestQuiltOpsFactoryIntegration:
 
             assert "Backend initialization failed" in str(exc_info.value)
 
-    @patch('quilt_mcp.ops.factory.quilt3')
-    def test_factory_creates_functional_backend_instance(self, mock_quilt3):
+    def test_factory_creates_functional_backend_instance(self):
         """Test that factory creates a functional backend instance."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
+        from quilt_mcp.config import set_test_mode_config
 
-        # Mock valid session
-        mock_session_info = {'registry': 's3://test-registry'}
-        mock_quilt3.session.get_session_info.return_value = mock_session_info
+        # Set local mode
+        set_test_mode_config(multitenant_mode=False)
 
         # Execute
         result = QuiltOpsFactory.create()
 
-        # Verify the instance has the expected session
-        assert hasattr(result, 'session')
-        # The session should be the one we provided (after validation)
-        # Note: actual validation happens in Quilt3_Backend, factory just passes it through
+        # Verify the instance has the expected attributes
+        assert hasattr(result, 'quilt3')
+        # The backend should be properly initialized

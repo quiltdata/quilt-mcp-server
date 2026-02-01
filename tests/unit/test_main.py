@@ -10,6 +10,7 @@ def reset_env(monkeypatch):
     monkeypatch.delenv("FASTMCP_TRANSPORT", raising=False)
     # Reset ModeConfig singleton for each test
     from quilt_mcp.config import reset_mode_config
+
     reset_mode_config()
     yield
     monkeypatch.delenv("FASTMCP_TRANSPORT", raising=False)
@@ -163,9 +164,9 @@ def test_transport_protocol_selection_local_mode(monkeypatch):
     """Test that local mode sets stdio transport."""
     # Ensure local mode (default)
     monkeypatch.delenv("QUILT_MULTITENANT_MODE", raising=False)
-    
+
     called, transport, skip_banner = call_main_with_fake_server()
-    
+
     assert called is True
     assert transport == "stdio"
 
@@ -178,9 +179,9 @@ def test_transport_protocol_selection_multitenant_mode(monkeypatch):
     monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
     monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")
     monkeypatch.setenv("MCP_JWT_AUDIENCE", "test-audience")
-    
+
     called, transport, skip_banner = call_main_with_fake_server()
-    
+
     assert called is True
     assert transport == "http"
 
@@ -195,8 +196,8 @@ def test_transport_protocol_respects_existing_env_var(monkeypatch):
     monkeypatch.setenv("MCP_JWT_AUDIENCE", "test-audience")
     # Pre-set transport to a different value
     monkeypatch.setenv("FASTMCP_TRANSPORT", "sse")
-    
+
     called, transport, skip_banner = call_main_with_fake_server()
-    
+
     assert called is True
     assert transport == "sse"  # Should not be overridden

@@ -46,60 +46,44 @@ class TestQuilt3BackendStructure:
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_initialization_with_empty_session(self, mock_quilt3):
-        """Test that Quilt3_Backend raises AuthenticationError with empty session."""
+        """Test that Quilt3_Backend initializes without parameters (new mode-based approach)."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
-        # Test with None
-        with pytest.raises(AuthenticationError) as exc_info:
-            Quilt3_Backend(None)
-        assert "session configuration is empty" in str(exc_info.value)
-
-        # Test with empty dict
-        with pytest.raises(AuthenticationError) as exc_info:
-            Quilt3_Backend({})
-        assert "session configuration is empty" in str(exc_info.value)
-
-        # Test with empty string
-        with pytest.raises(AuthenticationError) as exc_info:
-            Quilt3_Backend("")
-        assert "session configuration is empty" in str(exc_info.value)
+        # New implementation doesn't take session parameters
+        # It should initialize successfully when quilt3 is available
+        backend = Quilt3_Backend()
+        assert backend is not None
+        assert hasattr(backend, 'quilt3')
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None)
     def test_quilt3_backend_initialization_without_quilt3_library(self):
         """Test that Quilt3_Backend raises AuthenticationError when quilt3 library is not available."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
-        mock_session_config = {'registry': 's3://test-registry'}
-
+        # Should raise AuthenticationError when quilt3 is not available
         with pytest.raises(AuthenticationError) as exc_info:
-            Quilt3_Backend(mock_session_config)
+            Quilt3_Backend()
+        assert "quilt3 library is not available" in str(exc_info.value)
 
+        # Should raise AuthenticationError when quilt3 is not available
+        with pytest.raises(AuthenticationError) as exc_info:
+            Quilt3_Backend()
         assert "quilt3 library is not available" in str(exc_info.value)
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_session_validation_failure(self, mock_quilt3):
-        """Test session validation failure scenarios."""
+        """Test backend initialization with quilt3 available (new mode-based approach)."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
-        # Test with session validation exception
-        mock_quilt3.session.get_session_info.side_effect = Exception("Invalid credentials")
-
-        with pytest.raises(AuthenticationError) as exc_info:
-            Quilt3_Backend({'invalid': 'config'})
-
-        assert "Invalid quilt3 session: Invalid credentials" in str(exc_info.value)
-
-        # Test with permission denied
-        mock_quilt3.session.get_session_info.side_effect = PermissionError("Access denied")
-
-        with pytest.raises(AuthenticationError) as exc_info:
-            Quilt3_Backend({'registry': 's3://test-registry'})
-
-        assert "Invalid quilt3 session: Access denied" in str(exc_info.value)
+        # New implementation doesn't validate sessions during initialization
+        # It should initialize successfully when quilt3 is available
+        backend = Quilt3_Backend()
+        assert backend is not None
+        assert hasattr(backend, 'quilt3')
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_quilt3_backend_session_validation_without_get_session_info(self, mock_quilt3):
-        """Test session validation when get_session_info method is not available."""
+        """Test backend initialization without session validation (new mode-based approach)."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         # Mock quilt3.session without get_session_info method
@@ -107,11 +91,10 @@ class TestQuilt3BackendStructure:
         del mock_session.get_session_info  # Remove the method
         mock_quilt3.session = mock_session
 
-        # Should still initialize successfully if session config is provided
-        session_config = {'registry': 's3://test-registry'}
+        # Should initialize successfully without session validation
         backend = Quilt3_Backend()
-        assert backend.session == session_config
-
+        assert backend is not None
+        assert hasattr(backend, 'quilt3')
 
 
 class TestQuilt3BackendIntegration:

@@ -282,5 +282,3 @@ class TestExtractBucketFromRegistry:
         """Test extracting bucket name without s3:// prefix."""
         result = _extract_bucket_from_registry("my-bucket-name")
         assert result == "my-bucket-name"
-
-

@@ -92,14 +92,14 @@ def main() -> None:
         try:
             mode_config = get_mode_config()
             mode_config.validate()
-            
+
             # Log successful validation and current mode
             mode_name = "multitenant" if mode_config.is_multitenant else "local development"
             print(f"Quilt MCP Server starting in {mode_name} mode", file=sys.stderr)
             print(f"Backend type: {mode_config.backend_type}", file=sys.stderr)
             print(f"JWT required: {mode_config.requires_jwt}", file=sys.stderr)
             print(f"Default transport: {mode_config.default_transport}", file=sys.stderr)
-            
+
         except ConfigurationError as e:
             print_startup_error(e, "Configuration Error")
             sys.exit(1)

@@ -138,7 +138,7 @@ class QuiltOpsFactory:
         # Phase 1: Only quilt3 session detection
         session_info = QuiltOpsFactory._detect_quilt3_session()
         if session_info:
-            return Quilt3_Backend(session_info)
+            return Quilt3_Backend()
         
         raise AuthenticationError("No valid authentication found...")
 ```
@@ -156,7 +156,7 @@ class QuiltOpsFactory:
         # Priority 2: Quilt3 session
         session_info = QuiltOpsFactory._detect_quilt3_session()
         if session_info:
-            return Quilt3_Backend(session_info)
+            return Quilt3_Backend()
         
         raise AuthenticationError("No valid authentication found...")
 ```

@@ -52,7 +52,7 @@ class ModeConfig:
 
     def __init__(self, multitenant_mode: Optional[bool] = None):
         """Initialize ModeConfig with environment variable parsing.
-        
+
         Args:
             multitenant_mode: Override for testing. If None, reads from environment.
         """
@@ -167,10 +167,10 @@ def reset_mode_config() -> None:
 
 def create_test_mode_config(multitenant_mode: bool) -> ModeConfig:
     """Create a ModeConfig instance for testing without affecting the singleton.
-    
+
     Args:
         multitenant_mode: Whether to enable multitenant mode
-        
+
     Returns:
         ModeConfig instance configured for testing
     """
@@ -179,7 +179,7 @@ def create_test_mode_config(multitenant_mode: bool) -> ModeConfig:
 
 def set_test_mode_config(multitenant_mode: bool) -> None:
     """Set a test ModeConfig instance as the singleton (used in tests).
-    
+
     Args:
         multitenant_mode: Whether to enable multitenant mode
     """

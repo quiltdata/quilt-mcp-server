@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import uuid
-from typing import Optional
+from typing import Literal, Optional
 
 from quilt_mcp.context.exceptions import ServiceInitializationError, TenantValidationError
 from quilt_mcp.context.tenant_extraction import extract_tenant_id
@@ -25,9 +25,12 @@ class RequestContextFactory:
     def __init__(self, mode: str = "auto") -> None:
         mode_config = get_mode_config()
         if mode == "auto":
-            self.mode = mode_config.tenant_mode
+            self.mode: Literal["single-user", "multitenant"] = mode_config.tenant_mode
         else:
-            self.mode = mode
+            # Validate that mode is one of the expected values
+            if mode not in ("single-user", "multitenant"):
+                raise ValueError(f"Invalid mode: {mode}. Must be 'single-user' or 'multitenant'")
+            self.mode = mode  # type: ignore[assignment]
 
     def create_context(
         self,
@@ -79,21 +82,18 @@ class RequestContextFactory:
     def _create_auth_service(self) -> AuthService:
         mode_config = get_mode_config()
         runtime_auth = get_runtime_auth()
-        
+
         if runtime_auth and runtime_auth.access_token:
             return JWTAuthService()  # type: ignore[return-value]
 
         if mode_config.requires_jwt:
-            raise ServiceInitializationError(
-                "AuthService", 
-                "JWT authentication required but missing."
-            )
+            raise ServiceInitializationError("AuthService", "JWT authentication required but missing.")
 
         return IAMAuthService()  # type: ignore[return-value]
 
-    def _create_permission_service(self, auth_service: AuthService):
+    def _create_permission_service(self, auth_service: AuthService) -> PermissionDiscoveryService:
         return PermissionDiscoveryService(auth_service)
 
-    def _create_workflow_service(self, tenant_id: str):
+    def _create_workflow_service(self, tenant_id: str) -> WorkflowService:
         storage = FileBasedWorkflowStorage()
         return WorkflowService(tenant_id=tenant_id, storage=storage)

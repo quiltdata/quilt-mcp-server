@@ -248,7 +248,7 @@ class QuiltOpsFactory:
         try:
             session_config = quilt3.session.get_session_info()
             if session_config:
-                return Quilt3_Backend(session_config)
+                return Quilt3_Backend()
         except Exception as e:
             pass  # Fall through to error
         
