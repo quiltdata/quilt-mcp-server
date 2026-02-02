@@ -416,6 +416,33 @@ class QuiltOps(ABC):
         ...
 
     @abstractmethod
+    def get_open_query_status(self) -> Dict[str, Any]:
+        """Get tabulator open query status via GraphQL.
+
+        Returns:
+            Dict with success flag and open_query_enabled status
+
+        Raises:
+            BackendError: If GraphQL query fails
+        """
+        ...
+
+    @abstractmethod
+    def set_open_query(self, enabled: bool) -> Dict[str, Any]:
+        """Set tabulator open query status via GraphQL.
+
+        Args:
+            enabled: Whether to enable or disable open query
+
+        Returns:
+            Dict with success flag, current status, and message
+
+        Raises:
+            BackendError: If GraphQL mutation fails
+        """
+        ...
+
+    @abstractmethod
     def get_boto3_client(
         self,
         service_name: str,

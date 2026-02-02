@@ -37,7 +37,7 @@ class TestTabulatorWorkflow:
         - Full stack: auth → catalog → query → results
         """
         import asyncio
-        from quilt_mcp.services.tabulator_service import tabulator_buckets_list, tabulator_bucket_query
+        from quilt_mcp.tools.tabulator import tabulator_buckets_list, tabulator_bucket_query
 
         # 0. List all buckets in Tabulator catalog
         buckets_result = asyncio.run(tabulator_buckets_list())

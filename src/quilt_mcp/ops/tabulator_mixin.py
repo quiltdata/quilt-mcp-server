@@ -344,3 +344,66 @@ class TabulatorMixin:
             BackendError: If GraphQL mutation fails
         """
         return self.create_tabulator_table(bucket, table_name, None)
+
+    def get_open_query_status(self) -> Dict[str, Any]:
+        """Get tabulator open query status via GraphQL.
+
+        Returns:
+            Dict with success flag and open_query_enabled status
+
+        Raises:
+            BackendError: If GraphQL query fails
+        """
+        query = """
+        query GetOpenQueryStatus {
+            admin {
+                tabulatorOpenQuery
+            }
+        }
+        """
+        try:
+            result = self.execute_graphql_query(query)
+            enabled = result.get("data", {}).get("admin", {}).get("tabulatorOpenQuery", False)
+            return {
+                "success": True,
+                "open_query_enabled": enabled,
+            }
+        except Exception as exc:
+            raise BackendError(f"Failed to get open query status: {exc}")
+
+    def set_open_query(self, enabled: bool) -> Dict[str, Any]:
+        """Set tabulator open query status via GraphQL.
+
+        Args:
+            enabled: Whether to enable or disable open query
+
+        Returns:
+            Dict with success flag, current status, and message
+
+        Raises:
+            BackendError: If GraphQL mutation fails
+        """
+        mutation = """
+        mutation SetOpenQuery($enabled: Boolean!) {
+            admin {
+                setTabulatorOpenQuery(enabled: $enabled) {
+                    tabulatorOpenQuery
+                }
+            }
+        }
+        """
+        try:
+            result = self.execute_graphql_query(mutation, variables={"enabled": enabled})
+            current = (
+                result.get("data", {})
+                .get("admin", {})
+                .get("setTabulatorOpenQuery", {})
+                .get("tabulatorOpenQuery", enabled)
+            )
+            return {
+                "success": True,
+                "open_query_enabled": current,
+                "message": f"Open query {'enabled' if current else 'disabled'}",
+            }
+        except Exception as exc:
+            raise BackendError(f"Failed to set open query status: {exc}")

@@ -12,55 +12,36 @@ from quilt_mcp.tools.tabulator import (
     tabulator_table_delete,
     tabulator_table_rename,
 )
-from quilt_mcp.services.tabulator_service import (
-    TabulatorService,
-    get_tabulator_service,
-)
+# TabulatorService has been deprecated - admin operations moved to backend
+# Query operations moved to athena_read_service
 
 
 class TestTabulatorService:
     """Test TabulatorService class - DEPRECATED.
 
-    Note: Most table management tests have been deprecated and removed.
-    Table operations are now handled by TabulatorMixin in the backend layer.
-    Only admin operations (open query) remain in the service.
+    Note: TabulatorService has been removed. Admin operations moved to TabulatorMixin.
+    Query operations moved to athena_read_service.
     """
 
     def test_service_initialization_without_admin(self):
-        """Test service initialization when admin client is not available."""
-        with patch("quilt_mcp.services.tabulator_service.ADMIN_AVAILABLE", False):
-            service = TabulatorService(use_quilt_auth=True)
-            assert service.admin_available is False
-            assert service.use_quilt_auth is True
+        """Test deprecated - TabulatorService removed."""
+        pytest.skip("TabulatorService removed - admin operations moved to backend TabulatorMixin")
 
-    @patch("quilt_mcp.services.tabulator_service.ADMIN_AVAILABLE", True)
     def test_service_initialization_with_admin(self):
-        """Test service initialization with admin client."""
-        service = TabulatorService(use_quilt_auth=True)
-        assert service.admin_available is True
-        assert service.use_quilt_auth is True
+        """Test deprecated - TabulatorService removed."""
+        pytest.skip("TabulatorService removed - admin operations moved to backend TabulatorMixin")
 
     def test_service_open_query_methods_no_admin_available(self):
-        """Test open query methods when admin not available."""
-        service = TabulatorService(use_quilt_auth=False)
-
-        result = service.get_open_query_status()
-        assert result["success"] is False
-        assert "Admin functionality not available" in result["error"]
-
-        result = service.set_open_query(True)
-        assert result["success"] is False
-        assert "Admin functionality not available" in result["error"]
+        """Test deprecated - open query methods moved to backend."""
+        pytest.skip("Open query methods moved to backend TabulatorMixin")
 
 
 class TestGetTabulatorService:
-    """Test get_tabulator_service utility function."""
+    """Test get_tabulator_service utility function - DEPRECATED."""
 
     def test_get_tabulator_service(self):
-        """Test get_tabulator_service returns TabulatorService instance."""
-        service = get_tabulator_service()
-        assert isinstance(service, TabulatorService)
-        assert service.use_quilt_auth is True
+        """Test deprecated - get_tabulator_service removed."""
+        pytest.skip("get_tabulator_service removed - use backend directly")
 
 
 class TestTabulatorTablesList:

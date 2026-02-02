@@ -192,19 +192,12 @@ async def tabulator_table_rename(bucket_name: str, table_name: str, new_table_na
 async def tabulator_open_query_status() -> Dict[str, Any]:
     """Get tabulator open query status.
 
-    Note: This operation requires admin access and uses the legacy
-    TabulatorService temporarily until admin operations are migrated.
-
     Returns:
         Dict with open query status
     """
     try:
-        # This still needs admin access through the service
-        # TODO: Migrate to backend admin operations
-        from quilt_mcp.services.tabulator_service import get_tabulator_service
-
-        service = get_tabulator_service()
-        return service.get_open_query_status()
+        backend = QuiltOpsFactory.create()
+        return backend.get_open_query_status()
 
     except Exception as e:
         logger.error(f"Error in tabulator_open_query_status: {e}")
@@ -214,9 +207,6 @@ async def tabulator_open_query_status() -> Dict[str, Any]:
 async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
     """Toggle tabulator open query status.
 
-    Note: This operation requires admin access and uses the legacy
-    TabulatorService temporarily until admin operations are migrated.
-
     Args:
         enabled: Whether to enable open query
 
@@ -224,12 +214,8 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
         Dict with operation result
     """
     try:
-        # This still needs admin access through the service
-        # TODO: Migrate to backend admin operations
-        from quilt_mcp.services.tabulator_service import get_tabulator_service
-
-        service = get_tabulator_service()
-        return service.set_open_query(enabled)
+        backend = QuiltOpsFactory.create()
+        return backend.set_open_query(enabled)
 
     except Exception as e:
         logger.error(f"Error in tabulator_open_query_toggle: {e}")
@@ -243,9 +229,9 @@ async def tabulator_buckets_list() -> Dict[str, Any]:
         Dict with success status, buckets list, and metadata
     """
     try:
-        from quilt_mcp.services.tabulator_service import list_tabulator_buckets
+        from quilt_mcp.services.athena_read_service import tabulator_list_buckets
 
-        return list_tabulator_buckets()
+        return tabulator_list_buckets()
 
     except Exception as e:
         logger.error(f"Error in tabulator_buckets_list: {e}")
@@ -274,11 +260,11 @@ async def tabulator_bucket_query(
         Dict with query results
     """
     try:
-        from quilt_mcp.services.tabulator_service import tabulator_bucket_query as service_query
+        from quilt_mcp.services.athena_read_service import tabulator_query_execute
 
-        return await service_query(
-            bucket_name=bucket_name,
+        return tabulator_query_execute(
             query=query,
+            database_name=bucket_name,
             workgroup_name=workgroup_name,
             max_results=max_results,
             output_format=output_format,
