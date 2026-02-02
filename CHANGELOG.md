@@ -8,7 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-02-02
+
 ### Added
+
+- **Platform GraphQL Backend**: Full implementation of `Platform_Backend` with JWT authentication
+  - Complete QuiltOps interface implementation using Platform GraphQL API
+  - JWT-based authentication with automatic session management
+  - All read operations: `search_packages()`, `get_package_info()`, `browse_content()`, `list_buckets()`, `list_all_packages()`, `diff_packages()`
+  - All write operations: `create_package_revision()`, `update_package_revision()`
+  - Catalog operations: `get_auth_status()`, `get_catalog_config()`, `configure_catalog()`
+  - AWS integration: `get_boto3_client()` with credential injection from JWT claims
+  - GraphQL query execution with proper error handling and authentication headers
+  - Comprehensive unit tests for core backend functionality
 
 - **TabulatorMixin for Shared GraphQL Operations**: Implemented `TabulatorMixin` providing shared tabulator table management operations for both backends:
   - `list_tabulator_tables()` - Query all tables in a bucket
@@ -17,10 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `update_tabulator_table()` - Alias for create (GraphQL handles both)
   - `rename_tabulator_table()` - Rename existing table
   - `delete_tabulator_table()` - Delete table (sets config to null)
-- Comprehensive error handling with `BackendError`, `ValidationError`, and `PermissionError`
-- 19 unit tests for `TabulatorMixin` covering all operations and error cases
+  - Comprehensive error handling with `BackendError`, `ValidationError`, and `PermissionError`
+  - 19 unit tests for `TabulatorMixin` covering all operations and error cases
 
 ### Changed
+
+- **Platform Backend**: Replaced stub implementation (105 lines) with full GraphQL backend (522 lines)
+  - Changed from NotImplementedError stubs to working GraphQL-based operations
+  - Integrated with JWT authentication service for secure API access
+  - Added runtime context integration for claims and metadata management
 
 - **BREAKING**: Migrated tabulator table operations from standalone service to backend layer
   - `Quilt3_Backend` now inherits `TabulatorMixin` for tabulator operations
@@ -34,8 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Template method pattern: Mixin calls `execute_graphql_query()` implemented by backends
 - Works with any backend implementing `execute_graphql_query()`
-- All backend unit tests passing (732 passed, 5 skipped)
-- All tabulator tests updated and passing (22 passed, 2 skipped)
+- Platform backend uses requests.Session for efficient HTTP connection pooling
+- Context manager pattern for temporary AWS credential injection during quilt3 Package operations
+- All backend unit tests passing with improved coverage (57.6%)
+- Factory tests updated with proper JWT context initialization
 
 ## [0.11.0] - 2026-02-01
 
