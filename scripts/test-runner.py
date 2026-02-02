@@ -190,12 +190,12 @@ class TestRunnerState:
         if completed:
             lines.append(f"{DIM}✅ COMPLETED: {' | '.join(completed)}{RESET}")
 
-        # Section 6: All errors grouped by phase and subtask (expanding list at bottom)
+        # Section 6: All errors and skipped tests grouped by phase and subtask (expanding list at bottom)
         has_errors = any(phase.error_lines for phase in self.phases)
 
         if has_errors:
             lines.append("")
-            lines.append("🔍 ERRORS:")
+            lines.append("🔍 ERRORS & SKIPPED:")
             for phase in self.phases:
                 if phase.error_lines:
                     # Group errors by subtask
@@ -395,13 +395,19 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
 
             # Capture error-related lines for display in TUI bottom section
             phase = state.current_phase_stats()
-            # Only flag as error if line contains error keywords AND doesn't indicate a passing test
-            has_error_keyword = any(keyword in line for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
-            is_passing_test = " PASSED" in line or "passed" in line.lower() and "failed" not in line.lower()
-            is_error = has_error_keyword and not is_passing_test
 
-            if phase and is_error:
-                # Add to error list with subtask info (no limit - show all errors)
+            # Check for pytest status indicators first (these take precedence)
+            is_passing_test = " PASSED " in line or line.endswith(" PASSED") or "PASSED [" in line
+            is_skipped_test = " SKIPPED " in line or line.endswith(" SKIPPED") or "SKIPPED [" in line
+
+            # Flag as notable if:
+            # - Contains error keywords AND is not a passing test, OR
+            # - Is a skipped test (important to see what's being skipped)
+            has_error_keyword = any(keyword in line for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
+            is_notable = (has_error_keyword and not is_passing_test) or is_skipped_test
+
+            if phase and is_notable:
+                # Add to error list with subtask info (no limit - show all errors and skipped tests)
                 phase.error_lines.append((phase.current_subtask_idx, line))
 
     process.wait()

@@ -705,6 +705,32 @@ test_tools:
             type: object
       required:
       - content
+  tabulator_list_buckets:
+    description: List all buckets (databases) in the Tabulator catalog.
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_query_execute:
+    description: Execute a query against the Tabulator catalog.
+    effect: configure
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
   tabulator_table_create:
     description: Create or update a tabulator table.
     effect: create
