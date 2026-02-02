@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Platform Backend Write Operations**: Refactored to use GraphQL-native mutations instead of `quilt3.Package`
+  - `create_package_revision()` now uses GraphQL `packageConstruct` mutation (previously delegated to `quilt3.Package.push()`)
+  - `update_package_revision()` now queries existing package via GraphQL and uses `packageConstruct` mutation (previously used `quilt3.Package.browse()` and `.push()`)
+  - Removed `import quilt3` statements from Platform_Backend write operations
+  - Architectural consistency: Pure GraphQL for all operations (read + write)
+  - Simpler testing: Mock GraphQL responses instead of complex quilt3 mocking
+  - **BREAKING**: `copy=True` parameter now raises `NotImplementedError` (deferred feature, will use `packagePromote` mutation in future)
+  - **BREAKING**: `copy` parameter in `update_package_revision()` only accepts `"none"` (other values raise `NotImplementedError`)
+  - Metadata merging now implemented in Python (no longer handled by quilt3)
+  - All GraphQL error types handled: `PackagePushInvalidInputFailure`, `PackagePushComputeFailure`, network errors
+  - Updated 6 unit tests to mock GraphQL mutations instead of quilt3
+  - All 124 backend unit tests passing
+  - See [spec/a15-platform/12-graphql-native-write-operations.md](spec/a15-platform/12-graphql-native-write-operations.md) for detailed specification
+
 ## [0.13.0] - 2026-02-02
 
 ### Added

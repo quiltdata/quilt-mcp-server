@@ -211,40 +211,50 @@ def test_search_packages(backend):
 
 ---
 
-### Phase 3: Write Operations (2-3 days)
+### Phase 3: Write Operations (2-3 days) ✅ COMPLETED
 
 **Milestone:** Can create and update packages
 
 **Tasks:**
 
-1. [ ] Implement `get_boto3_client()` using JWTAuthService
-2. [ ] Implement `create_package_revision()` delegating to quilt3.Package
-3. [ ] Implement `update_package_revision()` delegating to quilt3.Package
-4. [ ] Extract `_extract_logical_key()` helper (shared with Quilt3_Backend)
-5. [ ] Test copy=True and copy=False scenarios
-6. [ ] Test auto_organize behavior
+1. [x] Implement `get_boto3_client()` using JWTAuthService
+2. [x] Implement `create_package_revision()` using GraphQL `packageConstruct` mutation
+3. [x] Implement `update_package_revision()` using GraphQL queries + `packageConstruct` mutation
+4. [x] Extract `_extract_logical_key()` helper (shared with Quilt3_Backend)
+5. [x] Test copy=False scenario (copy=True raises NotImplementedError)
+6. [x] Test auto_organize behavior
 
-**Key Decision:** Use quilt3 Package Engine, NOT GraphQL mutations
+**Key Decision:** Use GraphQL `packageConstruct` mutation, NOT quilt3.Package
 
 **Rationale:**
 
-- Consistent with Quilt3_Backend
-- Supports selector_fn for fine-grained copy control
-- Proven error handling
-- No need to reimplement package building logic
+- **Architectural consistency:** Pure GraphQL for all operations (read + write)
+- **No quilt3 dependency:** Removes quilt3 import from Platform_Backend
+- **Platform-native:** Aligns with Platform's Lambda-based package creation
+- **Simpler testing:** Mock GraphQL responses vs complex quilt3 mocking
+
+**Implementation Notes:**
+
+- `copy=True` parameter raises `NotImplementedError` (deferred to future work)
+- `update_package_revision()` queries existing package contents via GraphQL
+- Metadata merging implemented in Python (no longer handled by quilt3)
+- All error types handled: InvalidInput, ComputeFailure, network errors
 
 **Testing:**
 
-- Test package creation with various file patterns
-- Test update preserves existing files
-- Test metadata handling
-- Test error scenarios (invalid URIs, missing files)
+- Test package creation with GraphQL mutation mocks
+- Test update preserves existing files via GraphQL queries
+- Test all error scenarios (InvalidInput, ComputeFailure)
+- Test copy parameter validation (NotImplementedError)
+
+**See also:** [12-graphql-native-write-operations.md](./12-graphql-native-write-operations.md) for detailed specification
 
 **Success Criteria:**
 
-- Can create packages with Platform backend
-- Copy behavior matches Quilt3_Backend
-- AWS credentials work via JWT role assumption
+- Can create packages with Platform backend using GraphQL
+- Copy behavior: copy=False works, copy=True raises NotImplementedError
+- Metadata merging works correctly in updates
+- All GraphQL error types handled properly
 
 ---
 

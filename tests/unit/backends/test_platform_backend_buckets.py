@@ -66,9 +66,7 @@ def test_list_buckets_basic(monkeypatch):
 def test_list_buckets_transforms_to_bucket_info(monkeypatch):
     """Verify Bucket_Info construction."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {"bucketConfigs": [{"name": "test-bucket"}]}
-    }
+    backend.execute_graphql_query = lambda *args, **kwargs: {"data": {"bucketConfigs": [{"name": "test-bucket"}]}}
 
     buckets = backend.list_buckets()
     assert len(buckets) == 1
@@ -84,9 +82,7 @@ def test_list_buckets_transforms_to_bucket_info(monkeypatch):
 def test_list_buckets_empty_result(monkeypatch):
     """Handle no buckets configured."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {"bucketConfigs": []}
-    }
+    backend.execute_graphql_query = lambda *args, **kwargs: {"data": {"bucketConfigs": []}}
 
     buckets = backend.list_buckets()
     assert buckets == []
@@ -170,10 +166,12 @@ def test_configure_catalog_preserves_existing_registry(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
-    token = _push_jwt_context({
-        "catalog_token": "token",
-        "registry_url": "https://existing-registry.com",
-    })
+    token = _push_jwt_context(
+        {
+            "catalog_token": "token",
+            "registry_url": "https://existing-registry.com",
+        }
+    )
     try:
         backend = Platform_Backend()
         original_registry = backend._registry_url

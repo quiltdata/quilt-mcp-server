@@ -188,32 +188,42 @@ def test_diff_packages_detects_changes(monkeypatch):
 def test_create_and_update_package_revision(monkeypatch):
     backend = _make_backend(monkeypatch)
 
-    @contextmanager
-    def _noop_creds():
-        yield
+    call_count = [0]
 
-    backend._with_aws_credentials = _noop_creds
+    def mock_graphql(query, variables=None):
+        call_count[0] += 1
+        if "GetPackageForUpdate" in query:
+            # Query for update operation
+            return {
+                "data": {
+                    "package": {
+                        "revision": {
+                            "hash": "existing-hash",
+                            "userMeta": {"k": "v"},
+                            "contentsFlatMap": {
+                                "path/file.txt": {
+                                    "physicalKey": "s3://bucket/path/file.txt",
+                                    "size": 100,
+                                    "hash": "file-hash",
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        else:
+            # PackageConstruct mutation
+            return {
+                "data": {
+                    "packageConstruct": {
+                        "__typename": "PackagePushSuccess",
+                        "package": {"name": "team/pkg"},
+                        "revision": {"hash": "top-hash"},
+                    }
+                }
+            }
 
-    class FakePackage:
-        def __init__(self):
-            self.meta = {}
-            self.set_calls = []
-
-        def set(self, logical_key, s3_uri):
-            self.set_calls.append((logical_key, s3_uri))
-
-        def set_meta(self, meta):
-            self.meta = meta
-
-        def push(self, *args, **kwargs):
-            return "top-hash"
-
-        @classmethod
-        def browse(cls, *args, **kwargs):
-            return cls()
-
-    fake_quilt3 = SimpleNamespace(Package=FakePackage)
-    monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
+    backend.execute_graphql_query = mock_graphql
 
     created = backend.create_package_revision(
         "team/pkg",

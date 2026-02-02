@@ -531,49 +531,95 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         try:
             self._validate_package_creation_inputs(package_name, s3_uris)
 
-            import quilt3
+            # Validate copy parameter
+            if copy:
+                raise NotImplementedError(
+                    "copy=True not yet supported in Platform_Backend. "
+                    "Use copy=False to create symlink-like package references."
+                )
 
-            with self._with_aws_credentials():
-                package = quilt3.Package()
-                for s3_uri in s3_uris:
-                    logical_key = self._extract_logical_key(s3_uri, auto_organize=auto_organize)
-                    package.set(logical_key, s3_uri)
+            # Extract bucket from registry
+            if not registry:
+                raise ValidationError("Registry is required for package creation")
+            bucket = self._extract_bucket_from_registry(registry)
 
-                if metadata:
-                    package.set_meta(metadata)
+            # Build GraphQL packageConstruct mutation
+            mutation = """
+            mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
+              packageConstruct(params: $params, src: $src) {
+                __typename
+                ... on PackagePushSuccess {
+                  package { name }
+                  revision { hash }
+                }
+                ... on PackagePushInvalidInputFailure {
+                  errors { path message }
+                }
+                ... on PackagePushComputeFailure {
+                  message
+                }
+              }
+            }
+            """
 
-                if not copy:
-                    top_hash = package.push(
-                        package_name,
-                        registry=registry,
-                        message=message,
-                        selector_fn=lambda _logical_key, _entry: False,
-                    )
-                else:
-                    top_hash = package.push(package_name, registry=registry, message=message)
+            # Construct entries array
+            entries = [
+                {
+                    "logicalKey": self._extract_logical_key(s3_uri, auto_organize),
+                    "physicalKey": s3_uri,
+                    "hash": None,
+                    "size": None,
+                    "meta": None,
+                }
+                for s3_uri in s3_uris
+            ]
 
-            effective_registry = registry or "s3://unknown-registry"
+            # Build variables
+            variables = {
+                "params": {
+                    "bucket": bucket,
+                    "name": package_name,
+                    "message": message,
+                    "userMeta": metadata or {},
+                    "workflow": None,
+                },
+                "src": {"entries": entries},
+            }
+
+            # Execute mutation
+            result = self.execute_graphql_query(mutation, variables=variables)
+
+            # Parse response
+            package_construct = result.get("data", {}).get("packageConstruct", {})
+            typename = package_construct.get("__typename")
+
+            effective_registry = registry
             catalog_url = self._build_catalog_url(package_name, effective_registry)
 
-            if not top_hash:
+            if typename == "PackagePushSuccess":
+                revision = package_construct.get("revision", {})
+                top_hash = revision.get("hash", "")
                 return Package_Creation_Result(
                     package_name=package_name,
-                    top_hash="",
+                    top_hash=top_hash,
                     registry=effective_registry,
                     catalog_url=catalog_url,
                     file_count=len(s3_uris),
-                    success=False,
+                    success=True,
                 )
+            elif typename == "PackagePushInvalidInputFailure":
+                errors = package_construct.get("errors", [])
+                error_messages = [
+                    f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors
+                ]
+                raise ValidationError(f"Invalid package input: {'; '.join(error_messages)}")
+            elif typename == "PackagePushComputeFailure":
+                message_text = package_construct.get("message", "Package creation failed")
+                raise BackendError(f"Package creation compute failure: {message_text}")
+            else:
+                raise BackendError(f"Unexpected response type: {typename}")
 
-            return Package_Creation_Result(
-                package_name=package_name,
-                top_hash=str(top_hash),
-                registry=effective_registry,
-                catalog_url=catalog_url,
-                file_count=len(s3_uris),
-                success=True,
-            )
-        except ValidationError:
+        except (ValidationError, NotImplementedError):
             raise
         except Exception as exc:
             raise BackendError(
@@ -594,74 +640,146 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         try:
             self._validate_package_update_inputs(package_name, s3_uris, registry)
 
-            import quilt3
-
-            with self._with_aws_credentials():
-                existing_pkg = quilt3.Package.browse(package_name, registry=registry)
-                updated_pkg = existing_pkg
-
-                added_files = []
-                for s3_uri in s3_uris:
-                    if not s3_uri.startswith("s3://"):
-                        continue
-                    without_scheme = s3_uri[5:]
-                    if "/" not in without_scheme:
-                        continue
-                    bucket, key = without_scheme.split("/", 1)
-                    if not key or key.endswith("/"):
-                        continue
-
-                    logical_path = key if auto_organize else key.split("/")[-1]
-                    updated_pkg.set(logical_path, s3_uri)
-                    added_files.append({"logical_path": logical_path, "source": s3_uri})
-
-                if metadata:
-                    combined: Dict[str, Any] = {}
-                    try:
-                        combined.update(existing_pkg.meta)
-                    except Exception:
-                        pass
-                    combined.update(metadata)
-                    updated_pkg.set_meta(combined)
-
-                if copy == "all":
-                    selector_fn = lambda _logical_key, _entry: True
-                else:
-                    selector_fn = lambda _logical_key, _entry: False
-
-                push_result = updated_pkg.push(
-                    package_name,
-                    registry=registry,
-                    message=message,
-                    selector_fn=selector_fn,
-                    force=True,
+            # Validate copy parameter
+            if copy != "none":
+                raise NotImplementedError(
+                    f"copy='{copy}' not yet supported in Platform_Backend. "
+                    "Use copy='none' to create symlink-like package references."
                 )
 
-            if hasattr(push_result, "top_hash"):
-                top_hash = push_result.top_hash
-            else:
-                top_hash = str(push_result) if push_result else ""
+            # Extract bucket from registry
+            bucket = self._extract_bucket_from_registry(registry)
+
+            # Query existing package
+            query = """
+            query GetPackageForUpdate($bucket: String!, $name: String!) {
+              package(bucket: $bucket, name: $name) {
+                revision(hashOrTag: "latest") {
+                  hash
+                  userMeta
+                  contentsFlatMap(max: 10000)
+                }
+              }
+            }
+            """
+            query_result = self.execute_graphql_query(query, variables={"bucket": bucket, "name": package_name})
+
+            package_data = query_result.get("data", {}).get("package")
+            if not package_data:
+                raise NotFoundError(f"Package not found: {package_name}")
+
+            revision = package_data.get("revision", {})
+            existing_entries_map = revision.get("contentsFlatMap") or {}
+            existing_meta = revision.get("userMeta") or {}
+
+            # Build entries array from existing entries
+            entries = []
+            for logical_key, entry_data in existing_entries_map.items():
+                if isinstance(entry_data, dict):
+                    entries.append(
+                        {
+                            "logicalKey": logical_key,
+                            "physicalKey": entry_data.get("physicalKey", ""),
+                            "size": entry_data.get("size"),
+                            "hash": entry_data.get("hash"),
+                            "meta": None,
+                        }
+                    )
+
+            # Add new files (overwrites if same logicalKey)
+            added_count = 0
+            for s3_uri in s3_uris:
+                if not s3_uri.startswith("s3://"):
+                    continue
+                without_scheme = s3_uri[5:]
+                if "/" not in without_scheme:
+                    continue
+                bucket_part, key = without_scheme.split("/", 1)
+                if not key or key.endswith("/"):
+                    continue
+
+                logical_key = self._extract_logical_key(s3_uri, auto_organize)
+                # Remove existing entry with same logical_key
+                entries = [e for e in entries if e["logicalKey"] != logical_key]
+                # Add new entry
+                entries.append(
+                    {
+                        "logicalKey": logical_key,
+                        "physicalKey": s3_uri,
+                        "hash": None,
+                        "size": None,
+                        "meta": None,
+                    }
+                )
+                added_count += 1
+
+            # Merge metadata (new overrides existing)
+            merged_meta = {**existing_meta, **(metadata or {})}
+
+            # Build GraphQL packageConstruct mutation
+            mutation = """
+            mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
+              packageConstruct(params: $params, src: $src) {
+                __typename
+                ... on PackagePushSuccess {
+                  package { name }
+                  revision { hash }
+                }
+                ... on PackagePushInvalidInputFailure {
+                  errors { path message }
+                }
+                ... on PackagePushComputeFailure {
+                  message
+                }
+              }
+            }
+            """
+
+            # Build variables
+            variables = {
+                "params": {
+                    "bucket": bucket,
+                    "name": package_name,
+                    "message": message,
+                    "userMeta": merged_meta,
+                    "workflow": None,
+                },
+                "src": {"entries": entries},
+            }
+
+            # Execute mutation
+            result = self.execute_graphql_query(mutation, variables=variables)
+
+            # Parse response
+            package_construct = result.get("data", {}).get("packageConstruct", {})
+            typename = package_construct.get("__typename")
 
             catalog_url = self._build_catalog_url(package_name, registry)
-            if not top_hash:
+
+            if typename == "PackagePushSuccess":
+                revision_data = package_construct.get("revision", {})
+                top_hash = revision_data.get("hash", "")
                 return Package_Creation_Result(
                     package_name=package_name,
-                    top_hash="",
+                    top_hash=top_hash,
                     registry=registry,
                     catalog_url=catalog_url,
-                    file_count=len(added_files),
-                    success=False,
+                    file_count=added_count,
+                    success=True,
                 )
+            elif typename == "PackagePushInvalidInputFailure":
+                errors = package_construct.get("errors", [])
+                error_messages = [
+                    f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors
+                ]
+                raise ValidationError(f"Invalid package input: {'; '.join(error_messages)}")
+            elif typename == "PackagePushComputeFailure":
+                message_text = package_construct.get("message", "Package update failed")
+                raise BackendError(f"Package update compute failure: {message_text}")
+            else:
+                raise BackendError(f"Unexpected response type: {typename}")
 
-            return Package_Creation_Result(
-                package_name=package_name,
-                top_hash=top_hash,
-                registry=registry,
-                catalog_url=catalog_url,
-                file_count=len(added_files),
-                success=True,
-            )
-        except ValidationError:
+        except (ValidationError, NotImplementedError, NotFoundError):
             raise
         except Exception as exc:
             raise BackendError(

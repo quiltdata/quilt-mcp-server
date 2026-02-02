@@ -322,9 +322,7 @@ def test_list_all_packages_pagination(monkeypatch):
 def test_list_all_packages_empty_bucket(monkeypatch):
     """Handle zero packages."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {"packages": {"total": 0, "page": []}}
-    }
+    backend.execute_graphql_query = lambda *args, **kwargs: {"data": {"packages": {"total": 0, "page": []}}}
 
     packages = backend.list_all_packages("s3://test-bucket")
     assert packages == []
@@ -364,7 +362,9 @@ def test_diff_packages_detects_modified_files(monkeypatch):
     backend.execute_graphql_query = lambda *args, **kwargs: {
         "data": {
             "p1": {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}},
-            "p2": {"revision": {"contentsFlatMap": {"a.txt": {"size": 200, "hash": "h2", "physicalKey": "s3://b/a2"}}}},
+            "p2": {
+                "revision": {"contentsFlatMap": {"a.txt": {"size": 200, "hash": "h2", "physicalKey": "s3://b/a2"}}}
+            },
         }
     }
 
@@ -451,31 +451,22 @@ def test_diff_packages_complex_scenario(monkeypatch):
 
 
 def test_create_package_revision_basic(monkeypatch):
-    """Create package with files."""
+    """Create package with files using GraphQL mutation."""
     backend = _make_backend(monkeypatch)
 
-    @contextmanager
-    def _noop_creds():
-        yield
+    # Mock successful packageConstruct response
+    def mock_graphql(query, variables=None):
+        return {
+            "data": {
+                "packageConstruct": {
+                    "__typename": "PackagePushSuccess",
+                    "package": {"name": "user/test-pkg"},
+                    "revision": {"hash": "test-hash-123"},
+                }
+            }
+        }
 
-    backend._with_aws_credentials = _noop_creds
-
-    class FakePackage:
-        def __init__(self):
-            self.meta = {}
-            self.files = []
-
-        def set(self, logical_key, s3_uri):
-            self.files.append((logical_key, s3_uri))
-
-        def set_meta(self, meta):
-            self.meta = meta
-
-        def push(self, *args, **kwargs):
-            return "test-hash-123"
-
-    fake_quilt3 = SimpleNamespace(Package=FakePackage)
-    monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
+    backend.execute_graphql_query = mock_graphql
 
     result = backend.create_package_revision(
         "user/test-pkg",
@@ -490,32 +481,25 @@ def test_create_package_revision_basic(monkeypatch):
 
 
 def test_create_package_revision_with_metadata(monkeypatch):
-    """Include package metadata."""
+    """Include package metadata using GraphQL mutation."""
     backend = _make_backend(monkeypatch)
 
-    @contextmanager
-    def _noop_creds():
-        yield
+    # Track the variables passed to GraphQL
+    captured_variables = {}
 
-    backend._with_aws_credentials = _noop_creds
+    def mock_graphql(query, variables=None):
+        captured_variables.update(variables or {})
+        return {
+            "data": {
+                "packageConstruct": {
+                    "__typename": "PackagePushSuccess",
+                    "package": {"name": "user/metadata-pkg"},
+                    "revision": {"hash": "meta-hash-456"},
+                }
+            }
+        }
 
-    class FakePackage:
-        def __init__(self):
-            self.meta = {}
-            self.files = []
-
-        def set(self, logical_key, s3_uri):
-            self.files.append((logical_key, s3_uri))
-
-        def set_meta(self, meta):
-            self.meta = meta
-
-        def push(self, *args, **kwargs):
-            return "meta-hash-456"
-
-    fake_pkg_instance = FakePackage()
-    fake_quilt3 = SimpleNamespace(Package=lambda: fake_pkg_instance)
-    monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
+    backend.execute_graphql_query = mock_graphql
 
     metadata = {"description": "Test package", "version": "1.0"}
     result = backend.create_package_revision(
@@ -526,90 +510,76 @@ def test_create_package_revision_with_metadata(monkeypatch):
     )
 
     assert result.success is True
-    assert fake_pkg_instance.meta == metadata
+    assert captured_variables["params"]["userMeta"] == metadata
 
 
 def test_create_package_revision_copy_mode(monkeypatch):
-    """Test copy vs symlink."""
+    """Test that copy=True raises NotImplementedError."""
     backend = _make_backend(monkeypatch)
 
-    @contextmanager
-    def _noop_creds():
-        yield
+    def mock_graphql(query, variables=None):
+        return {
+            "data": {
+                "packageConstruct": {
+                    "__typename": "PackagePushSuccess",
+                    "package": {"name": "user/symlink-pkg"},
+                    "revision": {"hash": "symlink-hash"},
+                }
+            }
+        }
 
-    backend._with_aws_credentials = _noop_creds
+    backend.execute_graphql_query = mock_graphql
 
-    push_calls = []
-
-    class FakePackage:
-        def __init__(self):
-            self.meta = {}
-
-        def set(self, logical_key, s3_uri):
-            pass
-
-        def set_meta(self, meta):
-            pass
-
-        def push(self, *args, **kwargs):
-            push_calls.append(kwargs)
-            return "copy-hash"
-
-    fake_quilt3 = SimpleNamespace(Package=FakePackage)
-    monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
-
-    # Test copy=False (symlink mode)
+    # Test copy=False (symlink mode) - should succeed
     result = backend.create_package_revision(
         "user/symlink-pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy=False
     )
     assert result.success is True
-    assert "selector_fn" in push_calls[0]
 
-    # Reset and test copy=True
-    push_calls.clear()
-    result = backend.create_package_revision(
-        "user/copy-pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy=True
-    )
-    assert result.success is True
-    assert "selector_fn" not in push_calls[0]
+    # Test copy=True - should raise NotImplementedError
+    with pytest.raises(NotImplementedError, match="copy=True not yet supported"):
+        backend.create_package_revision("user/copy-pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy=True)
 
 
-def test_create_package_revision_aws_credentials(monkeypatch):
-    """Verify credential context manager usage."""
+def test_create_package_revision_invalid_input(monkeypatch):
+    """Handle GraphQL InvalidInputFailure response."""
     backend = _make_backend(monkeypatch)
 
-    creds_entered = [False]
-    creds_exited = [False]
+    def mock_graphql_error(query, variables=None):
+        return {
+            "data": {
+                "packageConstruct": {
+                    "__typename": "PackagePushInvalidInputFailure",
+                    "errors": [{"path": "entries.0.physicalKey", "message": "S3 object does not exist"}],
+                }
+            }
+        }
 
-    @contextmanager
-    def _track_creds():
-        creds_entered[0] = True
-        yield
-        creds_exited[0] = True
+    backend.execute_graphql_query = mock_graphql_error
 
-    backend._with_aws_credentials = _track_creds
+    with pytest.raises(ValidationError, match="Invalid package input"):
+        backend.create_package_revision(
+            "user/pkg",
+            ["s3://bucket/nonexistent-file.txt"],  # Valid URI format, but GraphQL will reject it
+            registry="s3://bucket",
+        )
 
-    class FakePackage:
-        def __init__(self):
-            self.meta = {}
 
-        def set(self, logical_key, s3_uri):
-            pass
+def test_create_package_revision_compute_failure(monkeypatch):
+    """Handle GraphQL ComputeFailure response."""
+    backend = _make_backend(monkeypatch)
 
-        def set_meta(self, meta):
-            pass
+    def mock_graphql_error(query, variables=None):
+        return {
+            "data": {
+                "packageConstruct": {"__typename": "PackagePushComputeFailure", "message": "Lambda execution timeout"}
+            }
+        }
 
-        def push(self, *args, **kwargs):
-            return "creds-hash"
+    backend.execute_graphql_query = mock_graphql_error
 
-    fake_quilt3 = SimpleNamespace(Package=FakePackage)
-    monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
-
-    result = backend.create_package_revision("user/pkg", ["s3://bucket/file.txt"], registry="s3://bucket")
-
-    assert creds_entered[0] is True
-    assert creds_exited[0] is True
-    assert result.success is True
+    with pytest.raises(BackendError, match="Package creation compute failure"):
+        backend.create_package_revision("user/pkg", ["s3://bucket/file.txt"], registry="s3://bucket")
 
 
 # ---------------------------------------------------------------------
@@ -618,35 +588,45 @@ def test_create_package_revision_aws_credentials(monkeypatch):
 
 
 def test_update_package_revision_adds_files(monkeypatch):
-    """Add files to existing package."""
+    """Add files to existing package using GraphQL."""
     backend = _make_backend(monkeypatch)
 
-    @contextmanager
-    def _noop_creds():
-        yield
+    call_count = [0]
 
-    backend._with_aws_credentials = _noop_creds
+    def mock_graphql(query, variables=None):
+        call_count[0] += 1
+        if "GetPackageForUpdate" in query:
+            # Query existing package
+            return {
+                "data": {
+                    "package": {
+                        "revision": {
+                            "hash": "existing-hash",
+                            "userMeta": {"existing": "metadata"},
+                            "contentsFlatMap": {
+                                "old-file.txt": {
+                                    "physicalKey": "s3://bucket/old-file.txt",
+                                    "size": 100,
+                                    "hash": "old-hash",
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        else:
+            # PackageConstruct mutation
+            return {
+                "data": {
+                    "packageConstruct": {
+                        "__typename": "PackagePushSuccess",
+                        "package": {"name": "user/existing-pkg"},
+                        "revision": {"hash": "update-hash-789"},
+                    }
+                }
+            }
 
-    class FakePackage:
-        def __init__(self):
-            self.meta = {"existing": "metadata"}
-            self.files = {}
-
-        def set(self, logical_key, s3_uri):
-            self.files[logical_key] = s3_uri
-
-        def set_meta(self, meta):
-            self.meta = meta
-
-        def push(self, *args, **kwargs):
-            return "update-hash-789"
-
-        @classmethod
-        def browse(cls, *args, **kwargs):
-            return cls()
-
-    fake_quilt3 = SimpleNamespace(Package=FakePackage)
-    monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
+    backend.execute_graphql_query = mock_graphql
 
     result = backend.update_package_revision(
         "user/existing-pkg",
@@ -660,38 +640,39 @@ def test_update_package_revision_adds_files(monkeypatch):
 
 
 def test_update_package_revision_updates_metadata(monkeypatch):
-    """Merge metadata."""
+    """Merge metadata using GraphQL."""
     backend = _make_backend(monkeypatch)
 
-    @contextmanager
-    def _noop_creds():
-        yield
+    captured_variables = {}
 
-    backend._with_aws_credentials = _noop_creds
+    def mock_graphql(query, variables=None):
+        if "GetPackageForUpdate" in query:
+            # Query existing package
+            return {
+                "data": {
+                    "package": {
+                        "revision": {
+                            "hash": "existing-hash",
+                            "userMeta": {"key1": "original", "key2": "preserve"},
+                            "contentsFlatMap": {},
+                        }
+                    }
+                }
+            }
+        else:
+            # PackageConstruct mutation
+            captured_variables.update(variables or {})
+            return {
+                "data": {
+                    "packageConstruct": {
+                        "__typename": "PackagePushSuccess",
+                        "package": {"name": "user/pkg"},
+                        "revision": {"hash": "merged-hash"},
+                    }
+                }
+            }
 
-    class FakePackage:
-        def __init__(self):
-            self.meta = {"key1": "original", "key2": "preserve"}
-            self.files = {}
-            self.final_meta = None
-
-        def set(self, logical_key, s3_uri):
-            self.files[logical_key] = s3_uri
-
-        def set_meta(self, meta):
-            self.final_meta = meta
-
-        def push(self, *args, **kwargs):
-            return "merged-hash"
-
-        @classmethod
-        def browse(cls, *args, **kwargs):
-            return cls()
-
-    fake_pkg = FakePackage()
-    fake_quilt3 = SimpleNamespace(Package=type(fake_pkg))
-    fake_quilt3.Package.browse = lambda *args, **kwargs: fake_pkg
-    monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
+    backend.execute_graphql_query = mock_graphql
 
     new_metadata = {"key1": "updated", "key3": "new"}
     result = backend.update_package_revision(
@@ -703,43 +684,52 @@ def test_update_package_revision_updates_metadata(monkeypatch):
 
     assert result.success is True
     # Metadata should be merged (original + updates)
-    assert fake_pkg.final_meta["key1"] == "updated"
-    assert fake_pkg.final_meta["key2"] == "preserve"
-    assert fake_pkg.final_meta["key3"] == "new"
+    merged_meta = captured_variables["params"]["userMeta"]
+    assert merged_meta["key1"] == "updated"
+    assert merged_meta["key2"] == "preserve"
+    assert merged_meta["key3"] == "new"
 
 
 def test_update_package_revision_preserves_existing(monkeypatch):
-    """Don't lose existing files."""
+    """Don't lose existing files using GraphQL."""
     backend = _make_backend(monkeypatch)
 
-    @contextmanager
-    def _noop_creds():
-        yield
+    captured_variables = {}
 
-    backend._with_aws_credentials = _noop_creds
+    def mock_graphql(query, variables=None):
+        if "GetPackageForUpdate" in query:
+            # Query existing package with existing file
+            return {
+                "data": {
+                    "package": {
+                        "revision": {
+                            "hash": "existing-hash",
+                            "userMeta": {},
+                            "contentsFlatMap": {
+                                "existing.txt": {
+                                    "physicalKey": "s3://bucket/existing.txt",
+                                    "size": 100,
+                                    "hash": "existing-hash",
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        else:
+            # PackageConstruct mutation
+            captured_variables.update(variables or {})
+            return {
+                "data": {
+                    "packageConstruct": {
+                        "__typename": "PackagePushSuccess",
+                        "package": {"name": "user/pkg"},
+                        "revision": {"hash": "preserve-hash"},
+                    }
+                }
+            }
 
-    class FakePackage:
-        def __init__(self):
-            self.meta = {}
-            self.files = {"existing.txt": "s3://bucket/existing.txt"}
-
-        def set(self, logical_key, s3_uri):
-            self.files[logical_key] = s3_uri
-
-        def set_meta(self, meta):
-            self.meta = meta
-
-        def push(self, *args, **kwargs):
-            return "preserve-hash"
-
-        @classmethod
-        def browse(cls, *args, **kwargs):
-            return cls()
-
-    fake_pkg = FakePackage()
-    fake_quilt3 = SimpleNamespace(Package=type(fake_pkg))
-    fake_quilt3.Package.browse = lambda *args, **kwargs: fake_pkg
-    monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
+    backend.execute_graphql_query = mock_graphql
 
     result = backend.update_package_revision(
         "user/pkg",
@@ -748,6 +738,21 @@ def test_update_package_revision_preserves_existing(monkeypatch):
     )
 
     assert result.success is True
-    # Both existing and new files should be present
-    assert "existing.txt" in fake_pkg.files
-    assert "new.txt" in fake_pkg.files
+    # Both existing and new files should be present in entries
+    entries = captured_variables["src"]["entries"]
+    logical_keys = [e["logicalKey"] for e in entries]
+    assert "existing.txt" in logical_keys
+    assert "new.txt" in logical_keys
+
+
+def test_update_package_revision_copy_mode_raises(monkeypatch):
+    """Test that copy != 'none' raises NotImplementedError."""
+    backend = _make_backend(monkeypatch)
+
+    # Test copy='all' - should raise NotImplementedError
+    with pytest.raises(NotImplementedError, match="copy='all' not yet supported"):
+        backend.update_package_revision("user/pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy="all")
+
+    # Test copy='new' - should raise NotImplementedError
+    with pytest.raises(NotImplementedError, match="copy='new' not yet supported"):
+        backend.update_package_revision("user/pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy="new")

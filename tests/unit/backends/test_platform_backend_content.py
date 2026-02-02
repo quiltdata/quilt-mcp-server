@@ -57,9 +57,19 @@ def test_browse_content_root_directory(monkeypatch):
                         "path": "",
                         "size": 0,
                         "children": [
-                            {"__typename": "PackageFile", "path": "README.md", "size": 1024, "physicalKey": "s3://b/r"},
+                            {
+                                "__typename": "PackageFile",
+                                "path": "README.md",
+                                "size": 1024,
+                                "physicalKey": "s3://b/r",
+                            },
                             {"__typename": "PackageDir", "path": "data", "size": 0},
-                            {"__typename": "PackageFile", "path": "config.json", "size": 512, "physicalKey": "s3://b/c"},
+                            {
+                                "__typename": "PackageFile",
+                                "path": "config.json",
+                                "size": 512,
+                                "physicalKey": "s3://b/c",
+                            },
                         ],
                     },
                     "file": None,
@@ -94,8 +104,18 @@ def test_browse_content_subdirectory(monkeypatch):
                         "path": "data/raw",
                         "size": 0,
                         "children": [
-                            {"__typename": "PackageFile", "path": "data/raw/file1.csv", "size": 2048, "physicalKey": "s3://b/f1"},
-                            {"__typename": "PackageFile", "path": "data/raw/file2.csv", "size": 3072, "physicalKey": "s3://b/f2"},
+                            {
+                                "__typename": "PackageFile",
+                                "path": "data/raw/file1.csv",
+                                "size": 2048,
+                                "physicalKey": "s3://b/f1",
+                            },
+                            {
+                                "__typename": "PackageFile",
+                                "path": "data/raw/file2.csv",
+                                "size": 3072,
+                                "physicalKey": "s3://b/f2",
+                            },
                         ],
                     },
                     "file": None,
@@ -122,9 +142,19 @@ def test_browse_content_mixed_children(monkeypatch):
                         "size": 0,
                         "children": [
                             {"__typename": "PackageDir", "path": "analysis/models", "size": 0},
-                            {"__typename": "PackageFile", "path": "analysis/results.txt", "size": 512, "physicalKey": "s3://b/r"},
+                            {
+                                "__typename": "PackageFile",
+                                "path": "analysis/results.txt",
+                                "size": 512,
+                                "physicalKey": "s3://b/r",
+                            },
                             {"__typename": "PackageDir", "path": "analysis/plots", "size": 0},
-                            {"__typename": "PackageFile", "path": "analysis/summary.md", "size": 256, "physicalKey": "s3://b/s"},
+                            {
+                                "__typename": "PackageFile",
+                                "path": "analysis/summary.md",
+                                "size": 256,
+                                "physicalKey": "s3://b/s",
+                            },
                         ],
                     },
                     "file": None,
@@ -223,17 +253,13 @@ def test_get_content_url_presigned_s3(monkeypatch):
     """Generate S3 presigned URL."""
     backend = _make_backend(monkeypatch)
     backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "package": {
-                "revision": {
-                    "file": {"physicalKey": "s3://test-bucket/path/to/file.txt"}
-                }
-            }
-        }
+        "data": {"package": {"revision": {"file": {"physicalKey": "s3://test-bucket/path/to/file.txt"}}}}
     }
 
     mock_client = SimpleNamespace(
-        generate_presigned_url=lambda method, Params, ExpiresIn: "https://test-bucket.s3.amazonaws.com/path/to/file.txt?signature=abc"
+        generate_presigned_url=lambda method,
+        Params,
+        ExpiresIn: "https://test-bucket.s3.amazonaws.com/path/to/file.txt?signature=abc"
     )
     backend.get_boto3_client = lambda *args, **kwargs: mock_client
 
@@ -250,21 +276,11 @@ def test_get_content_url_resolves_physical_key(monkeypatch):
 
     def mock_query(query, variables=None, **kwargs):
         query_calls.append({"query": query, "variables": variables})
-        return {
-            "data": {
-                "package": {
-                    "revision": {
-                        "file": {"physicalKey": "s3://my-bucket/actual/physical/key.csv"}
-                    }
-                }
-            }
-        }
+        return {"data": {"package": {"revision": {"file": {"physicalKey": "s3://my-bucket/actual/physical/key.csv"}}}}}
 
     backend.execute_graphql_query = mock_query
 
-    mock_client = SimpleNamespace(
-        generate_presigned_url=lambda method, Params, ExpiresIn: "https://presigned-url.com"
-    )
+    mock_client = SimpleNamespace(generate_presigned_url=lambda method, Params, ExpiresIn: "https://presigned-url.com")
     backend.get_boto3_client = lambda *args, **kwargs: mock_client
 
     url = backend.get_content_url("team/dataset", "s3://my-bucket", "data/key.csv")
@@ -279,9 +295,7 @@ def test_get_content_url_resolves_physical_key(monkeypatch):
 def test_get_content_url_missing_file(monkeypatch):
     """Handle file not found in package."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {"package": {"revision": {"file": None}}}
-    }
+    backend.execute_graphql_query = lambda *args, **kwargs: {"data": {"package": {"revision": {"file": None}}}}
 
     with pytest.raises(NotFoundError, match="File not found"):
         backend.get_content_url("user/pkg", "s3://bucket", "nonexistent.txt")
@@ -291,13 +305,7 @@ def test_get_content_url_custom_expiration(monkeypatch):
     """Test expiration parameter (note: current implementation uses hardcoded 3600)."""
     backend = _make_backend(monkeypatch)
     backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "package": {
-                "revision": {
-                    "file": {"physicalKey": "s3://bucket/file.txt"}
-                }
-            }
-        }
+        "data": {"package": {"revision": {"file": {"physicalKey": "s3://bucket/file.txt"}}}}
     }
 
     presigned_calls = []
@@ -321,13 +329,7 @@ def test_get_content_url_aws_credentials(monkeypatch):
     """Verify get_boto3_client is called (which uses auth service)."""
     backend = _make_backend(monkeypatch)
     backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "package": {
-                "revision": {
-                    "file": {"physicalKey": "s3://bucket/key.txt"}
-                }
-            }
-        }
+        "data": {"package": {"revision": {"file": {"physicalKey": "s3://bucket/key.txt"}}}}
     }
 
     boto3_calls = []
