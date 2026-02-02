@@ -601,13 +601,21 @@ class Quilt3_Backend_Packages:
                 selector_fn = lambda _logical_key, _entry: False  # Reference only
 
             # Push updated package (extracted from package_update() tool)
-            top_hash = updated_pkg.push(
+            push_result = updated_pkg.push(
                 package_name,
                 registry=registry,
                 message=message,
                 selector_fn=selector_fn,
                 force=True,
             )
+
+            # Extract top_hash from push result
+            # In quilt3 v6+, push() returns a Package object with .top_hash attribute
+            # In earlier versions, it might return the hash string directly
+            if hasattr(push_result, 'top_hash'):
+                top_hash = push_result.top_hash
+            else:
+                top_hash = str(push_result) if push_result else ""
 
             # Generate catalog URL
             catalog_url = self._build_catalog_url(package_name, registry)
