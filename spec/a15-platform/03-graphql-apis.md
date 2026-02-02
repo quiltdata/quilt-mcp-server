@@ -11,12 +11,14 @@ This document maps each QuiltOps interface method to the corresponding Platform 
 ## GraphQL Endpoint
 
 **Base URL Pattern:** `{registry_url}/graphql`
+
 - Example: `https://example-registry.quiltdata.com/graphql`
 - Method: `POST`
 - Content-Type: `application/json`
 - **Authentication: JWT Bearer Token** (primary method)
 
 **Request Format:**
+
 ```json
 {
   "query": "query { ... }",
@@ -120,6 +122,7 @@ def execute_graphql_query(
 **Implementation Strategy:** Check session state + query catalog metadata
 
 **GraphQL Queries:**
+
 ```graphql
 # No specific query - use HTTP session validation
 # Check if session is authenticated by attempting a simple query
@@ -132,6 +135,7 @@ query AuthCheck {
 ```
 
 **Domain Object Construction:**
+
 ```python
 Auth_Status(
     is_authenticated=bool(response.get('data', {}).get('me')),
@@ -142,6 +146,7 @@ Auth_Status(
 ```
 
 **Notes:**
+
 - Platform backend stores catalog_url in instance variable during `configure_catalog()`
 - If no catalog configured, `is_authenticated=False`
 - Unlike Quilt3, Platform backend doesn't have `logged_in()` method - uses config state
@@ -164,6 +169,7 @@ def get_registry_url(self) -> Optional[str]:
 #### 1.3 `get_catalog_config(catalog_url: str) -> Catalog_Config`
 
 **GraphQL Query:**
+
 ```graphql
 query CatalogConfig {
   config {
@@ -179,6 +185,7 @@ query CatalogConfig {
 ```
 
 **Schema Definition** (from `schema.graphql`):
+
 ```graphql
 type Config {
   defaultBucket: String!
@@ -197,6 +204,7 @@ type Query {
 ```
 
 **Domain Object Construction:**
+
 ```python
 Catalog_Config(
     region=data['config']['region'],
@@ -209,6 +217,7 @@ Catalog_Config(
 ```
 
 **Error Handling:**
+
 - `AuthenticationError`: If not authenticated
 - `BackendError`: If query fails or config not found
 
@@ -219,6 +228,7 @@ Catalog_Config(
 **Implementation Strategy:** Store catalog URL in instance variable + validate connectivity
 
 **GraphQL Query (Validation):**
+
 ```graphql
 query ValidateCatalog {
   config {
@@ -228,6 +238,7 @@ query ValidateCatalog {
 ```
 
 **Implementation:**
+
 ```python
 def configure_catalog(self, catalog_url: str) -> None:
     # Normalize URL
@@ -250,6 +261,7 @@ def configure_catalog(self, catalog_url: str) -> None:
 #### 2.1 `search_packages(query: str, registry: str) -> List[Package_Info]`
 
 **GraphQL Query:**
+
 ```graphql
 query SearchPackages($buckets: [String!], $searchString: String, $size: Int) {
   searchPackages(
@@ -284,6 +296,7 @@ query SearchPackages($buckets: [String!], $searchString: String, $size: Int) {
 ```
 
 **Schema Definition:**
+
 ```graphql
 type Query {
   searchPackages(
@@ -308,6 +321,7 @@ type SearchHitPackage {
 ```
 
 **Variables:**
+
 ```python
 {
     "buckets": [bucket_name],  # Extract from registry: s3://bucket -> bucket
@@ -317,6 +331,7 @@ type SearchHitPackage {
 ```
 
 **Domain Object Construction:**
+
 ```python
 Package_Info(
     name=hit['name'],
@@ -330,6 +345,7 @@ Package_Info(
 ```
 
 **Notes:**
+
 - GraphQL uses `comment` field instead of `description`
 - Tags must be extracted from `meta` JSON field
 - `latestOnly: true` returns only latest package revisions
@@ -339,6 +355,7 @@ Package_Info(
 #### 2.2 `get_package_info(package_name: str, registry: str) -> Package_Info`
 
 **GraphQL Query:**
+
 ```graphql
 query GetPackage($bucket: String!, $name: String!) {
   package(bucket: $bucket, name: $name) {
@@ -357,6 +374,7 @@ query GetPackage($bucket: String!, $name: String!) {
 ```
 
 **Schema Definition:**
+
 ```graphql
 type Query {
   package(bucket: String!, name: String!, hash: String): Package!
@@ -379,6 +397,7 @@ type PackageStats {
 ```
 
 **Variables:**
+
 ```python
 {
     "bucket": extract_bucket_from_registry(registry),
@@ -387,6 +406,7 @@ type PackageStats {
 ```
 
 **Domain Object Construction:**
+
 ```python
 Package_Info(
     name=data['package']['name'],
@@ -404,6 +424,7 @@ Package_Info(
 #### 2.3 `list_all_packages(registry: str) -> List[str]`
 
 **GraphQL Query:**
+
 ```graphql
 query ListAllPackages($bucket: String!) {
   packages(bucket: $bucket) {
@@ -417,6 +438,7 @@ query ListAllPackages($bucket: String!) {
 ```
 
 **Schema Definition:**
+
 ```graphql
 type Query {
   packages(bucket: String!): PackageList!
@@ -438,6 +460,7 @@ type PackageListItem {
 ```
 
 **Domain Object Construction:**
+
 ```python
 package_names = [
     pkg['name']
@@ -446,6 +469,7 @@ package_names = [
 ```
 
 **Notes:**
+
 - Returns simple list of package names (not full Package_Info objects)
 - May need pagination if registry has many packages
 
@@ -454,6 +478,7 @@ package_names = [
 #### 2.4 `diff_packages(...) -> Dict[str, List[str]]`
 
 **GraphQL Query:**
+
 ```graphql
 query DiffPackages(
   $bucket1: String!
@@ -479,6 +504,7 @@ query DiffPackages(
 ```
 
 **Implementation Strategy:**
+
 ```python
 # Fetch both packages
 entries1 = {e['logicalKey']: e['hash'] for e in data['package1']['entries']}
@@ -503,6 +529,7 @@ return {
 #### 3.1 `browse_content(package_name: str, registry: str, path: str = "") -> List[Content_Info]`
 
 **GraphQL Query:**
+
 ```graphql
 query BrowsePackage($bucket: String!, $name: String!, $path: String) {
   package(bucket: $bucket, name: $name) {
@@ -523,6 +550,7 @@ query BrowsePackage($bucket: String!, $name: String!, $path: String) {
 ```
 
 **Schema Definition:**
+
 ```graphql
 type Package {
   dir(path: String): [PackageDir!]!
@@ -537,6 +565,7 @@ type PackageDir {
 ```
 
 **Domain Object Construction:**
+
 ```python
 Content_Info(
     path=entry['path'],
@@ -548,6 +577,7 @@ Content_Info(
 ```
 
 **Notes:**
+
 - `physicalKey` presence indicates file (vs directory)
 - Path separators handled by GraphQL API
 - Download URLs require separate query (see get_content_url)
@@ -557,6 +587,7 @@ Content_Info(
 #### 3.2 `get_content_url(package_name: str, registry: str, path: str) -> str`
 
 **GraphQL Query:**
+
 ```graphql
 query GetContentURL($bucket: String!, $name: String!, $path: String!) {
   package(bucket: $bucket, name: $name) {
@@ -568,6 +599,7 @@ query GetContentURL($bucket: String!, $name: String!, $path: String!) {
 ```
 
 **Implementation Strategy:**
+
 ```python
 # Step 1: Get physicalKey from GraphQL
 result = self.execute_graphql_query(query, variables)
@@ -588,6 +620,7 @@ return url
 ```
 
 **Notes:**
+
 - GraphQL doesn't directly provide download URLs
 - Must use boto3 to generate presigned S3 URLs
 - Requires AWS credentials from catalog config
@@ -599,6 +632,7 @@ return url
 #### 4.1 `list_buckets() -> List[Bucket_Info]`
 
 **GraphQL Query:**
+
 ```graphql
 query ListBuckets {
   bucketConfigs {
@@ -613,6 +647,7 @@ query ListBuckets {
 ```
 
 **Schema Definition:**
+
 ```graphql
 type Query {
   bucketConfigs: [BucketConfig!]!
@@ -631,6 +666,7 @@ type BucketConfig {
 ```
 
 **Domain Object Construction:**
+
 ```python
 Bucket_Info(
     name=config['name'],
@@ -641,6 +677,7 @@ Bucket_Info(
 ```
 
 **Notes:**
+
 - GraphQL `bucketConfigs` provides bucket metadata, not AWS details
 - Region must be obtained from catalog config or boto3
 - Access level is inferred (if user can see it, they have at least read access)
@@ -836,6 +873,7 @@ Follow the exact error handling patterns from
 #### 6.1 `execute_graphql_query(query: str, variables: Optional[Dict], registry: Optional[str]) -> Dict[str, Any]`
 
 **Implementation Pattern:**
+
 ```python
 def execute_graphql_query(
     self,
@@ -870,6 +908,7 @@ def execute_graphql_query(
 ```
 
 **Session Management:**
+
 - Platform backend needs to maintain `requests.Session` with authentication
 - Session may use cookies, bearer token, or API key
 - Must handle token refresh if using short-lived tokens
@@ -935,6 +974,7 @@ Mirror the exact error handling from
 #### 7.1 User Management Methods
 
 **List Users:**
+
 ```graphql
 query ListUsers {
   admin {
@@ -967,6 +1007,7 @@ query ListUsers {
 ```
 
 **Get User:**
+
 ```graphql
 query GetUser($name: String!) {
   admin {
@@ -984,6 +1025,7 @@ query GetUser($name: String!) {
 ```
 
 **Create User:**
+
 ```graphql
 mutation CreateUser($input: UserInput!) {
   admin {
@@ -1009,6 +1051,7 @@ mutation CreateUser($input: UserInput!) {
 ```
 
 **Delete User:**
+
 ```graphql
 mutation DeleteUser($name: String!) {
   admin {
@@ -1029,6 +1072,7 @@ mutation DeleteUser($name: String!) {
 ```
 
 **Update User Operations (all via `mutate`):**
+
 ```graphql
 mutation UpdateUser($name: String!, $email: String) {
   admin {
@@ -1050,6 +1094,7 @@ mutation UpdateUser($name: String!, $email: String) {
 #### 7.2 Role Management
 
 **List Roles:**
+
 ```graphql
 query ListRoles {
   roles {
@@ -1068,6 +1113,7 @@ query ListRoles {
 #### 7.3 SSO Configuration
 
 **Get SSO Config:**
+
 ```graphql
 query GetSSOConfig {
   admin {
@@ -1084,6 +1130,7 @@ query GetSSOConfig {
 ```
 
 **Set SSO Config:**
+
 ```graphql
 mutation SetSSOConfig($config: String!) {
   admin {
@@ -1103,6 +1150,7 @@ mutation SetSSOConfig($config: String!) {
 ```
 
 **Remove SSO Config:**
+
 ```graphql
 mutation RemoveSSOConfig {
   admin {
@@ -1229,21 +1277,25 @@ def test_search_packages_integration(platform_backend):
 ## Migration Path
 
 ### Phase 1: Core Implementation
+
 - `configure_catalog()`, `get_registry_url()`, `get_auth_status()`
 - `execute_graphql_query()`, `get_catalog_config()`
 - Basic session management
 
 ### Phase 2: Read Operations
+
 - `list_buckets()`, `search_packages()`, `get_package_info()`
 - `browse_content()`, `get_content_url()`
 - `list_all_packages()`
 
 ### Phase 3: Write Operations
+
 - `create_package_revision()`, `update_package_revision()`
 - `get_boto3_client()` (for S3 operations)
 - `diff_packages()`
 
 ### Phase 4: Admin Operations
+
 - User management (list, get, create, delete, update)
 - Role management (list)
 - SSO configuration (get, set, remove)
