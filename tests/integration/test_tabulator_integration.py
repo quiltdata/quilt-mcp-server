@@ -275,7 +275,7 @@ def test_rename_table_real(backend, test_bucket, test_table_name):
             try:
                 backend.delete_tabulator_table(test_bucket, name)
                 print(f"🧹 Cleaned up '{name}'")
-            except:
+            except Exception:
                 pass  # Table may not exist
 
 
@@ -426,7 +426,7 @@ def test_full_lifecycle_real(backend, test_bucket, test_table_name):
         for name in [original_name, renamed_name]:
             try:
                 backend.delete_tabulator_table(test_bucket, name)
-            except:
+            except Exception:
                 pass  # Table may not exist
 
 
