@@ -15,27 +15,7 @@
 
 A. **Environment Variable (Recommended)**
 
-- Use `QUILT_GRAPHQL_ENDPOINT` or similar
-- Falls back to deriving from catalog URL
-- Pros: Explicit, testable, overridable
-- Cons: One more config variable
-
-B. **Derive from Catalog URL**
-
-- Extract from JWT `catalog_url` or `registry_url` claim
-- Append `/graphql` to registry URL
-- Pros: No extra config needed
-- Cons: Assumes URL pattern
-
-C. **Hybrid Approach (Recommended)**
-
-- Env var takes precedence
-- Fall back to JWT `registry_url` + `/graphql`
-- Fall back to JWT `catalog_url` + `/api/graphql`
-- Pros: Flexible, works in all scenarios
-- Cons: Multiple fallback paths to test
-
-**Recommendation:** Option C - Check env var first, then derive from JWT claims
+- REQUIRE `QUILT_GRAPHQL_ENDPOINT`
 
 **Reference:** See `/Users/ernest/GitHub/enterprise/registry/quilt_server/views/graphql.py` for actual endpoint paths
 
