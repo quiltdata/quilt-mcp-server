@@ -514,31 +514,52 @@ def test_create_package_revision_with_metadata(monkeypatch):
 
 
 def test_create_package_revision_copy_mode(monkeypatch):
-    """Test that copy=True raises NotImplementedError."""
+    """Test copy=True promotes the package after creation."""
     backend = _make_backend(monkeypatch)
 
+    call_count = [0]
+
     def mock_graphql(query, variables=None):
-        return {
-            "data": {
-                "packageConstruct": {
-                    "__typename": "PackagePushSuccess",
-                    "package": {"name": "user/symlink-pkg"},
-                    "revision": {"hash": "symlink-hash"},
+        call_count[0] += 1
+        if "packageConstruct" in query:
+            # packageConstruct mutation
+            return {
+                "data": {
+                    "packageConstruct": {
+                        "__typename": "PackagePushSuccess",
+                        "package": {"name": "user/copy-pkg"},
+                        "revision": {"hash": "original-hash"},
+                    }
                 }
             }
-        }
+        elif "packagePromote" in query:
+            # packagePromote mutation
+            return {
+                "data": {
+                    "packagePromote": {
+                        "__typename": "PackagePushSuccess",
+                        "revision": {"hash": "promoted-hash"},
+                    }
+                }
+            }
 
     backend.execute_graphql_query = mock_graphql
 
-    # Test copy=False (symlink mode) - should succeed
+    # Test copy=False (symlink mode) - should not promote
     result = backend.create_package_revision(
         "user/symlink-pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy=False
     )
     assert result.success is True
+    assert call_count[0] == 1  # Only packageConstruct called
 
-    # Test copy=True - should raise NotImplementedError
-    with pytest.raises(NotImplementedError, match="copy=True not yet supported"):
-        backend.create_package_revision("user/copy-pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy=True)
+    # Test copy=True - should promote after construct
+    call_count[0] = 0
+    result = backend.create_package_revision(
+        "user/copy-pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy=True
+    )
+    assert result.success is True
+    assert result.top_hash == "promoted-hash"  # Should return promoted hash
+    assert call_count[0] == 2  # Both packageConstruct and packagePromote called
 
 
 def test_create_package_revision_invalid_input(monkeypatch):
@@ -580,6 +601,40 @@ def test_create_package_revision_compute_failure(monkeypatch):
 
     with pytest.raises(BackendError, match="Package creation compute failure"):
         backend.create_package_revision("user/pkg", ["s3://bucket/file.txt"], registry="s3://bucket")
+
+
+def test_create_package_revision_promote_failure(monkeypatch):
+    """Handle promotion failure when copy=True."""
+    backend = _make_backend(monkeypatch)
+
+    call_count = [0]
+
+    def mock_graphql(query, variables=None):
+        call_count[0] += 1
+        if "packageConstruct" in query:
+            return {
+                "data": {
+                    "packageConstruct": {
+                        "__typename": "PackagePushSuccess",
+                        "package": {"name": "user/pkg"},
+                        "revision": {"hash": "original-hash"},
+                    }
+                }
+            }
+        elif "packagePromote" in query:
+            return {
+                "data": {
+                    "packagePromote": {
+                        "__typename": "OperationError",
+                        "message": "S3 copy operation failed",
+                    }
+                }
+            }
+
+    backend.execute_graphql_query = mock_graphql
+
+    with pytest.raises(BackendError, match="Package promotion error"):
+        backend.create_package_revision("user/pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy=True)
 
 
 # ---------------------------------------------------------------------
@@ -745,14 +800,70 @@ def test_update_package_revision_preserves_existing(monkeypatch):
     assert "new.txt" in logical_keys
 
 
-def test_update_package_revision_copy_mode_raises(monkeypatch):
-    """Test that copy != 'none' raises NotImplementedError."""
+def test_update_package_revision_copy_mode(monkeypatch):
+    """Test that copy != 'none' promotes the package after update."""
     backend = _make_backend(monkeypatch)
 
-    # Test copy='all' - should raise NotImplementedError
-    with pytest.raises(NotImplementedError, match="copy='all' not yet supported"):
-        backend.update_package_revision("user/pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy="all")
+    call_count = [0]
 
-    # Test copy='new' - should raise NotImplementedError
-    with pytest.raises(NotImplementedError, match="copy='new' not yet supported"):
-        backend.update_package_revision("user/pkg", ["s3://bucket/file.txt"], registry="s3://bucket", copy="new")
+    def mock_graphql(query, variables=None):
+        call_count[0] += 1
+        if "GetPackageForUpdate" in query:
+            # Query existing package
+            return {
+                "data": {
+                    "package": {
+                        "revision": {
+                            "hash": "existing-hash",
+                            "userMeta": {},
+                            "contentsFlatMap": {
+                                "old.txt": {
+                                    "physicalKey": "s3://bucket/old.txt",
+                                    "size": 100,
+                                    "hash": "old-hash",
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        elif "packageConstruct" in query:
+            # PackageConstruct mutation
+            return {
+                "data": {
+                    "packageConstruct": {
+                        "__typename": "PackagePushSuccess",
+                        "package": {"name": "user/pkg"},
+                        "revision": {"hash": "updated-hash"},
+                    }
+                }
+            }
+        elif "packagePromote" in query:
+            # PackagePromote mutation
+            return {
+                "data": {
+                    "packagePromote": {
+                        "__typename": "PackagePushSuccess",
+                        "revision": {"hash": "promoted-updated-hash"},
+                    }
+                }
+            }
+
+    backend.execute_graphql_query = mock_graphql
+
+    # Test copy='all' - should promote after update
+    result = backend.update_package_revision(
+        "user/pkg", ["s3://bucket/new.txt"], registry="s3://bucket", copy="all"
+    )
+    assert result.success is True
+    assert result.top_hash == "promoted-updated-hash"
+    assert call_count[0] == 3  # Query + Construct + Promote
+
+    # Test copy='new' - should also promote
+    call_count[0] = 0
+    result = backend.update_package_revision(
+        "user/pkg", ["s3://bucket/newer.txt"], registry="s3://bucket", copy="new"
+    )
+    assert result.success is True
+    assert result.top_hash == "promoted-updated-hash"
+    assert call_count[0] == 3  # Query + Construct + Promote

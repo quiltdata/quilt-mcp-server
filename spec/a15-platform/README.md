@@ -13,13 +13,13 @@ dependencies. Enables multitenant MCP server deployments with catalog-specific a
 - JWT authentication with STS role assumption
 - 60+ tests across 5 test files (~95% coverage)
 - GraphQL-native `packageConstruct` mutations (no quilt3 dependency)
+- Full `copy=True` support via `packagePromote` mutation (copies S3 objects to registry)
 
 **Remaining Work:**
 
 - ⚠️ Documentation updates (mark phases complete in README, specs)
 - ⚠️ Multitenant test automation (`scripts/test-multitenant.py` orchestrator)
 - ⚠️ CI/CD workflows (`.github/workflows/test-multitenant.yml`)
-- 💡 Optional: Add `copy=True` support via `packagePromote` mutation
 - 💡 Optional: Optimize file metadata (size/hash helpers)
 
 ## Quick Links
@@ -41,7 +41,7 @@ dependencies. Enables multitenant MCP server deployments with catalog-specific a
 
 **Test Coverage:** 60+ tests across 5 test files (~95% code coverage)
 
-**Multi-Tenant Safety:** Addresses all shared state issues from [02-docker-issues.md](./02-docker-issues.md):
+**Multi-Tenant Safety:** Addresses all shared state issues from [02-docker-issues.md](https://github.com/quiltdata/meta/blob/260130-quilt-mcp-server/proj/260130-quilt-mcp-server/docker/02-docker-issues.md):
 
 - ✅ No quilt3 imports (eliminates `~/.local/share/Quilt/` filesystem dependencies)
 - ✅ No global MCP server singletons (per-instance auth service, HTTP session)
@@ -119,21 +119,7 @@ Branch: `a16-graphql-backend`
 
 ## Known Limitations
 
-### 1. Copy Mode Not Supported
-
-```python
-# This raises NotImplementedError
-backend.create_package_revision(..., copy=True)
-
-# Workaround: Use copy=False (creates symlink-like references)
-backend.create_package_revision(..., copy=False)
-```
-
-**Rationale:** Most use cases don't require copying S3 objects. Can be added later using `packagePromote` mutation.
-
-**Reference:** [12-graphql-native-write-operations.md](./12-graphql-native-write-operations.md#3-copy-mode-support)
-
-### 2. Admin Operations Not Implemented
+### 1. Admin Operations Not Implemented
 
 ```python
 # This raises NotImplementedError
@@ -164,8 +150,7 @@ backend.admin.list_users()
 
 1. **Implement multitenant test automation** - Create `scripts/test-multitenant.py`
 2. **Set up CI/CD** - Add GitHub Actions workflow
-3. **Add copy=True support** - Use `packagePromote` mutation
-4. **Optimize performance** - Add file size/hash helpers
+3. **Optimize performance** - Add file size/hash helpers
 
 ---
 

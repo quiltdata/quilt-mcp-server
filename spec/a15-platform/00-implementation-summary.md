@@ -84,7 +84,7 @@ Use GraphQL `packageConstruct` mutation for all write operations:
 - **Platform-native:** Aligns with Platform's Lambda-based package creation
 - **Simpler testing:** Mock GraphQL responses vs complex quilt3 mocking
 
-**Known Limitation:** `copy=True` parameter raises `NotImplementedError` (can be added later using `packagePromote` mutation)
+**Copy Mode Support:** Full `copy=True` support via `packagePromote` mutation (copies S3 objects to registry bucket)
 
 **Reference:** [12-graphql-native-write-operations.md](12-graphql-native-write-operations.md)
 
@@ -365,7 +365,7 @@ class QuiltOps_Base(QuiltOps):
 ### Phase 3 Complete ✅
 
 - [x] Package creation works with GraphQL `packageConstruct` mutation
-- [x] `copy=False` works, `copy=True` raises NotImplementedError (deferred)
+- [x] Full copy mode support (`copy=True` via `packagePromote` mutation)
 - [x] boto3 clients use JWT-derived credentials
 - [x] Package tests pass (comprehensive coverage in test files)
 

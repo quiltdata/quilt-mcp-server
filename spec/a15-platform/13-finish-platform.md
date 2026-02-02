@@ -146,7 +146,7 @@ result = backend.create_package_revision(
     package_name="my-package",
     s3_uris=["s3://bucket/file.csv"],
     registry="s3://bucket",
-    copy=False  # copy=True raises NotImplementedError
+    copy=False  # Set copy=True to copy objects to registry bucket
 )
 
 # Update package (GraphQL query + mutation)
@@ -154,7 +154,7 @@ result = backend.update_package_revision(
     package_name="my-package",
     s3_uris=["s3://bucket/file2.csv"],
     registry="s3://bucket",
-    copy="none"  # copy != "none" raises NotImplementedError
+    copy="none"  # Use "all" or "new" to copy objects to registry
 )
 ```
 
@@ -181,21 +181,7 @@ uv run pytest tests/unit/backends/test_platform_backend*.py -v
 
 ## Known Limitations ⚠️
 
-### 1. Copy Mode Not Supported
-
-```python
-# This raises NotImplementedError
-backend.create_package_revision(..., copy=True)
-
-# Workaround: Use copy=False (creates symlink-like references)
-backend.create_package_revision(..., copy=False)
-```
-
-**Rationale:** Most use cases don't require copying S3 objects. Can be added later using `packagePromote` mutation.
-
-**Documented in:** [12-graphql-native-write-operations.md](./12-graphql-native-write-operations.md#3-copy-mode-support)
-
-### 2. Admin Operations Not Implemented
+### 1. Admin Operations Not Implemented
 
 ```python
 # This raises NotImplementedError
@@ -206,7 +192,7 @@ backend.admin.list_users()
 
 **Documented in:** [11-test-coverage-plan.md](./11-test-coverage-plan.md#phase-4-create-test_platform_backend_adminpy)
 
-### 3. Multitenant Test Automation Not Complete
+### 2. Multitenant Test Automation Not Complete
 
 **What works:**
 
@@ -282,11 +268,6 @@ backend.admin.list_users()
 **Reference:** [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md#cicd-integration)
 
 ### Optional Enhancements (Low Priority)
-
-- [ ] Add `copy=True` support
-  - [ ] Implement using `packagePromote` mutation
-  - [ ] Update tests
-  - [ ] Remove NotImplementedError
 
 - [ ] Optimize file metadata
   - [ ] Add `_get_file_size()` helper
@@ -427,15 +408,15 @@ python scripts/mcp-test.py http://localhost:8001/mcp \
 
 **Implemented:** Commit b4e499a (2026-02-02)
 
-### 2. Defer copy=True Support ✅
+### 2. Implement copy=True Support ✅
 
-**Decision:** Raise `NotImplementedError` for `copy=True` parameter
+**Decision:** Implement full copy mode support using `packagePromote` mutation
 
-**Rationale:**
+**Implementation:**
 
-- Most use cases don't require copying S3 objects
-- Can add later using `packagePromote` mutation
-- Simplifies initial implementation
+- `copy=True` in `create_package_revision()` copies S3 objects to registry bucket
+- `copy="all"` and `copy="new"` in `update_package_revision()` trigger object promotion
+- Two-step process: create package with references, then promote to copy objects
 
 **Documented in:** [12-graphql-native-write-operations.md](./12-graphql-native-write-operations.md#3-copy-mode-support)
 
@@ -518,9 +499,8 @@ python scripts/mcp-test.py http://localhost:8001/mcp \
 
 ### Long Term (Future)
 
-1. **Add copy=True support** - Use packagePromote mutation
-2. **Optimize performance** - Add file size/hash helpers
-3. **Fix ES integration tests** - Separate effort (60 broken tests)
+1. **Optimize performance** - Add file size/hash helpers
+2. **Fix ES integration tests** - Separate effort (60 broken tests)
 
 ---
 

@@ -535,13 +535,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         try:
             self._validate_package_creation_inputs(package_name, s3_uris)
 
-            # Validate copy parameter
-            if copy:
-                raise NotImplementedError(
-                    "copy=True not yet supported in Platform_Backend. "
-                    "Use copy=False to create symlink-like package references."
-                )
-
             # Extract bucket from registry
             if not registry:
                 raise ValidationError("Registry is required for package creation")
@@ -603,6 +596,11 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             if typename == "PackagePushSuccess":
                 revision = package_construct.get("revision", {})
                 top_hash = revision.get("hash", "")
+
+                # If copy=True, promote the package to copy objects to registry
+                if copy:
+                    top_hash = self._promote_package(bucket, package_name, top_hash, message, metadata or {})
+
                 return Package_Creation_Result(
                     package_name=package_name,
                     top_hash=top_hash,
@@ -643,13 +641,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     ) -> Package_Creation_Result:
         try:
             self._validate_package_update_inputs(package_name, s3_uris, registry)
-
-            # Validate copy parameter
-            if copy != "none":
-                raise NotImplementedError(
-                    f"copy='{copy}' not yet supported in Platform_Backend. "
-                    "Use copy='none' to create symlink-like package references."
-                )
 
             # Extract bucket from registry
             bucket = self._extract_bucket_from_registry(registry)
@@ -763,6 +754,11 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             if typename == "PackagePushSuccess":
                 revision_data = package_construct.get("revision", {})
                 top_hash = revision_data.get("hash", "")
+
+                # If copy mode enabled, promote the package to copy objects to registry
+                if copy != "none":
+                    top_hash = self._promote_package(bucket, package_name, top_hash, message, merged_meta)
+
                 return Package_Creation_Result(
                     package_name=package_name,
                     top_hash=top_hash,
@@ -996,6 +992,64 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         if registry.startswith("http://") or registry.startswith("https://"):
             return registry.split("//", 1)[-1].split("/")[0]
         return registry.split("/")[0]
+
+    def _promote_package(self, bucket: str, name: str, hash: str, message: str, user_meta: Dict) -> str:
+        """
+        Promote (copy) a package to the registry bucket using packagePromote mutation.
+        Returns the new package hash after promotion.
+        """
+        mutation = """
+        mutation PackagePromote($params: PackagePushParams!, $src: PackagePromoteSource!) {
+          packagePromote(params: $params, src: $src) {
+            __typename
+            ... on PackagePushSuccess {
+              revision { hash }
+            }
+            ... on InvalidInput {
+              errors { path message name }
+            }
+            ... on OperationError {
+              message
+              name
+            }
+          }
+        }
+        """
+
+        variables = {
+            "params": {
+                "bucket": bucket,
+                "name": name,
+                "message": message,
+                "userMeta": user_meta,
+                "workflow": None,
+            },
+            "src": {
+                "bucket": bucket,
+                "name": name,
+                "hash": hash,
+            },
+        }
+
+        result = self.execute_graphql_query(mutation, variables=variables)
+        package_promote = result.get("data", {}).get("packagePromote", {})
+        typename = package_promote.get("__typename")
+
+        if typename == "PackagePushSuccess":
+            revision = package_promote.get("revision", {})
+            promoted_hash = revision.get("hash", "")
+            return promoted_hash
+        elif typename == "InvalidInput":
+            errors = package_promote.get("errors", [])
+            error_messages = [
+                f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors
+            ]
+            raise ValidationError(f"Package promotion invalid input: {'; '.join(error_messages)}")
+        elif typename == "OperationError":
+            message_text = package_promote.get("message", "Package promotion failed")
+            raise BackendError(f"Package promotion error: {message_text}")
+        else:
+            raise BackendError(f"Unexpected packagePromote response type: {typename}")
 
     def _validate_package_creation_inputs(self, package_name: str, s3_uris: List[str]) -> None:
         import re
