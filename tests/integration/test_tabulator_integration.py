@@ -10,6 +10,12 @@ Requirements:
 - Valid credentials with tabulator permissions
 
 These tests will FAIL LOUDLY if credentials are not available.
+
+CI Behavior:
+- These tests are marked with @pytest.mark.requires_catalog
+- They are SKIPPED in CI (via test-ci target) because they require authenticated catalog access
+- Run locally with: make test-integration
+- Run in CI only when catalog credentials are available
 """
 
 import os
@@ -146,6 +152,7 @@ def created_table(backend, test_bucket, test_table_name):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_backend_has_tabulator_methods(backend):
     """Verify backend was properly initialized with TabulatorMixin."""
     assert hasattr(backend, 'list_tabulator_tables')
@@ -162,6 +169,7 @@ def test_backend_has_tabulator_methods(backend):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_list_tables_real(backend, test_bucket):
     """List tables in bucket - hits REAL GraphQL API."""
     try:
@@ -181,6 +189,7 @@ def test_list_tables_real(backend, test_bucket):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_create_table_real(backend, test_bucket, test_table_name):
     """Create a table - hits REAL GraphQL API.
 
@@ -217,6 +226,7 @@ def test_create_table_real(backend, test_bucket, test_table_name):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_get_table_real(backend, test_bucket, created_table):
     """Get specific table - hits REAL GraphQL API."""
     try:
@@ -239,6 +249,7 @@ def test_get_table_real(backend, test_bucket, created_table):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_rename_table_real(backend, test_bucket, test_table_name):
     """Rename a table - hits REAL GraphQL API.
 
@@ -280,6 +291,7 @@ def test_rename_table_real(backend, test_bucket, test_table_name):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_delete_table_real(backend, test_bucket, test_table_name):
     """Delete a table - hits REAL GraphQL API."""
     unique_table = f"{test_table_name}_delete"
@@ -307,6 +319,7 @@ def test_delete_table_real(backend, test_bucket, test_table_name):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_error_handling_bucket_not_found(backend):
     """Test error handling for nonexistent bucket - REAL API call."""
     nonexistent_bucket = "nonexistent-bucket-12345-test"
@@ -329,6 +342,7 @@ def test_error_handling_bucket_not_found(backend):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_error_handling_table_not_found(backend, test_bucket):
     """Test error handling for nonexistent table - REAL API call."""
     nonexistent_table = "nonexistent_table_12345"
@@ -349,6 +363,7 @@ def test_error_handling_table_not_found(backend, test_bucket):
 
 
 @pytest.mark.integration
+@pytest.mark.requires_catalog
 def test_full_lifecycle_real(backend, test_bucket, test_table_name):
     """Test complete table lifecycle - ALL REAL API calls.
 
