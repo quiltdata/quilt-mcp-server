@@ -37,6 +37,7 @@ This document specifies testing strategies for the Platform GraphQL backend with
 ### Quick Start: Single Tenant Testing
 
 **Prerequisites:**
+
 ```bash
 # 1. Ensure quilt3 is configured with valid catalog session
 quilt3 catalog
@@ -48,6 +49,7 @@ export QUILT_TENANT_ID="test-tenant-1"  # Optional, can come from JWT
 ```
 
 **Generate JWT Token:**
+
 ```bash
 # Auto-generate JWT with catalog authentication
 python tests/jwt_helpers.py generate \
@@ -61,6 +63,7 @@ export MCP_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
 **Test Platform Backend:**
+
 ```bash
 # Start local server with Platform backend (requires JWT)
 FASTMCP_MODE=platform make run
@@ -100,6 +103,7 @@ python scripts/mcp-test.py http://localhost:8001/mcp \
 ```
 
 **Verify Tenant Isolation:**
+
 ```bash
 # Create workflow for Tenant A
 curl -X POST http://localhost:8001/mcp \
@@ -247,6 +251,7 @@ class TestPlatformBackendMultitenant:
 ```
 
 **Run Unit Tests:**
+
 ```bash
 make test-unit
 # or
@@ -339,6 +344,7 @@ class TestPlatformMultitenantE2E:
 ```
 
 **Run Integration Tests:**
+
 ```bash
 # Set required environment variables
 export TEST_ROLE_ARN_A="arn:aws:iam::123:role/TenantA"
@@ -422,6 +428,7 @@ test_scenarios:
 ```
 
 **Run Multitenant MCP Tests:**
+
 ```bash
 # Use dedicated test script
 python scripts/test-multitenant.py \
@@ -501,47 +508,48 @@ jobs:
 .PHONY: test-multitenant test-multitenant-unit test-multitenant-integration test-multitenant-mcp
 
 test-multitenant: test-multitenant-unit test-multitenant-integration test-multitenant-mcp
-	@echo "✅ All multitenant tests passed"
+ @echo "✅ All multitenant tests passed"
 
 test-multitenant-unit:
-	@echo "Running multitenant unit tests..."
-	@uv run pytest tests/unit/backends/test_platform_backend_multitenant.py \
-		tests/unit/context/test_tenant_extraction.py \
-		-v --cov=quilt_mcp
+ @echo "Running multitenant unit tests..."
+ @uv run pytest tests/unit/backends/test_platform_backend_multitenant.py \
+  tests/unit/context/test_tenant_extraction.py \
+  -v --cov=quilt_mcp
 
 test-multitenant-integration:
-	@echo "Running multitenant integration tests..."
-	@if [ -z "$$TEST_ROLE_ARN_A" ]; then \
-		echo "⚠️  Skipping: TEST_ROLE_ARN_A not set"; \
-		exit 0; \
-	fi
-	@uv run pytest tests/integration/test_platform_multitenant_e2e.py \
-		-v -m requires_jwt --cov=quilt_mcp
+ @echo "Running multitenant integration tests..."
+ @if [ -z "$$TEST_ROLE_ARN_A" ]; then \
+  echo "⚠️  Skipping: TEST_ROLE_ARN_A not set"; \
+  exit 0; \
+ fi
+ @uv run pytest tests/integration/test_platform_multitenant_e2e.py \
+  -v -m requires_jwt --cov=quilt_mcp
 
 test-multitenant-mcp:
-	@echo "Running multitenant MCP protocol tests..."
-	@if [ -z "$$TEST_JWT_SECRET" ]; then \
-		echo "⚠️  Skipping: TEST_JWT_SECRET not set"; \
-		exit 0; \
-	fi
-	@python scripts/test-multitenant.py \
-		--config scripts/tests/mcp-test-multitenant.yaml \
-		--endpoint http://localhost:8001/mcp
+ @echo "Running multitenant MCP protocol tests..."
+ @if [ -z "$$TEST_JWT_SECRET" ]; then \
+  echo "⚠️  Skipping: TEST_JWT_SECRET not set"; \
+  exit 0; \
+ fi
+ @python scripts/test-multitenant.py \
+  --config scripts/tests/mcp-test-multitenant.yaml \
+  --endpoint http://localhost:8001/mcp
 
 # Quick manual testing
 test-platform-local:
-	@echo "Starting Platform backend locally..."
-	@FASTMCP_MODE=platform make run &
-	@sleep 3
-	@python scripts/mcp-test.py http://localhost:8001/mcp \
-		--jwt \
-		--role-arn "$${TEST_ROLE_ARN:-arn:aws:iam::123:role/Test}" \
-		--secret "$${TEST_JWT_SECRET:-test-secret}" \
-		--tools-test
-	@pkill -f "make run"
+ @echo "Starting Platform backend locally..."
+ @FASTMCP_MODE=platform make run &
+ @sleep 3
+ @python scripts/mcp-test.py http://localhost:8001/mcp \
+  --jwt \
+  --role-arn "$${TEST_ROLE_ARN:-arn:aws:iam::123:role/Test}" \
+  --secret "$${TEST_JWT_SECRET:-test-secret}" \
+  --tools-test
+ @pkill -f "make run"
 ```
 
 **Usage:**
+
 ```bash
 # Run all multitenant tests
 make test-multitenant

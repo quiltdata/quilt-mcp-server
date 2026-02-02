@@ -37,12 +37,14 @@ pkill -f "make run"
 ```
 
 **What it tests:**
+
 - ✅ Basic connectivity for all tenants
 - ✅ Tools/list for each tenant
 - ✅ Tenant isolation (Tenant A data inaccessible to Tenant B)
 - ✅ Concurrent tenant operations
 
 **Expected output:**
+
 ```
 [2026-02-02 10:30:00] ℹ️ Setting up tenant JWT tokens...
 [2026-02-02 10:30:01] ✅ Token generated for tenant-a
@@ -224,6 +226,7 @@ make test-platform-local
 ### Issue 1: "quilt3 session not configured"
 
 **Solution:**
+
 ```bash
 quilt3 login
 # Follow prompts to authenticate
@@ -232,6 +235,7 @@ quilt3 login
 ### Issue 2: "JWT claim 'catalog_token' is required"
 
 **Solution:** Use `--auto-extract` flag to extract catalog token from quilt3 session:
+
 ```bash
 python tests/jwt_helpers.py generate \
   --role-arn "$TEST_ROLE_ARN_A" \
@@ -244,6 +248,7 @@ python tests/jwt_helpers.py generate \
 **Cause:** Catalog token expired or invalid
 
 **Solution:** Re-login to quilt3:
+
 ```bash
 quilt3 login
 # Then regenerate JWT token with --auto-extract
@@ -254,6 +259,7 @@ quilt3 login
 **Cause:** Server not running
 
 **Solution:** Start server in Platform mode:
+
 ```bash
 FASTMCP_MODE=platform make run
 ```
@@ -265,6 +271,7 @@ FASTMCP_MODE=platform make run
 **Cause:** Server running in single-user mode instead of Platform mode
 
 **Solution:** Restart with correct mode:
+
 ```bash
 # Stop any running servers
 pkill -f "make run"

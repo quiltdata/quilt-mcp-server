@@ -5,11 +5,13 @@
 The Platform_Backend implementation is **monolithic** (969 lines in one file) while Quilt3_Backend uses a **mixin-based architecture** (7 files, 2,639 lines). Despite this architectural difference, Platform_Backend is **missing domain-specific test files**, resulting in incomplete test coverage.
 
 **Current State:**
+
 - 1 test file: `test_platform_backend_core.py` (363 lines, 18 tests)
 - Covers: Basic auth, config, GraphQL execution, and minimal read operations
 - Missing: Comprehensive package, content, and bucket operation tests
 
 **Target State:**
+
 - 4 test files mirroring Quilt3_Backend test structure
 - Comprehensive coverage of all Platform_Backend public methods (18 methods)
 - Test organization aligned with domain responsibilities
@@ -123,6 +125,7 @@ class Quilt3_Backend(
    - `test_update_package_revision_preserves_existing` - Don't lose existing files
 
 **Implementation Notes:**
+
 - Mock `execute_graphql_query()` to return controlled GraphQL responses
 - Mock `quilt3.Package` for write operations
 - Mock `_with_aws_credentials()` context manager
@@ -150,6 +153,7 @@ class Quilt3_Backend(
    - `test_get_content_url_aws_credentials` - Verify credential context manager
 
 **Implementation Notes:**
+
 - Mock `execute_graphql_query()` with GraphQL package content responses
 - Mock `get_boto3_client()` for S3 presigned URL generation
 - Mock `_with_aws_credentials()` context manager
@@ -179,6 +183,7 @@ class Quilt3_Backend(
    - `test_get_catalog_config_handles_missing_fields` - Handle optional fields
 
 **Implementation Notes:**
+
 - Mock `execute_graphql_query()` for bucket listing
 - Mock `_session.get()` for catalog config.json retrieval
 - Test registry URL derivation logic from `configure_catalog()`
@@ -195,6 +200,7 @@ class Quilt3_Backend(
    - Document future admin operations that would go here
 
 **Implementation Notes:**
+
 - Single test verifying current stub behavior
 - Document that Platform_Backend intentionally doesn't implement admin operations
 - Add comments for future expansion if admin GraphQL APIs become available
@@ -289,12 +295,14 @@ monkeypatch.setitem(sys.modules, "quilt3", fake_quilt3)
 ## Test Metrics
 
 ### Current Coverage
+
 - **Test Files:** 1
 - **Test Count:** 18 tests
 - **Methods Tested:** ~8 of 18 public methods
 - **Coverage Estimate:** ~45%
 
 ### Target Coverage
+
 - **Test Files:** 4
 - **Test Count:** ~60 tests
 - **Methods Tested:** 17 of 18 public methods (excluding admin stub)

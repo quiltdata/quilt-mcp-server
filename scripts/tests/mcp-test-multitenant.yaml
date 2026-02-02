@@ -1,0 +1,28 @@
+# Multitenant test configuration
+#
+# This configuration defines test scenarios for multitenant Platform backend testing.
+
+environment:
+  # Configure test environment (can be overridden by env vars)
+  QUILT_TEST_BUCKET: "${QUILT_TEST_BUCKET}"
+  QUILT_CATALOG_URL: "${QUILT_CATALOG_URL}"
+
+# Define tenant configurations
+tenants:
+  tenant-a:
+    role_arn: "${TEST_ROLE_ARN_A:-arn:aws:iam::123456789012:role/TenantA}"
+    jwt_secret: "${TEST_JWT_SECRET:-test-secret}"
+    description: "Primary test tenant"
+
+  tenant-b:
+    role_arn: "${TEST_ROLE_ARN_B:-arn:aws:iam::123456789012:role/TenantB}"
+    jwt_secret: "${TEST_JWT_SECRET:-test-secret}"
+    description: "Secondary test tenant for isolation testing"
+
+# Optional: Define expected tool/resource counts for validation
+expected:
+  min_tools: 40
+  min_resources: 10
+
+# Test scenarios are defined in test-multitenant.py
+# This file provides tenant configuration and environment setup

@@ -29,6 +29,7 @@ def generate_test_jwt(
 ```
 
 **CLI Usage:**
+
 ```bash
 python tests/jwt_helpers.py generate \
   --role-arn "arn:aws:iam::123:role/TenantA" \
@@ -263,6 +264,7 @@ pkill -f "make run"
 **Cause:** Using old version of jwt_helpers.py without tenant_id support
 
 **Solution:** Ensure you have the latest version:
+
 ```bash
 git pull origin main
 # Or manually update tests/jwt_helpers.py
@@ -271,12 +273,14 @@ git pull origin main
 ### Issue: Token doesn't contain tenant_id claim
 
 **Symptom:** Inspect token, no tenant_id field
+
 ```bash
 python tests/jwt_helpers.py inspect --token "..." --secret "..." | grep tenant_id
 # Returns nothing
 ```
 
 **Solution:** Ensure you're passing --tenant-id flag:
+
 ```bash
 python tests/jwt_helpers.py generate \
   --role-arn "..." \
@@ -290,11 +294,13 @@ python tests/jwt_helpers.py generate \
 **Symptom:** Backend logs show "No tenant ID found"
 
 **Causes:**
+
 1. JWT doesn't have tenant_id claim
 2. Using wrong claim key
 3. Token validation failed
 
 **Solutions:**
+
 1. Regenerate token with --tenant-id flag
 2. Check supported claim keys (tenant_id, tenant, org_id, organization_id)
 3. Verify token signature matches server JWT_SECRET
@@ -312,6 +318,7 @@ python tests/jwt_helpers.py generate \
 ✅ **Integration Complete**
 
 All components properly use jwt_helpers.py with tenant_id support:
+
 - ✅ jwt_helpers.py updated with tenant_id parameter
 - ✅ CLI supports --tenant-id flag
 - ✅ test-multitenant.py uses correct imports
