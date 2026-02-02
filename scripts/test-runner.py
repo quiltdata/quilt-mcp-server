@@ -56,6 +56,15 @@ else:
     console = None  # type: ignore
 
 
+# ANSI escape code regex for stripping color codes
+ANSI_ESCAPE = re.compile(r'\x1b\[[0-9;]*m')
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return ANSI_ESCAPE.sub('', text)
+
+
 @dataclass
 class TestFailure:
     """Details of a test failure."""
@@ -396,14 +405,17 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
             # Capture error-related lines for display in TUI bottom section
             phase = state.current_phase_stats()
 
+            # Strip ANSI color codes for reliable pattern matching
+            line_clean = strip_ansi(line)
+
             # Check for pytest status indicators first (these take precedence)
-            is_passing_test = " PASSED " in line or line.endswith(" PASSED") or "PASSED [" in line
-            is_skipped_test = " SKIPPED " in line or line.endswith(" SKIPPED") or "SKIPPED [" in line
+            is_passing_test = " PASSED " in line_clean or line_clean.endswith(" PASSED") or "PASSED [" in line_clean
+            is_skipped_test = " SKIPPED " in line_clean or line_clean.endswith(" SKIPPED") or "SKIPPED [" in line_clean
 
             # Flag as notable if:
             # - Contains error keywords AND is not a passing test, OR
             # - Is a skipped test (important to see what's being skipped)
-            has_error_keyword = any(keyword in line for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
+            has_error_keyword = any(keyword in line_clean for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
             is_notable = (has_error_keyword and not is_passing_test) or is_skipped_test
 
             if phase and is_notable:
