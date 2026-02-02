@@ -150,9 +150,19 @@ def test_get_catalog_config(monkeypatch):
 
 
 def test_configure_catalog_derives_registry(monkeypatch):
-    backend = _make_backend(monkeypatch, {"catalog_token": "token"})
-    backend.configure_catalog("https://nightly.quilttest.com")
-    assert backend.get_registry_url() == "https://nightly-registry.quilttest.com"
+    from quilt_mcp.backends.platform_backend import Platform_Backend
+
+    # Create backend without pre-existing registry_url
+    monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
+    token = _push_jwt_context({"catalog_token": "token"})
+    try:
+        backend = Platform_Backend()
+        # Clear any registry_url that might have been set
+        backend._registry_url = None
+        backend.configure_catalog("https://nightly.quilttest.com")
+        assert backend.get_registry_url() == "https://nightly-registry.quilttest.com"
+    finally:
+        reset_runtime_context(token)
 
 
 def test_diff_packages_detects_changes(monkeypatch):
