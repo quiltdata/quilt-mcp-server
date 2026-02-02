@@ -270,36 +270,6 @@ class MultitenantTestRunner:
 
         return results
 
-    def run_isolation_tests(self) -> Dict[str, Any]:
-        """Run tenant isolation tests.
-
-        Note: This test suite is currently minimal. Proper isolation testing requires:
-        - Real AWS credentials with different IAM role permissions
-        - Buckets that are accessible to only one tenant
-        - Testing bucket_list, bucket_objects_list with real AWS IAM policies
-
-        The fake "workflow" feature in this MCP server is just local JSON files
-        and is not representative of real Quilt functionality. Real Quilt workflows
-        are bucket-scoped features that should be shared among collaborators.
-
-        Returns:
-            Test results dictionary
-        """
-        self._log("\n" + "="*80)
-        self._log("Running tenant isolation tests...")
-        self._log("="*80)
-        self._log("⚠️  Isolation tests require real AWS credentials and IAM policies")
-        self._log("⚠️  Skipping isolation tests (not implemented with fake credentials)")
-
-        results = {
-            "name": "Tenant Isolation",
-            "passed": 0,
-            "failed": 0,
-            "tests": []
-        }
-
-        return results
-
     def run_concurrent_tests(self) -> Dict[str, Any]:
         """Run concurrent tenant operations test.
 
@@ -476,12 +446,6 @@ class MultitenantTestRunner:
         self.results["total"] += connectivity_results["passed"] + connectivity_results["failed"]
         self.results["passed"] += connectivity_results["passed"]
         self.results["failed"] += connectivity_results["failed"]
-
-        isolation_results = self.run_isolation_tests()
-        self.results["scenarios"].append(isolation_results)
-        self.results["total"] += isolation_results["passed"] + isolation_results["failed"]
-        self.results["passed"] += isolation_results["passed"]
-        self.results["failed"] += isolation_results["failed"]
 
         concurrent_results = self.run_concurrent_tests()
         self.results["scenarios"].append(concurrent_results)
