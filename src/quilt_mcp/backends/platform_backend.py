@@ -15,6 +15,7 @@ from typing import List, Optional, Dict, Any
 
 from quilt_mcp.ops.quilt_ops import QuiltOps
 from quilt_mcp.ops.tabulator_mixin import TabulatorMixin
+from quilt_mcp.ops.admin_ops import AdminOps
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError, NotFoundError
 from quilt_mcp.domain import (
     Package_Info,
@@ -48,6 +49,9 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         self._catalog_token = self._claims.get("catalog_token") or metadata.get("catalog_token")
         if not self._catalog_token:
             raise AuthenticationError("JWT claim 'catalog_token' is required for Platform backend")
+
+        # Admin operations (lazy loaded)
+        self._admin_ops: Optional[AdminOps] = None
 
         self._catalog_url = (
             self._claims.get("catalog_url") or metadata.get("catalog_url") or os.getenv("QUILT_CATALOG_URL")
@@ -792,8 +796,18 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # ---------------------------------------------------------------------
 
     @property
-    def admin(self):
-        raise NotImplementedError("Platform admin operations not yet implemented")
+    def admin(self) -> AdminOps:
+        """Get admin operations interface.
+
+        Returns:
+            AdminOps instance for performing admin operations
+        """
+        if self._admin_ops is None:
+            # Import here to avoid circular dependency
+            from quilt_mcp.backends.platform_admin_ops import Platform_Admin_Ops
+
+            self._admin_ops = Platform_Admin_Ops(self)
+        return self._admin_ops
 
     # ---------------------------------------------------------------------
     # Helpers
