@@ -502,9 +502,7 @@ class MultitenantTestRunner:
 
         for scenario in self.results["scenarios"]:
             total_tests = scenario['passed'] + scenario['failed']
-            if total_tests == 0:
-                print(f"\n{scenario['name']}: ⚠️  SKIPPED")
-            else:
+            if total_tests > 0:
                 print(f"\n{scenario['name']}:")
                 print(f"  ✅ Passed: {scenario['passed']}")
                 print(f"  ❌ Failed: {scenario['failed']}")
