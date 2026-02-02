@@ -49,6 +49,10 @@ import subprocess
 repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root / "src"))
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(repo_root / ".env")
+
 from quilt_mcp.ops.factory import QuiltOpsFactory
 
 # Path to companion query script
