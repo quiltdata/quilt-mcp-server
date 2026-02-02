@@ -57,13 +57,13 @@ from .tools.packages import (
     package_update,
     packages_list,
 )
-from .services.tabulator_service import (
+from .tools.tabulator import (
     tabulator_tables_list,
     tabulator_table_create,
     tabulator_table_delete,
     tabulator_table_rename,
-    tabulator_open_query_status,
-    tabulator_open_query_toggle,
+    tabulator_buckets_list,
+    tabulator_bucket_query,
 )
 
 __version__ = "0.5.6"
@@ -115,6 +115,6 @@ __all__ = [
     "tabulator_table_create",
     "tabulator_table_delete",
     "tabulator_table_rename",
-    "tabulator_open_query_status",
-    "tabulator_open_query_toggle",
+    "tabulator_buckets_list",
+    "tabulator_bucket_query",
 ]

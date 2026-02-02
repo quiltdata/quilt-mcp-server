@@ -34,7 +34,7 @@ test-all: test-catalog | $(RESULTS_DIR)
 test-ci: | $(RESULTS_DIR)
 	@echo "Running CI tests..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not slow and not search and not admin and not docker"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
+	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not slow and not search and not admin and not docker and not requires_catalog"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
 
 test-unit: $(RESULTS_DIR)/coverage-unit.xml
 

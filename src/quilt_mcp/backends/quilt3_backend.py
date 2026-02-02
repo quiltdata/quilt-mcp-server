@@ -26,12 +26,14 @@ from quilt_mcp.backends.quilt3_backend_content import Quilt3_Backend_Content
 from quilt_mcp.backends.quilt3_backend_buckets import Quilt3_Backend_Buckets
 from quilt_mcp.backends.quilt3_backend_session import Quilt3_Backend_Session
 from quilt_mcp.backends.quilt3_backend_admin import Quilt3_Backend_Admin
+from quilt_mcp.ops.tabulator_mixin import TabulatorMixin
 
 logger = logging.getLogger(__name__)
 
 
 class Quilt3_Backend(
     Quilt3_Backend_Session,
+    TabulatorMixin,
     Quilt3_Backend_Buckets,
     Quilt3_Backend_Content,
     Quilt3_Backend_Packages,
@@ -42,14 +44,18 @@ class Quilt3_Backend(
     """Backend implementation using quilt3 library.
 
     This class composes multiple mixins to provide the complete QuiltOps interface:
+    - Session: Auth status, catalog config, GraphQL endpoint/auth, and boto3 access
+    - TabulatorMixin: Tabulator table management (backend-agnostic GraphQL operations)
     - Base: Core initialization and shared utilities
     - Packages: Package search, retrieval, and transformations
     - Content: Content browsing and URL generation
     - Buckets: Bucket listing and transformations
-    - Session: Auth status, catalog config, GraphQL, and boto3 access
     - Admin: User management, role management, and SSO configuration
 
-    The mixin order is important for proper method resolution order (MRO).
+    Architecture:
+    - TabulatorMixin provides generic execute_graphql_query() implementation
+    - Quilt3_Backend_Session provides quilt3-specific auth (get_graphql_auth_headers, get_graphql_endpoint)
+    - This design allows TabulatorMixin to work with any backend (quilt3, HTTP headers, etc.)
     """
 
     @property

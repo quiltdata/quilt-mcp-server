@@ -2333,7 +2333,7 @@ wheels = [
 
 [[package]]
 name = "quilt-mcp"
-version = "0.11.0"
+version = "0.12.0"
 source = { editable = "." }
 dependencies = [
     { name = "altair" },
@@ -2385,6 +2385,7 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-timeout" },
     { name = "quilt3" },
+    { name = "quiltx" },
     { name = "rich" },
 ]
 
@@ -2439,6 +2440,7 @@ test = [
     { name = "pytest-cov", specifier = ">=4.0.0" },
     { name = "pytest-timeout", specifier = ">=2.1.0" },
     { name = "quilt3", specifier = ">=5.6.0" },
+    { name = "quiltx", specifier = ">=0.3.0" },
     { name = "rich", specifier = ">=13.0.0" },
 ]
 
@@ -2461,6 +2463,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e3/b9/01aafc5df18a064900b75e9160e556ad19a591221cec08ac3b8fabe61c87/quilt3-6.3.1.tar.gz", hash = "sha256:d4f02a67053ce14037583545d8b895b0972f889882ea83a0a40aa6ab42183003", size = 105432, upload-time = "2025-03-10T15:55:23.89Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/52/6d/5267734cef6121ecdddd979c00105b509745755a1a07a8456a354ca5d937/quilt3-6.3.1-py3-none-any.whl", hash = "sha256:14a2e97c0281448650690e80ca8bb47549d1b10510c65b03c87561ebc20d7f95", size = 105652, upload-time = "2025-03-10T15:55:22.733Z" },
+]
+
+[[package]]
+name = "quiltx"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "quilt3" },
+    { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/0c/0e2dd8c607ca55188e547dd23782afe0fd265b405790cf717f4aaa3d187c/quiltx-0.3.0.tar.gz", hash = "sha256:156d1a5708ffa796d7a5020b970a65598be6661ce27a14e733ceb91c5fbf1bf5", size = 163565, upload-time = "2026-02-02T03:09:01.98Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/2f/59045d7de9a9a8031bc4963dfee57a158aaf7196bbfd372237453dd3a8dc/quiltx-0.3.0-py3-none-any.whl", hash = "sha256:08d8a0bfaa1e50db70379fa3168056701e3e95805392d95eda57085502051e8a", size = 32598, upload-time = "2026-02-02T03:08:59.345Z" },
 ]
 
 [[package]]

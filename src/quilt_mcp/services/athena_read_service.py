@@ -693,6 +693,87 @@ def athena_query_history(
         return ErrorResponse(error=f"Failed to get query history: {str(e)}")
 
 
+def tabulator_query_execute(
+    query: str,
+    database_name: Optional[str] = None,
+    workgroup_name: Optional[str] = None,
+    max_results: int = 1000,
+    output_format: Literal["json", "csv", "parquet", "table"] = "json",
+    use_quilt_auth: bool = True,
+) -> Dict[str, Any]:
+    """Execute a query against the Tabulator catalog.
+
+    This is a convenience wrapper that automatically uses the tabulator data catalog.
+
+    Args:
+        query: SQL query to execute
+        database_name: Default database for query context (optional)
+        workgroup_name: Athena workgroup to use (optional)
+        max_results: Maximum number of results to return
+        output_format: Output format (json, csv, parquet, table)
+        use_quilt_auth: Use quilt3 assumed role credentials if available
+
+    Returns:
+        Query execution results with data, metadata, and formatting
+    """
+    try:
+        from quilt_mcp.services import auth_metadata
+
+        info = auth_metadata.catalog_info()
+        if not info.get("tabulator_data_catalog"):
+            return format_error_response(
+                "tabulator_data_catalog not configured. This requires a Tabulator-enabled catalog."
+            )
+
+        data_catalog_name = info["tabulator_data_catalog"]
+
+        return athena_query_execute(
+            query=query,
+            database_name=database_name,
+            workgroup_name=workgroup_name,
+            data_catalog_name=data_catalog_name,
+            max_results=max_results,
+            output_format=output_format,
+            use_quilt_auth=use_quilt_auth,
+        )
+    except Exception as exc:
+        logger.error(f"Failed to execute tabulator query: {exc}")
+        return format_error_response(f"Failed to execute tabulator query: {exc}")
+
+
+def tabulator_list_buckets() -> Dict[str, Any]:
+    """List all buckets (databases) in the Tabulator catalog.
+
+    Returns:
+        Dict with success flag, list of buckets, count, and message
+    """
+    try:
+        from typing import List
+
+        result = tabulator_query_execute("SHOW DATABASES")
+
+        if not result.get("success"):
+            return result
+
+        buckets: List[str] = []
+        formatted_data = result.get("formatted_data", [])
+
+        for row in formatted_data:
+            bucket_name = row.get("database_name") or row.get("db_name") or row.get("name")
+            if bucket_name:
+                buckets.append(bucket_name)
+
+        return {
+            "success": True,
+            "buckets": buckets,
+            "count": len(buckets),
+            "message": f"Found {len(buckets)} bucket(s) in Tabulator catalog",
+        }
+    except Exception as exc:
+        logger.error(f"Failed to list tabulator buckets: {exc}")
+        return format_error_response(f"Failed to list tabulator buckets: {exc}")
+
+
 def athena_query_validate(
     query: Annotated[
         str,

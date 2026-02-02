@@ -238,6 +238,49 @@ class QuiltOps(ABC):
         pass
 
     @abstractmethod
+    def get_graphql_endpoint(self) -> str:
+        """Get the GraphQL API endpoint URL.
+
+        Returns the fully-qualified GraphQL endpoint URL for executing queries.
+        This is typically derived from the catalog or registry configuration.
+
+        Implementations:
+        - Quilt3Backend: Constructs from quilt3 catalog config
+        - HTTPBackend: Reads from environment or config
+        - TestBackend: Returns mock endpoint
+
+        Returns:
+            GraphQL endpoint URL (e.g., "https://example.quiltdata.com/graphql")
+
+        Raises:
+            AuthenticationError: When not authenticated or no catalog configured
+            BackendError: When endpoint cannot be determined
+        """
+        pass
+
+    @abstractmethod
+    def get_graphql_auth_headers(self) -> Dict[str, str]:
+        """Get authentication headers for GraphQL requests.
+
+        Returns HTTP headers containing authentication credentials (typically JWT)
+        for authenticating GraphQL requests. The specific auth mechanism depends
+        on the backend implementation.
+
+        Implementations:
+        - Quilt3Backend: Extracts JWT from quilt3 session
+        - HTTPBackend: Extracts from incoming request context
+        - TestBackend: Returns mock credentials
+
+        Returns:
+            Dict of HTTP headers (e.g., {"Authorization": "Bearer <token>"})
+
+        Raises:
+            AuthenticationError: When credentials are not available or invalid
+            BackendError: When auth headers cannot be retrieved
+        """
+        pass
+
+    @abstractmethod
     def execute_graphql_query(
         self,
         query: str,
@@ -265,6 +308,139 @@ class QuiltOps(ABC):
             ValidationError: When query syntax is invalid or variables are malformed
         """
         pass
+
+    # Tabulator operations (provided by TabulatorMixin)
+    @abstractmethod
+    def list_tabulator_tables(self, bucket: str) -> List[Dict[str, str]]:
+        """List all tabulator tables in a bucket.
+
+        Args:
+            bucket: S3 bucket name
+
+        Returns:
+            List of dicts with 'name' and 'config' (YAML string) keys
+
+        Raises:
+            BackendError: If GraphQL query fails
+            ValidationError: If bucket not found
+        """
+        ...
+
+    @abstractmethod
+    def get_tabulator_table(self, bucket: str, table_name: str) -> Dict[str, str]:
+        """Get a specific tabulator table configuration.
+
+        Args:
+            bucket: S3 bucket name
+            table_name: Table name
+
+        Returns:
+            Dict with 'name' and 'config' (YAML string) keys
+
+        Raises:
+            BackendError: If GraphQL query fails
+            ValidationError: If table not found
+        """
+        ...
+
+    @abstractmethod
+    def create_tabulator_table(self, bucket: str, table_name: str, config: Optional[str]) -> Dict[str, Any]:
+        """Create or update a tabulator table.
+
+        Args:
+            bucket: S3 bucket name
+            table_name: Table name
+            config: YAML configuration string
+
+        Returns:
+            Dict with operation result
+
+        Raises:
+            BackendError: If GraphQL mutation fails
+            ValidationError: If configuration is invalid
+            PermissionError: If user lacks write access
+        """
+        ...
+
+    @abstractmethod
+    def update_tabulator_table(self, bucket: str, table_name: str, config: str) -> Dict[str, Any]:
+        """Update an existing tabulator table configuration.
+
+        This is an alias for create_tabulator_table() since the GraphQL
+        mutation handles both create and update.
+
+        Args:
+            bucket: S3 bucket name
+            table_name: Table name
+            config: YAML configuration string
+
+        Returns:
+            Dict with operation result
+        """
+        ...
+
+    @abstractmethod
+    def rename_tabulator_table(self, bucket: str, old_name: str, new_name: str) -> Dict[str, Any]:
+        """Rename a tabulator table.
+
+        Args:
+            bucket: S3 bucket name
+            old_name: Current table name
+            new_name: New table name
+
+        Returns:
+            Dict with operation result
+
+        Raises:
+            BackendError: If GraphQL mutation fails
+            ValidationError: If old table not found or new name invalid
+        """
+        ...
+
+    @abstractmethod
+    def delete_tabulator_table(self, bucket: str, table_name: str) -> Dict[str, Any]:
+        """Delete a tabulator table.
+
+        Deletion is implemented by setting config to null.
+
+        Args:
+            bucket: S3 bucket name
+            table_name: Table name to delete
+
+        Returns:
+            Dict with operation result
+
+        Raises:
+            BackendError: If GraphQL mutation fails
+        """
+        ...
+
+    @abstractmethod
+    def get_open_query_status(self) -> Dict[str, Any]:
+        """Get tabulator open query status via GraphQL.
+
+        Returns:
+            Dict with success flag and open_query_enabled status
+
+        Raises:
+            BackendError: If GraphQL query fails
+        """
+        ...
+
+    @abstractmethod
+    def set_open_query(self, enabled: bool) -> Dict[str, Any]:
+        """Set tabulator open query status via GraphQL.
+
+        Args:
+            enabled: Whether to enable or disable open query
+
+        Returns:
+            Dict with success flag, current status, and message
+
+        Raises:
+            BackendError: If GraphQL mutation fails
+        """
+        ...
 
     @abstractmethod
     def get_boto3_client(

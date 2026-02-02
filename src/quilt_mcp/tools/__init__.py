@@ -39,7 +39,7 @@ _MODULE_PATHS = {
     "search": "quilt_mcp.tools.search",
     "data_visualization": "quilt_mcp.tools.data_visualization",
     "athena_glue": "quilt_mcp.services.athena_read_service",
-    "tabulator": "quilt_mcp.services.tabulator_service",
+    "tabulator": "quilt_mcp.tools.tabulator",
     "workflow_orchestration": "quilt_mcp.services.workflow_service",
     "governance": "quilt_mcp.services.governance_service",
     "permissions": "quilt_mcp.services.permissions_service",

@@ -305,7 +305,7 @@ def register_resources(mcp: "FastMCP") -> None:
     )
     async def tabulator_buckets() -> str:
         """List tabulator buckets."""
-        from quilt_mcp.services.tabulator_service import tabulator_buckets_list
+        from quilt_mcp.services.athena_read_service import tabulator_list_buckets
 
-        result = await tabulator_buckets_list()
+        result = tabulator_list_buckets()
         return _serialize_result(result)

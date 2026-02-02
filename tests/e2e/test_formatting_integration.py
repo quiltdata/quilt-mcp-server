@@ -9,7 +9,7 @@ from quilt_mcp.services.athena_read_service import (
     athena_workgroups_list,
     athena_databases_list,
 )
-from quilt_mcp.services.tabulator_service import tabulator_tables_list
+from quilt_mcp.tools.tabulator import tabulator_tables_list
 
 
 class TestAthenaTableFormatIntegration:
@@ -170,43 +170,32 @@ class TestAthenaTableFormatIntegration:
 class TestTabulatorTableFormatIntegration:
     """Integration tests for tabulator tools with table formatting."""
 
-    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
-    def test_tabulator_tables_list_with_table_format(self, mock_get_service):
+    @patch("quilt_mcp.ops.factory.QuiltOpsFactory.create")
+    @pytest.mark.asyncio
+    async def test_tabulator_tables_list_with_table_format(self, mock_create):
         """Test tabulator_tables_list with table formatting."""
-        # Mock the tabulator service
-        mock_service = Mock()
-        mock_get_service.return_value = mock_service
+        # Mock the backend
+        mock_backend = Mock()
+        mock_create.return_value = mock_backend
 
-        # Mock list_tables to return tabular data
-        mock_service.list_tables.return_value = {
-            "success": True,
-            "tables": [
-                {
-                    "name": "table1",
-                    "column_count": 5,
-                    "schema": [
-                        {"name": "col1", "type": "STRING"},
-                        {"name": "col2", "type": "INT"},
-                    ],
-                },
-                {
-                    "name": "table2",
-                    "column_count": 3,
-                    "schema": [{"name": "id", "type": "INT"}],
-                },
-            ],
-            "bucket_name": "test-bucket",
-            "count": 2,
-        }
+        # Mock list_tabulator_tables to return tabular data
+        mock_backend.list_tabulator_tables.return_value = [
+            {
+                "name": "table1",
+                "config": "schema:\n- name: col1\n  type: STRING\n- name: col2\n  type: INT\n",
+            }
+        ]
 
-        # Since tabulator_tables_list is async, we need to mock it differently
-        # For now, test the service directly
-        result = mock_service.list_tables("test-bucket")
+        # Call the async function
+        result = await tabulator_tables_list("test-bucket")
 
         assert result["success"] is True
         assert "tables" in result
-        # Note: Testing the service directly, not the full MCP tool chain
-        # The table formatting would be applied at the MCP tool level
+        assert len(result["tables"]) == 1
+        assert result["tables"][0]["name"] == "table1"
+        assert result["bucket_name"] == "test-bucket"
+        # Verify backend was called
+        mock_backend.list_tabulator_tables.assert_called_once_with("test-bucket")
 
 
 class TestTableFormatErrorHandling:
