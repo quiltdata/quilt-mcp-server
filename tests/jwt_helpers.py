@@ -191,6 +191,7 @@ def generate_test_jwt(
     catalog_token: Optional[str] = None,
     catalog_url: Optional[str] = None,
     registry_url: Optional[str] = None,
+    tenant_id: Optional[str] = None,
     auto_extract: bool = False,
 ) -> str:
     """Generate a test JWT token for MCP authentication.
@@ -206,6 +207,7 @@ def generate_test_jwt(
         catalog_token: Optional catalog bearer token (if not provided, will auto-extract)
         catalog_url: Optional catalog URL (if not provided, will auto-extract)
         registry_url: Optional registry URL (if not provided, will auto-extract)
+        tenant_id: Optional tenant identifier for multitenant deployments
         auto_extract: If True, automatically extract catalog auth from quilt3 session
 
     Returns:
@@ -248,6 +250,10 @@ def generate_test_jwt(
     if registry_url:
         payload["registry_url"] = registry_url
 
+    # Add tenant identifier for multitenant deployments
+    if tenant_id:
+        payload["tenant_id"] = tenant_id
+
     # Generate token
     token = jwt.encode(payload, secret, algorithm="HS256")
 
@@ -281,6 +287,9 @@ Examples:
   # Generate token with auto-extracted catalog auth
   python jwt_helpers.py generate --role-arn arn:aws:iam::123456789:role/TestRole --secret test-secret --auto-extract
 
+  # Generate token with tenant ID for multitenant testing
+  python jwt_helpers.py generate --role-arn arn:aws:iam::123456789:role/TestRole --secret test-secret --tenant-id tenant-a --auto-extract
+
   # Generate token with custom expiry
   python jwt_helpers.py generate --role-arn arn:aws:iam::123456789:role/TestRole --secret test-secret --expiry 7200 --auto-extract
 
@@ -306,6 +315,7 @@ Examples:
     gen_parser.add_argument("--catalog-token", help="Catalog bearer token (overrides auto-extract)")
     gen_parser.add_argument("--catalog-url", help="Catalog URL (overrides auto-extract)")
     gen_parser.add_argument("--registry-url", help="Registry URL (overrides auto-extract)")
+    gen_parser.add_argument("--tenant-id", help="Tenant identifier for multitenant deployments")
 
     # Inspect command
     inspect_parser = subparsers.add_parser("inspect", help="Inspect JWT token")
@@ -345,6 +355,7 @@ Examples:
                 catalog_token=args.catalog_token,
                 catalog_url=args.catalog_url,
                 registry_url=args.registry_url,
+                tenant_id=args.tenant_id,
                 auto_extract=args.auto_extract,
             )
 
