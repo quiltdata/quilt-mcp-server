@@ -852,18 +852,14 @@ def test_update_package_revision_copy_mode(monkeypatch):
     backend.execute_graphql_query = mock_graphql
 
     # Test copy='all' - should promote after update
-    result = backend.update_package_revision(
-        "user/pkg", ["s3://bucket/new.txt"], registry="s3://bucket", copy="all"
-    )
+    result = backend.update_package_revision("user/pkg", ["s3://bucket/new.txt"], registry="s3://bucket", copy="all")
     assert result.success is True
     assert result.top_hash == "promoted-updated-hash"
     assert call_count[0] == 3  # Query + Construct + Promote
 
     # Test copy='new' - should also promote
     call_count[0] = 0
-    result = backend.update_package_revision(
-        "user/pkg", ["s3://bucket/newer.txt"], registry="s3://bucket", copy="new"
-    )
+    result = backend.update_package_revision("user/pkg", ["s3://bucket/newer.txt"], registry="s3://bucket", copy="new")
     assert result.success is True
     assert result.top_hash == "promoted-updated-hash"
     assert call_count[0] == 3  # Query + Construct + Promote

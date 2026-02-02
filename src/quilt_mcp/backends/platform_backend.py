@@ -11,7 +11,7 @@ import logging
 import math
 import os
 from contextlib import contextmanager
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, cast
 
 from quilt_mcp.ops.quilt_ops import QuiltOps
 from quilt_mcp.ops.tabulator_mixin import TabulatorMixin
@@ -1037,13 +1037,11 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
         if typename == "PackagePushSuccess":
             revision = package_promote.get("revision", {})
-            promoted_hash = revision.get("hash", "")
+            promoted_hash = cast(str, revision.get("hash", ""))
             return promoted_hash
         elif typename == "InvalidInput":
             errors = package_promote.get("errors", [])
-            error_messages = [
-                f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors
-            ]
+            error_messages = [f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors]
             raise ValidationError(f"Package promotion invalid input: {'; '.join(error_messages)}")
         elif typename == "OperationError":
             message_text = package_promote.get("message", "Package promotion failed")
