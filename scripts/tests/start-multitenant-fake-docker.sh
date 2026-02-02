@@ -1,27 +1,19 @@
 #!/usr/bin/env bash
-# Helper script to start a stateless MCP Docker container for testing
-# Can be sourced by other scripts or run standalone
+# Helper script to start a stateless MCP Docker container for multitenant fake testing
+# Uses fake role ARNs and JWT secrets for local development testing only
 
 set -e
 
-CONTAINER_NAME="${MCP_CONTAINER_NAME:-mcp-stateless-test}"
+CONTAINER_NAME="${MCP_CONTAINER_NAME:-mcp-multitenant-fake-test}"
 DOCKER_IMAGE="${TEST_DOCKER_IMAGE:-quilt-mcp:test}"
-PORT="${MCP_PORT:-8002}"
-JWT_SECRET="${MCP_JWT_SECRET:-test-secret-key-for-stateless-testing-only}"
+PORT="${MCP_PORT:-8003}"
+JWT_SECRET="${MCP_JWT_SECRET:-test-secret}"
 
-# Check if QUILT_TEST_ROLE_ARN is set
-if [ -z "${QUILT_TEST_ROLE_ARN}" ]; then
-    echo "❌ QUILT_TEST_ROLE_ARN not set"
-    echo "   Set to real AWS role ARN for testing"
-    echo "   Example: export QUILT_TEST_ROLE_ARN=arn:aws:iam::123456789:role/QuiltMCPTestRole"
-    exit 1
-fi
-
-echo "🐋 Starting stateless MCP Docker container..."
+echo "🐋 Starting multitenant fake test MCP Docker container..."
 echo "   Container: ${CONTAINER_NAME}"
 echo "   Image: ${DOCKER_IMAGE}"
 echo "   Port: ${PORT}"
-echo "   Role ARN: ${QUILT_TEST_ROLE_ARN}"
+echo "   Note: Using fake credentials for local testing only"
 
 # Stop and remove existing container if it exists
 if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -66,6 +58,6 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     exit 1
 fi
 
-echo "✅ Stateless MCP container started successfully"
+echo "✅ Multitenant fake test MCP container started successfully"
 echo "   Access at: http://localhost:${PORT}/mcp"
 echo "   Container logs: docker logs ${CONTAINER_NAME}"

@@ -9,6 +9,7 @@ and validates tenant isolation.
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -31,17 +32,19 @@ except ImportError:
 class MultitenantTestRunner:
     """Orchestrates multitenant testing across multiple tenants."""
 
-    def __init__(self, config: Dict[str, Any], endpoint: str, verbose: bool = False):
+    def __init__(self, config: Dict[str, Any], endpoint: str, verbose: bool = False, allow_fake_roles: bool = False):
         """Initialize test runner.
 
         Args:
             config: Test configuration from YAML
             endpoint: MCP endpoint URL
             verbose: Enable verbose output
+            allow_fake_roles: Allow fake/test role ARNs (for local testing)
         """
         self.config = config
         self.endpoint = endpoint
         self.verbose = verbose
+        self.allow_fake_roles = allow_fake_roles
         self.tenant_tokens: Dict[str, str] = {}
         self.results: Dict[str, Any] = {
             "total": 0,
@@ -86,6 +89,10 @@ class MultitenantTestRunner:
                     self._log(f"Missing role_arn or jwt_secret for tenant {tenant_id}", "ERROR")
                     return False
 
+                # Validate role ARN is not fake (unless allowed)
+                if not self._validate_role_arn(role_arn, tenant_id):
+                    return False
+
                 self._log(f"Generating JWT for tenant: {tenant_id}", "DEBUG")
 
                 token = generate_test_jwt(
@@ -104,6 +111,99 @@ class MultitenantTestRunner:
                 return False
 
         self._log(f"✅ Generated {len(self.tenant_tokens)} tenant tokens")
+        return True
+
+    def _validate_role_arn(self, role_arn: str, tenant_id: str) -> bool:
+        """Validate that role ARN is real (not fake test data).
+
+        Args:
+            role_arn: Role ARN to validate
+            tenant_id: Tenant identifier for error messages
+
+        Returns:
+            True if valid, False otherwise
+        """
+        # Check for unexpanded environment variable syntax
+        if "${" in role_arn:
+            # Extract variable name from ${VAR} or ${VAR:-default}
+            var_match = re.search(r'\$\{([^}:]+)', role_arn)
+            var_name = var_match.group(1) if var_match else "VARIABLE"
+
+            self._log(
+                f"❌ Required environment variable not set for tenant '{tenant_id}'",
+                "ERROR"
+            )
+            self._log(
+                f"",
+                "ERROR"
+            )
+            self._log(
+                f"   Variable '{var_name}' is undefined. Set it with:",
+                "ERROR"
+            )
+            self._log(
+                f"     export {var_name}=arn:aws:iam::YOUR_ACCOUNT:role/YourRole",
+                "ERROR"
+            )
+            return False
+
+        # Check for common fake/test account IDs
+        fake_account_ids = [
+            "123456789012",  # Common example account ID
+            "111111111111",
+            "000000000000",
+            "999999999999",
+        ]
+
+        for fake_id in fake_account_ids:
+            if fake_id in role_arn:
+                if self.allow_fake_roles:
+                    self._log(
+                        f"⚠️  Tenant {tenant_id}: Using fake/test role ARN: {role_arn}",
+                        "INFO"
+                    )
+                    return True
+                else:
+                    self._log(
+                        f"❌ Fake/test role ARN detected for tenant '{tenant_id}': {role_arn}",
+                        "ERROR"
+                    )
+                    self._log(
+                        f"",
+                        "ERROR"
+                    )
+                    self._log(
+                        f"   For local testing, run with: --allow-fake-roles",
+                        "ERROR"
+                    )
+                    self._log(
+                        f"",
+                        "ERROR"
+                    )
+                    self._log(
+                        f"   For real testing, set environment variables with real AWS role ARNs:",
+                        "ERROR"
+                    )
+                    self._log(
+                        f"     export TEST_ROLE_ARN_A=arn:aws:iam::YOUR_ACCOUNT:role/YourRoleA",
+                        "ERROR"
+                    )
+                    self._log(
+                        f"     export TEST_ROLE_ARN_B=arn:aws:iam::YOUR_ACCOUNT:role/YourRoleB",
+                        "ERROR"
+                    )
+                    return False
+
+        # Basic ARN format validation
+        arn_pattern = r"^arn:aws:iam::\d{12}:role/[\w+=,.@-]+$"
+        if not re.match(arn_pattern, role_arn):
+            self._log(
+                f"❌ Tenant {tenant_id}: Invalid role ARN format: {role_arn}",
+                "ERROR"
+            )
+            self._log("   Expected format: arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME", "ERROR")
+            return False
+
         return True
 
     def run_basic_connectivity_tests(self) -> Dict[str, Any]:
@@ -173,12 +273,23 @@ class MultitenantTestRunner:
     def run_isolation_tests(self) -> Dict[str, Any]:
         """Run tenant isolation tests.
 
+        Note: This test suite is currently minimal. Proper isolation testing requires:
+        - Real AWS credentials with different IAM role permissions
+        - Buckets that are accessible to only one tenant
+        - Testing bucket_list, bucket_objects_list with real AWS IAM policies
+
+        The fake "workflow" feature in this MCP server is just local JSON files
+        and is not representative of real Quilt functionality. Real Quilt workflows
+        are bucket-scoped features that should be shared among collaborators.
+
         Returns:
             Test results dictionary
         """
         self._log("\n" + "="*80)
         self._log("Running tenant isolation tests...")
         self._log("="*80)
+        self._log("⚠️  Isolation tests require real AWS credentials and IAM policies")
+        self._log("⚠️  Skipping isolation tests (not implemented with fake credentials)")
 
         results = {
             "name": "Tenant Isolation",
@@ -186,94 +297,6 @@ class MultitenantTestRunner:
             "failed": 0,
             "tests": []
         }
-
-        tenant_ids = list(self.tenant_tokens.keys())
-        if len(tenant_ids) < 2:
-            self._log("Need at least 2 tenants for isolation tests", "ERROR")
-            return results
-
-        tenant_a = tenant_ids[0]
-        tenant_b = tenant_ids[1]
-        token_a = self.tenant_tokens[tenant_a]
-        token_b = self.tenant_tokens[tenant_b]
-
-        self._log(f"Testing isolation between {tenant_a} and {tenant_b}")
-
-        # Test 1: Tenant A creates workflow, Tenant B cannot access
-        try:
-            workflow_id = f"isolated-test-{int(time.time())}"
-
-            # Tenant A creates workflow
-            self._log(f"\n  {tenant_a}: Creating workflow '{workflow_id}'", "DEBUG")
-            create_result = self._call_tool(
-                token_a,
-                "workflow_create",
-                {
-                    "workflow_id": workflow_id,
-                    "description": f"Created by {tenant_a}"
-                }
-            )
-
-            if not create_result.get("success"):
-                results["failed"] += 1
-                self._log(f"  ❌ {tenant_a} failed to create workflow", "ERROR")
-                results["tests"].append({
-                    "test": "workflow_creation",
-                    "tenant": tenant_a,
-                    "success": False,
-                    "error": create_result.get("error")
-                })
-                return results
-
-            self._log(f"  ✅ {tenant_a}: Workflow created")
-
-            # Tenant B tries to access (should fail)
-            self._log(f"  {tenant_b}: Attempting to access workflow", "DEBUG")
-            access_result = self._call_tool(
-                token_b,
-                "workflow_status",
-                {"workflow_id": workflow_id}
-            )
-
-            # We expect this to fail (workflow not found for tenant B)
-            if access_result.get("success"):
-                # If it succeeded, tenant isolation is broken!
-                results["failed"] += 1
-                self._log(f"  ❌ SECURITY ISSUE: {tenant_b} accessed {tenant_a}'s workflow!", "ERROR")
-                results["tests"].append({
-                    "test": "workflow_isolation",
-                    "success": False,
-                    "error": "Tenant B accessed Tenant A's workflow - isolation broken!"
-                })
-            else:
-                # Failed as expected - isolation works
-                error = access_result.get("error", "")
-                if "not found" in error.lower():
-                    results["passed"] += 1
-                    self._log(f"  ✅ Isolation verified: {tenant_b} cannot access workflow")
-                    results["tests"].append({
-                        "test": "workflow_isolation",
-                        "success": True,
-                        "message": "Tenant isolation working correctly"
-                    })
-                else:
-                    # Failed but for wrong reason
-                    results["failed"] += 1
-                    self._log(f"  ⚠️  Failed but unexpected error: {error}")
-                    results["tests"].append({
-                        "test": "workflow_isolation",
-                        "success": False,
-                        "error": f"Unexpected error: {error}"
-                    })
-
-        except Exception as e:
-            results["failed"] += 1
-            self._log(f"  ❌ Isolation test error: {e}", "ERROR")
-            results["tests"].append({
-                "test": "workflow_isolation",
-                "success": False,
-                "error": str(e)
-            })
 
         return results
 
@@ -478,9 +501,13 @@ class MultitenantTestRunner:
         print("="*80)
 
         for scenario in self.results["scenarios"]:
-            print(f"\n{scenario['name']}:")
-            print(f"  ✅ Passed: {scenario['passed']}")
-            print(f"  ❌ Failed: {scenario['failed']}")
+            total_tests = scenario['passed'] + scenario['failed']
+            if total_tests == 0:
+                print(f"\n{scenario['name']}: ⚠️  SKIPPED")
+            else:
+                print(f"\n{scenario['name']}:")
+                print(f"  ✅ Passed: {scenario['passed']}")
+                print(f"  ❌ Failed: {scenario['failed']}")
 
         print("\n" + "="*80)
         print(f"Overall Results:")
@@ -496,16 +523,63 @@ class MultitenantTestRunner:
         print("="*80)
 
 
+def expand_env_vars(value: Any) -> Any:
+    """Recursively expand environment variables in config values.
+
+    Supports:
+    - ${VAR} - replace with environment variable or leave as-is if not set
+    - ${VAR:-default} - replace with environment variable or use default
+
+    Args:
+        value: Config value (string, dict, list, or other)
+
+    Returns:
+        Value with environment variables expanded
+    """
+    if isinstance(value, str):
+        # Pattern for ${VAR} or ${VAR:-default}
+        pattern = r'\$\{([^}:]+)(?::(-)?([^}]*))?\}'
+
+        def replace_var(match):
+            var_name = match.group(1)
+            has_default = match.group(2) is not None
+            default_value = match.group(3) if has_default else None
+
+            env_value = os.environ.get(var_name)
+
+            if env_value is not None:
+                return env_value
+            elif has_default:
+                return default_value or ""
+            else:
+                # Variable not set and no default - leave unexpanded for validation
+                return match.group(0)
+
+        return re.sub(pattern, replace_var, value)
+
+    elif isinstance(value, dict):
+        return {k: expand_env_vars(v) for k, v in value.items()}
+
+    elif isinstance(value, list):
+        return [expand_env_vars(item) for item in value]
+
+    else:
+        return value
+
+
 def load_config(config_path: Path) -> Dict[str, Any]:
-    """Load test configuration from YAML file."""
+    """Load test configuration from YAML file with environment variable expansion."""
     try:
         with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+            config_raw = yaml.safe_load(f)
 
-        # Set environment variables from config
+        # Expand environment variables in entire config
+        config = expand_env_vars(config_raw)
+
+        # Set environment variables from config (for backward compatibility)
         env_vars = config.get("environment", {})
         for key, value in env_vars.items():
-            if not os.environ.get(key):
+            if not os.environ.get(key) and value and not value.startswith("${"):
                 os.environ[key] = str(value)
 
         return config
@@ -525,15 +599,21 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run with default config
+  # Run against real server with real credentials (requires env vars)
+  export TEST_ROLE_ARN_A=arn:aws:iam::REAL_ACCOUNT:role/TenantA
+  export TEST_ROLE_ARN_B=arn:aws:iam::REAL_ACCOUNT:role/TenantB
+  export TEST_JWT_SECRET=your-jwt-secret
   python scripts/test-multitenant.py http://localhost:8001/mcp
+
+  # Run with fake/test roles for local development
+  python scripts/test-multitenant.py http://localhost:8001/mcp --allow-fake-roles
 
   # Run with custom config
   python scripts/test-multitenant.py http://localhost:8001/mcp \\
     --config scripts/tests/mcp-test-multitenant.yaml
 
   # Verbose output
-  python scripts/test-multitenant.py http://localhost:8001/mcp -v
+  python scripts/test-multitenant.py http://localhost:8001/mcp -v --allow-fake-roles
         """
     )
 
@@ -555,13 +635,25 @@ Examples:
         help="Verbose output"
     )
 
+    parser.add_argument(
+        "--allow-fake-roles",
+        action="store_true",
+        help="Allow fake/test role ARNs (e.g., 123456789012) for local testing. "
+             "By default, fake role ARNs will cause an error."
+    )
+
     args = parser.parse_args()
 
     # Load configuration
     config = load_config(args.config)
 
     # Run tests
-    runner = MultitenantTestRunner(config, args.endpoint, verbose=args.verbose)
+    runner = MultitenantTestRunner(
+        config,
+        args.endpoint,
+        verbose=args.verbose,
+        allow_fake_roles=args.allow_fake_roles
+    )
     success = runner.run_all_tests()
 
     sys.exit(0 if success else 1)

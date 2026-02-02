@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-catalog test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multitenant-fake test-catalog test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -149,6 +149,23 @@ test-mcp-stateless: docker-build
 		bash scripts/tests/stop-stateless-docker.sh) || \
 		(bash scripts/tests/stop-stateless-docker.sh && exit 1)
 	@echo "✅ Stateless JWT testing with catalog authentication completed"
+
+# Multitenant Testing with Fake Roles (for local development)
+test-multitenant-fake: docker-build
+	@echo "👥 Testing multitenant MCP with fake role ARNs (local dev only)..."
+	@uv sync --group test
+	@export MCP_CONTAINER_NAME=mcp-multitenant-fake-test && \
+		export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+		export MCP_PORT=8003 && \
+		export MCP_JWT_SECRET=test-secret && \
+		bash scripts/tests/start-multitenant-fake-docker.sh && \
+		(uv run python scripts/test-multitenant.py http://localhost:8003/mcp \
+			--allow-fake-roles \
+			--verbose && \
+		bash scripts/tests/stop-stateless-docker.sh) || \
+		(export MCP_CONTAINER_NAME=mcp-multitenant-fake-test && \
+		bash scripts/tests/stop-stateless-docker.sh && exit 1)
+	@echo "✅ Multitenant fake role testing completed"
 
 # Code Quality Targets
 lint:
