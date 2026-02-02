@@ -5,17 +5,17 @@ This companion script uses quilt3 and boto3 to run actual SQL queries
 against tabulator tables created by test_tabulator.py.
 
 Usage:
-    # Query using stack name (same region)
+    # Query with auto-discovered stack (from quilt3 config)
+    uv run python scripts/tests/tabulator_query.py --bucket my-bucket --table my_table
+
+    # Query with explicit stack name
     uv run python scripts/tests/tabulator_query.py --bucket my-bucket --stack-name quilt-staging --table my_table
 
-    # Query with stack in different region
-    uv run python scripts/tests/tabulator_query.py --bucket my-bucket --stack-name quilt-staging --stack-region us-east-1 --table my_table
-
     # List available tables
-    uv run python scripts/tests/tabulator_query.py --bucket my-bucket --stack-name quilt-staging --list-tables
+    uv run python scripts/tests/tabulator_query.py --bucket my-bucket --list-tables
 
     # Custom SQL query
-    uv run python scripts/tests/tabulator_query.py --bucket my-bucket --stack-name quilt-staging --query "SELECT * FROM my_table LIMIT 10"
+    uv run python scripts/tests/tabulator_query.py --bucket my-bucket --query "SELECT * FROM my_table LIMIT 10"
 
 Requirements:
     - quilt3 login (use: quilt3 login)
@@ -34,7 +34,8 @@ try:
     import quilt3 as q3
     import boto3
     from botocore.exceptions import ClientError
-    from quiltx.stack import find_matching_stack, extract_catalog_name, resolve_region, load_stack_payload
+    from quiltx import get_catalog_url, get_catalog_region
+    from quiltx.stack import find_matching_stack, fetch_catalog_config
     from quiltx.utils import get_bucket_region
 except ImportError:
     print("❌ Error: This script requires quilt3, boto3, and quiltx")
@@ -45,10 +46,10 @@ except ImportError:
 class TabulatorQueryClient:
     """Client for querying tabulator tables via Athena."""
 
-    def __init__(self, bucket: str, stack_name: Optional[str] = None, stack_region: Optional[str] = None):
+    def __init__(self, bucket: str, stack_name: Optional[str] = None):
         self.bucket = bucket
 
-        # Use quiltx utility to detect bucket region
+        # Auto-detect bucket region
         try:
             self.bucket_region = get_bucket_region(bucket)
             print(f"✅ Auto-detected bucket region: {self.bucket_region}")
@@ -57,86 +58,36 @@ class TabulatorQueryClient:
             print(f"ℹ️  Defaulting to us-east-1")
             self.bucket_region = 'us-east-1'
 
+        # Auto-detect stack region from quilt3 config
+        try:
+            self.stack_region = get_catalog_region()
+            print(f"✅ Auto-detected stack region: {self.stack_region}")
+        except Exception as e:
+            print(f"⚠️  Could not detect stack region: {e}")
+            print(f"ℹ️  Using bucket region: {self.bucket_region}")
+            self.stack_region = self.bucket_region
+
         # Auto-discover stack name if not provided
         if not stack_name:
-            stack_name = self._discover_stack_name()
+            try:
+                catalog_url = get_catalog_url()
+                stack = find_matching_stack(catalog_url)
+                stack_name = stack.get('StackName')
+                print(f"✅ Auto-discovered stack: {stack_name}")
+            except Exception as e:
+                print(f"⚠️  Could not auto-discover stack: {e}")
 
         self.stack_name = stack_name
-        # Stack region defaults to bucket region, but can be different
-        self.stack_region = stack_region or self.bucket_region
-        # Derive catalog and workgroup from stack name
         self.catalog_name = f"quilt-{stack_name}-tabulator" if stack_name else None
         self.workgroup = f"QuiltUserAthena-{stack_name}-NonManagedRoleWorkgroup" if stack_name else None
         self.athena_client = None
         self.s3_client = None
         self._init_clients()
 
-    def _discover_stack_name(self) -> Optional[str]:
-        """Auto-discover stack name and region from bucket's catalog configuration."""
-        try:
-            # Get catalog config from bucket
-            config = self.get_catalog_config()
-            if not config:
-                print(f"⚠️  No catalog config found, cannot auto-discover stack")
-                return None
-
-            # Get catalog URL (registryUrl or similar)
-            catalog_url = config.get('registryUrl') or config.get('navigator_url')
-            if not catalog_url:
-                print(f"⚠️  No catalog URL found in config, cannot auto-discover stack")
-                return None
-
-            # Try loading cached stack info first (faster if available)
-            try:
-                catalog_name = extract_catalog_name(config)
-                cached_payload = load_stack_payload(catalog_name)
-                if cached_payload:
-                    stack_name = cached_payload.get('stack_name')
-                    cached_region = cached_payload.get('region')
-                    if stack_name and cached_region:
-                        print(f"✅ Using cached stack info: {stack_name}")
-                        # Update stack_region if not explicitly set
-                        if not self.stack_region or self.stack_region == self.bucket_region:
-                            self.stack_region = cached_region
-                            if cached_region != self.bucket_region:
-                                print(f"ℹ️  Stack is in different region: {cached_region}")
-                        return stack_name
-            except Exception:
-                pass  # Fall through to discovery
-
-            print(f"ℹ️  Discovering stack from catalog URL: {catalog_url}")
-
-            # Use quiltx to find matching stack (auto-discovers region)
-            # find_matching_stack already handles region auto-discovery
-            stack = find_matching_stack(catalog_url)
-
-            stack_name = stack.get('StackName')
-            if stack_name:
-                print(f"✅ Auto-discovered stack: {stack_name}")
-
-                # Extract stack region from ARN
-                stack_id = stack.get('StackId', '')
-                if stack_id:
-                    # ARN format: arn:aws:cloudformation:REGION:ACCOUNT:stack/NAME/ID
-                    arn_parts = stack_id.split(':')
-                    if len(arn_parts) >= 4:
-                        discovered_region = arn_parts[3]
-                        # Update stack_region if not explicitly set
-                        if not self.stack_region or self.stack_region == self.bucket_region:
-                            self.stack_region = discovered_region
-                            if discovered_region != self.bucket_region:
-                                print(f"ℹ️  Stack is in different region: {discovered_region}")
-                return stack_name
-
-        except Exception as e:
-            print(f"⚠️  Could not auto-discover stack: {e}")
-
-        return None
-
     def _init_clients(self):
         """Initialize AWS clients."""
         try:
-            # Athena client uses stack region, S3 uses bucket region
+            # Athena uses stack region, S3 uses bucket region
             athena_session = boto3.Session(region_name=self.stack_region)
             s3_session = boto3.Session(region_name=self.bucket_region)
             self.athena_client = athena_session.client('athena')
@@ -153,21 +104,6 @@ class TabulatorQueryClient:
             print("Make sure you've run 'quilt3 login' and have AWS credentials configured")
             sys.exit(1)
 
-    def get_catalog_config(self) -> Optional[Dict[str, Any]]:
-        """Get the Quilt catalog configuration for the bucket."""
-        try:
-            response = self.s3_client.get_object(
-                Bucket=self.bucket,
-                Key='.quilt/catalog/config.json'
-            )
-            config = json.loads(response['Body'].read())
-            return config
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'NoSuchKey':
-                print(f"⚠️  No catalog config found in bucket: {self.bucket}")
-                return None
-            raise
-
     def get_catalog_name(self) -> str:
         """Get the Athena catalog name for tabulator tables."""
         if self.catalog_name:
@@ -178,13 +114,17 @@ class TabulatorQueryClient:
         return 'AwsDataCatalog'
 
     def get_athena_database(self) -> Optional[str]:
-        """Get the Athena database name for tabulator tables."""
-        config = self.get_catalog_config()
-        if config and 'tabulator' in config:
-            db_name = config['tabulator'].get('athena_database')
-            if db_name:
-                print(f"✅ Found Athena database: {db_name}")
-                return db_name
+        """Get the Athena database name for tabulator tables using quiltx."""
+        try:
+            catalog_url = f"https://s3.{self.bucket_region}.amazonaws.com/{self.bucket}/.quilt/catalog/config.json"
+            config = fetch_catalog_config(catalog_url)
+            if config and 'tabulator' in config:
+                db_name = config['tabulator'].get('athena_database')
+                if db_name:
+                    print(f"✅ Found Athena database: {db_name}")
+                    return db_name
+        except Exception:
+            pass  # Fall through to default
 
         # Default database name is just the bucket name
         default_db = self.bucket
@@ -230,15 +170,8 @@ class TabulatorQueryClient:
         print(f"   Query: {query[:100]}{'...' if len(query) > 100 else ''}")
 
         try:
-            # Create output location - must be in same region as Athena/stack
-            if self.stack_region != self.bucket_region:
-                # Use default Athena query results bucket in stack region
-                sts = boto3.client('sts')
-                account_id = sts.get_caller_identity()['Account']
-                output_location = f"s3://aws-athena-query-results-{account_id}-{self.stack_region}/"
-                print(f"   ℹ️  Using cross-region output bucket: {output_location}")
-            else:
-                output_location = f"s3://{self.bucket}/.quilt/queries/"
+            # Create output location in bucket
+            output_location = f"s3://{self.bucket}/.quilt/queries/"
 
             # Set up execution parameters with catalog
             catalog = self.get_catalog_name()
@@ -389,12 +322,7 @@ def main():
     parser.add_argument(
         "--stack-name",
         default=None,
-        help="CloudFormation stack name (e.g., quilt-staging). Will derive catalog and workgroup automatically."
-    )
-    parser.add_argument(
-        "--stack-region",
-        default=None,
-        help="AWS region where the stack is deployed (default: same as bucket region)"
+        help="CloudFormation stack name (e.g., quilt-staging). Will auto-discover from quilt3 config if not provided."
     )
     parser.add_argument(
         "--limit",
@@ -411,7 +339,7 @@ def main():
     bucket = args.bucket or (state and state.get('bucket'))
     table = args.table or (state and state.get('current_table_name'))
 
-    if not bucket:
+    if not bucket or not isinstance(bucket, str):
         print("❌ Error: No bucket specified and no demo state found")
         print("Use --bucket or run test_tabulator.py first")
         sys.exit(1)
@@ -428,7 +356,7 @@ def main():
         print(f"   Last step: {state.get('last_step')}")
 
     # Initialize client
-    client = TabulatorQueryClient(bucket, args.stack_name, args.stack_region)
+    client = TabulatorQueryClient(bucket, args.stack_name)
 
     # List tables if requested
     if args.list_tables:

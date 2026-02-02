@@ -13,19 +13,19 @@ Tests the complete tabulator stack from table creation to data querying:
 
 Usage:
     # Run full lifecycle test (all 6 steps)
-    uv run python scripts/tests/tabulator_lifecycle.py
+    uv run python scripts/tests/test_tabulator.py
 
     # Run specific step
-    uv run python scripts/tests/tabulator_lifecycle.py --step 3
+    uv run python scripts/tests/test_tabulator.py --step 3
 
     # Reset state
-    uv run python scripts/tests/tabulator_lifecycle.py --reset
+    uv run python scripts/tests/test_tabulator.py --reset
 
     # Show current state
-    uv run python scripts/tests/tabulator_lifecycle.py --status
+    uv run python scripts/tests/test_tabulator.py --status
 
     # Verbose mode
-    uv run python scripts/tests/tabulator_lifecycle.py --verbose
+    uv run python scripts/tests/test_tabulator.py --verbose
 
 REQUIREMENTS (script will fail without these):
     1. quilt3 catalog login (authenticated session)
@@ -205,8 +205,8 @@ EXAMPLE_CONFIG_YAML = """schema:
   type: BOOLEAN
 source:
   type: quilt-packages
-  package_name: ^experiments/(?P<year>\\d{4})/(?P<experiment_id>[^/]+)$
-  logical_key: samples/(?P<sample_type>[^/]+)\\.csv$
+  package_name: ^experiments/(?<year>\\d{4})/(?<experiment_id>[^/]+)$
+  logical_key: samples/(?<sample_type>[^/]+)\\.csv$
 parser:
   format: csv
   delimiter: ","
@@ -383,6 +383,7 @@ def demo_query_table(bucket, table_name, state_manager, verbose=False):
 
     try:
         # Call the companion query script
+        # The script will auto-discover stack, catalog, and workgroup from bucket config
         cmd = [
             "uv", "run", "python", str(QUERY_SCRIPT),
             "--bucket", bucket,
