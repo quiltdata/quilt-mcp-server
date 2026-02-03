@@ -1,7 +1,7 @@
 """Tests for resource access response models."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from quilt_mcp.models.responses import (
     GetResourceSuccess,
     GetResourceError,
@@ -18,7 +18,7 @@ class TestGetResourceSuccess:
             uri="auth://status",
             resource_name="Auth Status",
             data={"authenticated": True, "catalog_url": "https://example.com"},
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             mime_type="application/json",
         )
 

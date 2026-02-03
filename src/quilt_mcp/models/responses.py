@@ -6,7 +6,7 @@ replacing generic Dict[str, Any] with structured, validated responses.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -1024,7 +1024,9 @@ class GetResourceSuccess(SuccessResponse):
     uri: str = Field(..., description="The resolved URI (expanded if templated)")
     resource_name: str = Field(..., description="Human-readable name of the resource")
     data: dict[str, Any] = Field(..., description="The actual resource data")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="When the data was retrieved")
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), description="When the data was retrieved"
+    )
     mime_type: str = Field(default="application/json", description="Resource MIME type")
 
 

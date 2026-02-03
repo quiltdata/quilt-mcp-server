@@ -7,7 +7,7 @@ and analyzing telemetry data to identify optimization opportunities.
 
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import statistics
 
 
@@ -25,7 +25,7 @@ class PerformanceMetrics:
 
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow()
+            self.timestamp = datetime.now(timezone.utc)
 
 
 class MetricsCalculator:
