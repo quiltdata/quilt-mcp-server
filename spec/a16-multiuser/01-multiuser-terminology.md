@@ -12,6 +12,7 @@
 **This is a NEW feature with NO external user visibility yet.**
 
 Therefore:
+
 - ✅ Clean global find-and-replace
 - ✅ Single environment variable: `QUILT_MULTIUSER_MODE`
 - ❌ NO backward compatibility needed
@@ -25,12 +26,14 @@ Therefore:
 The codebase incorrectly uses "multitenant" terminology when it actually implements **multiuser** architecture:
 
 ### Multitenant (What We DON'T Have)
+
 - Multiple separate organizations/companies (tenants) on shared infrastructure
 - Strong data isolation between tenants
 - Each tenant has separate data, users, configs
 - Example: Salesforce where Company A cannot see Company B's data
 
 ### Multiuser (What We DO Have)
+
 - Multiple users within the same organization
 - Users share access to organizational resources (Quilt catalogs)
 - JWT-based per-user authentication
@@ -41,6 +44,7 @@ The codebase incorrectly uses "multitenant" terminology when it actually impleme
 ## Scope
 
 **181+ files** containing "multitenant" references:
+
 - 8 core source files
 - 23 test files
 - 3 scripts
@@ -67,6 +71,7 @@ QUILT_MULTITENANT_MODE → QUILT_MULTIUSER_MODE
 ### Preserved "Tenant" Concept
 
 **Keep unchanged** (refers to Quilt catalog owner, which is correct):
+
 - `tenant_id` - Catalog/bucket owner identifier
 - `extract_tenant_id()` - Extracts catalog owner from context
 - `TenantValidationError` - Validates tenant IDs
@@ -79,15 +84,18 @@ QUILT_MULTITENANT_MODE → QUILT_MULTIUSER_MODE
 ### Phase 1: Core Source (8 files)
 
 **Configuration:**
+
 - `src/quilt_mcp/config.py` - `ModeConfig.is_multiuser`, `QUILT_MULTIUSER_MODE`
 - `src/quilt_mcp/main.py` - Error messages
 
 **Context Layer:**
+
 - `src/quilt_mcp/context/factory.py` - `_multiuser_mode` attribute
 - `src/quilt_mcp/context/tenant_extraction.py` - Comments
 - `src/quilt_mcp/context/exceptions.py` - Exception messages
 
 **Other:**
+
 - `src/quilt_mcp/ops/factory.py` - Comments
 - `src/quilt_mcp/runtime_context.py`
 - `src/quilt_mcp/utils.py`
@@ -95,6 +103,7 @@ QUILT_MULTITENANT_MODE → QUILT_MULTIUSER_MODE
 ### Phase 2: Tests (23 files)
 
 **Rename test files (git mv):**
+
 ```bash
 tests/integration/test_multitenant.py → test_multiuser.py
 tests/security/test_multitenant_security.py → test_multiuser_security.py
@@ -102,6 +111,7 @@ tests/load/test_multitenant_load.py → test_multiuser_load.py
 ```
 
 **Update content:**
+
 - Test configs: `tests/conftest.py`, `tests/stateless/conftest.py`
 - Helpers: `tests/jwt_helpers.py`
 - Unit tests (5 files)
@@ -112,12 +122,14 @@ tests/load/test_multitenant_load.py → test_multiuser_load.py
 ### Phase 3: Scripts & Build (5 files)
 
 **Rename scripts (git mv):**
+
 ```bash
 scripts/test-multitenant.py → test-multiuser.py
 scripts/tests/mcp-test-multitenant.yaml → mcp-test-multiuser.yaml
 ```
 
 **Update:**
+
 - `scripts/tests/start-stateless-docker.sh` - Docker env var
 - `Makefile` - Targets: `test-multiuser`, `test-multiuser-fake`
 - `make.dev` - Dev targets
@@ -125,11 +137,13 @@ scripts/tests/mcp-test-multitenant.yaml → mcp-test-multiuser.yaml
 ### Phase 4: Documentation (50+ files)
 
 **Rename directory (git mv):**
+
 ```bash
 spec/a10-multitenant → spec/a10-multiuser
 ```
 
 **Update all docs:**
+
 - `README.md`, `CHANGELOG.md`
 - `docs/deployment/jwt-mode-ecs.md`
 - `docs/request_scoped_services.md`, `docs/STATELESS_TESTING.md`
@@ -183,11 +197,11 @@ def multiuser_mode():
 ```makefile
 .PHONY: test-multiuser
 test-multiuser:
-	QUILT_MULTIUSER_MODE=true $(UV_RUN) pytest tests/integration/test_multiuser.py -v
+ QUILT_MULTIUSER_MODE=true $(UV_RUN) pytest tests/integration/test_multiuser.py -v
 
 .PHONY: test-multiuser-fake
 test-multiuser-fake:
-	./scripts/test-multiuser.py --fake-backend
+ ./scripts/test-multiuser.py --fake-backend
 ```
 
 ---
@@ -224,6 +238,7 @@ test-multiuser-fake:
 ### Multiuser Mode (`QUILT_MULTIUSER_MODE=true`)
 
 **What it enables:**
+
 - JWT-based user authentication (each user has unique token)
 - Platform/GraphQL backend (not direct S3)
 - HTTP transport (stateless, server-friendly)
@@ -234,6 +249,7 @@ test-multiuser-fake:
 ### Local Dev Mode (`QUILT_MULTIUSER_MODE=false`)
 
 **What it enables:**
+
 - IAM-based local credentials (AWS env)
 - Quilt3 backend (direct S3/boto3)
 - stdio transport (CLI/desktop apps)
@@ -246,6 +262,7 @@ test-multiuser-fake:
 ## File Inventory
 
 ### Source Code (8 files)
+
 - `src/quilt_mcp/config.py`
 - `src/quilt_mcp/main.py`
 - `src/quilt_mcp/context/factory.py`
@@ -256,6 +273,7 @@ test-multiuser-fake:
 - `src/quilt_mcp/utils.py`
 
 ### Test Files (23 files)
+
 **Unit:** 5 files in `tests/unit/`
 **Integration:** 2 files in `tests/integration/`
 **Security:** 1 file in `tests/security/`
@@ -265,15 +283,18 @@ test-multiuser-fake:
 **Infrastructure:** `tests/conftest.py`, `tests/jwt_helpers.py`
 
 ### Scripts (3 files)
+
 - `scripts/test-multitenant.py` (rename)
 - `scripts/tests/start-stateless-docker.sh`
 - `scripts/tests/mcp-test-multitenant.yaml` (rename)
 
 ### Build Config (2 files)
+
 - `Makefile`
 - `make.dev`
 
 ### Documentation (50+ files)
+
 - Specs: `a10-multitenant/` (rename), `a13-mode-config/`, `a15-platform/`, `a11-client-testing/`
 - Docs: `README.md`, `CHANGELOG.md`, `docs/deployment/`, `docs/archive/`
 - Internal: `.kiro/specs/`
