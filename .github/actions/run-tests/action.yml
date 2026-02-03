@@ -30,7 +30,7 @@ runs:
 
     - name: Upload test artifacts
       if: inputs.upload-artifacts == 'true' && always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ inputs.artifact-name }}-py${{ inputs.python-version }}
         path: build/test-results/
