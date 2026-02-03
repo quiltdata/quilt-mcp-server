@@ -6,7 +6,7 @@ Runs 5 phases of testing with hierarchical progress tracking:
 1. Lint (ruff format, ruff check, mypy)
 2. Coverage (unit, integration, e2e tests + analysis + validation)
 3. Docker (check, build)
-4. Script Tests (pytest scripts/tests + MCP integration tests)
+4. Script Tests (pytest scripts/tests + MCP integration tests + MCP stateless)
 5. MCPB Validate (check-tools, build, validate, UVX test)
 
 Usage:
@@ -244,8 +244,8 @@ def init_phases() -> list[PhaseStats]:
         ),
         PhaseStats(
             name="Script Tests",
-            subtasks=["pytest scripts", "MCP integration"],
-            tests_total=63,  # 24 scripts + 39 MCP
+            subtasks=["pytest scripts", "MCP integration", "MCP stateless"],
+            tests_total=64,  # 24 scripts + 39 MCP + 1 stateless run
         ),
         PhaseStats(
             name="MCPB Validate",
@@ -344,6 +344,8 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
             phase.current_subtask_idx = 0
         elif "mcp" in line.lower() and "integration" in line.lower():
             phase.current_subtask_idx = 1
+        elif "stateless" in line.lower():
+            phase.current_subtask_idx = 2
 
     # MCPB Validate phase
     elif phase.name == "MCPB Validate":
@@ -542,7 +544,7 @@ def main() -> int:
         (0, base_make + ["lint"]),
         (1, base_make + ["coverage"]),  # Runs unit + integration + e2e + analysis + validation
         (2, base_make + ["docker-build"]),  # Includes docker-check as dependency
-        # Phase 4: Run test-scripts components - pytest scripts + MCP tests
+        # Phase 4: Run test-scripts components - pytest scripts + MCP tests + stateless
         (
             3,
             [
@@ -551,7 +553,9 @@ def main() -> int:
                 'export PYTHONPATH="src" && '
                 'uv run python -m pytest scripts/tests/ -v && '
                 'echo "\\n===🧪 Running MCP server integration tests (idempotent only)..." && '
-                'uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test',
+                'uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test && '
+                'echo "\\n===🧪 Running MCP stateless tests..." && '
+                'make -s test-mcp-stateless',
             ],
         ),
         (4, base_make + ["mcpb-validate"]),

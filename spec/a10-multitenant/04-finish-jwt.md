@@ -340,7 +340,7 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 - ✅ Rejects expired JWTs
 - ✅ Rejects JWTs with invalid signatures
 - ✅ Extracts all standard claims (`sub`, `exp`, `iat`, `iss`, `aud`)
-- ✅ Handles custom claims (role_arn, session_tags)
+- ✅ Handles custom claims (role arn, session_tags)
 - ✅ Clear error messages for all failure cases
 
 #### Task 1.2: Create JWT Auth Service
@@ -355,7 +355,7 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 - [x] Refactor and rename to jwt_auth_service
 - [x] Integrate with RuntimeAuthState (read JWT from context)
 - [x] Implement AWS role assumption based on JWT claims:
-  - [x] Extract role ARN from JWT (e.g., `role_arn` claim)
+  - [x] Extract role ARN from JWT (e.g., `role arn` claim)
   - [x] Extract session tags from JWT (e.g., `session_tags` claim)
   - [x] Extract source identity from JWT (`sub` claim)
   - [x] Call STS AssumeRole with these parameters
@@ -843,7 +843,7 @@ pyjwt = "^2.8.0"
 
 **JWT Claims** (hardcoded defaults, no configuration needed):
 
-- Role ARN read from `role_arn` claim
+- Role ARN read from `role arn` claim
 - Session tags read from `session_tags` claim
 - STS session duration: 3600 seconds (1 hour)
 - JWT algorithm: HS256 only (RS256/ES256 deferred to Phase 4)
@@ -879,7 +879,7 @@ Standard AWS environment variables:
   "iat": 1706479600,
   "iss": "https://auth.example.com",
   "aud": "quilt-mcp-server",
-  "role_arn": "arn:aws:iam::123456789012:role/QuiltMCPUser",
+  "role arn": "arn:aws:iam::123456789012:role/QuiltMCPUser",
   "session_tags": [
     {"Key": "tenant", "Value": "acme-corp"},
     {"Key": "user", "Value": "alice"},
@@ -1092,7 +1092,7 @@ If JWT mode has issues:
 
 1. **JWT Claims Standard**: ✅ **Decided**
    - Required: `sub`, `exp`, `iat`
-   - Optional: `iss`, `aud`, `role_arn`, `session_tags`
+   - Optional: `iss`, `aud`, `role arn`, `session_tags`
    - Document in Phase 1, standardize in production use
 
 2. **Authorization Model**: ✅ **Decided**

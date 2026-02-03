@@ -282,7 +282,7 @@ try:
                 "Troubleshooting:\n"
                 "  - Verify token signature matches server JWT_SECRET\n"
                 "  - Check token expiration (exp claim)\n"
-                "  - Ensure token includes required claims (role_arn, etc.)"
+                "  - Ensure token includes required claims (role arn, etc.)"
             )
         else:
             raise Exception(
@@ -295,7 +295,7 @@ try:
             "Authorization failed: Insufficient permissions\n"
             f"Token preview: {self._mask_token(self.jwt_token)}\n"
             "Troubleshooting:\n"
-            "  - Verify JWT role_arn has necessary AWS permissions\n"
+            "  - Verify JWT role arn has necessary AWS permissions\n"
             "  - Check session_tags in token claims"
         )
 
@@ -526,9 +526,9 @@ if run_tools:
 **What to implement**:
 
 - [ ] Create `scripts/tests/jwt_helper.py`
-- [ ] Function: `generate_test_jwt(role_arn, secret, expiry_seconds=3600)`
+- [ ] Function: `generate_test_jwt(role arn, secret, expiry_seconds=3600)`
 - [ ] Support for standard claims: exp, iat, iss, aud
-- [ ] Support for custom claims: role_arn, session_tags, external_id
+- [ ] Support for custom claims: role arn, session_tags, external_id
 - [ ] Use HS256 algorithm (matches JWT auth service)
 - [ ] Command-line interface for manual token generation
 
@@ -546,7 +546,7 @@ if run_tools:
 from scripts.tests.jwt_helper import generate_test_jwt
 
 token = generate_test_jwt(
-    role_arn="arn:aws:iam::123456789:role/test-role",
+    role arn="arn:aws:iam::123456789:role/test-role",
     secret="test-secret",
     expiry_seconds=3600
 )
@@ -1083,7 +1083,7 @@ test-stateless: docker-build
 4. **JWT with Insufficient Permissions**:
 
    ```bash
-   # Token has role_arn with limited permissions
+   # Token has role arn with limited permissions
    python scripts/mcp-test.py http://localhost:8000/mcp --tools-test
    # Expected: 403 error on protected operations
    ```
@@ -1223,7 +1223,7 @@ test-stateless: docker-build
 
 ### Q4: What AWS role should test tokens assume?
 
-**Current plan**: Configurable role_arn in jwt_helper.py
+**Current plan**: Configurable role arn in jwt_helper.py
 
 **For CI testing**: Mock role ARN (no real AWS access needed if mocked)
 

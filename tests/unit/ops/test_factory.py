@@ -10,6 +10,25 @@ from unittest.mock import Mock, patch, MagicMock
 import os
 
 from quilt_mcp.ops.exceptions import AuthenticationError
+from quilt_mcp.runtime_context import (
+    RuntimeAuthState,
+    get_runtime_environment,
+    push_runtime_context,
+    reset_runtime_context,
+)
+
+
+def _push_test_jwt_context():
+    auth_state = RuntimeAuthState(
+        scheme="Bearer",
+        access_token="test-token",
+        claims={
+            "id": "user-1",
+            "uuid": "uuid-1",
+            "exp": 9999999999,
+        },
+    )
+    return push_runtime_context(environment=get_runtime_environment(), auth=auth_state)
 
 
 class TestQuiltOpsFactoryStructure:
@@ -68,9 +87,16 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
 
         # Set multitenant mode
         set_test_mode_config(multitenant_mode=True)
+        os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
+        os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
+        os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
 
-        # Execute
-        result = QuiltOpsFactory.create()
+        token = _push_test_jwt_context()
+        try:
+            # Execute
+            result = QuiltOpsFactory.create()
+        finally:
+            reset_runtime_context(token)
 
         # Verify
         from quilt_mcp.backends.platform_backend import Platform_Backend
@@ -206,7 +232,14 @@ class TestQuiltOpsFactoryErrorHandling:
 
         # Test multitenant mode
         set_test_mode_config(multitenant_mode=True)
-        result = QuiltOpsFactory.create()
+        os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
+        os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
+        os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
+        token = _push_test_jwt_context()
+        try:
+            result = QuiltOpsFactory.create()
+        finally:
+            reset_runtime_context(token)
         from quilt_mcp.backends.platform_backend import Platform_Backend
 
         assert isinstance(result, Platform_Backend)
@@ -263,7 +296,14 @@ class TestQuiltOpsFactoryPhase1Scope:
 
         # Test multitenant mode creates Platform_Backend
         set_test_mode_config(multitenant_mode=True)
-        result = QuiltOpsFactory.create()
+        os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
+        os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
+        os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
+        token = _push_test_jwt_context()
+        try:
+            result = QuiltOpsFactory.create()
+        finally:
+            reset_runtime_context(token)
         from quilt_mcp.backends.platform_backend import Platform_Backend
 
         assert isinstance(result, Platform_Backend)

@@ -8,34 +8,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-02-02
+
 ### Added
 
-- **TabulatorMixin for Shared GraphQL Operations**: Implemented `TabulatorMixin` providing shared tabulator table management operations for both backends:
-  - `list_tabulator_tables()` - Query all tables in a bucket
-  - `get_tabulator_table()` - Get specific table configuration
-  - `create_tabulator_table()` - Create or update table with YAML config
-  - `update_tabulator_table()` - Alias for create (GraphQL handles both)
-  - `rename_tabulator_table()` - Rename existing table
-  - `delete_tabulator_table()` - Delete table (sets config to null)
-- Comprehensive error handling with `BackendError`, `ValidationError`, and `PermissionError`
-- 19 unit tests for `TabulatorMixin` covering all operations and error cases
+- **Platform Backend**: Complete GraphQL-native backend for multi-tenant deployments
+  - Full support for package operations (create, update, browse, search, diff, delete)
+  - JWT-based authentication with bearer tokens for secure multi-tenant access
+  - Role-based access with AWS STS integration for S3 operations
+  - Catalog configuration and management operations
+  - All operations use GraphQL API exclusively (no local filesystem dependencies)
+
+- **Tabulator Table Management**: Unified table management across both backends
+  - List, create, update, rename, and delete tabulator tables
+  - Query tables in buckets with YAML configuration support
+  - Available for both Quilt3 and Platform backends
+
+- **Admin Operations**: GraphQL-based admin operations for Platform backend
+  - User and role management via GraphQL API
+  - SSO configuration and management
+  - Comprehensive permission handling
 
 ### Changed
 
-- **BREAKING**: Migrated tabulator table operations from standalone service to backend layer
-  - `Quilt3_Backend` now inherits `TabulatorMixin` for tabulator operations
-  - `Platform_Backend` now inherits `TabulatorMixin` for tabulator operations
-  - Table management tools now use `QuiltOpsFactory.create()` to access backend methods
-  - `TabulatorService` reduced from 586 lines to 199 lines (66% reduction)
-  - Removed table CRUD methods and validation helpers from service
-  - Retained: Open query admin operations and Athena query operations in service (temporary)
+- **Backend Architecture**: Platform backend now production-ready
+  - Replaced NotImplementedError stubs with full GraphQL implementations
+  - Multi-tenant safe with per-instance authentication and session management
+  - Stateless operation with JWT runtime context
+  - Full support for all copy modes in package operations (`none`, `all`, `new`)
 
-### Technical Details
-
-- Template method pattern: Mixin calls `execute_graphql_query()` implemented by backends
-- Works with any backend implementing `execute_graphql_query()`
-- All backend unit tests passing (732 passed, 5 skipped)
-- All tabulator tests updated and passing (22 passed, 2 skipped)
+- **Tabulator Integration**: Migrated from standalone service to backend layer
+  - Both Quilt3 and Platform backends now provide tabulator operations
+  - Unified interface through `QuiltOpsFactory.create()`
+  - Simplified service layer focused on Athena query operations
 
 ## [0.11.0] - 2026-02-01
 

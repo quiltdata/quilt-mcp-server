@@ -23,7 +23,7 @@ def test_jwt_auth_service_is_valid_respects_expiration(monkeypatch):
     auth_state = RuntimeAuthState(
         scheme="Bearer",
         access_token="token",
-        claims={"sub": "user-1", "exp": now + 60},
+        claims={"id": "user-1", "uuid": "uuid-1", "exp": now + 60},
     )
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:
@@ -35,7 +35,7 @@ def test_jwt_auth_service_is_valid_respects_expiration(monkeypatch):
     expired_state = RuntimeAuthState(
         scheme="Bearer",
         access_token="token",
-        claims={"sub": "user-1", "exp": now - 1},
+        claims={"id": "user-1", "uuid": "uuid-1", "exp": now - 1},
     )
     token_handle = push_runtime_context(environment="web-service", auth=expired_state)
     try:
@@ -65,7 +65,7 @@ def test_jwt_auth_service_get_user_identity_from_claims():
     auth_state = RuntimeAuthState(
         scheme="Bearer",
         access_token="token",
-        claims={"sub": "user-1", "email": "user@example.com"},
+        claims={"id": "user-1", "uuid": "uuid-1", "email": "user@example.com"},
     )
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:
@@ -81,7 +81,7 @@ def test_jwt_auth_service_get_user_identity_from_claims():
 def test_jwt_auth_service_get_user_identity_decodes_token(monkeypatch):
     class StubDecoder:
         def decode(self, token: str) -> dict:
-            return {"sub": "user-2", "email": "decoded@example.com"}
+            return {"id": "user-2", "uuid": "uuid-2", "email": "decoded@example.com"}
 
     monkeypatch.setattr("quilt_mcp.services.jwt_auth_service.get_jwt_decoder", lambda: StubDecoder())
 

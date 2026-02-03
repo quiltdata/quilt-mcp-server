@@ -68,6 +68,26 @@ def _base_authorization(
     auth_service: AuthService | None = None,
 ) -> AuthorizationContext:
     auth_service = _resolve_auth_service(auth_service)
+    if auth_service.auth_type == "jwt":
+        if require_s3:
+            return AuthorizationContext(
+                authorized=False,
+                auth_type=auth_service.auth_type,
+                error="AWS access is not available in JWT mode",
+            )
+        if not auth_service.is_valid():
+            return AuthorizationContext(
+                authorized=False,
+                auth_type=auth_service.auth_type,
+                error="JWT authentication required",
+            )
+        return AuthorizationContext(
+            authorized=True,
+            auth_type=auth_service.auth_type,
+            session=None,
+            s3_client=None,
+        )
+
     try:
         session = auth_service.get_boto3_session()
     except (AuthServiceError, JwtAuthServiceError) as exc:

@@ -20,6 +20,7 @@
         {"name": "MCP_REQUIRE_JWT", "value": "true"},
         {"name": "MCP_JWT_SECRET_SSM_PARAMETER", "value": "/quilt/mcp/jwt-secret"},
         {"name": "QUILT_CATALOG_URL", "value": "https://your-catalog.quiltdata.com"},
+        {"name": "QUILT_REGISTRY_URL", "value": "https://registry.your-catalog.quiltdata.com"},
         {"name": "AWS_REGION", "value": "us-east-1"}
       ],
       "logConfiguration": {

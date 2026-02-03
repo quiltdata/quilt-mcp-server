@@ -80,7 +80,7 @@ Test Scope: ALL 55 tools + 15 resources
 test-mcp-stateless: docker-build
     @bash scripts/tests/start-stateless-docker.sh
     @uv run python scripts/mcp-test.py http://localhost:8002/mcp \
-        --jwt --role-arn "${QUILT_TEST_ROLE_ARN}" \
+        --jwt --role-arn "${QUILT_TEST_JWT_TOKEN}" \
         --secret "test-secret-key..." \
         --tools-test --resources-test \
         --config scripts/tests/mcp-test.yaml
@@ -342,7 +342,7 @@ Two new helper scripts make stateless testing reusable:
 
 **scripts/tests/start-stateless-docker.sh:**
 
-- Validates `QUILT_TEST_ROLE_ARN` environment variable
+- Validates `QUILT_TEST_JWT_TOKEN` environment variable
 - Configures container with security constraints
 - Starts container with proper environment variables
 - Validates container health
@@ -502,7 +502,7 @@ A minimal standalone script has been created to reproduce this regression:
 make docker-build
 
 # Set test role (required)
-export QUILT_TEST_ROLE_ARN="arn:aws:iam::712023778557:role/QuiltMCPTestRole"
+export QUILT_TEST_JWT_TOKEN="arn:aws:iam::712023778557:role/QuiltMCPTestRole"
 
 # Run reproduction script
 uv run python scripts/tests/reproduce_search_bug.py

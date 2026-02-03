@@ -49,7 +49,7 @@ The current MCP server supports two authentication modes, but neither solves the
 
 2. **JWT is too complex** - Clients can't easily generate JWTs
    - Requires signing infrastructure (HS256/RS256 keys)
-   - Must construct proper claims (role_arn, session_tags, exp, iat, iss, aud)
+   - Must construct proper claims (role arn, session_tags, exp, iat, iss, aud)
    - Need to handle expiration and refresh
    - Desktop clients don't have this infrastructure
 

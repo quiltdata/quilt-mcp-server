@@ -11,38 +11,14 @@ from typing import Any, Dict
 import jwt
 
 
-def _parse_session_tags(values: list[str]) -> Dict[str, str]:
-    tags: Dict[str, str] = {}
-    for raw in values:
-        for pair in raw.split(","):
-            if not pair:
-                continue
-            if "=" not in pair:
-                raise ValueError(f"Invalid session tag '{pair}'. Use key=value format.")
-            key, value = pair.split("=", 1)
-            tags[key.strip()] = value.strip()
-    return tags
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate an HS256 JWT for testing.")
-    parser.add_argument("--sub", required=True, help="Subject claim (user identifier).")
+    parser.add_argument("--id", required=True, help="User id claim.")
+    parser.add_argument("--uuid", required=True, help="User uuid claim.")
     parser.add_argument("--secret", default="dev-secret", help="HS256 shared secret.")
     parser.add_argument("--expires-in", type=int, default=3600, help="Expiration in seconds.")
     parser.add_argument("--issuer", help="Issuer (iss) claim.")
     parser.add_argument("--audience", help="Audience (aud) claim.")
-    parser.add_argument("--role-arn", help="Role ARN for STS AssumeRole.")
-    parser.add_argument(
-        "--session-tag",
-        action="append",
-        default=[],
-        help="Session tag(s) in key=value format. Repeat or comma-separate.",
-    )
-    parser.add_argument(
-        "--transitive-tag-keys",
-        default="",
-        help="Comma-separated list of transitive tag keys.",
-    )
     parser.add_argument(
         "--extra-claims",
         default="{}",
@@ -52,7 +28,8 @@ def main() -> None:
     args = parser.parse_args()
 
     payload: Dict[str, Any] = {
-        "sub": args.sub,
+        "id": args.id,
+        "uuid": args.uuid,
         "exp": int(time.time()) + int(args.expires_in),
     }
 
@@ -60,14 +37,6 @@ def main() -> None:
         payload["iss"] = args.issuer
     if args.audience:
         payload["aud"] = args.audience
-    if args.role_arn:
-        payload["role_arn"] = args.role_arn
-
-    if args.session_tag:
-        payload["session_tags"] = _parse_session_tags(args.session_tag)
-
-    if args.transitive_tag_keys:
-        payload["transitive_tag_keys"] = [key for key in args.transitive_tag_keys.split(",") if key]
 
     extra_claims = json.loads(args.extra_claims)
     if not isinstance(extra_claims, dict):

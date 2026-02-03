@@ -1,135 +1,180 @@
-# Platform Backend Implementation Specs
+# Platform Backend Implementation
 
-This directory contains specifications and design documentation for implementing the Platform GraphQL backend.
+## Objective
 
-## Documents
+Implement a pure GraphQL backend for Quilt Platform that uses JWT authentication instead of quilt3 library
+dependencies. Enables multitenant MCP server deployments with catalog-specific authentication.
 
-### 📋 [00-implementation-summary.md](00-implementation-summary.md)
+## Status: ✅ Core Implementation Complete (2026-02-02)
 
-**Start here!** Executive summary with quick reference tables, implementation phases, and success criteria.
+**Accomplished:**
 
-**Key Sections:**
+- 1087-line pure GraphQL backend (read + write operations)
+- JWT authentication with STS role assumption
+- 60+ tests across 5 test files (~95% coverage)
+- GraphQL-native `packageConstruct` mutations (no quilt3 dependency)
+- Full `copy=True` support via `packagePromote` mutation (copies S3 objects to registry)
 
-- Quick reference table
-- JWT authentication approach
-- Method implementation strategy
-- 4-phase implementation plan
-- Testing strategy
-- Success criteria
+**Remaining Work:**
 
-### 🔍 [01-es-integration.md](01-es-integration.md)
-
-Elasticsearch integration tests migration plan (60 broken tests after QuiltOps migration).
-
-**Status:** Separate effort, not blocking Platform backend
-
-**Focus:** Fixing test fixtures to use `quilt3_backend` instead of deprecated `quilt_service`
-
-### 📖 [02-graphql.md](02-graphql.md)
-
-GraphQL API documentation from registry codebase analysis.
-
-**Content:**
-
-- Registry GraphQL schema overview
-- How Elasticsearch backend uses GraphQL (bucket discovery only)
-- How quilt3 admin client uses GraphQL (all admin ops)
-- Tabulator API (dual REST + GraphQL)
-- Native search queries (not currently used)
-
-### 🗺️ [03-graphql-apis.md](03-graphql-apis.md)
-
-**Most detailed document.** Complete mapping of QuiltOps interface to GraphQL operations.
-
-**Content:**
-
-- JWT authentication strategy (detailed)
-- All 16 QuiltOps method implementations
-- GraphQL query examples with schema definitions
-- Domain object construction patterns
-- Helper methods needed
-- Error handling patterns
-- Resolved design decisions
-
-## Implementation Approach Summary
-
-### Authentication: JWT Bearer Tokens
-
-```python
-# JWT claims provide catalog authentication
-{
-    "catalog_token": "bearer-token-for-graphql",
-    "catalog_url": "https://my-catalog.quiltdata.com",
-    "registry_url": "https://my-registry.quiltdata.com",
-    "role_arn": "arn:aws:iam::123:role/QuiltRole"
-}
-```
-
-### Read Operations: GraphQL Queries
-
-All read operations use GraphQL:
-
-- `search_packages()` → `searchPackages` query
-- `get_package_info()` → `package` query
-- `list_buckets()` → `bucketConfigs` query
-- `browse_content()` → `package.dir` query
-
-### Write Operations: quilt3 Package Engine
-
-Package creation uses quilt3 library (NOT GraphQL):
-
-- `create_package_revision()` → `quilt3.Package()` + `package.push()`
-- `update_package_revision()` → Same as create
-
-**Why?** Consistent with Quilt3_Backend, full feature support, proven patterns.
-
-### AWS Operations: JWT + STS
-
-boto3 clients use JWT role assumption:
-
-```python
-# JWTAuthService uses role_arn claim for STS AssumeRole
-auth_service = JWTAuthService()
-boto3_session = auth_service.get_boto3_session()
-client = boto3_session.client('s3')
-```
-
-## Reading Order
-
-1. **Start:** [00-implementation-summary.md](00-implementation-summary.md) - Get overview
-2. **Deep dive:** [03-graphql-apis.md](03-graphql-apis.md) - See all implementation details
-3. **Reference:** [02-graphql.md](02-graphql.md) - Understand GraphQL schema
-4. **Optional:** [01-es-integration.md](01-es-integration.md) - If working on tests
+- ⚠️ Documentation updates (mark phases complete in README, specs)
+- ⚠️ Multitenant test automation (`scripts/test-multitenant.py` orchestrator)
+- ⚠️ CI/CD workflows (`.github/workflows/test-multitenant.yml`)
+- 💡 Optional: Optimize file metadata (size/hash helpers)
 
 ## Quick Links
 
-### Source Code References
+- **[13-finish-platform.md](./13-finish-platform.md)** - Complete status, pending work, verification commands
+- **[09-quick-start-multitenant.md](./09-quick-start-multitenant.md)** - 5-minute testing setup guide
 
-- **Target file:** [platform_backend.py](../../src/quilt_mcp/backends/platform_backend.py) (current stub)
-- **Reference impl:** [quilt3_backend.py](../../src/quilt_mcp/backends/quilt3_backend.py)
-- **Interface:** [quilt_ops.py](../../src/quilt_mcp/ops/quilt_ops.py)
-- **JWT auth:** [jwt_auth_service.py](../../src/quilt_mcp/services/jwt_auth_service.py)
-- **Domain objects:** [domain/](../../src/quilt_mcp/domain/)
+## Implementation Summary
 
-### Test References
+**Architecture:** Pure GraphQL for all operations (read + write)
 
-- **JWT integration:** [test_jwt_search.py](../../scripts/tests/test_jwt_search.py)
-- **Unit tests:** [tests/unit/backends/](../../tests/unit/backends/)
-- **Integration tests:** [tests/integration/](../../tests/integration/)
+**Authentication:** JWT bearer tokens with catalog_url, catalog_token, and role arn claims
 
-## Status
+**Read Operations:** All via GraphQL queries (searchPackages, package, bucketConfigs)
 
-**Phase:** Design Complete ✅
+**Write Operations:** GraphQL `packageConstruct` mutation (NOT quilt3.Package)
 
-**Next:** Implementation Phase 1 (Core Infrastructure)
+**AWS Operations:** JWT claims + STS AssumeRole for boto3 sessions
 
-**Branch:** `a15-platform-backend` (to be created)
+**Test Coverage:** 60+ tests across 5 test files (~95% code coverage)
 
-## Timeline Estimate
+**Multi-Tenant Safety:** Addresses all shared state issues from [02-docker-issues.md](https://github.com/quiltdata/meta/blob/260130-quilt-mcp-server/proj/260130-quilt-mcp-server/docker/02-docker-issues.md):
 
-- **Phase 1** (Core): 3-5 days
-- **Phase 2** (Read Ops): 3-5 days
-- **Phase 3** (Write Ops): 2-3 days
-- **Phase 4** (Admin Ops): 3-5 days
+- ✅ No quilt3 imports (eliminates `~/.local/share/Quilt/` filesystem dependencies)
+- ✅ No global MCP server singletons (per-instance auth service, HTTP session)
+- ✅ All credentials from JWT runtime context (not cached AWS clients)
+- ✅ Per-request bearer token isolation (thread-safe for concurrent requests)
 
-**Total:** 2-3 weeks for full implementation
+Branch: `a16-graphql-backend`
+
+---
+
+## Implementation Phases
+
+### Phase 1: Core Infrastructure ✅ Complete (2026-01-31)
+
+**Implemented:**
+
+- JWT authentication from runtime context
+- GraphQL endpoint configuration (env var + JWT fallback)
+- Auth status and catalog configuration
+- Request execution with error handling
+
+**Evidence:** [platform_backend.py](../../src/quilt_mcp/backends/platform_backend.py) lines 43-208
+
+### Phase 2: Read Operations ✅ Complete (2026-01-31)
+
+**Implemented:**
+
+- Package search (searchPackages query)
+- Package info retrieval (package query)
+- Content browsing (package.dir query)
+- Bucket listing (bucketConfigs query)
+- Package diff (dual package query)
+- Content URL generation (S3 presigned URLs)
+
+**Evidence:** [platform_backend.py](../../src/quilt_mcp/backends/platform_backend.py) lines 209-510
+
+### Phase 3: Write Operations ✅ Complete (2026-02-02)
+
+**Implemented:**
+
+- Package creation via GraphQL `packageConstruct` mutation
+- Package updates via GraphQL queries + mutation
+- Metadata merging in Python
+- boto3 client creation with JWT role assumption
+
+**Key Decision:** Pure GraphQL approach (no quilt3.Package imports)
+
+**Evidence:** [platform_backend.py](../../src/quilt_mcp/backends/platform_backend.py) lines 521-794
+
+**Specification:** [12-graphql-native-write-operations.md](./12-graphql-native-write-operations.md)
+
+### Phase 4: Admin Operations ⚠️ Stub Only
+
+**Status:** Intentionally implemented as stub that raises `NotImplementedError`
+
+**Rationale:** Platform backend focuses on package operations; admin ops can be added later if Platform GraphQL API supports them
+
+**Evidence:** [platform_backend.py](../../src/quilt_mcp/backends/platform_backend.py) lines 795-801
+
+---
+
+## Test Coverage
+
+| Test File                         | Size  | Coverage                              |
+|-----------------------------------|-------|---------------------------------------|
+| test_platform_backend_core.py     | 12KB  | Auth, config, GraphQL execution       |
+| test_platform_backend_packages.py | 26KB  | Search, create, update, diff          |
+| test_platform_backend_content.py  | 12KB  | Browse, content URLs                  |
+| test_platform_backend_buckets.py  | 9KB   | Bucket listing, catalog config        |
+| test_platform_backend_admin.py    | 2KB   | Admin stub verification               |
+
+**Total:** 60+ tests, ~95% line coverage
+
+---
+
+## Known Limitations
+
+### 1. Admin Operations Not Implemented
+
+```python
+# This raises NotImplementedError
+backend.admin.list_users()
+```
+
+**Rationale:** Platform backend focuses on package operations. Admin operations may be added if Platform GraphQL APIs support them.
+
+**Reference:** [11-test-coverage-plan.md](./11-test-coverage-plan.md#phase-4-create-test_platform_backend_adminpy)
+
+---
+
+## Next Steps
+
+### Immediate (Completed ✅)
+
+- [x] ~~Update README~~ - This document now reflects implementation status
+- [x] ~~Update 00-implementation-summary.md~~ - Marked Phase 3 complete
+- [x] ~~Update 07-implementation-plan.md~~ - All phases marked with status
+
+### Short Term (Next Actions)
+
+1. **Create PR** - Merge `a16-graphql-backend` to main
+2. **Integration testing** - Test against real Platform deployment
+3. **Performance validation** - Benchmark vs Quilt3_Backend
+
+### Medium Term (Future Work)
+
+1. **Implement multitenant test automation** - Create `scripts/test-multitenant.py`
+2. **Set up CI/CD** - Add GitHub Actions workflow
+3. **Optimize performance** - Add file size/hash helpers
+
+---
+
+## Documentation Index
+
+**Overview:**
+
+- [README.md](./README.md) - This document
+- [13-finish-platform.md](./13-finish-platform.md) - Complete status, verification commands
+
+**Specifications:**
+
+- [00-implementation-summary.md](./00-implementation-summary.md) - Executive overview
+- [07-implementation-plan.md](./07-implementation-plan.md) - Phase-by-phase plan
+- [12-graphql-native-write-operations.md](./12-graphql-native-write-operations.md) - Write ops spec
+
+**Testing:**
+
+- [09-quick-start-multitenant.md](./09-quick-start-multitenant.md) - 5-minute testing setup
+- [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md) - Testing strategy
+- [11-test-coverage-plan.md](./11-test-coverage-plan.md) - Test organization
+
+**Reference:**
+
+- [02-graphql.md](./02-graphql.md) - GraphQL schema reference
+- [03-graphql-apis.md](./03-graphql-apis.md) - Detailed API mappings
+- [04-tabulator-mixin.md](./04-tabulator-mixin.md) - TabulatorMixin design

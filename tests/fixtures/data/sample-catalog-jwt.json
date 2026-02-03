@@ -1,0 +1,18 @@
+{
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjgxYTM1MjgyLTAxNDktNGViMy1iYjhlLTYyNzM3OWRiNmExYyIsInV1aWQiOiIzY2FhNDlhOS0zNzUyLTQ4NmUtYjk3OS01MWEzNjlkNmRmNjkiLCJleHAiOjE3NzY4MTcxMDR9.5n2RxPkqH2Z2eIQJ2e71TbkWpqCpGKP-FWD5_erYX20",
+  "header": {
+    "typ": "JWT",
+    "alg": "HS256"
+  },
+  "payload": {
+    "id": "81a35282-0149-4eb3-bb8e-627379db6a1c",
+    "uuid": "3caa49a9-3752-486e-b979-51a369d6df69",
+    "exp": 1776817104
+  },
+  "signature": "5n2RxPkqH2Z2eIQJ2e71TbkWpqCpGKP-FWD5_erYX20",
+  "expiration": {
+    "unix_timestamp": 1776817104,
+    "human_readable": "2026-04-21T17:18:24-07:00",
+    "description": "Tuesday, April 21, 2026 at 5:18:24 PM PDT"
+  }
+}

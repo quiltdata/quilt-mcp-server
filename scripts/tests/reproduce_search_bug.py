@@ -6,12 +6,12 @@ Reproduces the regression identified in spec/a11-client-testing/19-test-comparis
 - search_catalog works in stdio mode (test-mcp-docker)
 - search_catalog returns 0 results in HTTP+JWT stateless mode (test-mcp-stateless)
 
-KEY INSIGHT: Uses the catalog JWT from quilt3 session DIRECTLY as Bearer token.
-No AWS role wrapping, no MCP JWT wrapping - just the raw catalog token.
+KEY INSIGHT: Uses a Platform JWT directly as Bearer token.
+No AWS role wrapping, no catalog token wrapping.
 
 Usage:
-    # Must have active quilt3 session
-    quilt3 catalog login
+    # Provide Platform JWT via environment
+    export MCP_JWT_TOKEN=eyJhbGciOi...
 
     # Build image and run
     make docker-build
@@ -20,7 +20,6 @@ Usage:
 
 import json
 import os
-import re
 import subprocess
 import sys
 import time
@@ -31,7 +30,6 @@ import requests
 # Add tests dir to path for jwt_helpers
 repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root / 'tests'))
-from jwt_helpers import extract_catalog_token_from_session, get_current_catalog_url
 
 # Configuration
 CONTAINER_NAME = "mcp-search-bug-repro"
@@ -122,28 +120,25 @@ def parse_sse_response(response_text):
     raise ValueError(f"No data line found in SSE response: {response_text[:200]}")
 
 
-def extract_catalog_jwt():
-    """Extract catalog JWT directly from quilt3 session."""
+def extract_platform_jwt():
+    """Extract platform JWT from environment."""
     print("\n" + "=" * 80)
-    print("STEP 2: Extracting Catalog JWT from quilt3 Session")
+    print("STEP 2: Loading Platform JWT from environment")
     print("=" * 80)
 
-    catalog_token = extract_catalog_token_from_session()
-    if not catalog_token:
-        print("❌ No catalog token found")
-        print("   Run: quilt3 catalog login")
+    jwt_token = os.getenv("MCP_JWT_TOKEN")
+    if not jwt_token:
+        print("❌ MCP_JWT_TOKEN not set")
+        print("   Export MCP_JWT_TOKEN with a valid Platform JWT")
         return None
 
-    catalog_url = get_current_catalog_url()
-    print(f"✅ Found catalog session")
-    print(f"   Catalog URL: {catalog_url}")
-    print(f"   Token: {catalog_token[:20]}...{catalog_token[-10:]}")
-
-    return catalog_token
+    print(f"✅ Found MCP_JWT_TOKEN")
+    print(f"   Token: {jwt_token[:20]}...{jwt_token[-10:]}")
+    return jwt_token
 
 
-def initialize_mcp_session(catalog_jwt):
-    """Initialize MCP session with catalog JWT as Bearer token."""
+def initialize_mcp_session(jwt_token):
+    """Initialize MCP session with Platform JWT as Bearer token."""
     print("\n" + "=" * 80)
     print("STEP 3: Initializing MCP Session with Catalog JWT")
     print("=" * 80)
@@ -151,7 +146,7 @@ def initialize_mcp_session(catalog_jwt):
     session = requests.Session()
     session.headers.update({
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {catalog_jwt}'  # Use catalog JWT directly
+        'Authorization': f'Bearer {jwt_token}'
     })
 
     init_request = {
@@ -312,12 +307,12 @@ def main():
         if not start_simple_http_container():
             return 1
 
-        catalog_jwt = extract_catalog_jwt()
-        if not catalog_jwt:
+        jwt_token = extract_platform_jwt()
+        if not jwt_token:
             stop_container()
             return 1
 
-        session = initialize_mcp_session(catalog_jwt)
+        session = initialize_mcp_session(jwt_token)
         if not session:
             stop_container()
             return 1

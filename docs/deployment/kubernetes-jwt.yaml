@@ -30,6 +30,8 @@ spec:
               value: "true"
             - name: QUILT_CATALOG_URL
               value: "https://your-catalog.quiltdata.com"
+            - name: QUILT_REGISTRY_URL
+              value: "https://registry.your-catalog.quiltdata.com"
             - name: MCP_JWT_SECRET
               valueFrom:
                 secretKeyRef:

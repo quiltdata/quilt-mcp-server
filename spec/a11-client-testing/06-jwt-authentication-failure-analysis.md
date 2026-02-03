@@ -98,7 +98,7 @@ JWT_TOKEN=$(uv run python scripts/tests/jwt_helper.py generate \
 The server is accepting the JWT token (no 401/403 errors) but the token is not providing real AWS access:
 
 1. **Token Structure Valid**: JWT format is correct, passes signature validation
-2. **Claims Present**: Required claims like `role_arn` are present  
+2. **Claims Present**: Required claims like `role arn` are present  
 3. **AWS Role Assumption Failing**: The role ARN in the token doesn't exist or can't be assumed
 4. **Session Has No Permissions**: The resulting AWS session has no actual permissions
 
@@ -107,7 +107,7 @@ The server is accepting the JWT token (no 401/403 errors) but the token is not p
 ### What Should Happen
 
 ```
-1. JWT token with real role_arn → 
+1. JWT token with real role arn → 
 2. Server validates JWT signature → 
 3. Server assumes AWS role from token → 
 4. Server gets real AWS credentials → 
@@ -118,7 +118,7 @@ The server is accepting the JWT token (no 401/403 errors) but the token is not p
 ### What's Actually Happening
 
 ```
-1. JWT token with fake role_arn → 
+1. JWT token with fake role arn → 
 2. Server validates JWT signature ✅ → 
 3. Server tries to assume fake AWS role ❌ → 
 4. Server falls back to no/limited credentials → 
@@ -160,7 +160,7 @@ python scripts/tests/jwt_helper.py inspect \
 ```
 
 **Check**:
-- Is the `role_arn` a real, assumable role?
+- Is the `role arn` a real, assumable role?
 - Are the claims correctly formatted?
 - Is the token actually valid for AWS operations?
 
