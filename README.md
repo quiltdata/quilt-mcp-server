@@ -31,6 +31,7 @@ quilt-mcp
 # Add to Claude Code CLI with environment variables
 npx @anthropic-ai/claude-code mcp add quilt-mcp uvx quilt-mcp \
   -e QUILT_CATALOG_URL=https://your-catalog.quiltdata.com \
+  -e QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com \
   -e AWS_PROFILE=your-profile
 ```
 
@@ -45,7 +46,8 @@ Add to your `mcp.json`:
       "command": "uvx",
       "args": ["quilt-mcp"],
       "env": {
-        "QUILT_CATALOG_URL": "https://quilt-stack.yourcompany.com"
+        "QUILT_CATALOG_URL": "https://quilt-stack.yourcompany.com",
+        "QUILT_REGISTRY_URL": "https://registry.quilt-stack.yourcompany.com"
       }
     }
   }
@@ -70,7 +72,7 @@ quilt3 login
 By default, quilt-mcp uses IAM credentials from your environment, AWS profiles, or quilt3 sessions.
 
 For multitenant deployments, enable **JWT mode** by setting `MCP_REQUIRE_JWT=true`. In JWT mode the server requires
-`Authorization: Bearer <token>` on every request and assumes AWS roles based on JWT claims.
+`Authorization: Bearer <token>` on every request and delegates authorization to the Platform.
 
 See `docs/AUTHENTICATION.md` for full configuration details and examples.
 
@@ -79,6 +81,7 @@ See `docs/AUTHENTICATION.md` for full configuration details and examples.
 Override defaults via environment or MCP config:
 
 - `QUILT_CATALOG_URL` - Your Quilt catalog URL (e.g., `https://your-catalog.quiltdata.com`)
+- `QUILT_REGISTRY_URL` - Your Quilt registry URL (e.g., `https://registry.your-catalog.quiltdata.com`)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 - `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)
 - `MCP_REQUIRE_JWT` - Enable JWT auth mode (true/false, default: false)

@@ -9,7 +9,6 @@ and validates tenant isolation.
 import argparse
 import json
 import os
-import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -23,7 +22,7 @@ repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(repo_root / 'tests'))
 
 try:
-    from jwt_helpers import generate_test_jwt, validate_quilt3_session_exists
+    from jwt_helpers import generate_test_jwt
 except ImportError:
     print("❌ Could not import jwt_helpers. Make sure tests/jwt_helpers.py exists.", file=sys.stderr)
     sys.exit(1)
@@ -32,19 +31,17 @@ except ImportError:
 class MultitenantTestRunner:
     """Orchestrates multitenant testing across multiple tenants."""
 
-    def __init__(self, config: Dict[str, Any], endpoint: str, verbose: bool = False, allow_fake_roles: bool = False):
+    def __init__(self, config: Dict[str, Any], endpoint: str, verbose: bool = False):
         """Initialize test runner.
 
         Args:
             config: Test configuration from YAML
             endpoint: MCP endpoint URL
             verbose: Enable verbose output
-            allow_fake_roles: Allow fake/test role ARNs (for local testing)
         """
         self.config = config
         self.endpoint = endpoint
         self.verbose = verbose
-        self.allow_fake_roles = allow_fake_roles
         self.tenant_tokens: Dict[str, str] = {}
         self.results: Dict[str, Any] = {
             "total": 0,
@@ -74,33 +71,25 @@ class MultitenantTestRunner:
             self._log("No tenants configured", "ERROR")
             return False
 
-        # Validate quilt3 session exists
-        if not validate_quilt3_session_exists():
-            self._log("quilt3 session not configured. Run: quilt3 login", "ERROR")
-            return False
-
         # Generate token for each tenant
         for tenant_id, tenant_config in tenants_config.items():
             try:
-                role_arn = tenant_config.get("role_arn")
                 jwt_secret = tenant_config.get("jwt_secret")
+                user_id = tenant_config.get("user_id")
+                user_uuid = tenant_config.get("user_uuid")
 
-                if not role_arn or not jwt_secret:
-                    self._log(f"Missing role_arn or jwt_secret for tenant {tenant_id}", "ERROR")
-                    return False
-
-                # Validate role ARN is not fake (unless allowed)
-                if not self._validate_role_arn(role_arn, tenant_id):
+                if not jwt_secret or not user_id or not user_uuid:
+                    self._log(f"Missing jwt_secret, user_id, or user_uuid for tenant {tenant_id}", "ERROR")
                     return False
 
                 self._log(f"Generating JWT for tenant: {tenant_id}", "DEBUG")
 
                 token = generate_test_jwt(
-                    role_arn=role_arn,
                     secret=jwt_secret,
                     tenant_id=tenant_id,
-                    auto_extract=True,
-                    expiry_seconds=3600
+                    user_id=user_id,
+                    user_uuid=user_uuid,
+                    expiry_seconds=3600,
                 )
 
                 self.tenant_tokens[tenant_id] = token
@@ -111,99 +100,6 @@ class MultitenantTestRunner:
                 return False
 
         self._log(f"✅ Generated {len(self.tenant_tokens)} tenant tokens")
-        return True
-
-    def _validate_role_arn(self, role_arn: str, tenant_id: str) -> bool:
-        """Validate that role ARN is real (not fake test data).
-
-        Args:
-            role_arn: Role ARN to validate
-            tenant_id: Tenant identifier for error messages
-
-        Returns:
-            True if valid, False otherwise
-        """
-        # Check for unexpanded environment variable syntax
-        if "${" in role_arn:
-            # Extract variable name from ${VAR} or ${VAR:-default}
-            var_match = re.search(r'\$\{([^}:]+)', role_arn)
-            var_name = var_match.group(1) if var_match else "VARIABLE"
-
-            self._log(
-                f"❌ Required environment variable not set for tenant '{tenant_id}'",
-                "ERROR"
-            )
-            self._log(
-                f"",
-                "ERROR"
-            )
-            self._log(
-                f"   Variable '{var_name}' is undefined. Set it with:",
-                "ERROR"
-            )
-            self._log(
-                f"     export {var_name}=arn:aws:iam::YOUR_ACCOUNT:role/YourRole",
-                "ERROR"
-            )
-            return False
-
-        # Check for common fake/test account IDs
-        fake_account_ids = [
-            "123456789012",  # Common example account ID
-            "111111111111",
-            "000000000000",
-            "999999999999",
-        ]
-
-        for fake_id in fake_account_ids:
-            if fake_id in role_arn:
-                if self.allow_fake_roles:
-                    self._log(
-                        f"⚠️  Tenant {tenant_id}: Using fake/test role ARN: {role_arn}",
-                        "INFO"
-                    )
-                    return True
-                else:
-                    self._log(
-                        f"❌ Fake/test role ARN detected for tenant '{tenant_id}': {role_arn}",
-                        "ERROR"
-                    )
-                    self._log(
-                        f"",
-                        "ERROR"
-                    )
-                    self._log(
-                        f"   For local testing, run with: --allow-fake-roles",
-                        "ERROR"
-                    )
-                    self._log(
-                        f"",
-                        "ERROR"
-                    )
-                    self._log(
-                        f"   For real testing, set environment variables with real AWS role ARNs:",
-                        "ERROR"
-                    )
-                    self._log(
-                        f"     export TEST_ROLE_ARN_A=arn:aws:iam::YOUR_ACCOUNT:role/YourRoleA",
-                        "ERROR"
-                    )
-                    self._log(
-                        f"     export TEST_ROLE_ARN_B=arn:aws:iam::YOUR_ACCOUNT:role/YourRoleB",
-                        "ERROR"
-                    )
-                    return False
-
-        # Basic ARN format validation
-        arn_pattern = r"^arn:aws:iam::\d{12}:role/[\w+=,.@-]+$"
-        if not re.match(arn_pattern, role_arn):
-            self._log(
-                f"❌ Tenant {tenant_id}: Invalid role ARN format: {role_arn}",
-                "ERROR"
-            )
-            self._log("   Expected format: arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME", "ERROR")
-            return False
-
         return True
 
     def run_basic_connectivity_tests(self) -> Dict[str, Any]:
@@ -562,20 +458,19 @@ def main():
         epilog="""
 Examples:
   # Run against real server with real credentials (requires env vars)
-  export TEST_ROLE_ARN_A=arn:aws:iam::REAL_ACCOUNT:role/TenantA
-  export TEST_ROLE_ARN_B=arn:aws:iam::REAL_ACCOUNT:role/TenantB
+  export TEST_TENANT_A_ID=user-a
+  export TEST_TENANT_A_UUID=uuid-a
+  export TEST_TENANT_B_ID=user-b
+  export TEST_TENANT_B_UUID=uuid-b
   export TEST_JWT_SECRET=your-jwt-secret
   python scripts/test-multitenant.py http://localhost:8001/mcp
-
-  # Run with fake/test roles for local development
-  python scripts/test-multitenant.py http://localhost:8001/mcp --allow-fake-roles
 
   # Run with custom config
   python scripts/test-multitenant.py http://localhost:8001/mcp \\
     --config scripts/tests/mcp-test-multitenant.yaml
 
   # Verbose output
-  python scripts/test-multitenant.py http://localhost:8001/mcp -v --allow-fake-roles
+  python scripts/test-multitenant.py http://localhost:8001/mcp -v
         """
     )
 
@@ -597,13 +492,6 @@ Examples:
         help="Verbose output"
     )
 
-    parser.add_argument(
-        "--allow-fake-roles",
-        action="store_true",
-        help="Allow fake/test role ARNs (e.g., 123456789012) for local testing. "
-             "By default, fake role ARNs will cause an error."
-    )
-
     args = parser.parse_args()
 
     # Load configuration
@@ -614,7 +502,6 @@ Examples:
         config,
         args.endpoint,
         verbose=args.verbose,
-        allow_fake_roles=args.allow_fake_roles
     )
     success = runner.run_all_tests()
 

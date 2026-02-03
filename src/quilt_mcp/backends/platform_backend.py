@@ -28,12 +28,10 @@ from quilt_mcp.domain import (
 from quilt_mcp.runtime_context import (
     get_runtime_auth,
     get_runtime_claims,
-    get_runtime_metadata,
-    update_runtime_metadata,
 )
-from quilt_mcp.services.jwt_auth_service import JWTAuthService, JwtAuthServiceError
+from quilt_mcp.services.browsing_session_client import BrowsingSessionClient
 from quilt_mcp.services.jwt_decoder import JwtDecodeError, get_jwt_decoder
-from quilt_mcp.utils import graphql_endpoint, normalize_url, get_dns_name_from_url, parse_s3_uri
+from quilt_mcp.utils import graphql_endpoint, normalize_url, get_dns_name_from_url
 
 logger = logging.getLogger(__name__)
 
@@ -42,23 +40,18 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     """Platform GraphQL backend implementation."""
 
     def __init__(self) -> None:
-        self._auth_service = JWTAuthService()
+        self._access_token = self._load_access_token()
         self._claims = self._load_claims()
-        metadata = get_runtime_metadata()
-
-        self._catalog_token = self._claims.get("catalog_token") or metadata.get("catalog_token")
-        if not self._catalog_token:
-            raise AuthenticationError("JWT claim 'catalog_token' is required for Platform backend")
 
         # Admin operations (lazy loaded)
         self._admin_ops: Optional[AdminOps] = None
 
-        self._catalog_url = (
-            self._claims.get("catalog_url") or metadata.get("catalog_url") or os.getenv("QUILT_CATALOG_URL")
-        )
-        self._registry_url = self._claims.get("registry_url") or metadata.get("registry_url")
-        if not self._registry_url and self._catalog_url:
-            self._registry_url = self._derive_registry_url(self._catalog_url)
+        self._catalog_url = os.getenv("QUILT_CATALOG_URL")
+        self._registry_url = os.getenv("QUILT_REGISTRY_URL")
+        if not self._catalog_url or not self._registry_url:
+            raise AuthenticationError(
+                "Platform backend requires QUILT_CATALOG_URL and QUILT_REGISTRY_URL environment variables."
+            )
 
         self._graphql_endpoint = os.getenv("QUILT_GRAPHQL_ENDPOINT")
         if not self._graphql_endpoint and self._registry_url:
@@ -66,7 +59,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
         if not self._graphql_endpoint:
             raise AuthenticationError(
-                "GraphQL endpoint not configured. Set QUILT_GRAPHQL_ENDPOINT or include registry_url/catalog_url in JWT."
+                "GraphQL endpoint not configured. Set QUILT_GRAPHQL_ENDPOINT or QUILT_REGISTRY_URL."
             )
 
         import requests
@@ -75,10 +68,19 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         self._session = requests.Session()
         self._session.headers.update(
             {
-                "Authorization": f"Bearer {self._catalog_token}",
+                "Authorization": f"Bearer {self._access_token}",
                 "Content-Type": "application/json",
                 "Accept": "application/json",
             }
+        )
+
+        ttl_seconds = int(os.getenv("QUILT_BROWSING_SESSION_TTL", "180"))
+        self._browse_client = BrowsingSessionClient(
+            catalog_url=self._catalog_url,
+            graphql_endpoint=self._graphql_endpoint,
+            access_token=self._access_token,
+            session=self._session,
+            ttl_seconds=ttl_seconds,
         )
 
         logger.info("Platform_Backend initialized")
@@ -93,9 +95,9 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         return self._graphql_endpoint
 
     def get_graphql_auth_headers(self) -> Dict[str, str]:
-        if not self._catalog_token:
-            raise AuthenticationError("Missing catalog_token for GraphQL authentication")
-        return {"Authorization": f"Bearer {self._catalog_token}"}
+        if not self._access_token:
+            raise AuthenticationError("Missing JWT access token for GraphQL authentication")
+        return {"Authorization": f"Bearer {self._access_token}"}
 
     def execute_graphql_query(
         self,
@@ -188,20 +190,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             raise BackendError(f"Platform backend get_catalog_config failed: {exc}") from exc
 
     def configure_catalog(self, catalog_url: str) -> None:
-        try:
-            if not catalog_url or not isinstance(catalog_url, str):
-                raise ValidationError("Invalid catalog URL: must be a non-empty string")
-            self._catalog_url = catalog_url
-            update_runtime_metadata(catalog_url=catalog_url)
-            if not self._registry_url:
-                self._registry_url = self._derive_registry_url(catalog_url)
-                update_runtime_metadata(registry_url=self._registry_url)
-            if not os.getenv("QUILT_GRAPHQL_ENDPOINT") and self._registry_url:
-                self._graphql_endpoint = graphql_endpoint(self._registry_url)
-        except ValidationError:
-            raise
-        except Exception as exc:
-            raise BackendError(f"Platform backend configure_catalog failed: {exc}") from exc
+        raise ValidationError(
+            "Platform backend uses static configuration. "
+            "Set QUILT_CATALOG_URL and QUILT_REGISTRY_URL environment variables instead."
+        )
 
     def get_registry_url(self) -> Optional[str]:
         return self._registry_url
@@ -478,8 +470,9 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             query ContentUrl($bucket: String!, $name: String!, $path: String!) {
               package(bucket: $bucket, name: $name) {
                 revision(hashOrTag: "latest") {
+                  hash
                   file(path: $path) {
-                    physicalKey
+                    path
                   }
                 }
               }
@@ -490,17 +483,12 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             if not file_info:
                 raise NotFoundError(f"File not found: {path}")
 
-            physical_key = file_info.get("physicalKey")
-            if not physical_key:
-                raise BackendError("Missing physicalKey for file")
+            revision_hash = result.get("data", {}).get("package", {}).get("revision", {}).get("hash")
+            if not revision_hash:
+                raise BackendError("Missing revision hash for browsing session")
 
-            bucket_name, key, version_id = parse_s3_uri(physical_key)
-            client = self.get_boto3_client("s3")
-            params: Dict[str, Any] = {"Bucket": bucket_name, "Key": key}
-            if version_id:
-                params["VersionId"] = version_id
-
-            return str(client.generate_presigned_url("get_object", Params=params, ExpiresIn=3600))
+            scope = f"s3://{bucket}#package={package_name}&hash={revision_hash}"
+            return self._browse_client.get_presigned_url(scope=scope, path=path)
         except NotFoundError:
             raise
         except Exception as exc:
@@ -514,13 +502,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # ---------------------------------------------------------------------
 
     def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
-        try:
-            session = self._auth_service.get_session()
-            return session.client(service_name, region_name=region)
-        except JwtAuthServiceError as exc:
-            raise AuthenticationError(str(exc)) from exc
-        except Exception as exc:
-            raise BackendError(f"Failed to create boto3 client for {service_name}: {exc}") from exc
+        raise AuthenticationError("AWS client access is not available in Platform backend.")
 
     def create_package_revision(
         self,
@@ -824,14 +806,11 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
         return {}
 
-    def _derive_registry_url(self, catalog_url: str) -> Optional[str]:
-        if not catalog_url:
-            return None
-        if "nightly.quilttest.com" in catalog_url:
-            return catalog_url.replace("nightly.quilttest.com", "nightly-registry.quilttest.com")
-        if "quiltdata.com" in catalog_url:
-            return catalog_url.replace("quiltdata.com", "registry.quiltdata.com")
-        return None
+    def _load_access_token(self) -> str:
+        runtime_auth = get_runtime_auth()
+        if runtime_auth and runtime_auth.access_token:
+            return runtime_auth.access_token
+        raise AuthenticationError("JWT access token is required for Platform backend.")
 
     def _transform_catalog_config(self, config_data: Dict[str, Any]) -> Catalog_Config:
         try:

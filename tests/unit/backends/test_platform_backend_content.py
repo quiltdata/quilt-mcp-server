@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from types import SimpleNamespace
-
 import pytest
 
 from quilt_mcp.ops.exceptions import NotFoundError, BackendError
@@ -22,15 +19,17 @@ def _push_jwt_context(claims=None):
         access_token="test-token",
         claims=claims
         or {
-            "catalog_token": "test-catalog-token",
-            "catalog_url": "https://example.quiltdata.com",
-            "registry_url": "https://registry.quiltdata.com",
+            "id": "user-1",
+            "uuid": "uuid-1",
+            "exp": 9999999999,
         },
     )
     return push_runtime_context(environment=get_runtime_environment(), auth=auth_state)
 
 
 def _make_backend(monkeypatch, claims=None):
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
     token = _push_jwt_context(claims)
     try:
@@ -250,18 +249,15 @@ def test_browse_content_transforms_types(monkeypatch):
 
 
 def test_get_content_url_presigned_s3(monkeypatch):
-    """Generate S3 presigned URL."""
+    """Generate presigned URL via browsing session."""
     backend = _make_backend(monkeypatch)
     backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {"package": {"revision": {"file": {"physicalKey": "s3://test-bucket/path/to/file.txt"}}}}
+        "data": {"package": {"revision": {"hash": "abc123", "file": {"path": "file.txt"}}}}
     }
 
-    mock_client = SimpleNamespace(
-        generate_presigned_url=lambda method,
-        Params,
-        ExpiresIn: "https://test-bucket.s3.amazonaws.com/path/to/file.txt?signature=abc"
+    backend._browse_client.get_presigned_url = (
+        lambda **kwargs: "https://test-bucket.s3.amazonaws.com/path/to/file.txt?signature=abc"
     )
-    backend.get_boto3_client = lambda *args, **kwargs: mock_client
 
     url = backend.get_content_url("user/pkg", "s3://test-bucket", "file.txt")
     assert url.startswith("https://")
@@ -269,19 +265,18 @@ def test_get_content_url_presigned_s3(monkeypatch):
 
 
 def test_get_content_url_resolves_physical_key(monkeypatch):
-    """Verify GraphQL query for physicalKey."""
+    """Verify GraphQL query for revision hash."""
     backend = _make_backend(monkeypatch)
 
     query_calls = []
 
     def mock_query(query, variables=None, **kwargs):
         query_calls.append({"query": query, "variables": variables})
-        return {"data": {"package": {"revision": {"file": {"physicalKey": "s3://my-bucket/actual/physical/key.csv"}}}}}
+        return {"data": {"package": {"revision": {"hash": "hash123", "file": {"path": "data/key.csv"}}}}}
 
     backend.execute_graphql_query = mock_query
 
-    mock_client = SimpleNamespace(generate_presigned_url=lambda method, Params, ExpiresIn: "https://presigned-url.com")
-    backend.get_boto3_client = lambda *args, **kwargs: mock_client
+    backend._browse_client.get_presigned_url = lambda **kwargs: "https://presigned-url.com"
 
     url = backend.get_content_url("team/dataset", "s3://my-bucket", "data/key.csv")
 
@@ -302,48 +297,42 @@ def test_get_content_url_missing_file(monkeypatch):
 
 
 def test_get_content_url_custom_expiration(monkeypatch):
-    """Test expiration parameter (note: current implementation uses hardcoded 3600)."""
+    """Browsing session path should be requested once per call."""
     backend = _make_backend(monkeypatch)
     backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {"package": {"revision": {"file": {"physicalKey": "s3://bucket/file.txt"}}}}
+        "data": {"package": {"revision": {"hash": "hash123", "file": {"path": "file.txt"}}}}
     }
 
-    presigned_calls = []
+    browse_calls = []
 
-    def mock_presigned(method, Params, ExpiresIn):
-        presigned_calls.append({"ExpiresIn": ExpiresIn})
+    def mock_browse(**kwargs):
+        browse_calls.append(kwargs)
         return "https://url.com"
 
-    mock_client = SimpleNamespace(generate_presigned_url=mock_presigned)
-    backend.get_boto3_client = lambda *args, **kwargs: mock_client
+    backend._browse_client.get_presigned_url = mock_browse
 
     url = backend.get_content_url("user/pkg", "s3://bucket", "file.txt")
 
-    # Current implementation uses hardcoded 3600
-    assert len(presigned_calls) == 1
-    assert presigned_calls[0]["ExpiresIn"] == 3600
+    assert len(browse_calls) == 1
     assert url == "https://url.com"
 
 
 def test_get_content_url_aws_credentials(monkeypatch):
-    """Verify get_boto3_client is called (which uses auth service)."""
+    """Verify browsing session client is called."""
     backend = _make_backend(monkeypatch)
     backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {"package": {"revision": {"file": {"physicalKey": "s3://bucket/key.txt"}}}}
+        "data": {"package": {"revision": {"hash": "hash123", "file": {"path": "key.txt"}}}}
     }
 
-    boto3_calls = []
+    browse_calls = []
 
-    def mock_boto3_client(service_name, region=None):
-        boto3_calls.append({"service": service_name, "region": region})
-        return SimpleNamespace(
-            generate_presigned_url=lambda method, Params, ExpiresIn: "https://authenticated-url.com"
-        )
+    def mock_browse(**kwargs):
+        browse_calls.append(kwargs)
+        return "https://authenticated-url.com"
 
-    backend.get_boto3_client = mock_boto3_client
+    backend._browse_client.get_presigned_url = mock_browse
 
     url = backend.get_content_url("user/pkg", "s3://bucket", "key.txt")
 
-    assert len(boto3_calls) == 1
-    assert boto3_calls[0]["service"] == "s3"
+    assert len(browse_calls) == 1
     assert url == "https://authenticated-url.com"

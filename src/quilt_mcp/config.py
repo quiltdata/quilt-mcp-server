@@ -144,6 +144,12 @@ class ModeConfig:
         if not os.getenv("MCP_JWT_AUDIENCE"):
             errors.append("Multitenant mode requires MCP_JWT_AUDIENCE environment variable")
 
+        if not os.getenv("QUILT_CATALOG_URL"):
+            errors.append("Multitenant mode requires QUILT_CATALOG_URL environment variable")
+
+        if not os.getenv("QUILT_REGISTRY_URL"):
+            errors.append("Multitenant mode requires QUILT_REGISTRY_URL environment variable")
+
         return errors
 
 

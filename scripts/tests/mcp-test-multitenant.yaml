@@ -10,12 +10,14 @@ environment:
 # Define tenant configurations
 tenants:
   tenant-a:
-    role_arn: "${TEST_ROLE_ARN_A:-arn:aws:iam::123456789012:role/TenantA}"
+    user_id: "${TEST_TENANT_A_ID:-user-a}"
+    user_uuid: "${TEST_TENANT_A_UUID:-uuid-a}"
     jwt_secret: "${TEST_JWT_SECRET:-test-secret}"
     description: "Primary test tenant"
 
   tenant-b:
-    role_arn: "${TEST_ROLE_ARN_B:-arn:aws:iam::123456789012:role/TenantB}"
+    user_id: "${TEST_TENANT_B_ID:-user-b}"
+    user_uuid: "${TEST_TENANT_B_UUID:-uuid-b}"
     jwt_secret: "${TEST_JWT_SECRET:-test-secret}"
     description: "Secondary test tenant for isolation testing"
 

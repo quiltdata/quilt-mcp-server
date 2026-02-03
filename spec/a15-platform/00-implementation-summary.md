@@ -45,7 +45,7 @@ class Platform_Backend(QuiltOps):
 - `catalog_token` - Bearer token for GraphQL authentication
 - `catalog_url` - Catalog endpoint (e.g., `https://my-catalog.quiltdata.com`)
 - `registry_url` - Registry/GraphQL endpoint
-- `role_arn` - AWS IAM role for boto3 operations
+- `role arn` - AWS IAM role for boto3 operations
 
 **References:**
 
@@ -263,7 +263,7 @@ Extend existing JWT tests to cover Platform backend:
 def test_jwt_enables_platform_backend():
     # Generate JWT with catalog claims
     jwt_token = generate_test_jwt(
-        role_arn="arn:aws:iam::123:role/Test",
+        role arn="arn:aws:iam::123:role/Test",
         catalog_token="catalog-bearer-token",
         catalog_url="https://test.quiltdata.com",
     )

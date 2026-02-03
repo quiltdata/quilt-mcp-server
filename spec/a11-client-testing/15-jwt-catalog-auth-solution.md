@@ -52,7 +52,7 @@ Quilt MCP requires **TWO separate authentication mechanisms**:
   "iat": 1706479600,
   "exp": 1706483200,
   "sub": "test-user",
-  "role_arn": "arn:aws:iam::123456789:role/TestRole",
+  "role arn": "arn:aws:iam::123456789:role/TestRole",
   "session_tags": {...}
 }
 ```
@@ -94,7 +94,7 @@ Quilt MCP requires **TWO separate authentication mechanisms**:
   "iat": 1706479600,
   "exp": 1706483200,
   "sub": "test-user",
-  "role_arn": "arn:aws:iam::123456789:role/TestRole",
+  "role arn": "arn:aws:iam::123456789:role/TestRole",
   "session_tags": {...},
   "catalog_url": "https://nightly.quilttest.com",
   "catalog_token": "eyJ0eXAiOiJKV1QiLCJhbGciOi...",
@@ -108,7 +108,7 @@ Quilt MCP requires **TWO separate authentication mechanisms**:
 
 ```python
 def generate_test_jwt(
-    role_arn: str,
+    role arn: str,
     secret: str,
     catalog_token: str,  # NEW: Add catalog token
     catalog_url: str = "https://nightly.quilttest.com",  # NEW
@@ -164,7 +164,7 @@ print(auth_header.replace('Bearer ', ''))
 
 # Generate MCP JWT with catalog token
 JWT_TOKEN=$(uv run python scripts/tests/jwt_helper.py generate \
-  --role-arn "$QUILT_TEST_ROLE_ARN" \
+  --role-arn "$QUILT_TEST_JWT_TOKEN" \
   --catalog-token "$CATALOG_TOKEN" \
   --secret "test-secret-key")
 ```
@@ -261,7 +261,7 @@ def extract_current_catalog_token():
 
 ```python
 def generate_test_jwt(
-    role_arn: str,
+    role arn: str,
     secret: str,
     catalog_token: Optional[str] = None,
     auto_extract_catalog: bool = True,
@@ -334,7 +334,7 @@ test-stateless-mcp: docker-build
  fi && \
  echo "Step 2: Generating JWT with catalog authentication..." && \
  JWT_TOKEN=$$(uv run python scripts/tests/jwt_helper.py generate \
-  --role-arn "$(QUILT_TEST_ROLE_ARN)" \
+  --role-arn "$(QUILT_TEST_JWT_TOKEN)" \
   --catalog-token "$$CATALOG_TOKEN" \
   --secret "test-secret-key") && \
  echo "Step 3: Testing with complete authentication..." && \

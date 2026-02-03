@@ -32,7 +32,11 @@ class TestJWTAuthentication(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.test_endpoint = "http://localhost:8000/mcp"
-        self.test_jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJyb2xlX2FybiI6ImFybjphd3M6aWFtOjoxMjM0NTY3ODkwMTI6cm9sZS9UZXN0Um9sZSIsImV4cCI6OTk5OTk5OTk5OX0.test-signature"
+        self.test_jwt_token = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+            "eyJpZCI6InRlc3QtdXNlciIsInV1aWQiOiJ0ZXN0LXV1aWQiLCJleHAiOjk5OTk5OTk5OTl9."
+            "test-signature"
+        )
 
     def test_jwt_token_parameter_accepted(self):
         """Test that JWT token parameter is accepted and stored."""
@@ -137,7 +141,7 @@ class TestJWTAuthentication(unittest.TestCase):
         self.assertIn("Authorization failed", error_message)
         self.assertIn("Insufficient permissions", error_message)
         self.assertIn("eyJh...ture", error_message)  # Masked token
-        self.assertIn("role_arn", error_message)
+        self.assertIn("JWT", error_message)
 
     @patch('requests.Session.post')
     def test_successful_request_with_jwt(self, mock_post):
@@ -189,8 +193,6 @@ class TestJWTHelperIntegration(unittest.TestCase):
             "python",
             str(self.jwt_helper_path),
             "generate",
-            "--role-arn",
-            "arn:aws:iam::123456789012:role/TestRole",
             "--secret",
             "test-secret",
             "--expiry",
@@ -200,7 +202,6 @@ class TestJWTHelperIntegration(unittest.TestCase):
         # Verify the command structure is valid
         self.assertTrue(len(expected_command) > 0)
         self.assertIn("generate", expected_command)
-        self.assertIn("--role-arn", expected_command)
         self.assertIn("--secret", expected_command)
 
 

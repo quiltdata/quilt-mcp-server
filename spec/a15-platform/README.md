@@ -31,7 +31,7 @@ dependencies. Enables multitenant MCP server deployments with catalog-specific a
 
 **Architecture:** Pure GraphQL for all operations (read + write)
 
-**Authentication:** JWT bearer tokens with catalog_url, catalog_token, and role_arn claims
+**Authentication:** JWT bearer tokens with catalog_url, catalog_token, and role arn claims
 
 **Read Operations:** All via GraphQL queries (searchPackages, package, bucketConfigs)
 

@@ -9,3 +9,4 @@ services:
       MCP_REQUIRE_JWT: "true"
       MCP_JWT_SECRET: "dev-secret"
       QUILT_CATALOG_URL: "https://your-catalog.quiltdata.com"
+      QUILT_REGISTRY_URL: "https://registry.your-catalog.quiltdata.com"

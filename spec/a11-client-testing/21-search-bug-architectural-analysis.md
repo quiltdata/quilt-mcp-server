@@ -355,7 +355,7 @@ The quilt3 API **doesn't work at all** in HTTP mode because it assumes direct S3
 In HTTP mode, the MCP server **may not even have AWS credentials**. The JWT might contain:
 
 - `catalog_token` - For authenticating to the catalog/registry
-- `role_arn` + `session_tags` - For assuming an AWS role to get temporary S3 credentials
+- `role arn` + `session_tags` - For assuming an AWS role to get temporary S3 credentials
 
 But there's no guarantee. A JWT could have:
 

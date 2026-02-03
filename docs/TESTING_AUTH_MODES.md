@@ -31,6 +31,8 @@ Run:
 ```bash
 export MCP_REQUIRE_JWT=true
 export MCP_JWT_SECRET="dev-secret"
+export QUILT_CATALOG_URL="https://your-catalog.quiltdata.com"
+export QUILT_REGISTRY_URL="https://registry.your-catalog.quiltdata.com"
 uvx quilt-mcp
 ```
 
@@ -40,9 +42,9 @@ Generate a test JWT:
 python - <<'PY'
 import time, jwt
 payload = {
-  "sub": "dev-user",
+  "id": "dev-user-id",
+  "uuid": "dev-user-uuid",
   "exp": int(time.time()) + 600,
-  "role_arn": "arn:aws:iam::123456789012:role/QuiltUser"
 }
 print(jwt.encode(payload, "dev-secret", algorithm="HS256"))
 PY
@@ -64,20 +66,9 @@ NODE
 
 Example payloads:
 
-Minimal (no role assumption needed for tools/list):
+Minimal (Platform JWT shape):
 ```json
-{"sub":"dev-user","exp":1700000000}
-```
-
-Role assumption with tags:
-```json
-{
-  "sub": "dev-user",
-  "exp": 1700000000,
-  "role_arn": "arn:aws:iam::123456789012:role/QuiltUser",
-  "session_tags": {"tenant":"acme","user":"dev-user"},
-  "transitive_tag_keys": ["tenant"]
-}
+{"id":"dev-user-id","uuid":"dev-user-uuid","exp":1700000000}
 ```
 
 Test without JWT (should fail):
@@ -109,13 +100,7 @@ Expected:
 
 For JWT mode, add the Authorization header in the client configuration and ensure the token is refreshed before expiry.
 
-## 4. Verify Role Assumption (CloudTrail)
-
-1. Open CloudTrail and filter for `AssumeRole` events.
-2. Confirm `sourceIdentity` matches the JWT `sub` claim.
-3. Verify session tags under `requestParameters.tags`.
-
-## 5. Debugging Tips
+## 4. Debugging Tips
 
 - Missing JWT → check `MCP_REQUIRE_JWT` and client headers.
 - Invalid JWT → verify secret, issuer, audience, and expiration.

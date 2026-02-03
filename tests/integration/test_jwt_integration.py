@@ -33,12 +33,18 @@ class TestJWTIntegration(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.test_secret = "test-secret-for-integration-testing"
-        self.test_role_arn = "arn:aws:iam::123456789012:role/TestRole"
+        self.test_user_id = "user-123"
+        self.test_user_uuid = "uuid-123"
 
     def test_jwt_token_generation_and_validation(self):
         """Test that JWT tokens can be generated and are valid."""
         # Generate a JWT token
-        token = jwt_helper.generate_test_jwt(role_arn=self.test_role_arn, secret=self.test_secret, expiry_seconds=3600)
+        token = jwt_helper.generate_test_jwt(
+            secret=self.test_secret,
+            expiry_seconds=3600,
+            user_id=self.test_user_id,
+            user_uuid=self.test_user_uuid,
+        )
 
         # Verify token is a string and has JWT structure
         self.assertIsInstance(token, str)
@@ -47,7 +53,12 @@ class TestJWTIntegration(unittest.TestCase):
 
     def test_jwt_token_contains_required_claims(self):
         """Test that generated JWT tokens contain required claims."""
-        token = jwt_helper.generate_test_jwt(role_arn=self.test_role_arn, secret=self.test_secret, expiry_seconds=3600)
+        token = jwt_helper.generate_test_jwt(
+            secret=self.test_secret,
+            expiry_seconds=3600,
+            user_id=self.test_user_id,
+            user_uuid=self.test_user_uuid,
+        )
 
         # Decode without verification to check claims
         import jwt
@@ -55,19 +66,23 @@ class TestJWTIntegration(unittest.TestCase):
         payload = jwt.decode(token, options={"verify_signature": False})
 
         # Check required claims
-        self.assertIn("role_arn", payload)
-        self.assertEqual(payload["role_arn"], self.test_role_arn)
+        self.assertIn("id", payload)
+        self.assertEqual(payload["id"], self.test_user_id)
+        self.assertIn("uuid", payload)
+        self.assertEqual(payload["uuid"], self.test_user_uuid)
         self.assertIn("exp", payload)
-        self.assertIn("iat", payload)
-        self.assertIn("iss", payload)
-        self.assertIn("aud", payload)
 
     def test_mcp_test_script_accepts_jwt_token(self):
         """Test that mcp-test.py accepts JWT token parameter."""
         # This test verifies the command-line interface works
         # We don't need a running server for this test
 
-        token = jwt_helper.generate_test_jwt(role_arn=self.test_role_arn, secret=self.test_secret, expiry_seconds=3600)
+        token = jwt_helper.generate_test_jwt(
+            secret=self.test_secret,
+            expiry_seconds=3600,
+            user_id=self.test_user_id,
+            user_uuid=self.test_user_uuid,
+        )
 
         # Test that the script accepts the JWT token parameter
         # We expect it to fail with connection error, but not argument error
@@ -92,7 +107,12 @@ class TestJWTIntegration(unittest.TestCase):
 
     def test_environment_variable_support(self):
         """Test that MCP_JWT_TOKEN environment variable is supported."""
-        token = jwt_helper.generate_test_jwt(role_arn=self.test_role_arn, secret=self.test_secret, expiry_seconds=3600)
+        token = jwt_helper.generate_test_jwt(
+            secret=self.test_secret,
+            expiry_seconds=3600,
+            user_id=self.test_user_id,
+            user_uuid=self.test_user_uuid,
+        )
 
         # Test with environment variable
         env = os.environ.copy()
@@ -120,11 +140,17 @@ class TestJWTIntegration(unittest.TestCase):
     def test_command_line_precedence_over_env_var(self):
         """Test that command-line JWT token takes precedence over env var."""
         token1 = jwt_helper.generate_test_jwt(
-            role_arn=self.test_role_arn, secret=self.test_secret, expiry_seconds=3600
+            secret=self.test_secret,
+            expiry_seconds=3600,
+            user_id=self.test_user_id,
+            user_uuid=self.test_user_uuid,
         )
 
         token2 = jwt_helper.generate_test_jwt(
-            role_arn=self.test_role_arn, secret=self.test_secret + "-different", expiry_seconds=3600
+            secret=self.test_secret + "-different",
+            expiry_seconds=3600,
+            user_id=self.test_user_id,
+            user_uuid=self.test_user_uuid,
         )
 
         # Set env var to token1, pass token2 on command line

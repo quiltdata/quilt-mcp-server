@@ -13,14 +13,14 @@
 
 When we needed presigned S3 URLs, we took a shortcut:
 
-- Put `role_arn` in JWT claims
+- Put `role arn` in JWT claims
 - MCP uses STS AssumeRole to get AWS credentials
 - MCP generates presigned URLs directly
 
 **This doesn't work because:**
 
 - Platform JWTs contain only: `id`, `uuid`, `exp`
-- Platform never issues JWTs with `role_arn`, `catalog_url`, or `registry_url`
+- Platform never issues JWTs with `role arn`, `catalog_url`, or `registry_url`
 - Tests generate fake JWTs with custom claims
 - Code expects those fake claims
 - The entire architecture is invalid
@@ -106,7 +106,7 @@ Instead we invented a fake JWT architecture.
 
 **Remove:**
 
-- Extraction of `role_arn`, `catalog_url`, `registry_url` from JWT
+- Extraction of `role arn`, `catalog_url`, `registry_url` from JWT
 - All code that expects custom JWT claims
 
 **Keep:**
@@ -135,7 +135,7 @@ Instead we invented a fake JWT architecture.
 
 - STS AssumeRole logic
 - All boto3 credential handling in MCP
-- `role_arn` everywhere
+- `role arn` everywhere
 
 **Result:**
 
@@ -190,7 +190,7 @@ Instead we invented a fake JWT architecture.
 ### Phase 2: Remove Fake JWT Architecture
 
 1. Update `JWTAuthService`
-   - Remove `_extract_role_arn()` method
+   - Remove `_extract_role arn()` method
    - Remove `extract_catalog_claims()` method
    - Remove STS AssumeRole logic
    - Remove all boto3 usage
@@ -209,7 +209,7 @@ Instead we invented a fake JWT architecture.
 
 1. Fix integration tests
    - Update JWT generation calls
-   - Remove role_arn arguments
+   - Remove role arn arguments
    - Use environment variables for config
 
 2. Fix unit tests
@@ -224,7 +224,7 @@ Instead we invented a fake JWT architecture.
 ### Phase 4: Cleanup
 
 1. Remove deprecated code
-    - Delete role_arn-related helpers
+    - Delete role arn-related helpers
     - Delete fake JWT claim utilities
     - Remove STS-related imports
 
@@ -266,7 +266,7 @@ Instead we invented a fake JWT architecture.
 3. ✅ File access uses browsing session API
 4. ✅ Static configuration from environment variables
 5. ✅ All tests pass with valid JWT structure
-6. ✅ No references to role_arn anywhere in codebase
+6. ✅ No references to role arn anywhere in codebase
 7. ✅ Platform enforces all authorization decisions
 
 ---
@@ -287,3 +287,11 @@ Instead we invented a fake JWT architecture.
 - Ask Platform team for bulk presigned URL API
 
 **Critical insight:** Correct architecture first, optimize second.
+
+---
+
+## Appendix: Implementation Notes (2026-02-03)
+
+- Updated multitenant tooling and docs to use Platform JWT claims (`id`, `uuid`, `exp`) and removed role-ARN based flows.
+- Added `QUILT_REGISTRY_URL` alongside `QUILT_CATALOG_URL` as required static config for Platform backend and stateless tests.
+- Replaced direct S3 presign usage with browsing session API calls and added caching tests.

@@ -34,7 +34,7 @@ The 3 search_catalog test failures in `test-stateless-mcp` were caused by **inco
 **Quilt MCP requires TWO separate authentication mechanisms:**
 
 1. **AWS Authentication** (✅ Working)
-   - Provided by JWT `role_arn` claim
+   - Provided by JWT `role arn` claim
    - Enables S3, IAM, and AWS operations
    - Works correctly in stateless mode
 
@@ -69,7 +69,7 @@ SEARCH_RESULTS=❌ (0 results returned)
 
 ```json
 {
-  "role_arn": "arn:aws:iam::123456789:role/TestRole",
+  "role arn": "arn:aws:iam::123456789:role/TestRole",
   "session_tags": {...},
   "sub": "test-user",
   "exp": 1706483200
@@ -102,7 +102,7 @@ SEARCH_RESULTS=❌ (0 results returned)
   "iat": 1706479600,
   "exp": 1706483200,
   "sub": "test-user",
-  "role_arn": "arn:aws:iam::123456789:role/TestRole",
+  "role arn": "arn:aws:iam::123456789:role/TestRole",
   "session_tags": {...},
   "catalog_url": "https://nightly.quilttest.com",
   "catalog_token": "eyJ0eXAiOiJKV1QiLCJhbGciOi...",

@@ -3,7 +3,7 @@
 Quilt MCP Server supports two authentication modes:
 
 - **IAM mode (default)**: Uses AWS credentials from the environment, profiles, or quilt3 session.
-- **JWT mode**: Requires `Authorization: Bearer <token>` on every request and assumes per-user roles based on JWT claims.
+- **JWT mode**: Requires `Authorization: Bearer <token>` on every request and delegates authorization to the Platform.
 
 Mode selection is controlled at startup with `MCP_REQUIRE_JWT`.
 
@@ -34,6 +34,8 @@ Set one of the following:
 
 - `MCP_JWT_SECRET` (recommended for local/dev): HS256 shared secret
 - `MCP_JWT_SECRET_SSM_PARAMETER` (recommended for production): SSM parameter name containing the secret
+ - `QUILT_CATALOG_URL`: Platform catalog URL
+ - `QUILT_REGISTRY_URL`: Platform registry URL
 
 Optional validation:
 
@@ -44,33 +46,19 @@ Optional validation:
 
 JWT mode expects the following claims:
 
-- `sub` (required): user identity used as `SourceIdentity`
+- `id` (required): user identifier
+- `uuid` (required): user UUID
 - `exp` (required): expiration timestamp
-- `role_arn` (required): AWS role to assume for this request
-
-Optional claims:
-
-- `session_tags`: object of tags to apply to the assumed role
-- `transitive_tag_keys`: list of tag keys to make transitive
 
 Example payload:
 
 ```json
 {
-  "sub": "user-123",
-  "exp": 1735689600,
-  "role_arn": "arn:aws:iam::123456789012:role/QuiltUser",
-  "session_tags": {
-    "tenant": "acme",
-    "team": "data"
-  }
+  "id": "user-123",
+  "uuid": "uuid-123",
+  "exp": 1735689600
 }
 ```
-
-### STS Session Settings
-
-`MCP_JWT_SESSION_DURATION` controls the STS session duration in seconds (default: 3600). The value is clamped to the
-AWS limits (900–43200 seconds).
 
 ### Error Messages
 
@@ -81,11 +69,11 @@ AWS limits (900–43200 seconds).
 
 - Secrets are never logged.
 - JWT validation enforces HS256, signature verification, and expiration.
-- Role assumption uses `SourceIdentity` from `sub` and session tags for ABAC.
+- Authorization decisions are enforced by the Platform.
 
 ## Migration Guide (IAM → JWT)
 
 1. Configure `MCP_JWT_SECRET` (or SSM parameter) and optional issuer/audience.
 2. Set `MCP_REQUIRE_JWT=true`.
 3. Ensure clients send `Authorization: Bearer <token>` on every request.
-4. Verify role assumption in CloudTrail (`SourceIdentity` should match `sub`).
+4. Verify Platform authorization and browsing session access paths.

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
-from quilt_mcp.ops.exceptions import BackendError, NotFoundError, AuthenticationError
+from quilt_mcp.ops.exceptions import BackendError, NotFoundError, ValidationError
 from quilt_mcp.runtime_context import (
     RuntimeAuthState,
     get_runtime_environment,
@@ -21,15 +19,17 @@ def _push_jwt_context(claims=None):
         access_token="test-token",
         claims=claims
         or {
-            "catalog_token": "test-catalog-token",
-            "catalog_url": "https://example.quiltdata.com",
-            "registry_url": "https://registry.quiltdata.com",
+            "id": "user-1",
+            "uuid": "uuid-1",
+            "exp": 9999999999,
         },
     )
     return push_runtime_context(environment=get_runtime_environment(), auth=auth_state)
 
 
 def _make_backend(monkeypatch, claims=None):
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
     token = _push_jwt_context(claims)
     try:
@@ -112,75 +112,65 @@ def test_list_buckets_includes_name(monkeypatch):
 
 
 def test_configure_catalog_sets_catalog_url(monkeypatch):
-    """Store catalog URL."""
+    """Reject dynamic catalog configuration."""
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
-    token = _push_jwt_context({"catalog_token": "token"})
+    token = _push_jwt_context({"id": "user-1", "uuid": "uuid-1", "exp": 9999999999})
     try:
         backend = Platform_Backend()
-        backend.configure_catalog("https://my-catalog.quiltdata.com")
-        assert backend._catalog_url == "https://my-catalog.quiltdata.com"
+        with pytest.raises(ValidationError):
+            backend.configure_catalog("https://my-catalog.quiltdata.com")
     finally:
         reset_runtime_context(token)
 
 
 def test_configure_catalog_derives_registry_url(monkeypatch):
-    """Convert catalog → registry URL."""
+    """Reject catalog to registry derivation."""
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
-    token = _push_jwt_context({"catalog_token": "token"})
+    token = _push_jwt_context({"id": "user-1", "uuid": "uuid-1", "exp": 9999999999})
     try:
         backend = Platform_Backend()
-        # Clear any existing registry URL
-        backend._registry_url = None
-
-        backend.configure_catalog("https://example.quiltdata.com")
-
-        # Should derive registry URL from catalog URL
-        assert backend._registry_url == "https://example.registry.quiltdata.com"
+        with pytest.raises(ValidationError):
+            backend.configure_catalog("https://example.quiltdata.com")
     finally:
         reset_runtime_context(token)
 
 
 def test_configure_catalog_handles_custom_domains(monkeypatch):
-    """Test nightly.quilttest.com → nightly-registry.quilttest.com."""
+    """Reject custom domain configuration."""
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
-    token = _push_jwt_context({"catalog_token": "token"})
+    token = _push_jwt_context({"id": "user-1", "uuid": "uuid-1", "exp": 9999999999})
     try:
         backend = Platform_Backend()
-        backend._registry_url = None
-
-        backend.configure_catalog("https://nightly.quilttest.com")
-
-        assert backend._registry_url == "https://nightly-registry.quilttest.com"
+        with pytest.raises(ValidationError):
+            backend.configure_catalog("https://nightly.quilttest.com")
     finally:
         reset_runtime_context(token)
 
 
 def test_configure_catalog_preserves_existing_registry(monkeypatch):
-    """Don't override if already set."""
+    """Reject attempts to override static registry."""
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
-    token = _push_jwt_context(
-        {
-            "catalog_token": "token",
-            "registry_url": "https://existing-registry.com",
-        }
-    )
+    token = _push_jwt_context({"id": "user-1", "uuid": "uuid-1", "exp": 9999999999})
     try:
         backend = Platform_Backend()
-        original_registry = backend._registry_url
-
-        # Configure catalog should not override existing registry URL
-        backend.configure_catalog("https://new-catalog.com")
-
-        assert backend._catalog_url == "https://new-catalog.com"
-        assert backend._registry_url == original_registry
+        with pytest.raises(ValidationError):
+            backend.configure_catalog("https://new-catalog.com")
     finally:
         reset_runtime_context(token)
 

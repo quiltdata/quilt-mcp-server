@@ -254,7 +254,7 @@ backend.admin.list_users()
 ### CI/CD Integration (Medium Priority)
 
 - [ ] Create `.github/workflows/test-multitenant.yml`
-  - [ ] Configure secrets (JWT_SECRET, ROLE_ARNS)
+  - [ ] Configure secrets (JWT_SECRET, JWT_TOKENS)
   - [ ] Install dependencies with uv
   - [ ] Run unit tests
   - [ ] Run integration tests (if secrets available)

@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from types import SimpleNamespace
-import sys
-
 import pytest
 
-from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, NotFoundError
+from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, NotFoundError, ValidationError
 from quilt_mcp.runtime_context import (
     RuntimeAuthState,
     get_runtime_environment,
@@ -23,15 +19,17 @@ def _push_jwt_context(claims=None):
         access_token="test-token",
         claims=claims
         or {
-            "catalog_token": "test-catalog-token",
-            "catalog_url": "https://example.quiltdata.com",
-            "registry_url": "https://registry.quiltdata.com",
+            "id": "user-1",
+            "uuid": "uuid-1",
+            "exp": 9999999999,
         },
     )
     return push_runtime_context(environment=get_runtime_environment(), auth=auth_state)
 
 
 def _make_backend(monkeypatch, claims=None):
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
     token = _push_jwt_context(claims)
     try:
@@ -42,9 +40,11 @@ def _make_backend(monkeypatch, claims=None):
         reset_runtime_context(token)
 
 
-def test_platform_backend_requires_catalog_token(monkeypatch):
+def test_platform_backend_requires_access_token(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
     with pytest.raises(AuthenticationError):
         Platform_Backend()
@@ -53,20 +53,24 @@ def test_platform_backend_requires_catalog_token(monkeypatch):
 def test_platform_backend_uses_env_graphql_endpoint(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
-    token = _push_jwt_context({"catalog_token": "token", "catalog_url": "https://example.quiltdata.com"})
+    token = _push_jwt_context({"id": "user-1", "uuid": "uuid-1", "exp": 9999999999})
     try:
         backend = Platform_Backend()
     finally:
         reset_runtime_context(token)
 
     assert backend.get_graphql_endpoint() == "https://registry.example.com/graphql"
-    assert backend.get_graphql_auth_headers() == {"Authorization": "Bearer token"}
+    assert backend.get_graphql_auth_headers() == {"Authorization": "Bearer test-token"}
 
 
 def test_execute_graphql_query_success(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     token = _push_jwt_context()
     try:
         backend = Platform_Backend()
@@ -88,6 +92,8 @@ def test_execute_graphql_query_success(monkeypatch):
 def test_execute_graphql_query_graphql_error(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     token = _push_jwt_context()
     try:
         backend = Platform_Backend()
@@ -149,18 +155,18 @@ def test_get_catalog_config(monkeypatch):
     assert config.stack_prefix == "quilt-demo"
 
 
-def test_configure_catalog_derives_registry(monkeypatch):
+def test_configure_catalog_rejects_dynamic_config(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
     # Create backend without pre-existing registry_url
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
-    token = _push_jwt_context({"catalog_token": "token"})
+    token = _push_jwt_context({"id": "user-1", "uuid": "uuid-1", "exp": 9999999999})
     try:
         backend = Platform_Backend()
-        # Clear any registry_url that might have been set
-        backend._registry_url = None
-        backend.configure_catalog("https://nightly.quilttest.com")
-        assert backend.get_registry_url() == "https://nightly-registry.quilttest.com"
+        with pytest.raises(ValidationError):
+            backend.configure_catalog("https://nightly.quilttest.com")
     finally:
         reset_runtime_context(token)
 
@@ -246,6 +252,8 @@ def test_create_and_update_package_revision(monkeypatch):
 def test_search_packages_transforms_hits(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     token = _push_jwt_context()
     try:
         backend = Platform_Backend()
@@ -283,6 +291,8 @@ def test_search_packages_transforms_hits(monkeypatch):
 def test_browse_content_dir_children(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     token = _push_jwt_context()
     try:
         backend = Platform_Backend()
@@ -317,6 +327,8 @@ def test_browse_content_dir_children(monkeypatch):
 def test_get_content_url_presigned(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     token = _push_jwt_context()
     try:
         backend = Platform_Backend()
@@ -324,11 +336,10 @@ def test_get_content_url_presigned(monkeypatch):
         reset_runtime_context(token)
 
     backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {"package": {"revision": {"file": {"physicalKey": "s3://bucket/key"}}}}
+        "data": {"package": {"revision": {"hash": "abc123", "file": {"path": "key"}}}}
     }
 
-    mock_client = SimpleNamespace(generate_presigned_url=lambda *args, **kwargs: "https://signed")
-    backend.get_boto3_client = lambda *args, **kwargs: mock_client
+    backend._browse_client.get_presigned_url = lambda **kwargs: "https://signed"
 
     url = backend.get_content_url("team/data", "s3://bucket", "key")
     assert url == "https://signed"
@@ -337,6 +348,8 @@ def test_get_content_url_presigned(monkeypatch):
 def test_list_all_packages_paginates(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     token = _push_jwt_context()
     try:
         backend = Platform_Backend()
@@ -360,6 +373,8 @@ def test_list_all_packages_paginates(monkeypatch):
 def test_get_package_info_missing(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     token = _push_jwt_context()
     try:
         backend = Platform_Backend()

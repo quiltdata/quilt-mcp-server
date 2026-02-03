@@ -14,8 +14,8 @@ quilt3 catalog  # Should show your catalog URL
 export QUILT_CATALOG_URL="https://your-catalog.quiltdata.com"
 export QUILT_TEST_BUCKET="your-test-bucket"
 export TEST_JWT_SECRET="test-secret-123"
-export TEST_ROLE_ARN_A="arn:aws:iam::123456789012:role/TenantA"
-export TEST_ROLE_ARN_B="arn:aws:iam::123456789012:role/TenantB"
+export TEST_JWT_TOKEN_A="arn:aws:iam::123456789012:role/TenantA"
+export TEST_JWT_TOKEN_B="arn:aws:iam::123456789012:role/TenantB"
 ```
 
 ## Option 1: Automated Testing (Recommended)
@@ -109,7 +109,7 @@ Overall Results:
 ```bash
 # Generate token for Tenant A
 python tests/jwt_helpers.py generate \
-  --role-arn "$TEST_ROLE_ARN_A" \
+  --role-arn "$TEST_JWT_TOKEN_A" \
   --secret "$TEST_JWT_SECRET" \
   --tenant-id "tenant-a" \
   --auto-extract
@@ -119,7 +119,7 @@ export TOKEN_A="<paste-token-here>"
 
 # Generate token for Tenant B
 python tests/jwt_helpers.py generate \
-  --role-arn "$TEST_ROLE_ARN_B" \
+  --role-arn "$TEST_JWT_TOKEN_B" \
   --secret "$TEST_JWT_SECRET" \
   --tenant-id "tenant-b" \
   --auto-extract
@@ -238,7 +238,7 @@ quilt3 login
 
 ```bash
 python tests/jwt_helpers.py generate \
-  --role-arn "$TEST_ROLE_ARN_A" \
+  --role-arn "$TEST_JWT_TOKEN_A" \
   --secret "$TEST_JWT_SECRET" \
   --auto-extract  # This flag extracts catalog authentication
 ```

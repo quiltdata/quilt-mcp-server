@@ -23,15 +23,17 @@ def _push_jwt_context(claims=None):
         access_token="test-token",
         claims=claims
         or {
-            "catalog_token": "test-catalog-token",
-            "catalog_url": "https://example.quiltdata.com",
-            "registry_url": "https://registry.quiltdata.com",
+            "id": "user-1",
+            "uuid": "uuid-1",
+            "exp": 9999999999,
         },
     )
     return push_runtime_context(environment=get_runtime_environment(), auth=auth_state)
 
 
 def _make_backend(monkeypatch, claims=None):
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
     token = _push_jwt_context(claims)
     try:

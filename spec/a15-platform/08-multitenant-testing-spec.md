@@ -155,7 +155,7 @@ def test_claim_variations():
 
     for claim_key in claim_keys:
         token = jwt.encode({
-            "role_arn": "arn:aws:iam::123:role/Test",
+            "role arn": "arn:aws:iam::123:role/Test",
             "catalog_token": "...",
             claim_key: f"test-tenant-{claim_key}",
             "exp": int(time.time()) + 3600
@@ -281,7 +281,7 @@ class TestPlatformMultitenantE2E:
             pytest.skip("quilt3 session not configured")
 
         return generate_test_jwt(
-            role_arn=os.environ["TEST_ROLE_ARN_A"],
+            role arn=os.environ["TEST_JWT_TOKEN_A"],
             secret=os.environ["TEST_JWT_SECRET"],
             tenant_id="tenant-a",
             auto_extract=True
@@ -294,7 +294,7 @@ class TestPlatformMultitenantE2E:
             pytest.skip("quilt3 session not configured")
 
         return generate_test_jwt(
-            role_arn=os.environ["TEST_ROLE_ARN_B"],
+            role arn=os.environ["TEST_JWT_TOKEN_B"],
             secret=os.environ["TEST_JWT_SECRET"],
             tenant_id="tenant-b",
             auto_extract=True
@@ -347,8 +347,8 @@ class TestPlatformMultitenantE2E:
 
 ```bash
 # Set required environment variables
-export TEST_ROLE_ARN_A="arn:aws:iam::123:role/TenantA"
-export TEST_ROLE_ARN_B="arn:aws:iam::123:role/TenantB"
+export TEST_JWT_TOKEN_A="arn:aws:iam::123:role/TenantA"
+export TEST_JWT_TOKEN_B="arn:aws:iam::123:role/TenantB"
 export TEST_JWT_SECRET="your-test-secret"
 export QUILT_CATALOG_URL="https://your-catalog.quiltdata.com"
 
@@ -373,13 +373,13 @@ environment:
 
 tenants:
   tenant-a:
-    role_arn: "arn:aws:iam::123456789012:role/TenantA"
+    role arn: "arn:aws:iam::123456789012:role/TenantA"
     jwt_secret: "test-secret"
     expected_tools: 45
     expected_resources: 12
 
   tenant-b:
-    role_arn: "arn:aws:iam::123456789012:role/TenantB"
+    role arn: "arn:aws:iam::123456789012:role/TenantB"
     jwt_secret: "test-secret"
     expected_tools: 45
     expected_resources: 12
@@ -485,8 +485,8 @@ jobs:
 
       - name: Run multitenant integration tests
         env:
-          TEST_ROLE_ARN_A: ${{ secrets.TEST_ROLE_ARN_A }}
-          TEST_ROLE_ARN_B: ${{ secrets.TEST_ROLE_ARN_B }}
+          TEST_JWT_TOKEN_A: ${{ secrets.TEST_JWT_TOKEN_A }}
+          TEST_JWT_TOKEN_B: ${{ secrets.TEST_JWT_TOKEN_B }}
           TEST_JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
         run: |
           uv run pytest tests/integration/test_platform_multitenant_e2e.py \
@@ -518,8 +518,8 @@ test-multitenant-unit:
 
 test-multitenant-integration:
  @echo "Running multitenant integration tests..."
- @if [ -z "$$TEST_ROLE_ARN_A" ]; then \
-  echo "⚠️  Skipping: TEST_ROLE_ARN_A not set"; \
+ @if [ -z "$$TEST_JWT_TOKEN_A" ]; then \
+  echo "⚠️  Skipping: TEST_JWT_TOKEN_A not set"; \
   exit 0; \
  fi
  @uv run pytest tests/integration/test_platform_multitenant_e2e.py \
@@ -542,7 +542,7 @@ test-platform-local:
  @sleep 3
  @python scripts/mcp-test.py http://localhost:8001/mcp \
   --jwt \
-  --role-arn "$${TEST_ROLE_ARN:-arn:aws:iam::123:role/Test}" \
+  --role-arn "$${TEST_JWT_TOKEN:-arn:aws:iam::123:role/Test}" \
   --secret "$${TEST_JWT_SECRET:-test-secret}" \
   --tools-test
  @pkill -f "make run"
@@ -558,13 +558,13 @@ make test-multitenant
 make test-multitenant-unit
 
 # Run integration tests (requires AWS)
-export TEST_ROLE_ARN_A="arn:aws:iam::123:role/TenantA"
-export TEST_ROLE_ARN_B="arn:aws:iam::123:role/TenantB"
+export TEST_JWT_TOKEN_A="arn:aws:iam::123:role/TenantA"
+export TEST_JWT_TOKEN_B="arn:aws:iam::123:role/TenantB"
 export TEST_JWT_SECRET="test-secret"
 make test-multitenant-integration
 
 # Quick local test
-export TEST_ROLE_ARN="arn:aws:iam::123:role/Test"
+export TEST_JWT_TOKEN="arn:aws:iam::123:role/Test"
 export TEST_JWT_SECRET="test-secret"
 make test-platform-local
 ```

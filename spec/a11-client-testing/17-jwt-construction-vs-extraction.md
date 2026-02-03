@@ -29,7 +29,7 @@ The fundamental flaw has been fixed. Instead of constructing synthetic JWT token
 │ registry_url = get_current_registry_url()      # ← Real URL │
 │                                                              │
 │ JWT_TOKEN = construct_jwt(                                  │
-│   role_arn = env.QUILT_TEST_ROLE_ARN,                       │
+│   role arn = env.QUILT_TEST_JWT_TOKEN,                       │
 │   sub = get_quilt3_user_id(),           # ← From session    │
 │   catalog_token = catalog_token,        # ← Real token      │
 │   catalog_url = catalog_url,            # ← Real URL        │
@@ -42,7 +42,7 @@ The fundamental flaw has been fixed. Instead of constructing synthetic JWT token
 ┌─────────────────────────────────────────────────────────────┐
 │ MCP Server: Enhanced JWT auth service                       │
 │                                                              │
-│ ✅ Extracts role_arn from JWT                                │
+│ ✅ Extracts role arn from JWT                                │
 │ ✅ Calls AWS STS AssumeRole                                  │
 │ ✅ Gets temporary AWS credentials                            │
 │ ✅ Creates boto3 session for S3                              │
@@ -143,7 +143,7 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJtY3AtdGVzdCIsImF1ZCI6Im1jcC1zZXJ
   "iat": 1769742300,
   "exp": 1769745900,
   "sub": "test-user",
-  "role_arn": "arn:aws:iam::123456789:role/TestRole",
+  "role arn": "arn:aws:iam::123456789:role/TestRole",
   "catalog_token": "fake-token",
   "catalog_url": "https://example.com",
   "registry_url": "https://registry.example.com"
@@ -154,7 +154,7 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJtY3AtdGVzdCIsImF1ZCI6Im1jcC1zZXJ
 ```python
 service = JWTAuthService()
 claims = {
-    'role_arn': 'arn:aws:iam::123456789:role/TestRole',
+    'role arn': 'arn:aws:iam::123456789:role/TestRole',
     'catalog_token': 'fake-token',
     'catalog_url': 'https://example.com',
     'registry_url': 'https://registry.example.com'
@@ -195,7 +195,7 @@ $ uv run python scripts/tests/jwt_helper.py generate \
 
 3. **Run stateless tests:**
    ```bash
-   export QUILT_TEST_ROLE_ARN="arn:aws:iam::123456789:role/YourTestRole"
+   export QUILT_TEST_JWT_TOKEN="arn:aws:iam::123456789:role/YourTestRole"
    make test-stateless-mcp
    ```
 
@@ -204,7 +204,7 @@ $ uv run python scripts/tests/jwt_helper.py generate \
 1. **Set up service account with quilt3 session**
 2. **Configure environment variables:**
    ```bash
-   export QUILT_TEST_ROLE_ARN="arn:aws:iam::123456789:role/CITestRole"
+   export QUILT_TEST_JWT_TOKEN="arn:aws:iam::123456789:role/CITestRole"
    ```
 3. **Run tests with catalog authentication**
 

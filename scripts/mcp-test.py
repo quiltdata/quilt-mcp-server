@@ -28,7 +28,7 @@ from jsonschema import validate
 # Add tests directory to path for jwt_helpers
 repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(repo_root / 'tests'))
-from jwt_helpers import generate_test_jwt, validate_quilt3_session_exists
+from jwt_helpers import generate_test_jwt
 
 
 class ResourceFailureType(enum.Enum):
@@ -513,7 +513,7 @@ class MCPTester:
                         "Troubleshooting:\n"
                         "  - Verify token signature matches server JWT_SECRET\n"
                         "  - Check token expiration (exp claim)\n"
-                        "  - Ensure token includes required claims (role_arn, etc.)"
+                        "  - Ensure token includes required claims (id, uuid, exp)"
                     )
                 else:
                     raise Exception(
@@ -526,8 +526,8 @@ class MCPTester:
                     "Authorization failed: Insufficient permissions\n"
                     f"Token preview: {self._mask_token(self.jwt_token)}\n"
                     "Troubleshooting:\n"
-                    "  - Verify JWT role_arn has necessary AWS permissions\n"
-                    "  - Check session_tags in token claims"
+                    "  - Verify JWT is valid for the Platform tenant\n"
+                    "  - Check that the user has access to the requested package/bucket"
                 )
 
             response.raise_for_status()
@@ -1490,7 +1490,6 @@ Examples:
 JWT Authentication:
   # Auto-generate JWT token (recommended - simplest approach)
   mcp-test.py http://localhost:8000/mcp --jwt \
-    --role-arn arn:aws:iam::123456789012:role/TestRole \
     --secret test-secret \
     --tools-test
 
@@ -1502,7 +1501,7 @@ JWT Authentication:
   mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..." --tools-test
 
   # Or generate token separately with jwt_helpers
-  python tests/jwt_helpers.py generate --role-arn arn:aws:iam::123456789012:role/TestRole --secret test-secret --auto-extract
+  python tests/jwt_helpers.py generate --secret test-secret --id user-123 --uuid user-uuid
 
 For detailed JWT testing documentation, see: docs/JWT_TESTING.md
         """
@@ -1551,16 +1550,18 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                             "⚠️  Prefer env var for production use to avoid token exposure in logs.")
     jwt_group.add_argument("--jwt", action="store_true",
                        help="Auto-generate JWT token using jwt_helper library. "
-                            "Requires --role-arn and --secret. "
-                            "Will auto-extract catalog authentication from quilt3 session.")
+                            "Requires --secret. "
+                            "Optionally provide --jwt-id and --jwt-uuid.")
 
     # JWT generation parameters (only used with --jwt)
-    parser.add_argument("--role-arn", type=str,
-                       help="AWS IAM role ARN for JWT generation (required with --jwt)")
     parser.add_argument("--secret", type=str,
                        help="JWT signing secret (required with --jwt)")
     parser.add_argument("--jwt-expiry", type=int, default=3600,
                        help="JWT token expiry in seconds (default: 3600, only with --jwt)")
+    parser.add_argument("--jwt-id", type=str, default=None,
+                       help="JWT id claim (user id, optional)")
+    parser.add_argument("--jwt-uuid", type=str, default=None,
+                       help="JWT uuid claim (user uuid, optional)")
     parser.add_argument("-t", "--tools-test", action="store_true",
                        help="Run tools test with test configurations")
     parser.add_argument("-T", "--test-tool", metavar="TOOL_NAME",
@@ -1601,22 +1602,18 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
             print("❌ --jwt only supported for HTTP transport")
             sys.exit(1)
 
-        if not args.role_arn or not args.secret:
-            print("❌ --jwt requires both --role-arn and --secret")
+        if not args.secret:
+            print("❌ --jwt requires --secret")
             sys.exit(1)
 
-        print("🔐 Auto-generating JWT token with catalog authentication...")
-
-        # Validate quilt3 session exists (jwt_helper needs it for auto-extract)
-        if not validate_quilt3_session_exists():
-            sys.exit(1)
+        print("🔐 Auto-generating JWT token...")
 
         try:
             jwt_token = generate_test_jwt(
-                role_arn=args.role_arn,
                 secret=args.secret,
                 expiry_seconds=args.jwt_expiry,
-                auto_extract=True
+                user_id=args.jwt_id,
+                user_uuid=args.jwt_uuid,
             )
             print("✅ JWT token generated successfully")
             if args.verbose:

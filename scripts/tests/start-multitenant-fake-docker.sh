@@ -8,12 +8,24 @@ CONTAINER_NAME="${MCP_CONTAINER_NAME:-mcp-multitenant-fake-test}"
 DOCKER_IMAGE="${TEST_DOCKER_IMAGE:-quilt-mcp:test}"
 PORT="${MCP_PORT:-8003}"
 JWT_SECRET="${MCP_JWT_SECRET:-test-secret}"
+CATALOG_URL="${QUILT_CATALOG_URL:-}"
+REGISTRY_URL="${QUILT_REGISTRY_URL:-}"
+
+if [ -z "${CATALOG_URL}" ] || [ -z "${REGISTRY_URL}" ]; then
+    echo "❌ QUILT_CATALOG_URL and QUILT_REGISTRY_URL must be set"
+    echo "   Example:"
+    echo "     export QUILT_CATALOG_URL=https://your-catalog.quiltdata.com"
+    echo "     export QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com"
+    exit 1
+fi
 
 echo "🐋 Starting multitenant fake test MCP Docker container..."
 echo "   Container: ${CONTAINER_NAME}"
 echo "   Image: ${DOCKER_IMAGE}"
 echo "   Port: ${PORT}"
 echo "   Note: Using fake credentials for local testing only"
+echo "   Catalog URL: ${CATALOG_URL}"
+echo "   Registry URL: ${REGISTRY_URL}"
 
 # Stop and remove existing container if it exists
 if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -37,6 +49,8 @@ docker run -d --name "${CONTAINER_NAME}" \
     -e MCP_JWT_SECRET="${JWT_SECRET}" \
     -e MCP_JWT_ISSUER="mcp-test" \
     -e MCP_JWT_AUDIENCE="mcp-server" \
+    -e QUILT_CATALOG_URL="${CATALOG_URL}" \
+    -e QUILT_REGISTRY_URL="${REGISTRY_URL}" \
     -e QUILT_DISABLE_CACHE=true \
     -e HOME=/tmp \
     -e LOG_LEVEL=DEBUG \

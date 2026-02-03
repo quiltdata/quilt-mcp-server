@@ -239,14 +239,14 @@ This explains ALL the JWT test failures:
 test-stateless-mcp: docker-build
 	@echo "🔐 Testing stateless MCP with REAL JWT authentication..."
 	@echo "Step 1: Verifying AWS test environment..."
-	@if [ -z "$(MCP_TEST_ROLE_ARN)" ]; then \
-		echo "❌ MCP_TEST_ROLE_ARN not set"; \
+	@if [ -z "$(MCP_TEST_JWT_TOKEN)" ]; then \
+		echo "❌ MCP_TEST_JWT_TOKEN not set"; \
 		echo "   Set to real AWS role ARN for testing"; \
 		exit 1; \
 	fi
 	@echo "Step 2: Generating JWT token with REAL role ARN..."
 	@JWT_TOKEN=$(uv run python scripts/tests/jwt_helper.py generate \
-		--role-arn "$(MCP_TEST_ROLE_ARN)" \
+		--role-arn "$(MCP_TEST_JWT_TOKEN)" \
 		--secret "$(MCP_JWT_SECRET)" \
 		--external-id "mcp-jwt-testing" \
 		--expiry 3600) && \
@@ -285,7 +285,7 @@ test-stateless-mcp: docker-build
 
 ```bash
 # Required for real JWT testing
-export MCP_TEST_ROLE_ARN="arn:aws:iam::TEST-ACCOUNT-ID:role/MCPJWTTestRole"
+export MCP_TEST_JWT_TOKEN="arn:aws:iam::TEST-ACCOUNT-ID:role/MCPJWTTestRole"
 export MCP_JWT_SECRET="real-jwt-secret-for-testing"
 
 # Optional - for test data configuration  

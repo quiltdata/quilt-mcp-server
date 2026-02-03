@@ -23,9 +23,9 @@ def _push_test_jwt_context():
         scheme="Bearer",
         access_token="test-token",
         claims={
-            "catalog_token": "test-catalog-token",
-            "catalog_url": "https://example.quiltdata.com",
-            "registry_url": "https://registry.quiltdata.com",
+            "id": "user-1",
+            "uuid": "uuid-1",
+            "exp": 9999999999,
         },
     )
     return push_runtime_context(environment=get_runtime_environment(), auth=auth_state)
@@ -87,6 +87,9 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
 
         # Set multitenant mode
         set_test_mode_config(multitenant_mode=True)
+        os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
+        os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
+        os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
 
         token = _push_test_jwt_context()
         try:
@@ -229,6 +232,9 @@ class TestQuiltOpsFactoryErrorHandling:
 
         # Test multitenant mode
         set_test_mode_config(multitenant_mode=True)
+        os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
+        os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
+        os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
         token = _push_test_jwt_context()
         try:
             result = QuiltOpsFactory.create()
@@ -290,6 +296,9 @@ class TestQuiltOpsFactoryPhase1Scope:
 
         # Test multitenant mode creates Platform_Backend
         set_test_mode_config(multitenant_mode=True)
+        os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
+        os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
+        os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
         token = _push_test_jwt_context()
         try:
             result = QuiltOpsFactory.create()

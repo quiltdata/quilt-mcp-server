@@ -42,7 +42,7 @@ The Platform backend uses **JWT authentication** as the primary method, followin
     "iat": 1234567890,                # Issued at timestamp
 
     # AWS role assumption
-    "role_arn": "arn:aws:iam::123456789012:role/QuiltRole",
+    "role arn": "arn:aws:iam::123456789012:role/QuiltRole",
 
     # Catalog authentication (key claims for Platform backend)
     "catalog_token": "quilt-bearer-token-xyz...",  # Bearer token for catalog
@@ -927,7 +927,7 @@ def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> A
     """Get authenticated boto3 client for AWS services.
 
     Uses AWS credentials from JWT role assumption (via JWTAuthService).
-    The JWT contains role_arn claim, which JWTAuthService uses to assume
+    The JWT contains role arn claim, which JWTAuthService uses to assume
     the role and obtain temporary AWS credentials.
     """
     try:
@@ -956,7 +956,7 @@ def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> A
 
 ##### JWT Flow for AWS Credentials
 
-1. JWT contains `role_arn` claim (e.g., `arn:aws:iam::123456789012:role/QuiltRole`)
+1. JWT contains `role arn` claim (e.g., `arn:aws:iam::123456789012:role/QuiltRole`)
 2. JWTAuthService calls `sts.assume_role()` with the role ARN
 3. STS returns temporary credentials (access key, secret key, session token)
 4. JWTAuthService creates boto3.Session with these credentials
@@ -1235,7 +1235,7 @@ Remove the old authentication sections above. All authentication is now handled 
 1. JWT middleware extracts bearer token from HTTP headers
 2. Platform_Backend reads JWT claims from runtime context
 3. `catalog_token` claim provides bearer token for GraphQL
-4. `role_arn` claim provides AWS credentials via STS AssumeRole
+4. `role arn` claim provides AWS credentials via STS AssumeRole
 
 ---
 
@@ -1317,7 +1317,7 @@ def test_search_packages_integration(platform_backend):
 
 **Decision:** JWT role assumption via STS
 
-- JWT contains `role_arn` claim
+- JWT contains `role arn` claim
 - JWTAuthService calls `sts.assume_role()` to get temporary credentials
 - boto3.Session created with temp credentials
 - Region from JWT claims or catalog config

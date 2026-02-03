@@ -12,7 +12,7 @@ Added `tenant_id` parameter to support multitenant testing:
 
 ```python
 def generate_test_jwt(
-    role_arn: str,
+    role arn: str,
     secret: str,
     # ... other parameters ...
     tenant_id: Optional[str] = None,  # NEW: Added tenant_id support
@@ -49,7 +49,7 @@ from jwt_helpers import generate_test_jwt, validate_quilt3_session_exists
 
 # Use with tenant_id parameter
 token = generate_test_jwt(
-    role_arn=role_arn,
+    role arn=role arn,
     secret=jwt_secret,
     tenant_id=tenant_id,  # ✅ Now supported!
     auto_extract=True,

@@ -1,7 +1,7 @@
 # JWT Test Results with Real AWS Role ARN
 
 **Date**: 2026-01-29
-**Test Target**: `make test-stateless-mcp` with `QUILT_TEST_ROLE_ARN` from .env
+**Test Target**: `make test-stateless-mcp` with `QUILT_TEST_JWT_TOKEN` from .env
 **Status**: ❌ JWT Authentication Partially Working - Real AWS Access Issues Confirmed
 
 ## Summary
@@ -119,7 +119,7 @@ Test if the role can be assumed outside of JWT:
 
 ```bash
 aws sts assume-role \
-  --role-arn "$QUILT_TEST_ROLE_ARN" \
+  --role-arn "$QUILT_TEST_JWT_TOKEN" \
   --role-session-name "test-session"
 ```
 
@@ -138,7 +138,7 @@ This is a **high-priority bug** that needs immediate investigation and fixing be
 
 ## Test Environment Details
 
-- **Real AWS Role ARN**: Used from `QUILT_TEST_ROLE_ARN` environment variable
+- **Real AWS Role ARN**: Used from `QUILT_TEST_JWT_TOKEN` environment variable
 - **JWT Secret**: test-secret-key-for-stateless-testing-only
 - **Container**: Same stateless constraints as production
 - **Authentication Mode**: Stateless JWT (MCP_REQUIRE_JWT=true)

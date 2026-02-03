@@ -112,7 +112,7 @@ def check_environment_variables():
         'AWS_ACCESS_KEY_ID',
         'AWS_SECRET_ACCESS_KEY',
         'AWS_PROFILE',
-        'QUILT_TEST_ROLE_ARN',
+        'QUILT_TEST_JWT_TOKEN',
     ]
     
     for var in relevant_vars:
