@@ -2,13 +2,13 @@
 
 ## Summary
 
-The multitenant testing spec now **properly uses** `tests/jwt_helpers.py` with tenant ID support.
+The multiuser testing spec now **properly uses** `tests/jwt_helpers.py` with tenant ID support.
 
 ## Changes Made
 
 ### 1. Enhanced `tests/jwt_helpers.py`
 
-Added `tenant_id` parameter to support multitenant testing:
+Added `tenant_id` parameter to support multiuser testing:
 
 ```python
 def generate_test_jwt(
@@ -21,7 +21,7 @@ def generate_test_jwt(
     """Generate a test JWT token for MCP authentication."""
     # ...
 
-    # Add tenant identifier for multitenant deployments
+    # Add tenant identifier for multiuser deployments
     if tenant_id:
         payload["tenant_id"] = tenant_id
 
@@ -38,7 +38,7 @@ python tests/jwt_helpers.py generate \
   --auto-extract
 ```
 
-### 2. Correct Usage in `scripts/test-multitenant.py`
+### 2. Correct Usage in `scripts/test-multiuser.py`
 
 The test orchestrator properly imports and uses jwt_helpers:
 
@@ -61,8 +61,8 @@ token = generate_test_jwt(
 
 All documentation now correctly references the enhanced jwt_helpers:
 
-- **[08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md)** - Shows correct usage with --tenant-id
-- **[09-quick-start-multitenant.md](./09-quick-start-multitenant.md)** - Examples include tenant_id parameter
+- **[08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md)** - Shows correct usage with --tenant-id
+- **[09-quick-start-multiuser.md](./09-quick-start-multiuser.md)** - Examples include tenant_id parameter
 
 ## Verification
 
@@ -133,7 +133,7 @@ Returns tenant identifier for context isolation
 ### 2. Test Orchestrator Flow
 
 ```
-test-multitenant.py
+test-multiuser.py
     ↓
 setup_tenants() → generate_test_jwt(tenant_id="tenant-a")
     ↓
@@ -146,7 +146,7 @@ Platform backend extracts tenant_id
 Isolated tenant context
 ```
 
-**Source:** [test-multitenant.py](../../scripts/test-multitenant.py:68)
+**Source:** [test-multiuser.py](../../scripts/test-multiuser.py:68)
 
 ### 3. Manual Testing Flow
 
@@ -166,7 +166,7 @@ Step 3: Verify tenant isolation
     Different tokens → Different tenant contexts
 ```
 
-**Source:** [09-quick-start-multitenant.md](./09-quick-start-multitenant.md:31)
+**Source:** [09-quick-start-multiuser.md](./09-quick-start-multiuser.md:31)
 
 ## Supported Tenant Claim Keys
 
@@ -185,7 +185,7 @@ The system supports multiple tenant claim keys for compatibility:
 
 ```bash
 #!/bin/bash
-# Complete multitenant testing workflow
+# Complete multiuser testing workflow
 
 # 1. Generate tokens for two tenants
 export TOKEN_A=$(python tests/jwt_helpers.py generate \
@@ -309,9 +309,9 @@ python tests/jwt_helpers.py generate \
 
 - **JWT Helpers Source:** [tests/jwt_helpers.py](../../tests/jwt_helpers.py)
 - **Tenant Extraction:** [src/quilt_mcp/context/tenant_extraction.py](../../src/quilt_mcp/context/tenant_extraction.py)
-- **Test Orchestrator:** [scripts/test-multitenant.py](../../scripts/test-multitenant.py)
-- **Testing Spec:** [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md)
-- **Quick Start:** [09-quick-start-multitenant.md](./09-quick-start-multitenant.md)
+- **Test Orchestrator:** [scripts/test-multiuser.py](../../scripts/test-multiuser.py)
+- **Testing Spec:** [08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md)
+- **Quick Start:** [09-quick-start-multiuser.md](./09-quick-start-multiuser.md)
 
 ## Status
 
@@ -321,8 +321,8 @@ All components properly use jwt_helpers.py with tenant_id support:
 
 - ✅ jwt_helpers.py updated with tenant_id parameter
 - ✅ CLI supports --tenant-id flag
-- ✅ test-multitenant.py uses correct imports
+- ✅ test-multiuser.py uses correct imports
 - ✅ Documentation references correct usage
 - ✅ Examples include tenant_id parameter
 
-Ready for multitenant testing!
+Ready for multiuser testing!

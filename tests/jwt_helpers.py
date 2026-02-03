@@ -40,7 +40,7 @@ def generate_test_jwt(
         audience: Token audience claim (optional)
         user_id: User ID claim (defaults to "test-user-id")
         user_uuid: User UUID claim (defaults to "test-user-uuid")
-        tenant_id: Optional tenant identifier for multitenant deployments
+        tenant_id: Optional tenant identifier for multiuser deployments
 
     Returns:
         JWT token string
@@ -99,7 +99,7 @@ Examples:
     gen_parser.add_argument("--audience", default=None, help="Token audience (optional)")
     gen_parser.add_argument("--id", dest="user_id", default=None, help="User ID claim (id)")
     gen_parser.add_argument("--uuid", dest="user_uuid", default=None, help="User UUID claim (uuid)")
-    gen_parser.add_argument("--tenant-id", help="Tenant identifier for multitenant deployments")
+    gen_parser.add_argument("--tenant-id", help="Tenant identifier for multiuser deployments")
 
     inspect_parser = subparsers.add_parser("inspect", help="Inspect JWT token")
     inspect_parser.add_argument("--token", required=True, help="JWT token to inspect")

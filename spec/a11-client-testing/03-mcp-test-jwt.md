@@ -1173,8 +1173,8 @@ test-stateless: docker-build
 
 - [01-protocol-testing.md](01-protocol-testing.md) - MCP protocol compliance testing
 - [02-api-key-auth.md](02-api-key-auth.md) - Alternative authentication method
-- [../a10-multitenant/04-finish-jwt.md](../a10-multitenant/04-finish-jwt.md) - JWT authentication implementation
-- [../a10-multitenant/01-stateless.md](../a10-multitenant/01-stateless.md) - Stateless architecture
+- [../a10-multiuser/04-finish-jwt.md](../a10-multiuser/04-finish-jwt.md) - JWT authentication implementation
+- [../a10-multiuser/01-stateless.md](../a10-multiuser/01-stateless.md) - Stateless architecture
 
 ## References
 

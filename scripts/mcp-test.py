@@ -1567,7 +1567,7 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
     parser.add_argument("--jwt-audience", type=str, default=None,
                        help="JWT audience claim (optional)")
     parser.add_argument("--jwt-tenant-id", type=str, default=None,
-                       help="JWT tenant_id claim for multitenant mode (optional)")
+                       help="JWT tenant_id claim for multiuser mode (optional)")
     parser.add_argument("-t", "--tools-test", action="store_true",
                        help="Run tools test with test configurations")
     parser.add_argument("-T", "--test-tool", metavar="TOOL_NAME",

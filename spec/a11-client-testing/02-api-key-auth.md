@@ -15,7 +15,7 @@ The current MCP server supports two authentication modes, but neither solves the
    - ❌ No authentication to Quilt catalog API (search fails without `quilt3.login()`)
 
 2. **JWT Mode** - Assumes AWS roles per request
-   - ✅ Works for multi-tenant production deployments
+   - ✅ Works for multi-user production deployments
    - ✅ Stateless and secure
    - ❌ Requires complex JWT generation infrastructure
    - ❌ Clients must sign JWTs with shared secrets or private keys
@@ -744,7 +744,7 @@ python -m quilt_mcp
 
 **Goal**: Document API key mode for stateless deployments
 
-**Where**: `spec/a10-multitenant/01-stateless.md`, `02-test-stateless.md`
+**Where**: `spec/a10-multiuser/01-stateless.md`, `02-test-stateless.md`
 
 **What to add**:
 
@@ -1010,7 +1010,7 @@ JWT mode continues to work:
 
 - ⚠️ API key provides full user access (not scoped per-request)
 - ⚠️ All MCP requests share same API key credentials
-- ⚠️ Not suitable for untrusted multi-tenant scenarios (use JWT instead)
+- ⚠️ Not suitable for untrusted multi-user scenarios (use JWT instead)
 - ✅ Suitable for trusted users with personal MCP servers
 
 **Rotation**:
@@ -1074,9 +1074,9 @@ JWT mode continues to work:
 
 ## Related Specifications
 
-- [spec/a10-multitenant/04-finish-jwt.md](../a10-multitenant/04-finish-jwt.md) - JWT authentication mode
-- [spec/a10-multitenant/01-stateless.md](../a10-multitenant/01-stateless.md) - Stateless deployment architecture
-- [spec/a10-multitenant/02-test-stateless.md](../a10-multitenant/02-test-stateless.md) - Stateless testing
+- [spec/a10-multiuser/04-finish-jwt.md](../a10-multiuser/04-finish-jwt.md) - JWT authentication mode
+- [spec/a10-multiuser/01-stateless.md](../a10-multiuser/01-stateless.md) - Stateless deployment architecture
+- [spec/a10-multiuser/02-test-stateless.md](../a10-multiuser/02-test-stateless.md) - Stateless testing
 - [spec/a11-client-testing/01-protocol-testing.md](01-protocol-testing.md) - MCP protocol compliance
 
 ## References

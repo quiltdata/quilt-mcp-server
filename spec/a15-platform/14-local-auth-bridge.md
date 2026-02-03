@@ -13,9 +13,9 @@
 The Platform backend (`platform_backend.py`) cannot currently run as a local MCP server because:
 
 1. **JWT Requirement**: Platform backend requires JWT tokens with specific claims (`catalog_token`, `catalog_url`, `registry_url`)
-2. **Transport Mismatch**: Platform backend is designed for HTTP transport (multitenant mode), not stdio
+2. **Transport Mismatch**: Platform backend is designed for HTTP transport (multiuser mode), not stdio
 3. **No Credential Bridge**: No mechanism exists to convert quilt3 session credentials to Platform-compatible JWTs
-4. **Mode Exclusivity**: `QUILT_MULTITENANT_MODE` makes Quilt3 and Platform backends mutually exclusive
+4. **Mode Exclusivity**: `QUILT_MULTIUSER_MODE` makes Quilt3 and Platform backends mutually exclusive
 
 ### Current Architecture
 
@@ -33,7 +33,7 @@ User Environment
 
 ### Use Cases
 
-**Desktop/CLI Users**: Want to test GraphQL backend locally without deploying multitenant infrastructure
+**Desktop/CLI Users**: Want to test GraphQL backend locally without deploying multiuser infrastructure
 
 **Development**: Need to debug Platform backend behavior using local credentials
 
@@ -441,8 +441,8 @@ class ModeConfig(BaseModel):
             )
 
         # Existing logic for quilt3/graphql modes
-        multitenant = os.getenv("QUILT_MULTITENANT_MODE", "false").lower() == "true"
-        if multitenant:
+        multiuser = os.getenv("QUILT_MULTIUSER_MODE", "false").lower() == "true"
+        if multiuser:
             return cls(
                 backend_type=BackendType.GRAPHQL,
                 transport_type=TransportType.HTTP,
@@ -506,7 +506,7 @@ uv run python -m quilt_mcp
 |---------------------|---------|-----------|-------------|----------|
 | `QUILT_BACKEND=quilt3` (default) | Quilt3_Backend | stdio | quilt3.session (IAM) | Standard local development |
 | `QUILT_BACKEND=platform-local` | Platform_Backend | stdio | JWT from quilt3.session | Test GraphQL backend locally |
-| `QUILT_MULTITENANT_MODE=true` | Platform_Backend | HTTP | JWT from HTTP request | Production/multitenant |
+| `QUILT_MULTIUSER_MODE=true` | Platform_Backend | HTTP | JWT from HTTP request | Production/multiuser |
 
 ---
 
@@ -798,11 +798,11 @@ None required. This is a new feature with no deprecations.
 **Local JWTs**:
 - Only valid for local MCP server process
 - Signed with user's local secret
-- Cannot be used for multitenant deployments
+- Cannot be used for multiuser deployments
 
 **Security Boundary**:
 - `platform-local` JWTs use local secret (HS256)
-- Multitenant JWTs use SSM-backed secret (RS256 or HS256)
+- Multiuser JWTs use SSM-backed secret (RS256 or HS256)
 - Different signature verification paths
 
 ---
@@ -864,8 +864,8 @@ export QUILT_BACKEND=platform-local
 uv run python -m quilt_mcp
 ```
 
-### 3. Platform Backend (Multitenant)
-- **Environment**: `QUILT_MULTITENANT_MODE=true`
+### 3. Platform Backend (Multiuser)
+- **Environment**: `QUILT_MULTIUSER_MODE=true`
 - **Transport**: HTTP
 - **Authentication**: JWT from HTTP request
 - **Use Case**: Production deployments
@@ -890,7 +890,7 @@ export QUILT_BACKEND=platform-local
 make run
 ```
 
-This is useful for testing GraphQL backend behavior without deploying multitenant infrastructure.
+This is useful for testing GraphQL backend behavior without deploying multiuser infrastructure.
 ```
 
 ---
@@ -954,7 +954,7 @@ This is useful for testing GraphQL backend behavior without deploying multitenan
 
 3. **Transport Override**: Should platform-local support both stdio and HTTP?
    - **Current**: Only stdio (to match Quilt3 backend)
-   - **Future**: Could support HTTP for testing multitenant infrastructure locally
+   - **Future**: Could support HTTP for testing multiuser infrastructure locally
    - **Recommendation**: Start with stdio only, add HTTP if needed
 
 4. **Error Handling**: What should happen if JWT expires during long-running operations?
@@ -1009,7 +1009,7 @@ This is useful for testing GraphQL backend behavior without deploying multitenan
 
 - [README.md](./README.md) - Platform backend overview
 - [02-graphql.md](./02-graphql.md) - GraphQL API reference
-- [09-quick-start-multitenant.md](./09-quick-start-multitenant.md) - Multitenant testing
+- [09-quick-start-multiuser.md](./09-quick-start-multiuser.md) - Multiuser testing
 - [10-jwt-helpers-integration.md](./10-jwt-helpers-integration.md) - JWT utilities
 
 ### External Documentation

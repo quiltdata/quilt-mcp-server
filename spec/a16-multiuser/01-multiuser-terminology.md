@@ -295,7 +295,7 @@ test-multiuser-fake:
 
 ### Documentation (50+ files)
 
-- Specs: `a10-multitenant/` (rename), `a13-mode-config/`, `a15-platform/`, `a11-client-testing/`
+- Specs: `a10-multiuser/` (rename), `a13-mode-config/`, `a15-platform/`, `a11-client-testing/`
 - Docs: `README.md`, `CHANGELOG.md`, `docs/deployment/`, `docs/archive/`
 - Internal: `.kiro/specs/`
 
@@ -315,10 +315,10 @@ test-multiuser-fake:
 
 ## Related Specifications
 
-- [Spec 02: GraphQL Backend](02-graphql.md)
-- [Spec 08: Multitenant Testing](08-multitenant-testing-spec.md) - Will be updated
-- [Spec 09: Quick Start Multitenant](09-quick-start-multitenant.md) - Will be updated
-- [Spec 14: Local Auth Bridge](14-local-auth-bridge.md)
+- [Spec 02: GraphQL Backend](../a15-platform/02-graphql.md)
+- [Spec 08: Multiuser Testing](../a15-platform/08-multiuser-testing-spec.md) - Will be updated
+- [Spec 09: Quick Start Multiuser](../a15-platform/09-quick-start-multiuser.md) - Will be updated
+- [Spec 14: Local Auth Bridge](../a15-platform/14-local-auth-bridge.md)
 - [a13-mode-config specs](../a13-mode-config/)
 
 ---

@@ -25,11 +25,11 @@ class RequestContextFactory:
     def __init__(self, mode: str = "auto") -> None:
         mode_config = get_mode_config()
         if mode == "auto":
-            self.mode: Literal["single-user", "multitenant"] = mode_config.tenant_mode
+            self.mode: Literal["single-user", "multiuser"] = mode_config.tenant_mode
         else:
             # Validate that mode is one of the expected values
-            if mode not in ("single-user", "multitenant"):
-                raise ValueError(f"Invalid mode: {mode}. Must be 'single-user' or 'multitenant'")
+            if mode not in ("single-user", "multiuser"):
+                raise ValueError(f"Invalid mode: {mode}. Must be 'single-user' or 'multiuser'")
             self.mode = mode  # type: ignore[assignment]
 
     def create_context(
@@ -70,7 +70,7 @@ class RequestContextFactory:
         )
 
     def _resolve_tenant(self, tenant_id: Optional[str], extracted_tenant: Optional[str]) -> str:
-        if self.mode == "multitenant":
+        if self.mode == "multiuser":
             resolved = tenant_id or extracted_tenant
             if not resolved:
                 raise TenantValidationError(self.mode)

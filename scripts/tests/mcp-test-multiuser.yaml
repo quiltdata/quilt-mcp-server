@@ -1,6 +1,6 @@
-# Multitenant test configuration
+# Multiuser test configuration
 #
-# This configuration defines test scenarios for multitenant Platform backend testing.
+# This configuration defines test scenarios for multiuser Platform backend testing.
 
 environment:
   # Configure test environment (can be overridden by env vars)
@@ -26,5 +26,5 @@ expected:
   min_tools: 40
   min_resources: 10
 
-# Test scenarios are defined in test-multitenant.py
+# Test scenarios are defined in test-multiuser.py
 # This file provides tenant configuration and environment setup

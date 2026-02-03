@@ -133,9 +133,9 @@ def pytest_configure(config):
     # Disable JWT authentication for all tests
     os.environ["MCP_REQUIRE_JWT"] = "false"
 
-    # Explicitly ensure unit tests run in local mode (not multitenant mode)
+    # Explicitly ensure unit tests run in local mode (not multiuser mode)
     # This forces tests to use local AWS credentials (AWS_PROFILE or default)
-    os.environ["QUILT_MULTITENANT_MODE"] = "false"
+    os.environ["QUILT_MULTIUSER_MODE"] = "false"
 
     # Remove JWT secrets to prevent development fallback behavior
     os.environ.pop("MCP_JWT_SECRET", None)

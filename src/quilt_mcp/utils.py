@@ -569,10 +569,10 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     mode_config = get_mode_config()
 
     try:
-        # Use JSON responses in multitenant mode for simpler HTTP client integration
+        # Use JSON responses in multiuser mode for simpler HTTP client integration
         # (SSE requires stream parsing which complicates testing and client implementations)
         app = mcp.http_app(
-            transport=transport, stateless_http=mode_config.is_multitenant, json_response=mode_config.is_multitenant
+            transport=transport, stateless_http=mode_config.is_multiuser, json_response=mode_config.is_multiuser
         )
     except AttributeError as exc:  # pragma: no cover - FastMCP versions prior to HTTP support
         logger.error("HTTP transport requested but FastMCP does not expose http_app(): %s", exc)

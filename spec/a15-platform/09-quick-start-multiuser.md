@@ -1,8 +1,8 @@
-# Quick Start: Multitenant Testing
+# Quick Start: Multiuser Testing
 
 ## 5-Minute Setup
 
-This guide gets you testing the multitenant Platform backend in under 5 minutes.
+This guide gets you testing the multiuser Platform backend in under 5 minutes.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ export TEST_JWT_TOKEN_B="arn:aws:iam::123456789012:role/TenantB"
 
 ## Option 1: Automated Testing (Recommended)
 
-Run the complete multitenant test suite:
+Run the complete multiuser test suite:
 
 ```bash
 # Start server in Platform mode
@@ -29,8 +29,8 @@ FASTMCP_MODE=platform make run &
 # Wait for server to start
 sleep 3
 
-# Run multitenant test suite
-python scripts/test-multitenant.py http://localhost:8001/mcp -v
+# Run multiuser test suite
+python scripts/test-multiuser.py http://localhost:8001/mcp -v
 
 # Stop server
 pkill -f "make run"
@@ -77,7 +77,7 @@ Running concurrent tenant operations test...
   ✅ tenant-b: Concurrent test passed
 
 ================================================================================
-📊 MULTITENANT TEST SUMMARY
+📊 MULTIUSER TEST SUMMARY
 ================================================================================
 
 Basic Connectivity:
@@ -208,14 +208,14 @@ curl -X POST http://localhost:8001/mcp \
 Add these targets to your local workflow:
 
 ```bash
-# Run full multitenant test suite
-make test-multitenant
+# Run full multiuser test suite
+make test-multiuser
 
 # Run only unit tests (fast)
-make test-multitenant-unit
+make test-multiuser-unit
 
 # Run integration tests (requires AWS)
-make test-multitenant-integration
+make test-multiuser-integration
 
 # Quick local test with single tenant
 make test-platform-local
@@ -294,14 +294,14 @@ FASTMCP_MODE=platform make run
 
 Once basic testing works:
 
-1. **Add more tenants** - Edit `scripts/tests/mcp-test-multitenant.yaml`
-2. **Run in CI/CD** - See [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md#cicd-integration)
+1. **Add more tenants** - Edit `scripts/tests/mcp-test-multiuser.yaml`
+2. **Run in CI/CD** - See [08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md#cicd-integration)
 3. **Performance testing** - Test with 50+ concurrent tenants
-4. **Custom test scenarios** - Extend `test-multitenant.py` with your scenarios
+4. **Custom test scenarios** - Extend `test-multiuser.py` with your scenarios
 
 ## Resources
 
-- **Full Testing Spec:** [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md)
+- **Full Testing Spec:** [08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md)
 - **Platform Backend Docs:** [00-implementation-summary.md](./00-implementation-summary.md)
 - **JWT Helpers:** [../../tests/jwt_helpers.py](../../tests/jwt_helpers.py)
 - **MCP Test Tool:** [../../scripts/mcp-test.py](../../scripts/mcp-test.py)

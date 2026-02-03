@@ -22,7 +22,7 @@ def test_iam_mode_allows_requests(monkeypatch):
     # Still need AWS credentials for IAM testing
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
-    set_test_mode_config(multitenant_mode=False)
+    set_test_mode_config(multiuser_mode=False)
 
     async def handler(request):
         auth_ctx = check_s3_authorization("auth_echo", {})
@@ -46,7 +46,7 @@ def test_iam_mode_ignores_authorization_header(monkeypatch):
     # Still need AWS credentials for IAM testing
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
-    set_test_mode_config(multitenant_mode=False)
+    set_test_mode_config(multiuser_mode=False)
 
     async def handler(request):
         auth_ctx = check_s3_authorization("auth_echo", {})
@@ -76,7 +76,7 @@ def test_iam_mode_allows_profile_credentials(monkeypatch, tmp_path: Path):
     )
     monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", str(credentials))
     monkeypatch.setenv("AWS_PROFILE", "test")
-    set_test_mode_config(multitenant_mode=False)
+    set_test_mode_config(multiuser_mode=False)
 
     async def handler(request):
         auth_ctx = check_s3_authorization("auth_echo", {})
@@ -96,7 +96,7 @@ def test_jwt_mode_requires_valid_token(monkeypatch):
     secret = "test-secret"
     # Still need JWT secret for JWT testing
     monkeypatch.setenv("MCP_JWT_SECRET", secret)
-    set_test_mode_config(multitenant_mode=True)
+    set_test_mode_config(multiuser_mode=True)
 
     async def handler(request):
         auth_ctx = check_package_authorization("auth_echo", {})
@@ -127,7 +127,7 @@ def test_jwt_mode_rejects_invalid_token(monkeypatch):
     secret = "test-secret"
     # Still need JWT secret for JWT testing
     monkeypatch.setenv("MCP_JWT_SECRET", secret)
-    set_test_mode_config(multitenant_mode=True)
+    set_test_mode_config(multiuser_mode=True)
 
     async def handler(request):
         return JSONResponse({"ok": True})

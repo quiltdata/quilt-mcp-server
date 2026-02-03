@@ -71,7 +71,7 @@ quilt3 login
 
 By default, quilt-mcp uses IAM credentials from your environment, AWS profiles, or quilt3 sessions.
 
-For multitenant deployments, enable **JWT mode** by setting `MCP_REQUIRE_JWT=true`. In JWT mode the server requires
+For multiuser deployments, enable **JWT mode** by setting `MCP_REQUIRE_JWT=true`. In JWT mode the server requires
 `Authorization: Bearer <token>` on every request and delegates authorization to the Platform.
 
 See `docs/AUTHENTICATION.md` for full configuration details and examples.

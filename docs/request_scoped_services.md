@@ -1,4 +1,4 @@
-# Request-Scoped Services & Multitenant Isolation
+# Request-Scoped Services & Multiuser Isolation
 
 This document describes the request-scoped service architecture, tenant isolation guarantees, and migration guidance for removing module-level singletons.
 
@@ -35,17 +35,17 @@ flowchart LR
 - Permission caches are per-request and are not shared between contexts.
 - Auth services are created per-request to avoid credential leakage.
 
-## Single-User vs Multitenant Modes
+## Single-User vs Multiuser Modes
 
 ### Single-User Mode
 
-- Default if `QUILT_MULTITENANT_MODE` is unset or false.
+- Default if `QUILT_MULTIUSER_MODE` is unset or false.
 - Tenant ID is always `default`.
-- Explicit tenant IDs are rejected to prevent accidental multitenant behavior.
+- Explicit tenant IDs are rejected to prevent accidental multiuser behavior.
 
-### Multitenant Mode
+### Multiuser Mode
 
-- Enable via `QUILT_MULTITENANT_MODE=true`.
+- Enable via `QUILT_MULTIUSER_MODE=true`.
 - Tenant ID is required and extracted from:
   1. JWT claims (`tenant_id`, `tenant`, `org_id`, `organization_id`)
   2. Session metadata (`RuntimeAuthState.extras` / `session_metadata`)
@@ -54,8 +54,8 @@ flowchart LR
 ## Environment Configuration
 
 ```bash
-# Enable multitenant mode
-export QUILT_MULTITENANT_MODE=true
+# Enable multiuser mode
+export QUILT_MULTIUSER_MODE=true
 
 # Optional tenant fallback (useful for local dev)
 export QUILT_TENANT_ID=my-tenant
@@ -79,7 +79,7 @@ export QUILT_WORKFLOW_DIR=~/.quilt/workflows
 ### RequestContextFactory
 
 - `create_context(tenant_id: Optional[str] = None, request_id: Optional[str] = None)`
-- Mode detection: `single-user`, `multitenant`, or `auto` (via env)
+- Mode detection: `single-user`, `multiuser`, or `auto` (via env)
 - Tenant extraction: `extract_tenant_id(...)` helper
 
 ### Context Propagation
@@ -101,7 +101,7 @@ export QUILT_WORKFLOW_DIR=~/.quilt/workflows
 1. Replace module-level auth singleton with request-scoped `AuthService`.
 2. Replace permission discovery singleton with request-scoped service.
 3. Replace workflow singleton with tenant-isolated storage and service.
-4. Enable multitenant extraction and validation.
+4. Enable multiuser extraction and validation.
 
 ### Rollback Procedure
 
@@ -124,6 +124,6 @@ export QUILT_WORKFLOW_DIR=~/.quilt/workflows
 
 ## Troubleshooting
 
-- **Missing tenant in multitenant mode**: ensure JWT includes `tenant_id` or set `QUILT_TENANT_ID`.
+- **Missing tenant in multiuser mode**: ensure JWT includes `tenant_id` or set `QUILT_TENANT_ID`.
 - **Unexpected access errors**: verify each request receives a fresh context and services are not cached globally.
 - **Workflow not found**: confirm tenant ID matches and storage directory is correct.

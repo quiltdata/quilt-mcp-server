@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Multitenant MCP testing orchestrator.
+Multiuser MCP testing orchestrator.
 
 Runs MCP tests across multiple tenants with proper JWT authentication
 and validates tenant isolation.
@@ -28,8 +28,8 @@ except ImportError:
     sys.exit(1)
 
 
-class MultitenantTestRunner:
-    """Orchestrates multitenant testing across multiple tenants."""
+class MultiuserTestRunner:
+    """Orchestrates multiuser testing across multiple tenants."""
 
     def __init__(self, config: Dict[str, Any], endpoint: str, verbose: bool = False):
         """Initialize test runner.
@@ -244,7 +244,7 @@ class MultitenantTestRunner:
                     "params": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {},
-                        "clientInfo": {"name": "multitenant-test", "version": "1.0"}
+                        "clientInfo": {"name": "multiuser-test", "version": "1.0"}
                     },
                     "id": 1
                 },
@@ -357,7 +357,7 @@ class MultitenantTestRunner:
     def print_summary(self) -> None:
         """Print test results summary."""
         print("\n" + "="*80)
-        print("📊 MULTITENANT TEST SUMMARY")
+        print("📊 MULTIUSER TEST SUMMARY")
         print("="*80)
 
         for scenario in self.results["scenarios"]:
@@ -453,7 +453,7 @@ def load_config(config_path: Path) -> Dict[str, Any]:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Multitenant MCP testing orchestrator",
+        description="Multiuser MCP testing orchestrator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -463,14 +463,14 @@ Examples:
   export TEST_TENANT_B_ID=user-b
   export TEST_TENANT_B_UUID=uuid-b
   export TEST_JWT_SECRET=your-jwt-secret
-  python scripts/test-multitenant.py http://localhost:8001/mcp
+  python scripts/test-multiuser.py http://localhost:8001/mcp
 
   # Run with custom config
-  python scripts/test-multitenant.py http://localhost:8001/mcp \\
-    --config scripts/tests/mcp-test-multitenant.yaml
+  python scripts/test-multiuser.py http://localhost:8001/mcp \\
+    --config scripts/tests/mcp-test-multiuser.yaml
 
   # Verbose output
-  python scripts/test-multitenant.py http://localhost:8001/mcp -v
+  python scripts/test-multiuser.py http://localhost:8001/mcp -v
         """
     )
 
@@ -482,7 +482,7 @@ Examples:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path(__file__).parent / "tests" / "mcp-test-multitenant.yaml",
+        default=Path(__file__).parent / "tests" / "mcp-test-multiuser.yaml",
         help="Path to test configuration file"
     )
 
@@ -498,7 +498,7 @@ Examples:
     config = load_config(args.config)
 
     # Run tests
-    runner = MultitenantTestRunner(
+    runner = MultiuserTestRunner(
         config,
         args.endpoint,
         verbose=args.verbose,

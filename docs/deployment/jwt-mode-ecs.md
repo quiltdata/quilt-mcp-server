@@ -1,6 +1,6 @@
 # JWT Mode (ECS Fargate)
 
-JWT mode is suitable for multitenant ECS services that delegate authorization to the Platform.
+JWT mode is suitable for multiuser ECS services that delegate authorization to the Platform.
 
 ## Key Points
 

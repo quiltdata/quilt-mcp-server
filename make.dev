@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multitenant-fake test-catalog test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multiuser test-multiuser-fake test-catalog test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -157,22 +157,30 @@ test-mcp-stateless: docker-build
 		(uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
 	@echo "✅ Stateless JWT testing with catalog authentication completed"
 
-# Multitenant Testing with Fake Roles (for local development)
-test-multitenant-fake: docker-build
-	@echo "👥 Testing multitenant MCP with fake tenant JWTs (local dev only)..."
+# Multiuser integration tests (Platform backend expectations)
+test-multiuser:
+	@echo "Running multiuser integration tests..."
+	@uv sync --group test
+	@export QUILT_MULTIUSER_MODE=true && \
+		export PYTHONPATH="src" && \
+		uv run python -m pytest tests/integration/test_multiuser.py -v
+
+# Multiuser Testing with Fake Roles (for local development)
+test-multiuser-fake: docker-build
+	@echo "👥 Testing multiuser MCP with fake tenant JWTs (local dev only)..."
 	@uv sync --group test
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
 		uv run python scripts/docker_manager.py start \
-			--mode multitenant-fake \
+			--mode multiuser-fake \
 			--image $$TEST_DOCKER_IMAGE \
-			--name mcp-multitenant-fake-test \
+			--name mcp-multiuser-fake-test \
 			--port 8003 \
 			--jwt-secret "test-secret" && \
-		(uv run python scripts/test-multitenant.py http://localhost:8003/mcp \
+		(uv run python scripts/test-multiuser.py http://localhost:8003/mcp \
 			--verbose && \
-		uv run python scripts/docker_manager.py stop --name mcp-multitenant-fake-test) || \
-		(uv run python scripts/docker_manager.py stop --name mcp-multitenant-fake-test && exit 1)
-	@echo "✅ Multitenant fake role testing completed"
+		uv run python scripts/docker_manager.py stop --name mcp-multiuser-fake-test) || \
+		(uv run python scripts/docker_manager.py stop --name mcp-multiuser-fake-test && exit 1)
+	@echo "✅ Multiuser fake role testing completed"
 
 # Code Quality Targets
 lint:

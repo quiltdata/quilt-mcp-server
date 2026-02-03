@@ -33,7 +33,7 @@ def test_service_initialization_error_includes_service_and_reason():
     assert "missing credentials" in message
 
 
-@pytest.mark.parametrize("mode", ["single-user", "multitenant"])
+@pytest.mark.parametrize("mode", ["single-user", "multiuser"])
 def test_tenant_validation_error_includes_mode(mode):
     error = TenantValidationError(mode)
 

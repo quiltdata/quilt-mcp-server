@@ -37,7 +37,7 @@ def test_no_state_persists_across_restarts(
                 read_only=True,
                 tmpfs={"/tmp": "size=100M", "/app/.cache": "size=50M"},  # noqa: S108
                 environment={
-                    "QUILT_MULTITENANT_MODE": "true",
+                    "QUILT_MULTIUSER_MODE": "true",
                     "MCP_JWT_SECRET": "test-secret-key-for-stateless-testing-only",
                     "MCP_JWT_ISSUER": "test-issuer",
                     "MCP_JWT_AUDIENCE": "test-audience",

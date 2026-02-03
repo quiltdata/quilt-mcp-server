@@ -400,15 +400,15 @@ Request 2: User B → Catalog Y → catalog_token="token_Y"
 Request 3: User A → Catalog Z → catalog_token="token_Z"
 ```
 
-`ContextVar` ensures each request sees only its own credentials. **This is the right design** for multi-tenant stateless services.
+`ContextVar` ensures each request sees only its own credentials. **This is the right design** for multi-user stateless services.
 
-The problem is that **quilt3 uses global module state** (`_session`), which is wrong for multi-tenant scenarios. This creates a third incompatibility layer beyond authentication and execution models.
+The problem is that **quilt3 uses global module state** (`_session`), which is wrong for multi-user scenarios. This creates a third incompatibility layer beyond authentication and execution models.
 
 ---
 
 ## Summary of Architectural Problems
 
-The search bug exposed **three layers of architectural mismatch** between quilt3 (single-user CLI) and the MCP server (multi-tenant HTTP service):
+The search bug exposed **three layers of architectural mismatch** between quilt3 (single-user CLI) and the MCP server (multi-user HTTP service):
 
 ### Layer 1: Authentication Storage
 
@@ -463,7 +463,7 @@ runtime model.**
 The search bug is a **symptom of systemic architectural incompatibility**:
 
 - The MCP server has two parallel authentication systems that don't communicate
-- quilt3 APIs don't work in stateless/multi-tenant environments
+- quilt3 APIs don't work in stateless/multi-user environments
 - Every catalog/S3 operation needs dual implementation paths
 - Current QuiltService abstraction is insufficient - it only wraps quilt3 instead of abstracting over two fundamentally different runtimes
 

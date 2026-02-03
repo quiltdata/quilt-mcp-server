@@ -1,6 +1,6 @@
 # Stateless Deployment Testing
 
-This document explains how to test and validate that the Quilt MCP Server can run in true stateless, multitenant mode with strict security constraints.
+This document explains how to test and validate that the Quilt MCP Server can run in true stateless, multiuser mode with strict security constraints.
 
 ## Quick Start
 
@@ -18,7 +18,7 @@ This will:
 
 ## What Gets Tested
 
-The test suite validates **7 key scenarios** from the [stateless deployment specification](../spec/a10-multitenant/02-test-stateless.md):
+The test suite validates **7 key scenarios** from the [stateless deployment specification](../spec/a10-multiuser/02-test-stateless.md):
 
 ### 1. Basic Tool Execution ✅
 - Container starts with all security constraints
@@ -73,7 +73,7 @@ When all tests pass, you'll see:
 12 passed in 69.67s
 ```
 
-This means your container is **production-ready** for multitenant deployment.
+This means your container is **production-ready** for multiuser deployment.
 
 ### Failing Tests - Intelligent Error Messages
 
@@ -421,8 +421,8 @@ After passing stateless deployment tests:
 
 ## Related Documentation
 
-- [Stateless Architecture Specification](../spec/a10-multitenant/01-stateless.md)
-- [Stateless Testing Specification](../spec/a10-multitenant/02-test-stateless.md)
+- [Stateless Architecture Specification](../spec/a10-multiuser/01-stateless.md)
+- [Stateless Testing Specification](../spec/a10-multiuser/02-test-stateless.md)
 - [Production Deployment Guide](PRODUCTION_DEPLOYMENT.md) *(to be created)*
 
 ## Support

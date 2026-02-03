@@ -17,19 +17,19 @@ from quilt_mcp.services.jwt_auth_service import JWTAuthService
 
 
 def test_factory_auto_mode_reads_env():
-    set_test_mode_config(multitenant_mode=True)
+    set_test_mode_config(multiuser_mode=True)
     factory = RequestContextFactory()
-    assert factory.mode == "multitenant"
+    assert factory.mode == "multiuser"
 
-    set_test_mode_config(multitenant_mode=False)
+    set_test_mode_config(multiuser_mode=False)
     factory = RequestContextFactory()
     assert factory.mode == "single-user"
 
 
 def test_factory_explicit_mode_overrides_env():
-    set_test_mode_config(multitenant_mode=False)
-    factory = RequestContextFactory(mode="multitenant")
-    assert factory.mode == "multitenant"
+    set_test_mode_config(multiuser_mode=False)
+    factory = RequestContextFactory(mode="multiuser")
+    assert factory.mode == "multiuser"
 
 
 def test_factory_create_context_uses_jwt_auth(monkeypatch):
@@ -59,8 +59,8 @@ def test_factory_create_context_uses_iam_auth(monkeypatch):
     assert isinstance(context.auth_service, IAMAuthService)
 
 
-def test_factory_create_context_requires_tenant_in_multitenant_mode():
-    factory = RequestContextFactory(mode="multitenant")
+def test_factory_create_context_requires_tenant_in_multiuser_mode():
+    factory = RequestContextFactory(mode="multiuser")
     with pytest.raises(TenantValidationError):
         factory.create_context()
 
@@ -69,7 +69,7 @@ def test_factory_extracts_tenant_from_auth_state(monkeypatch):
     auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"tenant_id": "tenant-1"})
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:
-        factory = RequestContextFactory(mode="multitenant")
+        factory = RequestContextFactory(mode="multiuser")
 
         class _StubAuth:
             def get_user_identity(self):
@@ -100,14 +100,14 @@ def test_factory_create_context_generates_request_id():
 
 
 def test_factory_create_context_requires_auth_when_jwt_mode_enabled():
-    set_test_mode_config(multitenant_mode=True)
+    set_test_mode_config(multiuser_mode=True)
     factory = RequestContextFactory(mode="single-user")
     with pytest.raises(ServiceInitializationError):
         factory.create_context()
 
 
 def test_factory_creates_fresh_auth_service_instances():
-    set_test_mode_config(multitenant_mode=False)
+    set_test_mode_config(multiuser_mode=False)
     factory = RequestContextFactory(mode="single-user")
     context_a = factory.create_context()
     context_b = factory.create_context()

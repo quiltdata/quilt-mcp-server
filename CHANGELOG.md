@@ -12,9 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Platform Backend**: Complete GraphQL-native backend for multi-tenant deployments
+- **Platform Backend**: Complete GraphQL-native backend for multi-user deployments
   - Full support for package operations (create, update, browse, search, diff, delete)
-  - JWT-based authentication with bearer tokens for secure multi-tenant access
+  - JWT-based authentication with bearer tokens for secure multi-user access
   - Role-based access with AWS STS integration for S3 operations
   - Catalog configuration and management operations
   - All operations use GraphQL API exclusively (no local filesystem dependencies)
@@ -55,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Request Context Architecture**: Multi-tenant support and request-scoped services
   - `RequestContext` for propagating tenant, auth, and service state
   - `RequestContextFactory` for mode-aware context creation
-  - Tenant extraction and validation for multi-tenant deployments
+  - Tenant extraction and validation for multi-user deployments
   - Request context propagation through MCP handler layer
 
 - **Modular Backend Architecture**: Split `Quilt3_Backend` into focused mixins
@@ -112,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Multi-Tenant Authentication**: Complete authentication architecture for multi-tenant deployments
+- **Multi-Tenant Authentication**: Complete authentication architecture for multi-user deployments
   - JWT-based authentication with bearer token support for HTTP transports
   - IAM-based authentication mode as alternative for AWS environments
   - JWT middleware for automatic token validation and session management

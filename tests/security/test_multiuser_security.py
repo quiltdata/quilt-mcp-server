@@ -1,4 +1,4 @@
-"""Security tests for multitenant isolation."""
+"""Security tests for multiuser isolation."""
 
 from __future__ import annotations
 

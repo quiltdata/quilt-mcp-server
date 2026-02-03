@@ -2,13 +2,13 @@
 
 **Date:** 2026-01-31
 **Status:** Implementation Ready
-**Implements:** Design from 02-multitenant-mode.md
+**Implements:** Design from 02-multiuser-mode.md
 
 ---
 
 ## Goal
 
-Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. Eliminate 3 redundant environment variables. Provide single source of truth for all mode-related decisions.
+Replace scattered mode detection with single `QUILT_MULTIUSER_MODE` boolean. Eliminate 3 redundant environment variables. Provide single source of truth for all mode-related decisions.
 
 ---
 
@@ -22,9 +22,9 @@ Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. E
 
 **Requirements:**
 
-- Read `QUILT_MULTITENANT_MODE` environment variable
+- Read `QUILT_MULTIUSER_MODE` environment variable
 - Singleton pattern with `get_mode_config()` function
-- Properties: `is_multitenant`, `is_local_dev`, `backend_type`, `requires_jwt`, `allows_filesystem_state`, `tenant_mode`, `requires_graphql`, `allows_quilt3_library`
+- Properties: `is_multiuser`, `is_local_dev`, `backend_type`, `requires_jwt`, `allows_filesystem_state`, `tenant_mode`, `requires_graphql`, `allows_quilt3_library`
 - Method: `validate()` - Check required config present for current mode
 - Method: `get_validation_errors()` - Return list of missing configuration
 - Fail fast on invalid configuration at initialization
@@ -36,7 +36,7 @@ Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. E
 **Requirements:**
 
 - Extend `QuiltOps` abstract interface
-- All methods raise `NotImplementedError` with message: "Platform GraphQL backend not yet implemented. Use QUILT_MULTITENANT_MODE=false for local development."
+- All methods raise `NotImplementedError` with message: "Platform GraphQL backend not yet implemented. Use QUILT_MULTIUSER_MODE=false for local development."
 - Allows mode refactor to proceed while GraphQL implementation happens separately
 
 ---
@@ -62,7 +62,7 @@ Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. E
 **Changes:**
 
 - Replace `get_jwt_mode_enabled()` with `mode_config.requires_jwt`
-- If `mode_config.is_multitenant`: Only create `JWTAuthService`, no fallback allowed
+- If `mode_config.is_multiuser`: Only create `JWTAuthService`, no fallback allowed
 - If `mode_config.is_local_dev`: Check runtime auth, fallback to `IAMAuthService`
 
 #### 3.3. IAM Auth Service - Session Handling
@@ -98,9 +98,9 @@ Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. E
 **Changes:**
 
 - **DELETE** line reading `os.environ.get("QUILT_MCP_STATELESS_MODE")`
-- Replace with `mode_config.is_multitenant`
-- Set `stateless_http=mode_config.is_multitenant`
-- Set `json_response=mode_config.is_multitenant`
+- Replace with `mode_config.is_multiuser`
+- Set `stateless_http=mode_config.is_multiuser`
+- Set `json_response=mode_config.is_multiuser`
 
 #### 3.6. JWT Middleware - Enforcement Setup
 
@@ -109,7 +109,7 @@ Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. E
 **Changes:**
 
 - Pass `require_jwt=mode_config.requires_jwt` to constructor
-- Ensures JWT enforced in multitenant mode, optional in local mode
+- Ensures JWT enforced in multiuser mode, optional in local mode
 
 #### 3.7. Runtime Context - Default Environment
 
@@ -118,7 +118,7 @@ Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. E
 **Changes:**
 
 - Initialize `_default_state` based on mode
-- If `mode_config.is_multitenant` → `environment="web"`
+- If `mode_config.is_multiuser` → `environment="web"`
 - If `mode_config.is_local_dev` → `environment="desktop"`
 
 #### 3.8. Permission Discovery - DELETE Session Env Var
@@ -139,7 +139,7 @@ Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. E
 
 - Early in startup (before accepting requests), call `mode_config.validate()`
 - If validation fails, log errors from `get_validation_errors()` and exit
-- Log current mode: "Starting Quilt MCP Server in [LOCAL|MULTITENANT] mode"
+- Log current mode: "Starting Quilt MCP Server in [LOCAL|MULTIUSER] mode"
 - Log key config: JWT required, backend type, state management
 
 ---
@@ -156,13 +156,13 @@ Replace scattered mode detection with single `QUILT_MULTITENANT_MODE` boolean. E
 - Unit tests run in default local mode
 - No explicit mode configuration needed
 
-#### 4.2. Stateless Tests - Explicit Multitenant Mode
+#### 4.2. Stateless Tests - Explicit Multiuser Mode
 
 **File:** `tests/stateless/conftest.py`
 
 **Changes:**
 
-- Set `QUILT_MULTITENANT_MODE=true` explicitly
+- Set `QUILT_MULTIUSER_MODE=true` explicitly
 - Configure JWT test secrets: `MCP_JWT_SECRET=test-secret`, issuer, audience
 - **DELETE** redundant env vars: `QUILT_MCP_STATELESS_MODE`, `MCP_REQUIRE_JWT`, `QUILT_DISABLE_QUILT3_SESSION`
 
@@ -225,7 +225,7 @@ All mode decisions must go through `get_mode_config()`.
 8. `src/quilt_mcp/services/permission_discovery.py` - Remove env var check
 9. `src/quilt_mcp/main.py` - Add startup validation
 10. `tests/conftest.py` - Remove deprecated env var
-11. `tests/stateless/conftest.py` - Explicit multitenant config
+11. `tests/stateless/conftest.py` - Explicit multiuser config
 
 ---
 
@@ -245,7 +245,7 @@ grep -r "QUILT_DISABLE_QUILT3_SESSION" src/quilt_mcp/
 ```bash
 make test-all           # All tests pass
 make test-integration   # Local mode tests
-make test-stateless     # Multitenant mode tests
+make test-stateless     # Multiuser mode tests
 make lint              # Code quality
 ```
 
@@ -257,11 +257,11 @@ uv run python -m quilt_mcp
 # Test search, browse, package operations
 ```
 
-### 4. Manual Testing - Multitenant Mode
+### 4. Manual Testing - Multiuser Mode
 
 ```bash
 # With valid config - should start
-export QUILT_MULTITENANT_MODE=true
+export QUILT_MULTIUSER_MODE=true
 export MCP_JWT_SECRET=test-secret
 export MCP_JWT_ISSUER=test-issuer
 export MCP_JWT_AUDIENCE=test-audience
@@ -272,7 +272,7 @@ uv run python -m quilt_mcp
 
 ```bash
 # Missing JWT config - should fail with clear error
-export QUILT_MULTITENANT_MODE=true
+export QUILT_MULTIUSER_MODE=true
 # No JWT secrets set
 uv run python -m quilt_mcp
 # Expected: Clear validation error, exits before accepting requests
@@ -287,7 +287,7 @@ uv run python -m quilt_mcp
 - [ ] ALL code reading `QUILT_MCP_STATELESS_MODE` DELETED from src/
 - [ ] ALL code reading `QUILT_DISABLE_QUILT3_SESSION` DELETED from src/
 - [ ] Local mode behavior unchanged (backward compatible)
-- [ ] Multitenant mode validates config at startup
+- [ ] Multiuser mode validates config at startup
 - [ ] All tests pass (unit, integration, stateless)
 - [ ] Clear error messages for invalid configurations
 - [ ] Documentation updated with mode configuration
@@ -317,14 +317,14 @@ uv run python -m quilt_mcp
 ```bash
 QUILT_MCP_STATELESS_MODE=true
 MCP_REQUIRE_JWT=true
-QUILT_MULTITENANT_MODE=true
+QUILT_MULTIUSER_MODE=true
 QUILT_DISABLE_QUILT3_SESSION=1
 ```
 
 **After:**
 
 ```bash
-QUILT_MULTITENANT_MODE=true
+QUILT_MULTIUSER_MODE=true
 # Keep JWT config (secrets, issuer, audience)
 # All other mode flags DELETED
 ```
@@ -357,9 +357,9 @@ These are DELETED immediately:
 
 **Decision:** Tests use `MCP_JWT_SECRET=test-secret` for predictable behavior without AWS dependencies
 
-### 3. Fallback Behavior in Multitenant
+### 3. Fallback Behavior in Multiuser
 
-**Decision:** No fallback - multitenant mode requires JWT, fails hard if missing (enforces security boundary)
+**Decision:** No fallback - multiuser mode requires JWT, fails hard if missing (enforces security boundary)
 
 ---
 
@@ -397,6 +397,6 @@ These are DELETED immediately:
 
 ### Monitoring
 
-- Track mode usage in telemetry (local vs multitenant deployments)
+- Track mode usage in telemetry (local vs multiuser deployments)
 - Monitor startup validation failures
 - Alert on deprecated env var usage

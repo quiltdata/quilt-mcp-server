@@ -163,7 +163,7 @@ result = await unified_search("query", backend="s3")
 - 🏗️ **Rich Metadata**: User metadata filtering and package relationships
 - 📈 **Scalable**: Handles large datasets with proper timeout management
 - 🔒 **Secure**: Uses existing authentication and authorization
-- 🌐 **Cross-Catalog**: Ready for multi-tenant and cross-catalog search
+- 🌐 **Cross-Catalog**: Ready for multi-user and cross-catalog search
 
 ## 🚀 **Deployment Readiness**
 

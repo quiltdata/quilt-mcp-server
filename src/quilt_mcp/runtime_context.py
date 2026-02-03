@@ -37,7 +37,7 @@ class RuntimeContextState:
 def _get_default_environment() -> str:
     """Get default environment based on ModeConfig."""
     mode_config = get_mode_config()
-    return "web" if mode_config.is_multitenant else "desktop"
+    return "web" if mode_config.is_multiuser else "desktop"
 
 
 _default_state = RuntimeContextState(environment=_get_default_environment())

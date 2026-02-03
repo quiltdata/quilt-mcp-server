@@ -93,7 +93,7 @@ def stateless_container(
             cpu_quota=100000,  # 1.0 CPU (100000/100000)
             cpu_period=100000,
             environment={
-                "QUILT_MULTITENANT_MODE": "true",  # Enable multitenant mode
+                "QUILT_MULTIUSER_MODE": "true",  # Enable multiuser mode
                 "MCP_JWT_SECRET": "test-secret",  # Test JWT secret
                 "MCP_JWT_ISSUER": "test-issuer",  # Test JWT issuer
                 "MCP_JWT_AUDIENCE": "test-audience",  # Test JWT audience
@@ -152,7 +152,7 @@ def writable_container(
             remove=False,
             read_only=False,  # ❌ Writable filesystem (VIOLATION)
             environment={
-                "QUILT_MULTITENANT_MODE": "false",  # ❌ Local mode in stateless test (VIOLATION)
+                "QUILT_MULTIUSER_MODE": "false",  # ❌ Local mode in stateless test (VIOLATION)
                 "FASTMCP_TRANSPORT": "http",
                 "FASTMCP_HOST": "0.0.0.0",  # noqa: S104
                 "FASTMCP_PORT": "8000",

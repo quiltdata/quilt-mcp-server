@@ -31,8 +31,8 @@ class TenantValidationError(ValueError):
         if message is None:
             if mode == "single-user":
                 message = "Tenant validation failed for single-user mode. Tenant information must not be provided."
-            elif mode == "multitenant":
-                message = "Tenant validation failed for multitenant mode. Tenant information is required."
+            elif mode == "multiuser":
+                message = "Tenant validation failed for multiuser mode. Tenant information is required."
             else:
                 message = (
                     f"Tenant validation failed for {mode} mode. "

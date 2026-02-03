@@ -479,7 +479,7 @@ Thank you for helping us identify and fix this important protocol compliance iss
 
 - **FastMCP Library**: ✅ No issues - was usage error, not library bug
 - **MCP Specification**: Need to reference official spec for validation
-- **JWT Authentication**: Session management relates to [04-finish-jwt.md](../a10-multitenant/04-finish-jwt.md)
+- **JWT Authentication**: Session management relates to [04-finish-jwt.md](../a10-multiuser/04-finish-jwt.md)
 - **Stateless Mode Config**: Test requires `QUILT_MCP_STATELESS_MODE=true`
 
 ### Potential Blockers (UPDATED)
@@ -523,9 +523,9 @@ Thank you for helping us identify and fix this important protocol compliance iss
 
 ## Related Work
 
-- **JWT Authentication**: [04-finish-jwt.md](../a10-multitenant/04-finish-jwt.md) - Session management overlaps with auth
-- **Stateless Architecture**: [01-stateless.md](../a10-multitenant/01-stateless.md) - Session state must be stateless
-- **Stateless Testing**: [02-test-stateless.md](../a10-multitenant/02-test-stateless.md) - Protocol tests should work in stateless mode
+- **JWT Authentication**: [04-finish-jwt.md](../a10-multiuser/04-finish-jwt.md) - Session management overlaps with auth
+- **Stateless Architecture**: [01-stateless.md](../a10-multiuser/01-stateless.md) - Session state must be stateless
+- **Stateless Testing**: [02-test-stateless.md](../a10-multiuser/02-test-stateless.md) - Protocol tests should work in stateless mode
 
 ## Open Questions
 

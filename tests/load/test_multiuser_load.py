@@ -1,4 +1,4 @@
-"""Load tests for multitenant context creation."""
+"""Load tests for multiuser context creation."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from quilt_mcp.context.factory import RequestContextFactory
 
 
 @pytest.mark.slow
-def test_multitenant_context_creation_under_load(monkeypatch):
-    factory = RequestContextFactory(mode="multitenant")
+def test_multiuser_context_creation_under_load(monkeypatch):
+    factory = RequestContextFactory(mode="multiuser")
 
     class _StubAuth:
         def get_user_identity(self):

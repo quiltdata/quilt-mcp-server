@@ -2,11 +2,11 @@
 
 **Status**: Draft
 **Created**: 2026-01-28
-**Objective**: Define test infrastructure to validate true stateless, multitenant-ready operation
+**Objective**: Define test infrastructure to validate true stateless, multiuser-ready operation
 
 ## Purpose
 
-Create a `make test-stateless` target (or equivalent) that runs the Docker container in a configuration that **emulates production multitenant deployment constraints**. This serves as:
+Create a `make test-stateless` target (or equivalent) that runs the Docker container in a configuration that **emulates production multiuser deployment constraints**. This serves as:
 
 1. **Validation Gate**: Proves container operates without persistent state
 2. **Security Test**: Verifies container works under restricted permissions
@@ -26,9 +26,9 @@ Create a `make test-stateless` target (or equivalent) that runs the Docker conta
 
 This is a smoke test for stateless deployment, not a performance or load test.
 
-## Multitenant Deployment Characteristics
+## Multiuser Deployment Characteristics
 
-A true multitenant deployment must have:
+A true multiuser deployment must have:
 
 ### Hard Constraints (Must Enforce)
 
@@ -383,7 +383,7 @@ Warnings: None
 Errors: None
 
 Result: PASS ✓
-Container is production-ready for multitenant deployment.
+Container is production-ready for multiuser deployment.
 ```
 
 ### Failure Reporting
@@ -637,7 +637,7 @@ Add to README.md:
 ```markdown
 ## Testing Stateless Deployment
 
-To verify the container works in production multitenant mode:
+To verify the container works in production multiuser mode:
 
 ```bash
 make test-stateless
@@ -649,7 +649,7 @@ This runs the container with:
 - Minimal privileges
 - Resource limits
 
-See `spec/a10-multitenant/02-test-stateless.md` for details.
+See `spec/a10-multiuser/02-test-stateless.md` for details.
 ```
 
 ### Developer Guide

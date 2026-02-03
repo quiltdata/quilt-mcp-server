@@ -1,4 +1,4 @@
-"""Integration tests for multitenant context creation."""
+"""Integration tests for multiuser context creation."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
 
 
 @pytest.mark.integration
-def test_multitenant_contexts_are_isolated(tmp_path, monkeypatch):
+def test_multiuser_contexts_are_isolated(tmp_path, monkeypatch):
     storage = FileBasedWorkflowStorage(base_dir=tmp_path)
-    factory = RequestContextFactory(mode="multitenant")
+    factory = RequestContextFactory(mode="multiuser")
 
     class _StubAuth:
         def get_user_identity(self):
@@ -41,7 +41,7 @@ def test_multitenant_contexts_are_isolated(tmp_path, monkeypatch):
 
 
 @pytest.mark.integration
-def test_single_user_mode_ignores_multitenant_inputs(monkeypatch):
+def test_single_user_mode_ignores_multiuser_inputs(monkeypatch):
     factory = RequestContextFactory(mode="single-user")
 
     class _StubAuth:

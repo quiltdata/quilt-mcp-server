@@ -1,4 +1,4 @@
-"""Tenant extraction helpers for multitenant mode."""
+"""Tenant extraction helpers for multiuser mode."""
 
 from __future__ import annotations
 
