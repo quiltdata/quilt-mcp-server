@@ -11,6 +11,7 @@ from quilt_mcp.runtime_context import (
 )
 from quilt_mcp.services.jwt_decoder import JwtDecodeError, get_jwt_decoder
 
+
 class JwtAuthServiceError(RuntimeError):
     """Raised when JWT auth cannot be resolved."""
 

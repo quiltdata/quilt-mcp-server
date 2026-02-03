@@ -1562,6 +1562,12 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                        help="JWT id claim (user id, optional)")
     parser.add_argument("--jwt-uuid", type=str, default=None,
                        help="JWT uuid claim (user uuid, optional)")
+    parser.add_argument("--jwt-issuer", type=str, default=None,
+                       help="JWT issuer claim (optional)")
+    parser.add_argument("--jwt-audience", type=str, default=None,
+                       help="JWT audience claim (optional)")
+    parser.add_argument("--jwt-tenant-id", type=str, default=None,
+                       help="JWT tenant_id claim for multitenant mode (optional)")
     parser.add_argument("-t", "--tools-test", action="store_true",
                        help="Run tools test with test configurations")
     parser.add_argument("-T", "--test-tool", metavar="TOOL_NAME",
@@ -1614,6 +1620,9 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                 expiry_seconds=args.jwt_expiry,
                 user_id=args.jwt_id,
                 user_uuid=args.jwt_uuid,
+                issuer=args.jwt_issuer,
+                audience=args.jwt_audience,
+                tenant_id=args.jwt_tenant_id,
             )
             print("✅ JWT token generated successfully")
             if args.verbose:

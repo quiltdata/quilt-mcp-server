@@ -132,43 +132,46 @@ test-stateless: docker-build
 		export PYTHONPATH="src" && \
 		uv run python -m pytest tests/stateless/ -v --tb=short --color=yes
 
-# Stateless MCP Testing with JWT Authentication (using helper scripts)
+# Stateless MCP Testing with JWT Authentication (using Python docker_manager)
 test-mcp-stateless: docker-build
 	@echo "🔐 Testing stateless MCP with JWT authentication..."
 	@uv sync --group test
-	@export MCP_CONTAINER_NAME=mcp-stateless-test && \
-		export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		export MCP_PORT=8002 && \
-		export QUILT_CATALOG_URL="${QUILT_CATALOG_URL}" && \
-		export QUILT_REGISTRY_URL="${QUILT_REGISTRY_URL}" && \
-		bash scripts/tests/start-stateless-docker.sh && \
+	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+		uv run python scripts/docker_manager.py start \
+			--mode stateless \
+			--image $$TEST_DOCKER_IMAGE \
+			--name mcp-stateless-test \
+			--port 8002 \
+			--jwt-secret "test-secret-key-for-stateless-testing-only" && \
 		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
 			--jwt \
 			--secret "test-secret-key-for-stateless-testing-only" \
-			--jwt-id "${MCP_JWT_TEST_ID:-test-user-id}" \
-			--jwt-uuid "${MCP_JWT_TEST_UUID:-test-user-uuid}" \
+			--jwt-issuer "mcp-test" \
+			--jwt-audience "mcp-server" \
+			--jwt-tenant-id "test-tenant" \
+			--jwt-id "$${MCP_JWT_TEST_ID:-test-user-id}" \
+			--jwt-uuid "$${MCP_JWT_TEST_UUID:-test-user-uuid}" \
 			--tools-test --resources-test \
 			--config scripts/tests/mcp-test.yaml && \
-		bash scripts/tests/stop-stateless-docker.sh) || \
-		(bash scripts/tests/stop-stateless-docker.sh && exit 1)
+		uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
+		(uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
 	@echo "✅ Stateless JWT testing with catalog authentication completed"
 
 # Multitenant Testing with Fake Roles (for local development)
 test-multitenant-fake: docker-build
 	@echo "👥 Testing multitenant MCP with fake tenant JWTs (local dev only)..."
 	@uv sync --group test
-	@export MCP_CONTAINER_NAME=mcp-multitenant-fake-test && \
-		export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		export MCP_PORT=8003 && \
-		export MCP_JWT_SECRET=test-secret && \
-		export QUILT_CATALOG_URL="${QUILT_CATALOG_URL}" && \
-		export QUILT_REGISTRY_URL="${QUILT_REGISTRY_URL}" && \
-		bash scripts/tests/start-multitenant-fake-docker.sh && \
+	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+		uv run python scripts/docker_manager.py start \
+			--mode multitenant-fake \
+			--image $$TEST_DOCKER_IMAGE \
+			--name mcp-multitenant-fake-test \
+			--port 8003 \
+			--jwt-secret "test-secret" && \
 		(uv run python scripts/test-multitenant.py http://localhost:8003/mcp \
 			--verbose && \
-		bash scripts/tests/stop-stateless-docker.sh) || \
-		(export MCP_CONTAINER_NAME=mcp-multitenant-fake-test && \
-		bash scripts/tests/stop-stateless-docker.sh && exit 1)
+		uv run python scripts/docker_manager.py stop --name mcp-multitenant-fake-test) || \
+		(uv run python scripts/docker_manager.py stop --name mcp-multitenant-fake-test && exit 1)
 	@echo "✅ Multitenant fake role testing completed"
 
 # Code Quality Targets

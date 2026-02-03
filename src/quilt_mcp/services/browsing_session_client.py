@@ -8,11 +8,14 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 from urllib.parse import quote
 
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, NotFoundError
 from quilt_mcp.utils import normalize_url
+
+if TYPE_CHECKING:
+    import requests
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +41,7 @@ class BrowsingSessionClient:
         catalog_url: str,
         graphql_endpoint: str,
         access_token: str,
-        session: Optional[object] = None,
+        session: Optional[requests.Session] = None,
         ttl_seconds: int = 180,
     ) -> None:
         if not catalog_url:

@@ -11,9 +11,19 @@ import json
 import os
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
+from urllib.parse import urlparse
+
+# Optional quiltx integration for auto-discovery
+try:
+    from quiltx import get_catalog_url, get_catalog_region  # type: ignore
+
+    QUILTX_AVAILABLE = True
+except ImportError:
+    QUILTX_AVAILABLE = False
 
 
 # Configuration
@@ -39,6 +49,56 @@ class ImageReference:
     @property
     def uri(self) -> str:
         return f"{self.registry}/{self.image}:{self.tag}"
+
+
+@dataclass(frozen=True)
+class ContainerConfig:
+    """Configuration for a Docker container."""
+
+    name: str
+    image: str
+    port: int  # Container internal port
+    host_port: int  # Host port
+    env_vars: dict[str, str]
+    security_opts: list[str]
+    tmpfs_mounts: dict[str, str]
+    memory_limit: str
+    memory_swap: str
+    cpu_quota: int
+    cpu_period: int
+    read_only: bool
+
+    def to_docker_run_args(self) -> list[str]:
+        """Convert config to docker run command arguments."""
+        args = ["docker", "run", "-d", "--name", self.name]
+
+        # Security options
+        if self.read_only:
+            args.append("--read-only")
+        for opt in self.security_opts:
+            args.extend(["--security-opt", opt])
+
+        # Resource limits
+        args.extend(["--memory", self.memory_limit])
+        args.extend(["--memory-swap", self.memory_swap])
+        args.extend(["--cpu-quota", str(self.cpu_quota)])
+        args.extend(["--cpu-period", str(self.cpu_period)])
+
+        # Tmpfs mounts
+        for path, opts in self.tmpfs_mounts.items():
+            args.extend(["--tmpfs", f"{path}:{opts}"])
+
+        # Environment variables
+        for key, value in self.env_vars.items():
+            args.extend(["-e", f"{key}={value}"])
+
+        # Port mapping
+        args.extend(["-p", f"{self.host_port}:{self.port}"])
+
+        # Image name
+        args.append(self.image)
+
+        return args
 
 
 class DockerManager:
@@ -120,6 +180,356 @@ class DockerManager:
         print(f"INFO: Executing: {' '.join(cmd)}", file=sys.stderr)
         return subprocess.run(cmd, check=check, capture_output=True, text=True)
 
+    def get_quilt_config(self) -> tuple[Optional[str], Optional[str]]:
+        """Get Quilt catalog and registry URLs.
+
+        Priority order:
+        1. Environment variables (QUILT_CATALOG_URL, QUILT_REGISTRY_URL)
+        2. Auto-discovery via quiltx (if available)
+        3. None (requires manual configuration)
+
+        Returns:
+            Tuple of (catalog_url, registry_url) or (None, None) if not found
+        """
+        # Try environment variables first
+        catalog_url = os.getenv("QUILT_CATALOG_URL")
+        registry_url = os.getenv("QUILT_REGISTRY_URL")
+
+        if catalog_url and registry_url:
+            print(f"INFO: Using Quilt config from environment variables", file=sys.stderr)
+            print(f"   Catalog: {catalog_url}", file=sys.stderr)
+            print(f"   Registry: {registry_url}", file=sys.stderr)
+            return (catalog_url, registry_url)
+
+        # Try quiltx auto-discovery
+        if QUILTX_AVAILABLE:
+            try:
+                catalog_url = get_catalog_url()
+                # Construct registry URL by adding 'registry.' subdomain
+                # e.g., https://my-catalog.quiltdata.com -> https://registry.my-catalog.quiltdata.com
+                if catalog_url:
+                    parsed = urlparse(catalog_url)
+                    registry_host = f"registry.{parsed.netloc}"
+                    registry_url = f"{parsed.scheme}://{registry_host}"
+
+                    print(f"INFO: Auto-discovered Quilt config via quiltx", file=sys.stderr)
+                    print(f"   Catalog: {catalog_url}", file=sys.stderr)
+                    print(f"   Registry: {registry_url}", file=sys.stderr)
+                    return (catalog_url, registry_url)
+            except Exception as e:
+                print(f"WARNING: Could not auto-discover Quilt config: {e}", file=sys.stderr)
+        else:
+            print("INFO: quiltx not available for auto-discovery", file=sys.stderr)
+
+        return (None, None)
+
+    def validate_quilt_config(self) -> bool:
+        """Validate that Quilt configuration is available.
+
+        Returns:
+            True if configuration is valid, False otherwise
+        """
+        catalog_url, registry_url = self.get_quilt_config()
+
+        if not catalog_url or not registry_url:
+            print("", file=sys.stderr)
+            print("ERROR: Quilt catalog configuration not found", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Please configure using one of these methods:", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("1. Set environment variables:", file=sys.stderr)
+            print("   export QUILT_CATALOG_URL=https://your-catalog.quiltdata.com", file=sys.stderr)
+            print("   export QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("2. Run 'quilt3 login' to configure quiltx auto-discovery", file=sys.stderr)
+            print("   (requires: pip install quiltx)", file=sys.stderr)
+            print("", file=sys.stderr)
+            return False
+
+        return True
+
+    def create_stateless_config(
+        self,
+        container_name: str = "mcp-stateless-test",
+        image: str = "quilt-mcp:test",
+        port: int = 8002,
+        jwt_secret: Optional[str] = None,
+    ) -> Optional[ContainerConfig]:
+        """Create configuration for stateless MCP container.
+
+        Args:
+            container_name: Name for the Docker container
+            image: Docker image to use
+            port: Host port to expose
+            jwt_secret: JWT secret key (defaults to test key)
+
+        Returns:
+            ContainerConfig instance or None if validation fails
+        """
+        # Validate Quilt configuration
+        if not self.validate_quilt_config():
+            return None
+
+        catalog_url, registry_url = self.get_quilt_config()
+        # After validation, these are guaranteed to be non-None
+        assert catalog_url is not None and registry_url is not None
+
+        # Default JWT secret for testing
+        if not jwt_secret:
+            jwt_secret = "test-secret-key-for-stateless-testing-only"
+
+        env_vars = {
+            "QUILT_MULTITENANT_MODE": "true",
+            "MCP_JWT_SECRET": jwt_secret,
+            "MCP_JWT_ISSUER": "mcp-test",
+            "MCP_JWT_AUDIENCE": "mcp-server",
+            "QUILT_CATALOG_URL": catalog_url,
+            "QUILT_REGISTRY_URL": registry_url,
+            "QUILT_DISABLE_CACHE": "true",
+            "HOME": "/tmp",
+            "LOG_LEVEL": "DEBUG",
+            "FASTMCP_TRANSPORT": "http",
+            "FASTMCP_HOST": "0.0.0.0",
+            "FASTMCP_PORT": "8000",
+            "AWS_REGION": "us-east-1",
+        }
+
+        return ContainerConfig(
+            name=container_name,
+            image=image,
+            port=8000,  # Container internal port
+            host_port=port,  # Host port
+            env_vars=env_vars,
+            security_opts=["no-new-privileges:true"],
+            tmpfs_mounts={
+                "/tmp": "size=100M,mode=1777",
+                "/run": "size=10M,mode=755",
+            },
+            memory_limit="512m",
+            memory_swap="512m",
+            cpu_quota=100000,
+            cpu_period=100000,
+            read_only=True,
+        )
+
+    def create_multitenant_fake_config(
+        self,
+        container_name: str = "mcp-multitenant-fake-test",
+        image: str = "quilt-mcp:test",
+        port: int = 8003,
+        jwt_secret: Optional[str] = None,
+    ) -> Optional[ContainerConfig]:
+        """Create configuration for multitenant fake role testing.
+
+        Args:
+            container_name: Name for the Docker container
+            image: Docker image to use
+            port: Host port to expose
+            jwt_secret: JWT secret key (defaults to test-secret)
+
+        Returns:
+            ContainerConfig instance or None if validation fails
+        """
+        # Validate Quilt configuration
+        if not self.validate_quilt_config():
+            return None
+
+        catalog_url, registry_url = self.get_quilt_config()
+        # After validation, these are guaranteed to be non-None
+        assert catalog_url is not None and registry_url is not None
+
+        # Default JWT secret for multitenant testing
+        if not jwt_secret:
+            jwt_secret = "test-secret"
+
+        env_vars = {
+            "QUILT_MULTITENANT_MODE": "true",
+            "MCP_JWT_SECRET": jwt_secret,
+            "MCP_JWT_ISSUER": "mcp-test",
+            "MCP_JWT_AUDIENCE": "mcp-server",
+            "QUILT_CATALOG_URL": catalog_url,
+            "QUILT_REGISTRY_URL": registry_url,
+            "QUILT_DISABLE_CACHE": "true",
+            "HOME": "/tmp",
+            "LOG_LEVEL": "DEBUG",
+            "FASTMCP_TRANSPORT": "http",
+            "FASTMCP_HOST": "0.0.0.0",
+            "FASTMCP_PORT": "8000",
+            "AWS_REGION": "us-east-1",
+        }
+
+        return ContainerConfig(
+            name=container_name,
+            image=image,
+            port=8000,  # Container internal port
+            host_port=port,  # Host port
+            env_vars=env_vars,
+            security_opts=["no-new-privileges:true"],
+            tmpfs_mounts={
+                "/tmp": "size=100M,mode=1777",
+                "/run": "size=10M,mode=755",
+            },
+            memory_limit="512m",
+            memory_swap="512m",
+            cpu_quota=100000,
+            cpu_period=100000,
+            read_only=True,
+        )
+
+    def container_exists(self, name: str) -> bool:
+        """Check if a container exists (running or stopped).
+
+        Args:
+            name: Container name
+
+        Returns:
+            True if container exists, False otherwise
+        """
+        result = self._run_command(["docker", "ps", "-a", "--format", "{{.Names}}"], check=False)
+
+        if result.returncode != 0:
+            return False
+
+        containers = result.stdout.strip().split("\n")
+        return name in containers
+
+    def container_is_running(self, name: str) -> bool:
+        """Check if a container is currently running.
+
+        Args:
+            name: Container name
+
+        Returns:
+            True if container is running, False otherwise
+        """
+        result = self._run_command(["docker", "ps", "--format", "{{.Names}}"], check=False)
+
+        if result.returncode != 0:
+            return False
+
+        containers = result.stdout.strip().split("\n")
+        return name in containers
+
+    def start_container(self, config: ContainerConfig) -> bool:
+        """Start a Docker container with the specified configuration.
+
+        Args:
+            config: Container configuration
+
+        Returns:
+            True if container started successfully, False otherwise
+        """
+        if not self._check_docker():
+            return False
+
+        # Stop and remove existing container if it exists
+        if self.container_exists(config.name):
+            print(f"INFO: Removing existing container: {config.name}", file=sys.stderr)
+            self.stop_container(config.name)
+
+        print(f"INFO: Starting container: {config.name}", file=sys.stderr)
+        print(f"   Image: {config.image}", file=sys.stderr)
+        print(f"   Port: {config.host_port} -> {config.port}", file=sys.stderr)
+
+        # Add --cap-drop=ALL to security options
+        docker_args = config.to_docker_run_args()
+        # Insert --cap-drop=ALL after the "run" command
+        run_idx = docker_args.index("run")
+        docker_args.insert(run_idx + 1, "--cap-drop=ALL")
+
+        # Start container
+        result = self._run_command(docker_args, check=False)
+
+        if result.returncode != 0:
+            print(f"ERROR: Failed to start container: {result.stderr}", file=sys.stderr)
+            return False
+
+        # Wait for container to start
+        print("INFO: Waiting for container to start...", file=sys.stderr)
+        time.sleep(3)
+
+        # Verify container is running
+        if not self.container_is_running(config.name):
+            print(f"ERROR: Container failed to start", file=sys.stderr)
+            # Show logs for debugging
+            log_result = self._run_command(["docker", "logs", config.name], check=False)
+            if log_result.stdout:
+                print(log_result.stdout, file=sys.stderr)
+            return False
+
+        print(f"INFO: Container started successfully", file=sys.stderr)
+        print(f"   Access at: http://localhost:{config.host_port}/mcp", file=sys.stderr)
+        print(f"   View logs: docker logs {config.name}", file=sys.stderr)
+        return True
+
+    def stop_container(self, name: str) -> bool:
+        """Stop and remove a Docker container.
+
+        Args:
+            name: Container name
+
+        Returns:
+            True if container stopped successfully, False otherwise
+        """
+        if not self.container_exists(name):
+            print(f"INFO: Container does not exist: {name}", file=sys.stderr)
+            return True
+
+        print(f"INFO: Stopping container: {name}", file=sys.stderr)
+
+        # Stop container
+        stop_result = self._run_command(["docker", "stop", name], check=False)
+
+        if stop_result.returncode != 0:
+            print(f"WARNING: Failed to stop container: {stop_result.stderr}", file=sys.stderr)
+
+        # Remove container
+        remove_result = self._run_command(["docker", "rm", name], check=False)
+
+        if remove_result.returncode != 0:
+            print(f"ERROR: Failed to remove container: {remove_result.stderr}", file=sys.stderr)
+            return False
+
+        print(f"INFO: Container stopped and removed", file=sys.stderr)
+        return True
+
+    def show_logs(self, name: str, tail: int = 50, follow: bool = False) -> bool:
+        """Show container logs.
+
+        Args:
+            name: Container name
+            tail: Number of lines to show from end of logs
+            follow: Whether to follow log output (stream)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.container_exists(name):
+            print(f"ERROR: Container does not exist: {name}", file=sys.stderr)
+            return False
+
+        cmd = ["docker", "logs"]
+
+        if tail > 0:
+            cmd.extend(["--tail", str(tail)])
+
+        if follow:
+            cmd.append("-f")
+
+        cmd.append(name)
+
+        # Don't use _run_command here - we want logs to stream to stdout
+        if self.dry_run:
+            print(f"DRY RUN: Would execute: {' '.join(cmd)}", file=sys.stderr)
+            return True
+
+        print(f"INFO: Showing logs for container: {name}", file=sys.stderr)
+
+        # Run without capturing output so logs stream directly
+        result = subprocess.run(cmd, check=False)
+
+        return result.returncode == 0
+
     def _check_docker(self) -> bool:
         """Validate Docker is available and running."""
         try:
@@ -155,6 +565,7 @@ class DockerManager:
         """
         # Check architecture - warn on arm64 but allow local builds for testing
         import platform as platform_module
+
         machine = platform_module.machine().lower()
         if machine in ("arm64", "aarch64") and platform == "linux/amd64":
             print("", file=sys.stderr)
@@ -167,13 +578,9 @@ class DockerManager:
         print(f"INFO: Target platform: {platform}", file=sys.stderr)
 
         os.chdir(self.project_root)
-        result = self._run_command([
-            "docker", "build",
-            "--platform", platform,
-            "--file", "Dockerfile",
-            "--tag", tag,
-            "."
-        ])
+        result = self._run_command(
+            ["docker", "build", "--platform", platform, "--file", "Dockerfile", "--tag", tag, "."]
+        )
 
         if result.returncode == 0:
             print(f"INFO: Successfully built: {tag}", file=sys.stderr)
@@ -218,6 +625,7 @@ class DockerManager:
 
         # Check architecture - enable dry-run mode on arm64
         import platform
+
         machine = platform.machine().lower()
         if machine in ("arm64", "aarch64"):
             print("", file=sys.stderr)
@@ -278,6 +686,7 @@ class DockerManager:
 
         # Detect native platform for fast local builds
         import platform as platform_module
+
         machine = platform_module.machine().lower()
         if machine in ("arm64", "aarch64"):
             native_platform = "linux/arm64"
@@ -612,11 +1021,28 @@ EXAMPLES:
     # Dry run to see what would happen
     %(prog)s push --version 1.2.3 --dry-run
 
+    # Start a stateless test container
+    %(prog)s start --mode stateless
+
+    # Start a multitenant fake test container
+    %(prog)s start --mode multitenant-fake
+
+    # Stop a container
+    %(prog)s stop --name mcp-stateless-test
+
+    # View container logs
+    %(prog)s logs --name mcp-stateless-test --tail 100
+
+    # Follow container logs
+    %(prog)s logs --name mcp-stateless-test --follow
+
 ENVIRONMENT VARIABLES:
     ECR_REGISTRY           ECR registry URL
     AWS_ACCOUNT_ID         AWS account ID (used to construct registry)
     AWS_DEFAULT_REGION     AWS region (default: us-east-1)
     VERSION                Version tag (can override --version)
+    QUILT_CATALOG_URL      Quilt catalog URL (for container start)
+    QUILT_REGISTRY_URL     Quilt registry URL (for container start)
         """,
     )
 
@@ -654,7 +1080,33 @@ ENVIRONMENT VARIABLES:
     validate_parser.add_argument("--registry", help="ECR registry URL")
     validate_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
     validate_parser.add_argument("--no-latest", action="store_true", help="Skip latest tag validation")
-    validate_parser.add_argument("--skip-auth", action="store_true", help="Skip ECR authentication (for public registries)")
+    validate_parser.add_argument(
+        "--skip-auth", action="store_true", help="Skip ECR authentication (for public registries)"
+    )
+
+    # Start command
+    start_parser = subparsers.add_parser("start", help="Start a Docker container for testing")
+    start_parser.add_argument(
+        "--mode", choices=["stateless", "multitenant-fake"], required=True, help="Container mode/preset"
+    )
+    start_parser.add_argument(
+        "--image", default="quilt-mcp:test", help="Docker image to use (default: quilt-mcp:test)"
+    )
+    start_parser.add_argument("--name", help="Container name (defaults based on mode)")
+    start_parser.add_argument(
+        "--port", type=int, help="Host port to expose (defaults: 8002 for stateless, 8003 for multitenant-fake)"
+    )
+    start_parser.add_argument("--jwt-secret", help="JWT secret key (defaults based on mode)")
+
+    # Stop command
+    stop_parser = subparsers.add_parser("stop", help="Stop and remove a Docker container")
+    stop_parser.add_argument("--name", required=True, help="Container name to stop")
+
+    # Logs command
+    logs_parser = subparsers.add_parser("logs", help="Show container logs")
+    logs_parser.add_argument("--name", required=True, help="Container name")
+    logs_parser.add_argument("--tail", type=int, default=50, help="Number of lines to show from end (default: 50)")
+    logs_parser.add_argument("--follow", action="store_true", help="Follow log output (stream)")
 
     return parser.parse_args(list(argv))
 
@@ -742,6 +1194,56 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0 if success else 1
 
 
+def cmd_start(args: argparse.Namespace) -> int:
+    """Start a Docker container."""
+    manager = DockerManager(dry_run=getattr(args, 'dry_run', False))
+
+    # Determine container configuration based on mode
+    if args.mode == "stateless":
+        container_name = args.name or "mcp-stateless-test"
+        port = args.port or 8002
+        config = manager.create_stateless_config(
+            container_name=container_name,
+            image=args.image,
+            port=port,
+            jwt_secret=args.jwt_secret,
+        )
+    elif args.mode == "multitenant-fake":
+        container_name = args.name or "mcp-multitenant-fake-test"
+        port = args.port or 8003
+        config = manager.create_multitenant_fake_config(
+            container_name=container_name,
+            image=args.image,
+            port=port,
+            jwt_secret=args.jwt_secret,
+        )
+    else:
+        print(f"ERROR: Unknown mode: {args.mode}", file=sys.stderr)
+        return 1
+
+    # Validation failed
+    if config is None:
+        return 1
+
+    # Start container
+    success = manager.start_container(config)
+    return 0 if success else 1
+
+
+def cmd_stop(args: argparse.Namespace) -> int:
+    """Stop a Docker container."""
+    manager = DockerManager()
+    success = manager.stop_container(args.name)
+    return 0 if success else 1
+
+
+def cmd_logs(args: argparse.Namespace) -> int:
+    """Show container logs."""
+    manager = DockerManager()
+    success = manager.show_logs(args.name, args.tail, args.follow)
+    return 0 if success else 1
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     """Main entry point."""
     args = parse_args(argv or sys.argv[1:])
@@ -760,6 +1262,12 @@ def main(argv: Iterable[str] | None = None) -> int:
         return cmd_info(args)
     elif args.command == "validate":
         return cmd_validate(args)
+    elif args.command == "start":
+        return cmd_start(args)
+    elif args.command == "stop":
+        return cmd_stop(args)
+    elif args.command == "logs":
+        return cmd_logs(args)
     else:
         print(f"ERROR: Unknown command: {args.command}", file=sys.stderr)
         return 1

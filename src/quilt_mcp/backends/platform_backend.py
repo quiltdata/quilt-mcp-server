@@ -1101,32 +1101,3 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         except Exception:
             return None
         return None
-
-    @contextmanager
-    def _with_aws_credentials(self):
-        old_env = {
-            "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID"),
-            "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY"),
-            "AWS_SESSION_TOKEN": os.environ.get("AWS_SESSION_TOKEN"),
-            "AWS_DEFAULT_REGION": os.environ.get("AWS_DEFAULT_REGION"),
-        }
-        try:
-            session = self._auth_service.get_session()
-            creds = session.get_credentials()
-            if creds is None:
-                yield
-                return
-            frozen = creds.get_frozen_credentials()
-            os.environ["AWS_ACCESS_KEY_ID"] = frozen.access_key
-            os.environ["AWS_SECRET_ACCESS_KEY"] = frozen.secret_key
-            if frozen.token:
-                os.environ["AWS_SESSION_TOKEN"] = frozen.token
-            if session.region_name:
-                os.environ["AWS_DEFAULT_REGION"] = session.region_name
-            yield
-        finally:
-            for key, value in old_env.items():
-                if value is None:
-                    os.environ.pop(key, None)
-                else:
-                    os.environ[key] = value
