@@ -1,11 +1,8 @@
 """Tests for AWS permissions discovery functionality."""
 
-import os
-import time
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch
 from datetime import datetime, timezone
-from botocore.exceptions import ClientError
 
 from quilt_mcp.services.permissions_service import (
     _bucket_recommendations_get,
@@ -326,77 +323,6 @@ class TestPermissionDiscoveryEngine:
         assert identity is not None
         assert identity.account_id is not None
         assert len(identity.account_id) == 12  # AWS account IDs are 12 digits
-
-    @pytest.mark.skip(reason="Poorly written test causing confusion - skipping per user request")
-    @pytest.mark.integration
-    def test_discover_bucket_permissions(self, test_bucket):
-        """Test bucket permission discovery with real AWS connection."""
-        # Skip if AWS credentials not available
-        try:
-            import boto3
-
-            s3 = boto3.client("s3")
-            s3.list_buckets()  # Test basic connectivity
-        except Exception:
-            pytest.fail("AWS credentials not available")
-
-        # Extract bucket name from test_bucket (remove s3:// prefix if present)
-        bucket_name = test_bucket.replace("s3://", "") if test_bucket.startswith("s3://") else test_bucket
-
-        discovery = AWSPermissionDiscovery()
-
-        # Test with test bucket (should have at least read access)
-        bucket_info = discovery.discover_bucket_permissions(bucket_name)
-
-        # Should succeed or fail gracefully with AWS error
-        assert isinstance(bucket_info, BucketInfo)
-        assert bucket_info.name == bucket_name
-        assert bucket_info.permission_level in [
-            PermissionLevel.READ_ONLY,
-            PermissionLevel.FULL_ACCESS,
-            PermissionLevel.NO_ACCESS,
-        ]
-
-        # If we have any access, should be able to list
-        if bucket_info.permission_level != PermissionLevel.NO_ACCESS:
-            assert bucket_info.can_list is True
-
-    @pytest.mark.skip(reason="Poorly written test causing confusion - skipping per user request")
-    @pytest.mark.integration
-    def test_discover_bucket_permissions_full_access(self, test_bucket):
-        """Test bucket permission discovery with real AWS (integration test)."""
-        # Extract bucket name from test_bucket (remove s3:// prefix if present)
-        bucket_name = test_bucket.replace("s3://", "") if test_bucket.startswith("s3://") else test_bucket
-
-        discovery = AWSPermissionDiscovery()
-        bucket_info = discovery.discover_bucket_permissions(bucket_name)
-
-        # Should get bucket info regardless of access level
-        assert bucket_info.name == bucket_name
-        # Basic assertions that should work for any bucket check
-        assert isinstance(bucket_info.can_list, bool)
-        assert isinstance(bucket_info.can_read, bool)
-        assert isinstance(bucket_info.can_write, bool)
-        assert isinstance(bucket_info.permission_level, PermissionLevel)
-        # Should have a timestamp
-        assert bucket_info.last_checked is not None
-
-    @pytest.mark.skip(reason="Poorly written test causing confusion - skipping per user request")
-    @pytest.mark.integration
-    def test_discover_bucket_permissions_nonexistent_bucket(self):
-        """Test bucket permission discovery with nonexistent bucket (integration test)."""
-        # Use a bucket name that definitely doesn't exist
-        nonexistent_bucket = f"definitely-nonexistent-bucket-{int(time.time())}"
-
-        discovery = AWSPermissionDiscovery()
-        bucket_info = discovery.discover_bucket_permissions(nonexistent_bucket)
-
-        # Should have no access to nonexistent bucket
-        assert bucket_info.name == nonexistent_bucket
-        assert bucket_info.permission_level == PermissionLevel.NO_ACCESS
-        assert bucket_info.can_list is False
-        assert bucket_info.can_read is False
-        assert bucket_info.can_write is False
 
 
 @pytest.mark.integration
