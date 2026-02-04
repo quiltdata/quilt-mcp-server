@@ -26,6 +26,7 @@ After renaming "multitenant" to "multiuser" terminology (Spec 17), this spec com
 ### Core Architecture Principle
 
 **Every Quilt MCP server deployment is a standalone tenant:**
+
 - One deployment = One organization = One Quilt catalog
 - Multiple users within that single tenant
 - No need to track "which tenant" - it's implicit in the deployment
@@ -34,6 +35,7 @@ After renaming "multitenant" to "multiuser" terminology (Spec 17), this spec com
 ### What We Have (Current State)
 
 ❌ **Multitenant-style architecture:**
+
 ```python
 # Everywhere in the code
 tenant_id: str                          # Unnecessary!
@@ -43,6 +45,7 @@ WorkflowStorage.save(tenant_id, workflow_id, ...) # Extra parameter!
 ```
 
 ❌ **Tests validate multitenant scenarios:**
+
 ```python
 # tests/integration/test_multiuser.py
 def test_cross_tenant_isolation():
@@ -53,6 +56,7 @@ def test_cross_tenant_isolation():
 ### What We Should Have (Target State)
 
 ✅ **Single-tenant, multiuser architecture:**
+
 ```python
 # Simplified - no tenant tracking
 user_id: str                            # Only identity needed!
@@ -62,6 +66,7 @@ WorkflowStorage.save(workflow_id, ...)  # No tenant parameter!
 ```
 
 ✅ **Tests validate multiuser scenarios:**
+
 ```python
 # tests/integration/test_multiuser.py
 def test_multiple_users_same_catalog():
@@ -72,12 +77,14 @@ def test_multiple_users_same_catalog():
 ### Why This Matters
 
 **Current complexity is unnecessary:**
+
 - Tracking `tenant_id` adds parameters to every function
 - Validating tenant isolation adds unnecessary checks
 - Tests validate scenarios that will never happen (cross-tenant access)
 - Storage backends partition by tenant unnecessarily
 
 **Simplified architecture:**
+
 - Remove ~30% of parameters across codebase
 - Remove tenant validation logic
 - Focus tests on actual use case (multiple users)
@@ -101,6 +108,7 @@ def test_multiple_users_same_catalog():
 | Cross-tenant tests | Integration tests | Impossible scenario |
 
 **Example - Before:**
+
 ```python
 class RequestContextFactory:
     def create_context(
@@ -120,6 +128,7 @@ class RequestContextFactory:
 ```
 
 **Example - After:**
+
 ```python
 class RequestContextFactory:
     def create_context(
@@ -138,12 +147,14 @@ class RequestContextFactory:
 ### 2. Simplify to User-Only Identity
 
 **What remains:**
+
 - `user_id` - Primary identity (from JWT `sub` claim)
 - `email` - Optional (from JWT `email` claim)
 - `role` - Optional (from JWT `role` claim)
 - `access_token` - JWT for downstream API calls
 
 **No organization/tenant tracking needed** - it's implicit in:
+
 - Environment variables: `QUILT_CATALOG_URL`, `QUILT_REGISTRY_URL`
 - AWS credentials: Single set of credentials per deployment
 - Deployment isolation: Each stack serves one tenant
@@ -161,12 +172,14 @@ class RequestContextFactory:
 | "tenant" in comments | **REMOVE** | Wrong model |
 
 **The ONLY place to keep "tenant":**
+
 - Historical notes explaining why we removed it
 - Comments like "Note: Each deployment is single-tenant, no tracking needed"
 
 ### 4. Simplify Storage
 
 **Workflow storage - Before:**
+
 ```python
 class FileBasedWorkflowStorage:
     def _tenant_dir(self, tenant_id: str) -> Path:
@@ -177,6 +190,7 @@ class FileBasedWorkflowStorage:
 ```
 
 **Workflow storage - After:**
+
 ```python
 class FileBasedWorkflowStorage:
     def save(self, workflow_id: str, workflow: Dict):
@@ -184,6 +198,7 @@ class FileBasedWorkflowStorage:
 ```
 
 **DynamoDB storage - Before:**
+
 ```python
 # Partition key includes tenant
 PK: f"ORG#{tenant_id}"  # ❌ Unnecessary
@@ -191,6 +206,7 @@ SK: f"WORKFLOW#{workflow_id}"
 ```
 
 **DynamoDB storage - After:**
+
 ```python
 # Simple partition by workflow
 PK: f"WORKFLOW#{workflow_id}"  # ✅ One tenant = simple keys
@@ -200,6 +216,7 @@ PK: f"WORKFLOW#{workflow_id}"  # ✅ One tenant = simple keys
 ### 5. Fix Tests
 
 **Remove cross-tenant tests:**
+
 ```python
 # ❌ DELETE - tests impossible scenario
 def test_cross_tenant_isolation():
@@ -215,6 +232,7 @@ def test_workflow_storage_tenant_isolation():
 ```
 
 **Add multiuser tests:**
+
 ```python
 # ✅ ADD - tests actual use case
 def test_multiple_users_same_catalog():
@@ -317,6 +335,7 @@ def test_user_permissions_respected():
 #### Files Modified/Deleted
 
 **Modified** (5 files):
+
 - `src/quilt_mcp/context/request_context.py` - Remove tenant_id field
 - `src/quilt_mcp/context/factory.py` - Simplify context creation
 - `src/quilt_mcp/context/exceptions.py` - Delete TenantValidationError
@@ -324,9 +343,11 @@ def test_user_permissions_respected():
 - `src/quilt_mcp/runtime_context.py` - Update RuntimeContextState
 
 **Added** (1 file):
+
 - `src/quilt_mcp/context/user_extraction.py` - Extract user identity
 
 **Deleted** (1 file):
+
 - `src/quilt_mcp/context/tenant_extraction.py` - No longer needed
 
 #### Testing
@@ -464,6 +485,7 @@ def test_user_permissions_respected():
 ```
 
 Claims:
+
 - `id` - User ID (primary)
 - `uuid` - Alternative user identifier
 - `exp` - Expiration timestamp
@@ -524,6 +546,7 @@ This correctly prioritizes catalog JWT claims (`id`, `uuid`) with fallback to st
 #### Tests to Delete
 
 **Cross-tenant isolation** (impossible scenario):
+
 ```python
 # tests/integration/test_multiuser.py
 def test_cross_tenant_isolation()  # ❌ DELETE
@@ -539,6 +562,7 @@ def test_workflow_cross_tenant_access_denied()  # ❌ DELETE
 #### Tests to Add
 
 **Multiple users, same catalog**:
+
 ```python
 # tests/integration/test_multiuser_access.py (new)
 
@@ -581,6 +605,7 @@ async def test_user_permissions_enforced():
 ```
 
 **User identity (no audit storage in multiuser)**:
+
 ```python
 # tests/integration/test_multiuser_identity.py (new)
 
@@ -611,6 +636,7 @@ async def test_concurrent_users_stateless():
 ```
 
 **Load testing** (realistic workload):
+
 ```python
 # tests/load/test_multiuser_load.py (update)
 
@@ -633,15 +659,18 @@ async def test_concurrent_users_sustained_load():
 #### Test Files Modified/Deleted
 
 **Deleted** (entire files):
+
 - `tests/unit/context/test_tenant_extraction.py` - Not needed
 - Cross-tenant test functions (keep files, delete functions)
 
 **Modified** (existing files):
+
 - `tests/integration/test_multiuser.py` - Remove cross-tenant tests
 - `tests/security/test_multiuser_security.py` - Focus on user permissions
 - `tests/load/test_multiuser_load.py` - Realistic workload
 
 **Added** (new files):
+
 - `tests/integration/test_multiuser_access.py` - Same-catalog access
 - `tests/integration/test_multiuser_audit.py` - User identity tracking
 - `tests/unit/context/test_user_extraction.py` - User ID extraction
@@ -649,6 +678,7 @@ async def test_concurrent_users_sustained_load():
 #### Testing Infrastructure
 
 **Update fixtures** (`tests/conftest.py`):
+
 ```python
 @pytest.fixture
 def make_catalog_jwt():
@@ -814,6 +844,7 @@ async def multiuser_client():
 #### Testing (Phase 5)
 
 **Multiuser mode tests:**
+
 ```python
 # tests/integration/test_multiuser_stateless.py (new)
 
@@ -866,6 +897,7 @@ async def test_templates_enabled_in_local_dev():
 #### Documentation Updates
 
 **README.md** - Update architecture section:
+
 ```markdown
 ## Architecture
 
@@ -947,6 +979,7 @@ async def test_templates_enabled_in_local_dev():
 ### Deployment Model
 
 **Each deployment serves ONE tenant:**
+
 ```
 ┌─────────────────────────────────────┐
 │  Quilt MCP Server (Single Tenant)   │
@@ -969,6 +1002,7 @@ async def test_templates_enabled_in_local_dev():
 ```
 
 **Multiple tenants = Multiple deployments:**
+
 ```
 Tenant A (Acme Corp)          Tenant B (Initech)
 ┌──────────────────┐          ┌──────────────────┐
@@ -984,6 +1018,7 @@ Tenant A (Acme Corp)          Tenant B (Initech)
 ### Request Context
 
 **Simplified structure:**
+
 ```python
 @dataclass(frozen=True)
 class RequestContext:
@@ -1000,6 +1035,7 @@ class RequestContext:
 ### Authorization Model
 
 **User-based, not tenant-based:**
+
 ```python
 class PermissionService:
     def check_permission(self, user_id: str, action: str, resource: str) -> bool:
@@ -1062,6 +1098,7 @@ class PermissionService:
 ### For Local Development
 
 **No changes needed:**
+
 - Local dev mode unaffected
 - File-based storage still works
 - IAM credentials still work
@@ -1071,6 +1108,7 @@ class PermissionService:
 **Simplification (remove tenant config):**
 
 **Before:**
+
 ```bash
 QUILT_MULTIUSER_MODE=true
 QUILT_CATALOG_URL=https://acme.quiltdata.com
@@ -1078,6 +1116,7 @@ QUILT_TENANT_ID=acme  # ❌ Remove (unnecessary!)
 ```
 
 **After:**
+
 ```bash
 QUILT_MULTIUSER_MODE=true
 QUILT_CATALOG_URL=https://acme.quiltdata.com
@@ -1087,6 +1126,7 @@ QUILT_CATALOG_URL=https://acme.quiltdata.com
 ### For Test Suites
 
 **Update all tests to remove tenant_id:**
+
 ```python
 # Before
 def test_something():

@@ -27,6 +27,7 @@
 **Status**: ✅ **IMPLEMENTED**
 
 **Evidence**:
+
 - [user_extraction.py:11-19](../../../src/quilt_mcp/context/user_extraction.py#L11-L19) - Strict allowlist of claims
 - [sample-catalog-jwt.json](../../../tests/fixtures/data/sample-catalog-jwt.json) - Proper JWT format
 - [test_user_extraction.py:24-26](../../../tests/unit/context/test_user_extraction.py#L24-L26) - Rejects extra claims
@@ -44,6 +45,7 @@ def _extract_from_claims(claims: dict) -> Optional[str]:
 ```
 
 **Test Coverage**:
+
 ```bash
 ✅ test_extract_user_from_claims_id - Extracts from "id" claim
 ✅ test_extract_user_from_claims_uuid - Extracts from "uuid" claim
@@ -60,6 +62,7 @@ def _extract_from_claims(claims: dict) -> Optional[str]:
 **Status**: ✅ **IMPLEMENTED**
 
 **Evidence**:
+
 ```bash
 $ grep -r "tenant_id" src/quilt_mcp --include="*.py"
 # (no output - zero references)
@@ -69,10 +72,12 @@ $ grep -r "tenant_id" tests --include="*.py"
 ```
 
 **Removed Files**:
+
 - ❌ `src/quilt_mcp/context/tenant_extraction.py` - **DELETED**
 - ❌ `tests/unit/context/test_tenant_extraction.py` - **DELETED**
 
 **Added Files**:
+
 - ✅ `src/quilt_mcp/context/user_extraction.py` - User-only identity
 - ✅ `tests/unit/context/test_user_extraction.py` - User extraction tests
 
@@ -87,6 +92,7 @@ $ grep -r "tenant_id" tests --include="*.py"
 | FileBasedWorkflowStorage | Tenant subdirectories | Flat structure | ✅ Complete |
 
 **RequestContext Simplification**:
+
 ```python
 # src/quilt_mcp/context/request_context.py
 @dataclass(frozen=True)
@@ -111,6 +117,7 @@ class RequestContext:
 **Evidence**:
 
 **1. Workflow Service Disabled in Multiuser Mode**:
+
 ```python
 # src/quilt_mcp/context/factory.py:84-88
 def _create_workflow_service(self) -> Optional[WorkflowService]:
@@ -121,6 +128,7 @@ def _create_workflow_service(self) -> Optional[WorkflowService]:
 ```
 
 **2. Clear Error Messages**:
+
 ```python
 # src/quilt_mcp/context/request_context.py:43-51
 def create_workflow(self, ...):
@@ -134,6 +142,7 @@ def create_workflow(self, ...):
 ```
 
 **3. Exception Handling**:
+
 ```python
 # src/quilt_mcp/exceptions.py:14-21
 class OperationNotSupportedError(QuiltMCPError):
@@ -146,6 +155,7 @@ class OperationNotSupportedError(QuiltMCPError):
 ```
 
 **Test Coverage**:
+
 ```bash
 ✅ test_multiuser_contexts_are_isolated - Workflow service is None
 ✅ test_single_user_mode_ignores_multiuser_inputs - Workflow service exists
@@ -205,6 +215,7 @@ $ uv run pytest tests/integration/test_multiuser_access.py \
 ```
 
 **Deployment Model**: Each deployment = One tenant (implicit)
+
 - ✅ No tenant tracking needed
 - ✅ Users share same catalog
 - ✅ User identity extracted from JWT
@@ -290,6 +301,7 @@ None.
 **Status**: 🟢 **100% Complete**
 
 The architecture successfully implements:
+
 - ✅ Single-tenant, multiuser model
 - ✅ No tenant tracking
 - ✅ Catalog JWT only
