@@ -5,7 +5,7 @@ IAM mode uses your local AWS credentials and quilt3 session.
 ## Quick Start
 
 ```bash
-export MCP_REQUIRE_JWT=false
+export QUILT_MULTIUSER_MODE=false
 export AWS_PROFILE=default
 export QUILT_CATALOG_URL=https://your-catalog.quiltdata.com
 uvx quilt-mcp

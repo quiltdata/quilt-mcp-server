@@ -8,13 +8,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-02-04
+
+### Changed
+
+- **Terminology Update**: Renamed "multitenant" to "multiuser" throughout the codebase
+  - Environment variable: `QUILT_MULTITENANT_MODE` → `QUILT_MULTIUSER_MODE`
+  - Configuration properties: `is_multitenant` → `is_multiuser`
+  - Documentation and error messages updated for clarity
+  - Single-tenant multiuser model: one tenant per deployment, multiple users via JWT
+
+- **Resource Discovery**: Improved MCP resource testing reliability
+  - Tests now dynamically discover available resources via `list_resources()`
+  - Eliminated need for static mode configuration in test files
+  - Resources automatically skipped if not available in current deployment mode
+  - Better error messages showing specific resource URIs when unavailable
+
+### Removed
+
+- **Removed JWT Config**: Simplified JWT validation configuration
+  - Removed `MCP_JWT_ISSUER` requirement (issuer validation not enforced)
+  - Removed `MCP_JWT_AUDIENCE` requirement (audience validation not enforced)
+  - Only `MCP_JWT_SECRET` required for multiuser mode
+  - Reduced configuration complexity for multiuser deployments
+
+### Fixed
+
+- **Test Infrastructure**: Enhanced multiuser deployment testing
+  - Fixed false failures when testing multiuser deployments against local-dev-only resources
+  - Improved error messages to show resource URIs and mode restrictions
+  - Tests properly skip incompatible resources instead of failing
+
+### Documentation
+
+- **Architecture Clarification**: Added clear distinction between deployment modes
+  - Multiuser mode: Stateless, JWT auth, horizontally scalable, single-tenant
+  - Local dev mode: Stateful, IAM auth, full features, single-user
+  - Updated authentication and deployment documentation with multiuser terminology
+
 ## [0.13.0] - 2026-02-02
 
 ### Added
 
-- **Platform Backend**: Complete GraphQL-native backend for multi-tenant deployments
+- **Platform Backend**: Complete GraphQL-native backend for multi-user deployments
   - Full support for package operations (create, update, browse, search, diff, delete)
-  - JWT-based authentication with bearer tokens for secure multi-tenant access
+  - JWT-based authentication with bearer tokens for secure multi-user access
   - Role-based access with AWS STS integration for S3 operations
   - Catalog configuration and management operations
   - All operations use GraphQL API exclusively (no local filesystem dependencies)
@@ -33,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Backend Architecture**: Platform backend now production-ready
   - Replaced NotImplementedError stubs with full GraphQL implementations
-  - Multi-tenant safe with per-instance authentication and session management
+  - Multiuser safe with per-instance authentication and session management
   - Stateless operation with JWT runtime context
   - Full support for all copy modes in package operations (`none`, `all`, `new`)
 
@@ -52,10 +90,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `QuiltOpsFactory` for automatic backend detection and instantiation
   - Comprehensive error handling with typed exceptions
 
-- **Request Context Architecture**: Multi-tenant support and request-scoped services
-  - `RequestContext` for propagating tenant, auth, and service state
+- **Request Context Architecture**: Multiuser support and request-scoped services
+  - `RequestContext` for propagating user, auth, and service state
   - `RequestContextFactory` for mode-aware context creation
-  - Tenant extraction and validation for multi-tenant deployments
+  - User extraction and validation for multi-user deployments
   - Request context propagation through MCP handler layer
 
 - **Modular Backend Architecture**: Split `Quilt3_Backend` into focused mixins
@@ -112,7 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Multi-Tenant Authentication**: Complete authentication architecture for multi-tenant deployments
+- **Multiuser Authentication**: Complete authentication architecture for multi-user deployments
   - JWT-based authentication with bearer token support for HTTP transports
   - IAM-based authentication mode as alternative for AWS environments
   - JWT middleware for automatic token validation and session management

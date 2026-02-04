@@ -7,7 +7,7 @@ This guide explains how to run the server locally in each auth mode and validate
 Run:
 
 ```bash
-export MCP_REQUIRE_JWT=false
+export QUILT_MULTIUSER_MODE=false
 export AWS_PROFILE=default
 uvx quilt-mcp
 ```
@@ -29,7 +29,7 @@ Expected:
 Run:
 
 ```bash
-export MCP_REQUIRE_JWT=true
+export QUILT_MULTIUSER_MODE=true
 export MCP_JWT_SECRET="dev-secret"
 export QUILT_CATALOG_URL="https://your-catalog.quiltdata.com"
 export QUILT_REGISTRY_URL="https://registry.your-catalog.quiltdata.com"
@@ -102,6 +102,6 @@ For JWT mode, add the Authorization header in the client configuration and ensur
 
 ## 4. Debugging Tips
 
-- Missing JWT → check `MCP_REQUIRE_JWT` and client headers.
+- Missing JWT → check `QUILT_MULTIUSER_MODE` and client headers.
 - Invalid JWT → verify secret, issuer, audience, and expiration.
 - Role assumption failures → check CloudTrail and IAM trust policies.

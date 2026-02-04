@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.13.0"
+version = "0.14.0"
 description = "Secure MCP server for accessing Quilt data with IAM or JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -62,7 +62,7 @@ exclude = ["shared", "scripts"]
 "" = "src"
 
 [build-system]
-requires = ["setuptools>=61.0,<75.0", "wheel"]
+requires = ["setuptools>=80.10,<80.11", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]

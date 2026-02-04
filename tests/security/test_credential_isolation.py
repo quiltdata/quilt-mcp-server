@@ -18,7 +18,7 @@ async def test_credentials_are_isolated_between_users():
         auth_state = RuntimeAuthState(
             scheme="Bearer",
             access_token=f"token-{user_id}",
-            claims={"sub": user_id, "email": f"{user_id}@example.com"},
+            claims={"id": user_id},
         )
         token_handle = push_runtime_context(environment="web-service", auth=auth_state)
         try:
@@ -30,8 +30,6 @@ async def test_credentials_are_isolated_between_users():
     user_a, user_b = await asyncio.gather(_run("user-a"), _run("user-b"))
     assert user_a["user_id"] == "user-a"
     assert user_b["user_id"] == "user-b"
-    assert user_a["email"] == "user-a@example.com"
-    assert user_b["email"] == "user-b@example.com"
 
 
 def test_credentials_cleared_after_request():
@@ -39,7 +37,7 @@ def test_credentials_cleared_after_request():
     auth_state = RuntimeAuthState(
         scheme="Bearer",
         access_token="token",
-        claims={"sub": "user-1"},
+        claims={"id": "user-1"},
     )
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:

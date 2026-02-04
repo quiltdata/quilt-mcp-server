@@ -9,7 +9,7 @@
 
 The Quilt MCP Server has **no single authoritative deployment mode configuration**. Instead, mode-related decisions are scattered across **multiple environment variables** that are checked independently in different parts of the codebase. This creates:
 
-1. **Inconsistent terminology** - "stateless", "JWT mode", "multitenant", "web/desktop"
+1. **Inconsistent terminology** - "stateless", "JWT mode", "multiuser", "web/desktop"
 2. **No single source of truth** - Different subsystems infer mode from different signals
 3. **Unclear valid combinations** - Are all combinations of the 4 dimensions valid?
 4. **Coordination failures** - Components make independent mode decisions
@@ -66,7 +66,7 @@ User identified 4 orthogonal dimensions that define deployment behavior:
 |----------|---------|--------|------------|-----------|
 | `QUILT_MCP_STATELESS_MODE` | Enable stateless mode | `true`/`false` (default: `false`) | [utils.py:420](../../src/quilt_mcp/utils.py#L420) | STATE |
 | `MCP_REQUIRE_JWT` | Require JWT authentication | `true`/`false` (default: `false`) | [auth_service.py:64](../../src/quilt_mcp/services/auth_service.py#L64) | AUTH |
-| `QUILT_MULTITENANT_MODE` | Enable multitenant mode | `true`/`false` (default: `false`) | [context/factory.py:36](../../src/quilt_mcp/context/factory.py#L36) | LOCALE (partially) |
+| `QUILT_MULTIUSER_MODE` | Enable multiuser mode | `true`/`false` (default: `false`) | [context/factory.py:36](../../src/quilt_mcp/context/factory.py#L36) | LOCALE (partially) |
 | `QUILT_DISABLE_QUILT3_SESSION` | Disable quilt3 session auth | `1`/`0` (default: enabled) | [iam_auth_service.py:29](../../src/quilt_mcp/services/iam_auth_service.py#L29) | AUTH |
 | `QUILT_DISABLE_CACHE` | Disable filesystem caching | `true`/`false` | Tests only | STATE (partially) |
 | `MCP_JWT_TOKEN` | JWT token for requests | JWT string | [jwt_integration.py:96](../../tests/integration/test_jwt_integration.py#L96) | AUTH |
@@ -270,29 +270,29 @@ _default_state = RuntimeContextState(environment="desktop")
 
 **Hardcoded default:** Always starts as "desktop" environment
 
-#### Location B: Context Factory - Multitenant Mode
+#### Location B: Context Factory - Multiuser Mode
 
 **File:** [src/quilt_mcp/context/factory.py:36-39](../../src/quilt_mcp/context/factory.py#L36-L39)
 
 **Logic:**
 
 ```python
-env_value = os.getenv("QUILT_MULTITENANT_MODE")
+env_value = os.getenv("QUILT_MULTIUSER_MODE")
 if env_value is None:
     return "single-user"
-return "multitenant" if _parse_bool(env_value, default=False) else "single-user"
+return "multiuser" if _parse_bool(env_value, default=False) else "single-user"
 ```
 
 **Effect:** Determines tenant isolation mode
 
 - `single-user` → Always use "default" tenant
-- `multitenant` → Extract tenant from JWT claims, require tenant_id
+- `multiuser` → Extract tenant from JWT claims, require tenant_id
 
 **Problem:** This is a **partial indicator** of LOCALE, but:
 
 - Doesn't distinguish local vs remote explicitly
 - Could be remote single-user (one container per user)
-- Could be local multitenant (development testing)
+- Could be local multiuser (development testing)
 
 ---
 
@@ -390,14 +390,14 @@ User mentioned two **primary deployment modes**:
 - **API:** GraphQL (NOT quilt3 library!)
 - **AUTH:** JWT bearer token
 - **STATE:** stateless (read-only filesystem)
-- **LOCALE:** remote (containerized, potentially multitenant)
+- **LOCALE:** remote (containerized, potentially multiuser)
 
 **Environment:**
 
 ```bash
 QUILT_MCP_STATELESS_MODE=true
 MCP_REQUIRE_JWT=true
-QUILT_MULTITENANT_MODE=true  # if multitenant
+QUILT_MULTIUSER_MODE=true  # if multiuser
 QUILT_DISABLE_QUILT3_SESSION=1
 # JWT secrets configured
 ```
@@ -537,7 +537,7 @@ Current codebase uses **inconsistent terminology**:
 
 - "stateless mode" (`QUILT_MCP_STATELESS_MODE`)
 - "JWT mode" (`MCP_REQUIRE_JWT`)
-- "multitenant mode" (`QUILT_MULTITENANT_MODE`)
+- "multiuser mode" (`QUILT_MULTIUSER_MODE`)
 - "web environment" (`RuntimeContextState.environment="web"`)
 
 **For authentication:**
@@ -653,7 +653,7 @@ User insight: "Something vital got lost in the QuiltOps/stateless refactor."
 
 - [src/quilt_mcp/utils.py:420](../../src/quilt_mcp/utils.py#L420) - `QUILT_MCP_STATELESS_MODE`
 - [src/quilt_mcp/services/auth_service.py:64](../../src/quilt_mcp/services/auth_service.py#L64) - `MCP_REQUIRE_JWT`
-- [src/quilt_mcp/context/factory.py:36](../../src/quilt_mcp/context/factory.py#L36) - `QUILT_MULTITENANT_MODE`
+- [src/quilt_mcp/context/factory.py:36](../../src/quilt_mcp/context/factory.py#L36) - `QUILT_MULTIUSER_MODE`
 - [src/quilt_mcp/services/iam_auth_service.py:29](../../src/quilt_mcp/services/iam_auth_service.py#L29) - `QUILT_DISABLE_QUILT3_SESSION`
 
 ### Backend Selection

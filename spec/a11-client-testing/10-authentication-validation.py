@@ -138,7 +138,7 @@ def main():
     print("\n" + "=" * 80)
     print("📋 SUMMARY:")
     print("If authentication design flaw is confirmed:")
-    print("1. Implement JWT authentication per spec/a10-multitenant/04-finish-jwt.md")
+    print("1. Implement JWT authentication per spec/a10-multiuser/04-finish-jwt.md")
     print("2. Or provide proper catalog credentials for testing")
     print("3. Ensure stateless operation with catalog authentication")
     print("4. Re-run stateless MCP tests to validate fix")

@@ -1,8 +1,8 @@
-# Multitenant Testing Specification
+# Multiuser Testing Specification
 
 ## Overview
 
-This document specifies testing strategies for the Platform GraphQL backend with JWT authentication and multitenant support. The current `make test-all` primarily tests single-tenant mode. This spec provides both manual and automated testing approaches for multitenant scenarios.
+This document specifies testing strategies for the Platform GraphQL backend with JWT authentication and multiuser support. The current `make test-all` primarily tests single-tenant mode. This spec provides both manual and automated testing approaches for multiuser scenarios.
 
 ## Current State
 
@@ -21,15 +21,15 @@ This document specifies testing strategies for the Platform GraphQL backend with
 
 - **Existing Tests**
   - Unit tests: `tests/unit/backends/test_platform_backend_core.py`
-  - Integration: `tests/integration/test_multitenant.py`
-  - Security: `tests/security/test_multitenant_security.py`
-  - Load: `tests/load/test_multitenant_load.py`
+  - Integration: `tests/integration/test_multiuser.py`
+  - Security: `tests/security/test_multiuser_security.py`
+  - Load: `tests/load/test_multiuser_load.py`
 
 ### Current Gaps
 
-1. **No automated multitenant E2E tests** - Existing tests use mocks or single tenant
+1. **No automated multiuser E2E tests** - Existing tests use mocks or single tenant
 2. **No JWT generation in test suite** - Manual token creation required
-3. **No multi-tenant orchestration** - Can't test tenant A + tenant B simultaneously
+3. **No multi-user orchestration** - Can't test tenant A + tenant B simultaneously
 4. **Limited coverage** - Platform backend read operations not fully tested
 
 ## Manual Testing Guide
@@ -179,17 +179,17 @@ def test_claim_variations():
 
 ### Unit Tests (Fast, Mocked)
 
-**Location:** `tests/unit/backends/test_platform_backend_multitenant.py`
+**Location:** `tests/unit/backends/test_platform_backend_multiuser.py`
 
 ```python
-"""Unit tests for Platform backend multitenant behavior."""
+"""Unit tests for Platform backend multiuser behavior."""
 
 import pytest
 from unittest.mock import Mock, patch
 from quilt_mcp.backends.platform_backend import Platform_Backend
 from quilt_mcp.runtime_context import RuntimeAuthState
 
-class TestPlatformBackendMultitenant:
+class TestPlatformBackendMultiuser:
     """Test tenant-specific behavior in Platform backend."""
 
     def test_tenant_extraction_from_jwt_claims(self, monkeypatch):
@@ -255,12 +255,12 @@ class TestPlatformBackendMultitenant:
 ```bash
 make test-unit
 # or
-uv run pytest tests/unit/backends/test_platform_backend_multitenant.py -v
+uv run pytest tests/unit/backends/test_platform_backend_multiuser.py -v
 ```
 
 ### Integration Tests (Real Services)
 
-**Location:** `tests/integration/test_platform_multitenant_e2e.py`
+**Location:** `tests/integration/test_platform_multiuser_e2e.py`
 
 ```python
 """Integration tests for Platform backend with real JWT authentication."""
@@ -271,7 +271,7 @@ from tests.jwt_helpers import generate_test_jwt, validate_quilt3_session_exists
 
 @pytest.mark.integration
 @pytest.mark.requires_jwt
-class TestPlatformMultitenantE2E:
+class TestPlatformMultiuserE2E:
     """End-to-end tests with real Platform backend and JWT."""
 
     @pytest.fixture
@@ -310,7 +310,7 @@ class TestPlatformMultitenantE2E:
         from quilt_mcp.context.factory import RequestContextFactory
         from quilt_mcp.runtime_context import set_runtime_auth, RuntimeAuthState
 
-        factory = RequestContextFactory(mode="multitenant")
+        factory = RequestContextFactory(mode="multiuser")
 
         # Tenant A creates workflow
         auth_a = RuntimeAuthState(access_token=jwt_token_tenant_a)
@@ -355,17 +355,17 @@ export QUILT_CATALOG_URL="https://your-catalog.quiltdata.com"
 # Run tests
 make test-integration
 # or
-uv run pytest tests/integration/test_platform_multitenant_e2e.py -v -m requires_jwt
+uv run pytest tests/integration/test_platform_multiuser_e2e.py -v -m requires_jwt
 ```
 
 ### MCP Protocol Tests (Full Stack)
 
-**Extend mcp-test.py for Multitenant:**
+**Extend mcp-test.py for Multiuser:**
 
-**Location:** `scripts/tests/mcp-test-multitenant.yaml`
+**Location:** `scripts/tests/mcp-test-multiuser.yaml`
 
 ```yaml
-# Multitenant test configuration for mcp-test.py
+# Multiuser test configuration for mcp-test.py
 
 environment:
   QUILT_TEST_BUCKET: "your-test-bucket"
@@ -427,12 +427,12 @@ test_scenarios:
         expect: "success"
 ```
 
-**Run Multitenant MCP Tests:**
+**Run Multiuser MCP Tests:**
 
 ```bash
 # Use dedicated test script
-python scripts/test-multitenant.py \
-  --config scripts/tests/mcp-test-multitenant.yaml \
+python scripts/test-multiuser.py \
+  --config scripts/tests/mcp-test-multiuser.yaml \
   --endpoint http://localhost:8001/mcp \
   --verbose
 ```
@@ -441,19 +441,19 @@ python scripts/test-multitenant.py \
 
 ### GitHub Actions Workflow
 
-**Location:** `.github/workflows/test-multitenant.yml`
+**Location:** `.github/workflows/test-multiuser.yml`
 
 ```yaml
-name: Multitenant Tests
+name: Multiuser Tests
 
 on:
   push:
-    branches: [main, a*-platform*, a*-multitenant*]
+    branches: [main, a*-platform*, a*-multiuser*]
   pull_request:
     branches: [main]
 
 jobs:
-  test-multitenant:
+  test-multiuser:
     runs-on: ubuntu-latest
 
     steps:
@@ -483,13 +483,13 @@ jobs:
         run: |
           make test-unit
 
-      - name: Run multitenant integration tests
+      - name: Run multiuser integration tests
         env:
           TEST_JWT_TOKEN_A: ${{ secrets.TEST_JWT_TOKEN_A }}
           TEST_JWT_TOKEN_B: ${{ secrets.TEST_JWT_TOKEN_B }}
           TEST_JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
         run: |
-          uv run pytest tests/integration/test_platform_multitenant_e2e.py \
+          uv run pytest tests/integration/test_platform_multiuser_e2e.py \
             -v -m requires_jwt \
             --cov=quilt_mcp \
             --cov-report=xml
@@ -503,36 +503,36 @@ jobs:
 **Add to make.dev:**
 
 ```makefile
-# Multitenant testing targets
+# Multiuser testing targets
 
-.PHONY: test-multitenant test-multitenant-unit test-multitenant-integration test-multitenant-mcp
+.PHONY: test-multiuser test-multiuser-unit test-multiuser-integration test-multiuser-mcp
 
-test-multitenant: test-multitenant-unit test-multitenant-integration test-multitenant-mcp
- @echo "✅ All multitenant tests passed"
+test-multiuser: test-multiuser-unit test-multiuser-integration test-multiuser-mcp
+ @echo "✅ All multiuser tests passed"
 
-test-multitenant-unit:
- @echo "Running multitenant unit tests..."
- @uv run pytest tests/unit/backends/test_platform_backend_multitenant.py \
+test-multiuser-unit:
+ @echo "Running multiuser unit tests..."
+ @uv run pytest tests/unit/backends/test_platform_backend_multiuser.py \
   tests/unit/context/test_tenant_extraction.py \
   -v --cov=quilt_mcp
 
-test-multitenant-integration:
- @echo "Running multitenant integration tests..."
+test-multiuser-integration:
+ @echo "Running multiuser integration tests..."
  @if [ -z "$$TEST_JWT_TOKEN_A" ]; then \
   echo "⚠️  Skipping: TEST_JWT_TOKEN_A not set"; \
   exit 0; \
  fi
- @uv run pytest tests/integration/test_platform_multitenant_e2e.py \
+ @uv run pytest tests/integration/test_platform_multiuser_e2e.py \
   -v -m requires_jwt --cov=quilt_mcp
 
-test-multitenant-mcp:
- @echo "Running multitenant MCP protocol tests..."
+test-multiuser-mcp:
+ @echo "Running multiuser MCP protocol tests..."
  @if [ -z "$$TEST_JWT_SECRET" ]; then \
   echo "⚠️  Skipping: TEST_JWT_SECRET not set"; \
   exit 0; \
  fi
- @python scripts/test-multitenant.py \
-  --config scripts/tests/mcp-test-multitenant.yaml \
+ @python scripts/test-multiuser.py \
+  --config scripts/tests/mcp-test-multiuser.yaml \
   --endpoint http://localhost:8001/mcp
 
 # Quick manual testing
@@ -551,17 +551,17 @@ test-platform-local:
 **Usage:**
 
 ```bash
-# Run all multitenant tests
-make test-multitenant
+# Run all multiuser tests
+make test-multiuser
 
 # Run only unit tests (fast)
-make test-multitenant-unit
+make test-multiuser-unit
 
 # Run integration tests (requires AWS)
 export TEST_JWT_TOKEN_A="arn:aws:iam::123:role/TenantA"
 export TEST_JWT_TOKEN_B="arn:aws:iam::123:role/TenantB"
 export TEST_JWT_SECRET="test-secret"
-make test-multitenant-integration
+make test-multiuser-integration
 
 # Quick local test
 export TEST_JWT_TOKEN="arn:aws:iam::123:role/Test"
@@ -600,7 +600,7 @@ make test-platform-local
 
 ### Phase 4: CI/CD Automation (Week 4)
 
-- [ ] GitHub Actions workflow for multitenant tests
+- [ ] GitHub Actions workflow for multiuser tests
 - [ ] Automated JWT generation from secrets
 - [ ] Test matrix across Python versions
 - [ ] Coverage reports and quality gates
@@ -614,7 +614,7 @@ make test-platform-local
 **Goal:** < 50ms to create new tenant context
 
 ```python
-# tests/performance/test_multitenant_perf.py
+# tests/performance/test_multiuser_perf.py
 import pytest
 import time
 
@@ -624,7 +624,7 @@ def test_tenant_context_creation_speed():
 
     from quilt_mcp.context.factory import RequestContextFactory
 
-    factory = RequestContextFactory(mode="multitenant")
+    factory = RequestContextFactory(mode="multiuser")
 
     start = time.time()
     for i in range(100):
@@ -718,9 +718,9 @@ python tests/jwt_helpers.py generate \
 
 ### Automated Tests
 
-- ✅ All unit tests pass (make test-multitenant-unit)
-- ✅ Integration tests pass with real JWT (make test-multitenant-integration)
-- ✅ MCP protocol tests pass (make test-multitenant-mcp)
+- ✅ All unit tests pass (make test-multiuser-unit)
+- ✅ Integration tests pass with real JWT (make test-multiuser-integration)
+- ✅ MCP protocol tests pass (make test-multiuser-mcp)
 - ✅ Security tests verify tenant isolation
 - ✅ Performance benchmarks meet targets
 
@@ -741,9 +741,9 @@ python tests/jwt_helpers.py generate \
 
 ## Next Steps
 
-1. **Implement missing unit tests** (test_platform_backend_multitenant.py)
+1. **Implement missing unit tests** (test_platform_backend_multiuser.py)
 2. **Create integration test fixtures** (JWT generation, test tenants)
-3. **Extend mcp-test.py** with multitenant config support
+3. **Extend mcp-test.py** with multiuser config support
 4. **Add make targets** for easy manual testing
 5. **Set up CI/CD** workflow for automated testing
 6. **Document** in main CLAUDE.md for agent awareness

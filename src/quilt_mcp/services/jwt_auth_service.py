@@ -24,6 +24,7 @@ class JWTAuthService:
     """Resolve authentication context for Quilt MCP tools using JWT claims."""
 
     auth_type: Literal["jwt"] = "jwt"
+    _ALLOWED_CLAIMS = {"id", "uuid", "exp"}
 
     def __init__(self) -> None:
         self._decoder = get_jwt_decoder()
@@ -64,9 +65,15 @@ class JWTAuthService:
             except JwtDecodeError:
                 return False
 
+        if set(claims.keys()) - self._ALLOWED_CLAIMS:
+            return False
+
+        if not (claims.get("id") or claims.get("uuid")):
+            return False
+
         exp = claims.get("exp")
         if exp is None:
-            return True
+            return False
         try:
             return float(exp) > time.time()
         except (TypeError, ValueError):
@@ -83,8 +90,15 @@ class JWTAuthService:
                 except JwtDecodeError:
                     claims = {}
 
+        if set(claims.keys()) - self._ALLOWED_CLAIMS:
+            claims = {}
+
+        user_id = claims.get("id") or claims.get("uuid")
+        if not user_id:
+            return {"user_id": None, "email": None, "name": None}
+
         return {
-            "user_id": claims.get("id") or claims.get("uuid") or claims.get("sub"),
+            "user_id": user_id,
             "email": claims.get("email"),
             "name": claims.get("name"),
         }

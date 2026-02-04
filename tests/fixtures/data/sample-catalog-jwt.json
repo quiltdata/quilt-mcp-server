@@ -1,5 +1,5 @@
 {
-  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjgxYTM1MjgyLTAxNDktNGViMy1iYjhlLTYyNzM3OWRiNmExYyIsInV1aWQiOiIzY2FhNDlhOS0zNzUyLTQ4NmUtYjk3OS01MWEzNjlkNmRmNjkiLCJleHAiOjE3NzY4MTcxMDR9.5n2RxPkqH2Z2eIQJ2e71TbkWpqCpGKP-FWD5_erYX20",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjgxYTM1MjgyLTAxNDktNGViMy1iYjhlLTYyNzM3OWRiNmExYyIsInV1aWQiOiIzY2FhNDlhOS0zNzUyLTQ4NmUtYjk3OS01MWEzNjlkNmRmNjkiLCJleHAiOjE3NzY4MTcxMDR9.jJ-162LQHV3472kIEsvhyP3Dzbw_-7yV7CR5V0vL6nc",
   "header": {
     "typ": "JWT",
     "alg": "HS256"
@@ -9,7 +9,7 @@
     "uuid": "3caa49a9-3752-486e-b979-51a369d6df69",
     "exp": 1776817104
   },
-  "signature": "5n2RxPkqH2Z2eIQJ2e71TbkWpqCpGKP-FWD5_erYX20",
+  "signature": "jJ-162LQHV3472kIEsvhyP3Dzbw_-7yV7CR5V0vL6nc",
   "expiration": {
     "unix_timestamp": 1776817104,
     "human_readable": "2026-04-21T17:18:24-07:00",

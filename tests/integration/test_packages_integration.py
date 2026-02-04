@@ -26,6 +26,8 @@ from quilt_mcp.models import (
     ErrorResponse,
 )
 
+pytestmark = pytest.mark.usefixtures("backend_mode")
+
 
 @pytest.fixture
 def mock_quilt_session():

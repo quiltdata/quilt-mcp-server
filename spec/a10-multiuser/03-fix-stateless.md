@@ -55,7 +55,7 @@ Current status from `make test-stateless`:
 
 - Stateless deployment requires strict read-only root filesystem
 - Writes outside tmpfs can persist state across requests (security risk)
-- Violates multitenant isolation requirements
+- Violates multiuser isolation requirements
 - Creates potential for cross-tenant data leakage
 
 **What needs investigation**:

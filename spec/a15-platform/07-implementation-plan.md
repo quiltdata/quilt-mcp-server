@@ -354,8 +354,8 @@ QUILT_CATALOG_URL=https://my-catalog.quiltdata.com
 **Existing Variables (Reference):**
 
 ```bash
-# Multitenant mode flag (triggers Platform backend)
-QUILT_MULTITENANT_MODE=true
+# Multiuser mode flag (triggers Platform backend)
+QUILT_MULTIUSER_MODE=true
 
 # JWT token for authentication
 MCP_JWT_TOKEN=eyJhbGci...

@@ -1,4 +1,4 @@
-# Stateless Architecture for Multitenant Deployment
+# Stateless Architecture for Multiuser Deployment
 
 **Status**: Draft
 **Created**: 2026-01-28
@@ -14,7 +14,7 @@ The current MCP server architecture is **functionally stateless** but has three 
 
 These create issues for:
 
-- **Multitenant deployments**: Shared state across tenants
+- **Multiuser deployments**: Shared state across tenants
 - **Container security**: Writable filesystem = attack surface
 - **Horizontal scaling**: Cache inconsistency across replicas
 - **Ephemeral environments**: Assumptions about filesystem persistence

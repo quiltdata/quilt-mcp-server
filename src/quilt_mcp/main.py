@@ -46,11 +46,11 @@ def print_startup_error(error: Exception, error_type: str = "Startup Error") -> 
     elif error_type == "Configuration Error":
         print("Troubleshooting:", file=sys.stderr)
         print("1. Check the error message above for missing configuration", file=sys.stderr)
-        print("2. For multitenant mode, ensure these environment variables are set:", file=sys.stderr)
+        print("2. For multiuser mode, ensure these environment variables are set:", file=sys.stderr)
         print("   - MCP_JWT_SECRET", file=sys.stderr)
         print("   - MCP_JWT_ISSUER", file=sys.stderr)
         print("   - MCP_JWT_AUDIENCE", file=sys.stderr)
-        print("3. For local development, set QUILT_MULTITENANT_MODE=false or leave unset", file=sys.stderr)
+        print("3. For local development, set QUILT_MULTIUSER_MODE=false or leave unset", file=sys.stderr)
     else:
         print("Troubleshooting:", file=sys.stderr)
         print("1. Check the error message above for specific issues", file=sys.stderr)
@@ -94,7 +94,7 @@ def main() -> None:
             mode_config.validate()
 
             # Log successful validation and current mode
-            mode_name = "multitenant" if mode_config.is_multitenant else "local development"
+            mode_name = "multiuser" if mode_config.is_multiuser else "local development"
             print(f"Quilt MCP Server starting in {mode_name} mode", file=sys.stderr)
             print(f"Backend type: {mode_config.backend_type}", file=sys.stderr)
             print(f"JWT required: {mode_config.requires_jwt}", file=sys.stderr)
@@ -105,7 +105,7 @@ def main() -> None:
             sys.exit(1)
 
         # Set transport protocol based on deployment mode
-        # HTTP for multitenant mode, stdio for local development mode
+        # HTTP for multiuser mode, stdio for local development mode
         # Allow callers (e.g., container entrypoints) to override via environment
         os.environ.setdefault("FASTMCP_TRANSPORT", mode_config.default_transport)
 

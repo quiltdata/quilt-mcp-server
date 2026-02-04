@@ -11,7 +11,7 @@ Extend `scripts/docker_manager.py` with container management capabilities and `q
 1. **Scattered Docker Scripts** - Multiple bash scripts for container management:
    - `scripts/tests/start-stateless-docker.sh` (78 lines)
    - `scripts/tests/stop-stateless-docker.sh` (29 lines)
-   - `scripts/tests/start-multitenant-fake-docker.sh` (similar pattern)
+   - `scripts/tests/start-multiuser-fake-docker.sh` (similar pattern)
    - `scripts/test-docker-health.sh` (279 lines)
 
 2. **Manual Configuration** - Bash scripts require manual environment variables:
@@ -48,7 +48,7 @@ Extend existing `scripts/docker_manager.py` (769 lines) with:
 1. **Container Management Methods** - Add to `DockerManager` class
 2. **Quiltx Integration** - Auto-discover catalog/registry URLs
 3. **New Subcommands** - `start`, `stop`, `logs` alongside existing `build`, `push`, `validate`
-4. **Configuration Presets** - Stateless, multitenant-fake, health-check modes
+4. **Configuration Presets** - Stateless, multiuser-fake, health-check modes
 
 ### Design Principles
 
@@ -107,12 +107,12 @@ class ContainerConfig:
 
 2.2. Add `create_stateless_config()` method:
 - Call `get_quilt_config()` for URLs
-- Build env vars dict with QUILT_MULTITENANT_MODE, JWT settings, catalog URLs
+- Build env vars dict with QUILT_MULTIUSER_MODE, JWT settings, catalog URLs
 - Set security constraints: `--read-only`, `--cap-drop=ALL`, tmpfs mounts
 - Set resource limits: 512MB memory, CPU quota
 - Return `ContainerConfig` instance
 
-2.3. Add `create_multitenant_fake_config()` method:
+2.3. Add `create_multiuser_fake_config()` method:
 - Similar to stateless but with different defaults
 - Port 8003 vs 8002
 - Same security/resource constraints
@@ -168,7 +168,7 @@ class ContainerConfig:
 4.1. Add `start` subcommand:
 ```python
 start_parser = subparsers.add_parser("start", help="Start a container")
-start_parser.add_argument("--mode", choices=["stateless", "multitenant-fake", "health-check"])
+start_parser.add_argument("--mode", choices=["stateless", "multiuser-fake", "health-check"])
 start_parser.add_argument("--image", default="quilt-mcp:test")
 start_parser.add_argument("--port", type=int)
 start_parser.add_argument("--jwt-secret")
@@ -239,13 +239,13 @@ test-mcp-stateless: docker-build
         (uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
 ```
 
-6.2. Update `test-multitenant-fake` target:
+6.2. Update `test-multiuser-fake` target:
 ```makefile
-test-multitenant-fake: docker-build
-    @uv run python scripts/docker_manager.py start --mode multitenant-fake && \
-        (uv run python scripts/test-multitenant.py http://localhost:8003/mcp --verbose && \
-        uv run python scripts/docker_manager.py stop --name mcp-multitenant-fake-test) || \
-        (uv run python scripts/docker_manager.py stop --name mcp-multitenant-fake-test && exit 1)
+test-multiuser-fake: docker-build
+    @uv run python scripts/docker_manager.py start --mode multiuser-fake && \
+        (uv run python scripts/test-multiuser.py http://localhost:8003/mcp --verbose && \
+        uv run python scripts/docker_manager.py stop --name mcp-multiuser-fake-test) || \
+        (uv run python scripts/docker_manager.py stop --name mcp-multiuser-fake-test && exit 1)
 ```
 
 ### Task 7: Remove Legacy Bash Scripts (Breaking Change)
@@ -257,7 +257,7 @@ test-multitenant-fake: docker-build
 7.1. **Delete bash scripts:**
 - `scripts/tests/start-stateless-docker.sh`
 - `scripts/tests/stop-stateless-docker.sh`
-- `scripts/tests/start-multitenant-fake-docker.sh`
+- `scripts/tests/start-multiuser-fake-docker.sh`
 
 7.2. **Update all references:**
 - Update `CLAUDE.md` to use new Python commands
@@ -280,7 +280,7 @@ test-multitenant-fake: docker-build
 2. `test_get_quilt_config_from_quiltx` - Verify quiltx auto-discovery
 3. `test_get_quilt_config_fallback` - Verify fallback when quiltx unavailable
 4. `test_create_stateless_config` - Verify config structure and defaults
-5. `test_create_multitenant_fake_config` - Verify config structure
+5. `test_create_multiuser_fake_config` - Verify config structure
 6. `test_container_config_security_opts` - Verify security constraints
 7. `test_container_config_resource_limits` - Verify resource limits
 
@@ -297,7 +297,7 @@ test-multitenant-fake: docker-build
 ### Manual Testing Checklist
 
 - [ ] Run `make test-mcp-stateless` without setting env vars (should auto-discover)
-- [ ] Run `make test-multitenant-fake` without setting env vars
+- [ ] Run `make test-multiuser-fake` without setting env vars
 - [ ] Verify `uv run python scripts/docker_manager.py start --mode stateless` works
 - [ ] Verify `uv run python scripts/docker_manager.py logs --name mcp-stateless-test` shows logs
 - [ ] Verify `uv run python scripts/docker_manager.py stop --name mcp-stateless-test` cleans up
@@ -324,7 +324,7 @@ test-multitenant-fake: docker-build
 ## Success Criteria
 
 - [ ] `make test-mcp-stateless` works without manual env vars
-- [ ] `make test-multitenant-fake` works without manual env vars
+- [ ] `make test-multiuser-fake` works without manual env vars
 - [ ] All existing `docker_manager.py` commands still work
 - [ ] New commands have help text and examples
 - [ ] **All legacy bash scripts deleted** (breaking change)
@@ -344,13 +344,13 @@ test-multitenant-fake: docker-build
 - **Existing Implementation:** `scripts/docker_manager.py` (769 lines)
 - **Pattern Reference:** `scripts/tests/tabulator_query.py` (quiltx usage, lines 37-39, 61-68, 73-79)
 - **Container Scripts:** `scripts/tests/start-stateless-docker.sh`, `scripts/tests/stop-stateless-docker.sh`
-- **Makefile Targets:** `make.dev` lines 136-172 (`test-mcp-stateless`, `test-multitenant-fake`)
+- **Makefile Targets:** `make.dev` lines 136-172 (`test-mcp-stateless`, `test-multiuser-fake`)
 - **Error Context:** Make output showing missing QUILT_CATALOG_URL/QUILT_REGISTRY_URL
 
 ## Related Specifications
 
-- [09-quick-start-multitenant.md](./09-quick-start-multitenant.md) - Testing setup that will benefit from auto-config
-- [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md) - Testing strategy using these containers
+- [09-quick-start-multiuser.md](./09-quick-start-multiuser.md) - Testing setup that will benefit from auto-config
+- [08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md) - Testing strategy using these containers
 
 ## Estimated Effort
 
@@ -368,7 +368,7 @@ test-multitenant-fake: docker-build
 **This is a breaking change** for anyone using the bash scripts directly:
 - `scripts/tests/start-stateless-docker.sh` → **DELETED**
 - `scripts/tests/stop-stateless-docker.sh` → **DELETED**
-- `scripts/tests/start-multitenant-fake-docker.sh` → **DELETED**
+- `scripts/tests/start-multiuser-fake-docker.sh` → **DELETED**
 
 **Migration:** All functionality moved to `scripts/docker_manager.py` with better auto-configuration.
 

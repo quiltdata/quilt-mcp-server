@@ -106,7 +106,7 @@ make clean             # Remove all build artifacts
 - `backends/` - Quilt3 & QuiltOps implementations
 - `tools/` - MCP tool definitions (buckets, packages, visualization, search)
 - `visualization/` - Pluggable viz engine (ECharts, Vega-Lite, IGV, Perspective, Matplotlib)
-- `context/` - Request context (tenant, auth)
+- `context/` - Request context (user, auth)
 - `domain/` - QuiltOps migration domain objects
 - `ops/` - QuiltOps abstraction layer
 

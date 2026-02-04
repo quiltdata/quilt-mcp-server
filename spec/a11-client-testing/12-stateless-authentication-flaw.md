@@ -129,7 +129,7 @@ All failed with: `Smart validation failed: Expected at least 1 results, got 0`
 
 ### What's Missing
 
-From `spec/a10-multitenant/04-finish-jwt.md`, the JWT implementation is **incomplete**:
+From `spec/a10-multiuser/04-finish-jwt.md`, the JWT implementation is **incomplete**:
 
 **Phase 1 Status** (from the spec):
 
@@ -253,12 +253,12 @@ This is not just a test failure, but a **fundamental architecture problem**:
 - Current "stateless" implementation is not actually stateless
 - Production deployment would fail in the same way
 - JWT implementation is incomplete
-- Multitenant architecture cannot work without this fix
+- Multiuser architecture cannot work without this fix
 
 ### User Impact
 
 - Stateless deployment is currently impossible
-- Multitenant production deployment blocked
+- Multiuser production deployment blocked
 - Search functionality broken in containerized environments
 - False confidence in "stateless" testing
 

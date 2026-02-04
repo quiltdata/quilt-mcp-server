@@ -292,6 +292,6 @@ Instead we invented a fake JWT architecture.
 
 ## Appendix: Implementation Notes (2026-02-03)
 
-- Updated multitenant tooling and docs to use Platform JWT claims (`id`, `uuid`, `exp`) and removed role-ARN based flows.
+- Updated multiuser tooling and docs to use Platform JWT claims (`id`, `uuid`, `exp`) and removed role-ARN based flows.
 - Added `QUILT_REGISTRY_URL` alongside `QUILT_CATALOG_URL` as required static config for Platform backend and stateless tests.
 - Replaced direct S3 presign usage with browsing session API calls and added caching tests.

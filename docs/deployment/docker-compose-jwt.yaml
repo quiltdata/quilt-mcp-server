@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MCP_REQUIRE_JWT: "true"
+      QUILT_MULTIUSER_MODE: "true"
       MCP_JWT_SECRET: "dev-secret"
       QUILT_CATALOG_URL: "https://your-catalog.quiltdata.com"
       QUILT_REGISTRY_URL: "https://registry.your-catalog.quiltdata.com"

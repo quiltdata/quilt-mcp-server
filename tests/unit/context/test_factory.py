@@ -8,32 +8,32 @@ import weakref
 
 import pytest
 
-from quilt_mcp.context.exceptions import ServiceInitializationError, TenantValidationError
+from quilt_mcp.context.exceptions import ServiceInitializationError
 from quilt_mcp.context.factory import RequestContextFactory
 from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
-from quilt_mcp.config import reset_mode_config, set_test_mode_config
+from quilt_mcp.config import set_test_mode_config
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
 
 
 def test_factory_auto_mode_reads_env():
-    set_test_mode_config(multitenant_mode=True)
+    set_test_mode_config(multiuser_mode=True)
     factory = RequestContextFactory()
-    assert factory.mode == "multitenant"
+    assert factory.mode == "multiuser"
 
-    set_test_mode_config(multitenant_mode=False)
+    set_test_mode_config(multiuser_mode=False)
     factory = RequestContextFactory()
     assert factory.mode == "single-user"
 
 
 def test_factory_explicit_mode_overrides_env():
-    set_test_mode_config(multitenant_mode=False)
-    factory = RequestContextFactory(mode="multitenant")
-    assert factory.mode == "multitenant"
+    set_test_mode_config(multiuser_mode=False)
+    factory = RequestContextFactory(mode="multiuser")
+    assert factory.mode == "multiuser"
 
 
 def test_factory_create_context_uses_jwt_auth(monkeypatch):
-    auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"sub": "user-1"})
+    auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"id": "user-1"})
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:
 
@@ -59,17 +59,11 @@ def test_factory_create_context_uses_iam_auth(monkeypatch):
     assert isinstance(context.auth_service, IAMAuthService)
 
 
-def test_factory_create_context_requires_tenant_in_multitenant_mode():
-    factory = RequestContextFactory(mode="multitenant")
-    with pytest.raises(TenantValidationError):
-        factory.create_context()
-
-
-def test_factory_extracts_tenant_from_auth_state(monkeypatch):
-    auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"tenant_id": "tenant-1"})
+def test_factory_extracts_user_from_auth_state(monkeypatch):
+    auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"id": "user-1"})
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:
-        factory = RequestContextFactory(mode="multitenant")
+        factory = RequestContextFactory(mode="multiuser")
 
         class _StubAuth:
             def get_user_identity(self):
@@ -77,19 +71,19 @@ def test_factory_extracts_tenant_from_auth_state(monkeypatch):
 
         monkeypatch.setattr(factory, "_create_auth_service", lambda: _StubAuth())
         monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
-        monkeypatch.setattr(factory, "_create_workflow_service", lambda tenant_id: object())
+        monkeypatch.setattr(factory, "_create_workflow_service", lambda: None)
 
         context = factory.create_context()
     finally:
         reset_runtime_context(token_handle)
 
-    assert context.tenant_id == "tenant-1"
+    assert context.user_id == "user-1"
 
 
-def test_factory_create_context_sets_default_tenant_in_single_user_mode():
+def test_factory_create_context_in_single_user_mode_sets_workflow_service():
     factory = RequestContextFactory(mode="single-user")
     context = factory.create_context()
-    assert context.tenant_id == "default"
+    assert context.workflow_service is not None
 
 
 def test_factory_create_context_generates_request_id():
@@ -100,14 +94,14 @@ def test_factory_create_context_generates_request_id():
 
 
 def test_factory_create_context_requires_auth_when_jwt_mode_enabled():
-    set_test_mode_config(multitenant_mode=True)
+    set_test_mode_config(multiuser_mode=True)
     factory = RequestContextFactory(mode="single-user")
     with pytest.raises(ServiceInitializationError):
         factory.create_context()
 
 
 def test_factory_creates_fresh_auth_service_instances():
-    set_test_mode_config(multitenant_mode=False)
+    set_test_mode_config(multiuser_mode=False)
     factory = RequestContextFactory(mode="single-user")
     context_a = factory.create_context()
     context_b = factory.create_context()
@@ -181,7 +175,7 @@ def test_factory_permission_service_instances_are_not_shared(monkeypatch):
     assert context_a.permission_service is not context_b.permission_service
 
 
-def test_factory_creates_workflow_service_with_tenant(monkeypatch):
+def test_factory_creates_workflow_service_in_single_user(monkeypatch):
     factory = RequestContextFactory(mode="single-user")
 
     class _SentinelAuth:
@@ -191,18 +185,10 @@ def test_factory_creates_workflow_service_with_tenant(monkeypatch):
     monkeypatch.setattr(factory, "_create_auth_service", lambda: _SentinelAuth())
     monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
 
-    calls = []
-
-    def _create_workflow_service(tenant_id: str):
-        calls.append(tenant_id)
-        return object()
-
-    monkeypatch.setattr(factory, "_create_workflow_service", _create_workflow_service)
-
+    monkeypatch.setattr(factory, "_create_workflow_service", lambda: object())
     context = factory.create_context()
 
     assert context.workflow_service is not None
-    assert calls == ["default"]
 
 
 def test_factory_workflow_service_instances_are_not_shared(monkeypatch):
@@ -214,9 +200,23 @@ def test_factory_workflow_service_instances_are_not_shared(monkeypatch):
 
     monkeypatch.setattr(factory, "_create_auth_service", lambda: _SentinelAuth())
     monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
-    monkeypatch.setattr(factory, "_create_workflow_service", lambda tenant_id: object())
+    monkeypatch.setattr(factory, "_create_workflow_service", lambda: object())
 
     context_a = factory.create_context()
     context_b = factory.create_context()
 
     assert context_a.workflow_service is not context_b.workflow_service
+
+
+def test_factory_multiuser_disables_workflow_service(monkeypatch):
+    factory = RequestContextFactory(mode="multiuser")
+
+    class _SentinelAuth:
+        def get_user_identity(self):
+            return {}
+
+    monkeypatch.setattr(factory, "_create_auth_service", lambda: _SentinelAuth())
+    monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
+
+    context = factory.create_context()
+    assert context.workflow_service is None

@@ -53,7 +53,7 @@ class TestQuiltOpsFactoryStructure:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode for testing
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Should be able to call without instantiating
         # This will succeed in local mode with quilt3 available
@@ -70,7 +70,7 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Execute
         result = QuiltOpsFactory.create()
@@ -81,12 +81,12 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
         assert isinstance(result, Quilt3_Backend)
 
     def test_create_with_no_quilt3_session(self):
-        """Test create() in multitenant mode returns Platform_Backend."""
+        """Test create() in multiuser mode returns Platform_Backend."""
         from quilt_mcp.ops.factory import QuiltOpsFactory
         from quilt_mcp.config import set_test_mode_config
 
-        # Set multitenant mode
-        set_test_mode_config(multitenant_mode=True)
+        # Set multiuser mode
+        set_test_mode_config(multiuser_mode=True)
         os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
         os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
         os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
@@ -109,7 +109,7 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Mock quilt3 as unavailable
         with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
@@ -123,7 +123,7 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Mock quilt3 as unavailable
         with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
@@ -141,7 +141,7 @@ class TestQuiltOpsFactorySessionValidation:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Should create backend successfully in local mode
         result = QuiltOpsFactory.create()
@@ -172,7 +172,7 @@ class TestQuiltOpsFactorySessionValidation:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Execute
         result = QuiltOpsFactory.create()
@@ -192,7 +192,7 @@ class TestQuiltOpsFactoryErrorHandling:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Mock quilt3 as unavailable
         with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
@@ -208,7 +208,7 @@ class TestQuiltOpsFactoryErrorHandling:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Mock quilt3 as unavailable
         with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
@@ -224,14 +224,14 @@ class TestQuiltOpsFactoryErrorHandling:
         from quilt_mcp.config import set_test_mode_config
 
         # Test local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
         result = QuiltOpsFactory.create()
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         assert isinstance(result, Quilt3_Backend)
 
-        # Test multitenant mode
-        set_test_mode_config(multitenant_mode=True)
+        # Test multiuser mode
+        set_test_mode_config(multiuser_mode=True)
         os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
         os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
         os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
@@ -250,7 +250,7 @@ class TestQuiltOpsFactoryErrorHandling:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Mock quilt3 as unavailable
         with patch('quilt_mcp.backends.quilt3_backend_base.quilt3', None):
@@ -271,7 +271,7 @@ class TestQuiltOpsFactoryPhase1Scope:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode (should ignore JWT tokens)
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Set JWT token in environment (should be ignored in local mode)
         with patch.dict(os.environ, {'QUILT_JWT_TOKEN': 'fake-jwt-token'}):
@@ -287,15 +287,15 @@ class TestQuiltOpsFactoryPhase1Scope:
         from quilt_mcp.config import set_test_mode_config
 
         # Test local mode creates Quilt3_Backend
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
         result = QuiltOpsFactory.create()
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
 
         assert isinstance(result, Quilt3_Backend)
         assert type(result).__name__ == 'Quilt3_Backend'
 
-        # Test multitenant mode creates Platform_Backend
-        set_test_mode_config(multitenant_mode=True)
+        # Test multiuser mode creates Platform_Backend
+        set_test_mode_config(multiuser_mode=True)
         os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
         os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
         os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
@@ -329,7 +329,7 @@ class TestQuiltOpsFactoryIntegration:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Execute
         result = QuiltOpsFactory.create()
@@ -351,7 +351,7 @@ class TestQuiltOpsFactoryIntegration:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Mock backend constructor to raise error
         with patch('quilt_mcp.ops.factory.Quilt3_Backend') as mock_backend_class:
@@ -369,7 +369,7 @@ class TestQuiltOpsFactoryIntegration:
         from quilt_mcp.config import set_test_mode_config
 
         # Set local mode
-        set_test_mode_config(multitenant_mode=False)
+        set_test_mode_config(multiuser_mode=False)
 
         # Execute
         result = QuiltOpsFactory.create()

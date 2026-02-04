@@ -276,13 +276,11 @@ class DockerManager:
 
         # Default JWT secret for testing
         if not jwt_secret:
-            jwt_secret = "test-secret-key-for-stateless-testing-only"
+            jwt_secret = "test-secret"
 
         env_vars = {
-            "QUILT_MULTITENANT_MODE": "true",
+            "QUILT_MULTIUSER_MODE": "true",
             "MCP_JWT_SECRET": jwt_secret,
-            "MCP_JWT_ISSUER": "mcp-test",
-            "MCP_JWT_AUDIENCE": "mcp-server",
             "QUILT_CATALOG_URL": catalog_url,
             "QUILT_REGISTRY_URL": registry_url,
             "QUILT_DISABLE_CACHE": "true",
@@ -312,14 +310,14 @@ class DockerManager:
             read_only=True,
         )
 
-    def create_multitenant_fake_config(
+    def create_multiuser_fake_config(
         self,
-        container_name: str = "mcp-multitenant-fake-test",
+        container_name: str = "mcp-multiuser-fake-test",
         image: str = "quilt-mcp:test",
         port: int = 8003,
         jwt_secret: Optional[str] = None,
     ) -> Optional[ContainerConfig]:
-        """Create configuration for multitenant fake role testing.
+        """Create configuration for multiuser fake role testing.
 
         Args:
             container_name: Name for the Docker container
@@ -338,15 +336,13 @@ class DockerManager:
         # After validation, these are guaranteed to be non-None
         assert catalog_url is not None and registry_url is not None
 
-        # Default JWT secret for multitenant testing
+        # Default JWT secret for multiuser testing
         if not jwt_secret:
             jwt_secret = "test-secret"
 
         env_vars = {
-            "QUILT_MULTITENANT_MODE": "true",
+            "QUILT_MULTIUSER_MODE": "true",
             "MCP_JWT_SECRET": jwt_secret,
-            "MCP_JWT_ISSUER": "mcp-test",
-            "MCP_JWT_AUDIENCE": "mcp-server",
             "QUILT_CATALOG_URL": catalog_url,
             "QUILT_REGISTRY_URL": registry_url,
             "QUILT_DISABLE_CACHE": "true",
@@ -1024,8 +1020,8 @@ EXAMPLES:
     # Start a stateless test container
     %(prog)s start --mode stateless
 
-    # Start a multitenant fake test container
-    %(prog)s start --mode multitenant-fake
+    # Start a multiuser fake test container
+    %(prog)s start --mode multiuser-fake
 
     # Stop a container
     %(prog)s stop --name mcp-stateless-test
@@ -1087,14 +1083,14 @@ ENVIRONMENT VARIABLES:
     # Start command
     start_parser = subparsers.add_parser("start", help="Start a Docker container for testing")
     start_parser.add_argument(
-        "--mode", choices=["stateless", "multitenant-fake"], required=True, help="Container mode/preset"
+        "--mode", choices=["stateless", "multiuser-fake"], required=True, help="Container mode/preset"
     )
     start_parser.add_argument(
         "--image", default="quilt-mcp:test", help="Docker image to use (default: quilt-mcp:test)"
     )
     start_parser.add_argument("--name", help="Container name (defaults based on mode)")
     start_parser.add_argument(
-        "--port", type=int, help="Host port to expose (defaults: 8002 for stateless, 8003 for multitenant-fake)"
+        "--port", type=int, help="Host port to expose (defaults: 8002 for stateless, 8003 for multiuser-fake)"
     )
     start_parser.add_argument("--jwt-secret", help="JWT secret key (defaults based on mode)")
 
@@ -1208,10 +1204,10 @@ def cmd_start(args: argparse.Namespace) -> int:
             port=port,
             jwt_secret=args.jwt_secret,
         )
-    elif args.mode == "multitenant-fake":
-        container_name = args.name or "mcp-multitenant-fake-test"
+    elif args.mode == "multiuser-fake":
+        container_name = args.name or "mcp-multiuser-fake-test"
         port = args.port or 8003
-        config = manager.create_multitenant_fake_config(
+        config = manager.create_multiuser_fake_config(
             container_name=container_name,
             image=args.image,
             port=port,

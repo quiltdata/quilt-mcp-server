@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import time
-
-import jwt
 import pytest
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
@@ -13,10 +10,7 @@ from starlette.testclient import TestClient
 
 from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
 from quilt_mcp.runtime_context import get_runtime_auth, get_runtime_claims
-
-
-def _encode(payload: dict, secret: str) -> str:
-    return jwt.encode(payload, secret, algorithm="HS256")
+from tests.jwt_helpers import get_sample_catalog_claims, get_sample_catalog_token
 
 
 def _app() -> Starlette:
@@ -53,8 +47,8 @@ def test_invalid_token_rejected(monkeypatch):
 def test_valid_token_sets_runtime_auth(monkeypatch):
     secret = "test-secret"
     monkeypatch.setenv("MCP_JWT_SECRET", secret)
-    payload = {"sub": "user-1", "exp": int(time.time()) + 300}
-    token = _encode(payload, secret)
+    token = get_sample_catalog_token()
+    payload = get_sample_catalog_claims()
 
     app = _app()
     app.add_middleware(JwtAuthMiddleware, require_jwt=True)
@@ -63,5 +57,5 @@ def test_valid_token_sets_runtime_auth(monkeypatch):
     response = client.post("/test", json={}, headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 200
-    assert response.json()["claims"]["sub"] == "user-1"
+    assert response.json()["claims"]["id"] == payload["id"]
     assert get_runtime_auth() is None

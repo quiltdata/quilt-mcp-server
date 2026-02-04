@@ -13,6 +13,8 @@ NO MOCKING - tests full stack with real AWS.
 import os
 import pytest
 
+pytestmark = pytest.mark.usefixtures("backend_mode")
+
 
 @pytest.mark.integration
 @pytest.mark.slow

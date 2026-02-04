@@ -26,7 +26,7 @@ spec:
           ports:
             - containerPort: 8000
           env:
-            - name: MCP_REQUIRE_JWT
+            - name: QUILT_MULTIUSER_MODE
               value: "true"
             - name: QUILT_CATALOG_URL
               value: "https://your-catalog.quiltdata.com"

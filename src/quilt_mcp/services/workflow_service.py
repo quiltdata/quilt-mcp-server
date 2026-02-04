@@ -4,14 +4,16 @@ This module provides workflow state management and orchestration capabilities
 for complex data operations across multiple Quilt packages and buckets.
 """
 
-from typing import Dict, List, Any, Optional, Annotated, Literal
+from typing import Dict, List, Any, Optional, Annotated, Literal, cast
 import logging
 from datetime import datetime, timezone
 import json
 from enum import Enum
 from pydantic import Field
 
+from quilt_mcp.config import get_mode_config
 from quilt_mcp.context.propagation import get_current_context
+from quilt_mcp.exceptions import OperationNotSupportedError
 from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
 from quilt_mcp.storage.workflow_storage import WorkflowStorage
 from ..utils import format_error_response
@@ -54,12 +56,9 @@ class StepStatus(Enum):
 
 
 class WorkflowService:
-    """Workflow orchestration service with tenant-isolated storage."""
+    """Workflow orchestration service for local development."""
 
-    def __init__(self, tenant_id: str, storage: Optional[WorkflowStorage] = None) -> None:
-        if not tenant_id or not tenant_id.strip():
-            raise ValueError("tenant_id is required")
-        self._tenant_id = tenant_id
+    def __init__(self, storage: Optional[WorkflowStorage] = None) -> None:
         self._storage = storage or FileBasedWorkflowStorage()
 
     def create_workflow(
@@ -73,7 +72,7 @@ class WorkflowService:
             if not workflow_id or not workflow_id.strip():
                 return format_error_response("Workflow ID cannot be empty")
 
-            if self._storage.load(self._tenant_id, workflow_id) is not None:
+            if self._storage.load(workflow_id) is not None:
                 return format_error_response(f"Workflow '{workflow_id}' already exists")
 
             workflow: dict[str, Any] = {
@@ -93,7 +92,7 @@ class WorkflowService:
                 "execution_log": [],
             }
 
-            self._storage.save(self._tenant_id, workflow_id, workflow)
+            self._storage.save(workflow_id, workflow)
 
             return {
                 "success": True,
@@ -121,7 +120,7 @@ class WorkflowService:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> WorkflowAddStepResponse:
         try:
-            workflow = self._storage.load(self._tenant_id, workflow_id)
+            workflow = self._storage.load(workflow_id)
             if workflow is None:
                 return ErrorResponse(error=f"Workflow '{workflow_id}' not found")
 
@@ -154,7 +153,7 @@ class WorkflowService:
             workflow["total_steps"] = len(workflow["steps"])
             workflow["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-            self._storage.save(self._tenant_id, workflow_id, workflow)
+            self._storage.save(workflow_id, workflow)
 
             # Convert to Pydantic model
             step_model = WorkflowStep(
@@ -193,7 +192,7 @@ class WorkflowService:
         error_message: Optional[str] = None,
     ) -> Dict[str, Any]:
         try:
-            workflow = self._storage.load(self._tenant_id, workflow_id)
+            workflow = self._storage.load(workflow_id)
             if workflow is None:
                 return format_error_response(f"Workflow '{workflow_id}' not found")
 
@@ -257,7 +256,7 @@ class WorkflowService:
                 }
             )
 
-            self._storage.save(self._tenant_id, workflow_id, workflow)
+            self._storage.save(workflow_id, workflow)
 
             return {
                 "success": True,
@@ -279,7 +278,7 @@ class WorkflowService:
 
     def get_status(self, workflow_id: str) -> WorkflowGetStatusResponse:
         try:
-            workflow = self._storage.load(self._tenant_id, workflow_id)
+            workflow = self._storage.load(workflow_id)
             if workflow is None:
                 return ErrorResponse(error=f"Workflow '{workflow_id}' not found")
 
@@ -336,7 +335,7 @@ class WorkflowService:
         try:
             workflows_summary = []
 
-            for workflow in self._storage.list_all(self._tenant_id):
+            for workflow in self._storage.list_all():
                 workflow_id = workflow["id"]
                 summary = WorkflowSummary(
                     id=workflow_id,
@@ -431,7 +430,7 @@ class WorkflowService:
                 elif isinstance(step_result, dict) and not step_result.get("success"):
                     return ErrorResponse(error=step_result.get("error", "Unknown error"))
 
-            workflow = self._storage.load(self._tenant_id, workflow_id)
+            workflow = self._storage.load(workflow_id)
 
             return WorkflowTemplateApplySuccess(
                 workflow_id=workflow_id,
@@ -450,7 +449,14 @@ class WorkflowService:
 
 
 def _current_workflow_service() -> WorkflowService:
-    return get_current_context().workflow_service  # type: ignore[no-any-return]
+    service = get_current_context().workflow_service
+    if service is None:
+        mode = "multiuser" if get_mode_config().is_multiuser else "local-dev"
+        raise OperationNotSupportedError(
+            "Workflows are not available in multiuser mode. Use local dev mode for stateful features.",
+            mode=mode,
+        )
+    return cast(WorkflowService, service)
 
 
 def workflow_create(
