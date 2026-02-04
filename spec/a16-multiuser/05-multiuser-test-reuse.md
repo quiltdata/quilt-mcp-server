@@ -253,14 +253,37 @@ def test_package_create_update_delete_workflow(...):
 
 ### Update make.dev
 
+**CRITICAL FIX:** Enable platform tests in default integration target:
+
 ```makefile
-# Add platform integration test target
+# In test-integration target, add PLATFORM_TEST_ENABLED=true
+$(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py | $(RESULTS_DIR)
+    @echo "Running integration tests (AWS/external services)..."
+    @uv sync --group test
+    @if [ -d "tests/integration" ] && \
+       [ "$$(find tests/integration -name "*.py" | wc -l)" -gt 0 ]; then \
+        export PYTHONPATH="src" && \
+        export PLATFORM_TEST_ENABLED=true && \
+        uv run python -m pytest tests/integration/ -v \
+            -m "not search and not admin" \
+            --cov=quilt_mcp \
+            --cov-report=xml:$(RESULTS_DIR)/coverage-integration.xml \
+            --cov-report=term-missing; \
+```
+
+Without this, all `[platform]` parameterized tests skip. The `backend_mode` fixture
+checks this env var at [conftest.py:248-250](../../tests/conftest.py#L248-L250).
+
+**Keep separate platform-only target** for running just platform backend:
+
+```makefile
+# Add platform integration test target (platform only, no quilt3)
 test-platform-integration:
-	@echo "Running platform backend integration tests..."
-	@export PLATFORM_TEST_ENABLED=true && \
-	 export PLATFORM_CATALOG_URL=https://test.quiltdata.com && \
-	 export QUILT_MULTIUSER_MODE=true && \
-	 uv run pytest tests/integration/ -v -k platform
+    @echo "Running platform backend integration tests..."
+    @export PLATFORM_TEST_ENABLED=true && \
+     export PLATFORM_CATALOG_URL=https://test.quiltdata.com && \
+     export QUILT_MULTIUSER_MODE=true && \
+     uv run pytest tests/integration/ -v -k platform
 ```
 
 ## Comparison to Original Plan

@@ -20,8 +20,18 @@ in the deployment configuration. We only need to track "which user" for authenti
 
 ## Specifications
 
-- [Spec 17: Multiuser Terminology](./01-multiuser-terminology.md) - Rename multitenant → multiuser
-- [Spec 18: Multiuser Implementation](./02-multiuser-implementation.md) - Remove tenant tracking, enforce stateless architecture
+### Core Architecture
+
+- [A16.1: Multiuser Terminology](./01-multiuser-terminology.md) - Rename multitenant → multiuser
+- [A16.2: Multiuser Implementation](./02-multiuser-implementation.md) - Remove tenant tracking, enforce stateless architecture
+- [A16.3: Multiuser Status](./03-multiuser-status.md) - Status work and implementation tracking
+
+### Testing & Validation
+
+- [A16.4: Multiuser Test](./04-multiuser-test.md) - Integration tests for multiuser mode
+- [A16.5: Multiuser Test Reuse](./05-multiuser-test-reuse.md) - Reusable test fixtures
+- [A16.6: Resource Failure Fix](./06-resource-failure-fix.md) - ⚠️ **HACK** - Manual mode flags (DO NOT USE)
+- [A16.7: Capability-Based Resources](./07-capability-based-resources.md) - ✅ **PROPER SOLUTION** - Dynamic capability detection
 
 ## Impact
 
