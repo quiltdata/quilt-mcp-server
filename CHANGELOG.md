@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-02-04
+
+### Changed
+
+- **Terminology Update**: Renamed "multitenant" to "multiuser" throughout the codebase
+  - Environment variable: `QUILT_MULTITENANT_MODE` → `QUILT_MULTIUSER_MODE`
+  - Configuration properties: `is_multitenant` → `is_multiuser`
+  - Documentation and error messages updated for clarity
+  - Single-tenant multiuser model: one tenant per deployment, multiple users via JWT
+
+- **Resource Discovery**: Improved MCP resource testing reliability
+  - Tests now dynamically discover available resources via `list_resources()`
+  - Eliminated need for static mode configuration in test files
+  - Resources automatically skipped if not available in current deployment mode
+  - Better error messages showing specific resource URIs when unavailable
+
+### Removed
+
+- **Removed JWT Config**: Simplified JWT validation configuration
+  - Removed `MCP_JWT_ISSUER` requirement (issuer validation not enforced)
+  - Removed `MCP_JWT_AUDIENCE` requirement (audience validation not enforced)
+  - Only `MCP_JWT_SECRET` required for multiuser mode
+  - Reduced configuration complexity for multiuser deployments
+
+### Fixed
+
+- **Test Infrastructure**: Enhanced multiuser deployment testing
+  - Fixed false failures when testing multiuser deployments against local-dev-only resources
+  - Improved error messages to show resource URIs and mode restrictions
+  - Tests properly skip incompatible resources instead of failing
+
+### Documentation
+
+- **Architecture Clarification**: Added clear distinction between deployment modes
+  - Multiuser mode: Stateless, JWT auth, horizontally scalable, single-tenant
+  - Local dev mode: Stateful, IAM auth, full features, single-user
+  - Updated authentication and deployment documentation with multiuser terminology
+
 ## [0.13.0] - 2026-02-02
 
 ### Added
