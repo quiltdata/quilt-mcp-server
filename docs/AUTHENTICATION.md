@@ -5,7 +5,7 @@ Quilt MCP Server supports two authentication modes:
 - **IAM mode (default)**: Uses AWS credentials from the environment, profiles, or quilt3 session.
 - **JWT mode**: Requires `Authorization: Bearer <token>` on every request and delegates authorization to the Platform.
 
-Mode selection is controlled at startup with `MCP_REQUIRE_JWT`.
+Mode selection is controlled at startup with `QUILT_MULTIUSER_MODE`.
 
 ## IAM Mode (Default)
 
@@ -23,7 +23,7 @@ No JWT processing occurs in IAM mode, even if `Authorization` headers are presen
 Enable JWT mode by setting:
 
 ```
-MCP_REQUIRE_JWT=true
+QUILT_MULTIUSER_MODE=true
 ```
 
 JWT mode requires a valid JWT on every request and will return `401/403` for missing or invalid tokens.
@@ -34,8 +34,8 @@ Set one of the following:
 
 - `MCP_JWT_SECRET` (recommended for local/dev): HS256 shared secret
 - `MCP_JWT_SECRET_SSM_PARAMETER` (recommended for production): SSM parameter name containing the secret
- - `QUILT_CATALOG_URL`: Platform catalog URL
- - `QUILT_REGISTRY_URL`: Platform registry URL
+- `QUILT_CATALOG_URL`: Platform catalog URL
+- `QUILT_REGISTRY_URL`: Platform registry URL
 
 Optional validation:
 
@@ -74,6 +74,6 @@ Example payload:
 ## Migration Guide (IAM → JWT)
 
 1. Configure `MCP_JWT_SECRET` (or SSM parameter) and optional issuer/audience.
-2. Set `MCP_REQUIRE_JWT=true`.
+2. Set `QUILT_MULTIUSER_MODE=true`.
 3. Ensure clients send `Authorization: Bearer <token>` on every request.
 4. Verify Platform authorization and browsing session access paths.

@@ -266,7 +266,10 @@ def register_resources(mcp: "FastMCP") -> None:
         async def metadata_troubleshooting() -> str:
             """Get troubleshooting guide."""
             # This function doesn't exist, create a simple placeholder
-            result = {"status": "info", "message": "For metadata troubleshooting, use fix_metadata_validation_issues()"}
+            result = {
+                "status": "info",
+                "message": "For metadata troubleshooting, use fix_metadata_validation_issues()",
+            }
             return _serialize_result(result)
 
         # ====================

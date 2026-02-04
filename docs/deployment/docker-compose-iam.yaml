@@ -6,6 +6,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MCP_REQUIRE_JWT: "false"
+      QUILT_MULTIUSER_MODE: "false"
       AWS_PROFILE: "default"
       QUILT_CATALOG_URL: "https://your-catalog.quiltdata.com"

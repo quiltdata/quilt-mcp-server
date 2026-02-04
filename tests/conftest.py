@@ -130,9 +130,6 @@ def pytest_configure(config):
     except ImportError:
         pass
 
-    # Disable JWT authentication for all tests
-    os.environ["MCP_REQUIRE_JWT"] = "false"
-
     # Explicitly ensure unit tests run in local mode (not multiuser mode)
     # This forces tests to use local AWS credentials (AWS_PROFILE or default)
     os.environ["QUILT_MULTIUSER_MODE"] = "false"

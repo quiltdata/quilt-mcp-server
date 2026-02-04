@@ -28,7 +28,7 @@ The test suite validates **7 key scenarios** from the [stateless deployment spec
 - MCP server responds to requests
 
 ### 2. JWT Authentication 🔐
-- `MCP_REQUIRE_JWT=true` environment variable set
+- `QUILT_MULTIUSER_MODE=true` environment variable set
 - Requests without JWT are rejected
 - Malformed JWT tokens are rejected
 - No fallback to local credentials (`~/.quilt/`, `~/.aws/`)
@@ -111,7 +111,7 @@ Expected: Authentication error (401/403)
 Actual: 200 OK (success)
 
 Stateless mode MUST enforce JWT authentication:
-  1. Set MCP_REQUIRE_JWT=true in environment
+  1. Set QUILT_MULTIUSER_MODE=true in environment
   2. Reject requests without Authorization header
   3. Return clear error: 'JWT token required'
 
@@ -120,7 +120,7 @@ to local credentials, violating stateless deployment constraints.
 ```
 
 **How to fix:**
-- Ensure `MCP_REQUIRE_JWT=true` environment variable is set
+- Ensure `QUILT_MULTIUSER_MODE=true` environment variable is set
 - Implement JWT validation in request handlers
 - Return 401/403 with clear error message when JWT missing
 

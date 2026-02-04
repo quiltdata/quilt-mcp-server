@@ -71,8 +71,8 @@ quilt3 login
 
 By default, quilt-mcp uses IAM credentials from your environment, AWS profiles, or quilt3 sessions.
 
-For multiuser deployments, enable **JWT mode** by setting `MCP_REQUIRE_JWT=true`. In JWT mode the server requires
-`Authorization: Bearer <token>` on every request and delegates authorization to the Platform.
+For multiuser deployments, enable **multiuser mode** by setting `QUILT_MULTIUSER_MODE=true`. In multiuser mode the server
+requires `Authorization: Bearer <token>` on every request and delegates authorization to the Platform.
 
 See `docs/AUTHENTICATION.md` for full configuration details and examples.
 
@@ -84,11 +84,26 @@ Override defaults via environment or MCP config:
 - `QUILT_REGISTRY_URL` - Your Quilt registry URL (e.g., `https://registry.your-catalog.quiltdata.com`)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 - `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)
-- `MCP_REQUIRE_JWT` - Enable JWT auth mode (true/false, default: false)
+- `QUILT_MULTIUSER_MODE` - Enable multiuser mode with JWT auth (true/false, default: false)
 - `MCP_JWT_SECRET` - HS256 shared secret for JWT validation (JWT mode)
 - `MCP_JWT_SECRET_SSM_PARAMETER` - SSM parameter name for JWT secret (JWT mode)
 - `MCP_JWT_ISSUER` - Expected JWT issuer (optional)
 - `MCP_JWT_AUDIENCE` - Expected JWT audience (optional)
+
+## Architecture
+
+Multiuser Mode (Production)
+- Stateless: No server-side workflows or templates
+- JWT auth: Catalog-issued JWTs only (claims: `id`, `uuid`, `exp`)
+- Read/write operations go through the catalog API
+- Horizontally scalable: any number of containers
+- Single tenant per deployment (no tenant tracking)
+
+Local Dev Mode
+- Stateful: File-based storage in `~/.quilt/`
+- IAM auth: Uses AWS credentials or quilt3 session
+- Full feature set, including workflows
+- Single-user development and testing
 
 ## Development
 
