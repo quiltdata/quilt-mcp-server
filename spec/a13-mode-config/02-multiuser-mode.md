@@ -1,4 +1,4 @@
-# Multitenant Mode: The Single Boolean Decision
+# Multiuser Mode: The Single Boolean Decision
 
 **Date:** 2026-01-31
 **Status:** Architectural Decision - Ready for Implementation
@@ -8,9 +8,9 @@
 
 ## Executive Summary
 
-**Decision:** Use `QUILT_MULTITENANT_MODE` as the single authoritative boolean that determines deployment mode.
+**Decision:** Use `QUILT_MULTIUSER_MODE` as the single authoritative boolean that determines deployment mode.
 
-**Rationale:** Multitenant mode **implies** all other mode dimensions. When `true`, the system runs in production/platform configuration (GraphQL + JWT + stateless + multitenant). When `false` (default), the system runs in local development configuration (quilt3 + session/IAM + persistent + single-user).
+**Rationale:** Multiuser mode **implies** all other mode dimensions. When `true`, the system runs in production/platform configuration (GraphQL + JWT + stateless + multiuser). When `false` (default), the system runs in local development configuration (quilt3 + session/IAM + persistent + single-user).
 
 **Result:** Eliminates 4+ scattered environment variables, provides single source of truth, prevents invalid mode combinations, enables testing production mode locally.
 
@@ -21,7 +21,7 @@
 ### Variable Name
 
 ```bash
-QUILT_MULTITENANT_MODE
+QUILT_MULTIUSER_MODE
 ```
 
 **Values:**
@@ -35,7 +35,7 @@ QUILT_MULTITENANT_MODE
 
 ## Mode Definitions
 
-### Mode: `QUILT_MULTITENANT_MODE=false` (Default - Local Development)
+### Mode: `QUILT_MULTIUSER_MODE=false` (Default - Local Development)
 
 **Purpose:** Single developer working locally
 
@@ -62,7 +62,7 @@ quilt-mcp-server
 - AWS IAM credential chain (profile, environment, instance role)
 - Single user, no tenant isolation needed
 
-### Mode: `QUILT_MULTITENANT_MODE=true` (Production/Platform)
+### Mode: `QUILT_MULTIUSER_MODE=true` (Production/Platform)
 
 **Purpose:** Multi-user platform deployment OR testing platform mode locally
 
@@ -71,13 +71,13 @@ quilt-mcp-server
 - **API Layer:** Platform GraphQL API (`Platform_Backend` - currently missing)
 - **Authentication:** JWT bearer tokens REQUIRED
 - **State Management:** Stateless - read-only filesystem, no persistent state
-- **Tenancy:** Multitenant - tenant extracted from JWT claims, isolation enforced
+- **Tenancy:** Multiuser - tenant extracted from JWT claims, isolation enforced
 - **Deployment:** Can run anywhere (production cloud OR local Docker for testing)
 
 **Required Configuration:**
 
 ```bash
-QUILT_MULTITENANT_MODE=true
+QUILT_MULTIUSER_MODE=true
 # JWT secrets must be configured:
 MCP_JWT_SECRET=<secret>              # OR
 MCP_JWT_SECRET_SSM_PARAMETER=<param> # SSM parameter name
@@ -107,16 +107,16 @@ QUILT_CATALOG_URL=<url>
 
 ## Key Insight: Testable in Any Location
 
-**Critical understanding:** `QUILT_MULTITENANT_MODE=true` defines the **mode**, not the **location**.
+**Critical understanding:** `QUILT_MULTIUSER_MODE=true` defines the **mode**, not the **location**.
 
 ```
 Production deployment:
-  QUILT_MULTITENANT_MODE=true
+  QUILT_MULTIUSER_MODE=true
   Running in: AWS ECS container
   Purpose: Serve production users
 
 Local testing:
-  QUILT_MULTITENANT_MODE=true
+  QUILT_MULTIUSER_MODE=true
   Running in: Docker container on laptop
   Purpose: Test production mode locally
 
@@ -134,12 +134,12 @@ This enables:
 
 ## Implied Behaviors Matrix
 
-| Behavior | `MULTITENANT_MODE=false` | `MULTITENANT_MODE=true` |
+| Behavior | `MULTIUSER_MODE=false` | `MULTIUSER_MODE=true` |
 |----------|-------------------------|-------------------------|
 | **Backend Type** | `Quilt3_Backend` | `Platform_Backend` (GraphQL) |
 | **JWT Required** | No (optional) | Yes (enforced) |
 | **Filesystem State** | Persistent (read/write) | Stateless (read-only) |
-| **Tenant Mode** | Single-user ("default") | Multitenant (from JWT claims) |
+| **Tenant Mode** | Single-user ("default") | Multiuser (from JWT claims) |
 | **Auth Fallback** | quilt3 session → AWS creds | JWT only, no fallback |
 | **HTTP Response** | SSE streams OK | JSON responses preferred |
 | **Cache Files** | Allowed | Prohibited |
@@ -153,13 +153,13 @@ This enables:
 
 ### Variables That Are REMOVED
 
-These variables are **REMOVED immediately** - their values are now derived from `QUILT_MULTITENANT_MODE`:
+These variables are **REMOVED immediately** - their values are now derived from `QUILT_MULTIUSER_MODE`:
 
 | Variable | Purpose (Before) | Action |
 |----------|-----------------|--------|
-| `QUILT_MCP_STATELESS_MODE` | Enable stateless HTTP mode | **DELETED** - Derived from `MULTITENANT_MODE` |
-| `MCP_REQUIRE_JWT` | Require JWT authentication | **DELETED** - Always true if `MULTITENANT_MODE=true` |
-| `QUILT_DISABLE_QUILT3_SESSION` | Disable quilt3 session auth | **DELETED** - Always disabled if `MULTITENANT_MODE=true` |
+| `QUILT_MCP_STATELESS_MODE` | Enable stateless HTTP mode | **DELETED** - Derived from `MULTIUSER_MODE` |
+| `MCP_REQUIRE_JWT` | Require JWT authentication | **DELETED** - Always true if `MULTIUSER_MODE=true` |
+| `QUILT_DISABLE_QUILT3_SESSION` | Disable quilt3 session auth | **DELETED** - Always disabled if `MULTIUSER_MODE=true` |
 
 **Location:** Currently checked in:
 
@@ -173,14 +173,14 @@ These variables **stay** - they're configuration details, not mode selection:
 
 | Variable | Purpose | Used When |
 |----------|---------|-----------|
-| `QUILT_MULTITENANT_MODE` | **THE MODE BOOLEAN** | Always - single source of truth |
-| `MCP_JWT_SECRET` | JWT signing secret | `MULTITENANT_MODE=true` |
-| `MCP_JWT_SECRET_SSM_PARAMETER` | JWT secret from SSM | `MULTITENANT_MODE=true` (alternative) |
-| `MCP_JWT_ISSUER` | Expected JWT issuer | `MULTITENANT_MODE=true` |
-| `MCP_JWT_AUDIENCE` | Expected JWT audience | `MULTITENANT_MODE=true` |
-| `MCP_JWT_SESSION_DURATION` | AWS session duration from JWT | `MULTITENANT_MODE=true` |
+| `QUILT_MULTIUSER_MODE` | **THE MODE BOOLEAN** | Always - single source of truth |
+| `MCP_JWT_SECRET` | JWT signing secret | `MULTIUSER_MODE=true` |
+| `MCP_JWT_SECRET_SSM_PARAMETER` | JWT secret from SSM | `MULTIUSER_MODE=true` (alternative) |
+| `MCP_JWT_ISSUER` | Expected JWT issuer | `MULTIUSER_MODE=true` |
+| `MCP_JWT_AUDIENCE` | Expected JWT audience | `MULTIUSER_MODE=true` |
+| `MCP_JWT_SESSION_DURATION` | AWS session duration from JWT | `MULTIUSER_MODE=true` |
 | `QUILT_CATALOG_URL` | Platform catalog URL | Both modes (different purposes) |
-| `AWS_PROFILE` | AWS credential profile | `MULTITENANT_MODE=false` only |
+| `AWS_PROFILE` | AWS credential profile | `MULTIUSER_MODE=false` only |
 | `AWS_REGION` | AWS region | Both modes |
 | `QUILT_TEST_BUCKET` | Test bucket for integration tests | Test environments only |
 
@@ -192,7 +192,7 @@ These variables **stay** - they're configuration details, not mode selection:
 
 Centralize all mode-related decisions in a single abstraction that:
 
-1. Reads `QUILT_MULTITENANT_MODE` once at startup
+1. Reads `QUILT_MULTIUSER_MODE` once at startup
 2. Provides clear properties for all derived behaviors
 3. Validates mode configuration is complete
 4. Used by all components instead of scattered env var checks
@@ -209,15 +209,15 @@ The ModeConfig class must provide:
 
 **Core Properties:**
 
-- `is_multitenant: bool` - The source of truth
-- `is_local_dev: bool` - Inverse of is_multitenant (convenience)
+- `is_multiuser: bool` - The source of truth
+- `is_local_dev: bool` - Inverse of is_multiuser (convenience)
 
 **Derived Behaviors:**
 
 - `backend_type: str` - Which backend to use ("quilt3" or "graphql")
 - `requires_jwt: bool` - Whether JWT is mandatory
 - `allows_filesystem_state: bool` - Can read/write persistent state
-- `tenant_mode: str` - "single-user" or "multitenant"
+- `tenant_mode: str` - "single-user" or "multiuser"
 - `requires_graphql: bool` - Must use GraphQL API
 - `allows_quilt3_library: bool` - Can use quilt3 library functions
 
@@ -234,7 +234,7 @@ from quilt_mcp.config.mode_config import get_mode_config
 
 mode = get_mode_config()  # Singleton
 
-if mode.is_multitenant:
+if mode.is_multiuser:
     # Use Platform_Backend, require JWT, etc.
 else:
     # Use Quilt3_Backend, allow flexible auth, etc.
@@ -242,7 +242,7 @@ else:
 
 ### Validation Requirements
 
-When `MULTITENANT_MODE=true`, must validate at startup:
+When `MULTIUSER_MODE=true`, must validate at startup:
 
 - JWT secret configured (via `MCP_JWT_SECRET` or `MCP_JWT_SECRET_SSM_PARAMETER`)
 - JWT issuer configured (`MCP_JWT_ISSUER`)
@@ -287,13 +287,13 @@ When `MULTITENANT_MODE=true`, must validate at startup:
 **Required Changes:**
 
 - Query `mode_config.requires_jwt` instead of `get_jwt_mode_enabled()`
-- In multitenant mode: Only create JWTAuthService, no fallback
+- In multiuser mode: Only create JWTAuthService, no fallback
 - In local mode: Check runtime auth, fallback to IAMAuthService
 
 **Lines affected:** 88-96
 
-**Existing multitenant check:** (Lines 36-39)
-Already reads `QUILT_MULTITENANT_MODE` - continue using, but also query ModeConfig for consistency
+**Existing multiuser check:** (Lines 36-39)
+Already reads `QUILT_MULTIUSER_MODE` - continue using, but also query ModeConfig for consistency
 
 ### 3. IAM Auth Service - Session Handling
 
@@ -307,12 +307,12 @@ Already reads `QUILT_MULTITENANT_MODE` - continue using, but also query ModeConf
 **Required Changes:**
 
 - Query `mode_config.allows_quilt3_library` instead of env var
-- In multitenant mode: Never try quilt3 session (always disabled)
+- In multiuser mode: Never try quilt3 session (always disabled)
 - In local mode: Try quilt3 session if available
 
 **Lines affected:** 29-35 (approximately)
 
-**Additional Note:** IAMAuthService should probably NOT be used at all in multitenant mode - only JWTAuthService should be created.
+**Additional Note:** IAMAuthService should probably NOT be used at all in multiuser mode - only JWTAuthService should be created.
 
 ### 4. Auth Service Module - Global JWT Flag
 
@@ -348,9 +348,9 @@ Already reads `QUILT_MULTITENANT_MODE` - continue using, but also query ModeConf
 
 **Required Changes:**
 
-- Query `mode_config.is_multitenant` instead of env var
-- Set `stateless_http=mode_config.is_multitenant`
-- Set `json_response=mode_config.is_multitenant`
+- Query `mode_config.is_multiuser` instead of env var
+- Set `stateless_http=mode_config.is_multiuser`
+- Set `json_response=mode_config.is_multiuser`
 
 **Lines affected:** 420-425
 
@@ -366,7 +366,7 @@ Already reads `QUILT_MULTITENANT_MODE` - continue using, but also query ModeConf
 **Required Changes:**
 
 - When creating middleware, pass `require_jwt=mode_config.requires_jwt`
-- In multitenant mode: Always enforce JWT (require_jwt=True)
+- In multiuser mode: Always enforce JWT (require_jwt=True)
 - In local mode: Do not enforce JWT (require_jwt=False)
 
 **Lines affected:** Instantiation site(s) that create JwtAuthMiddleware
@@ -385,7 +385,7 @@ Already reads `QUILT_MULTITENANT_MODE` - continue using, but also query ModeConf
 **Required Changes:**
 
 - Initialize default based on mode:
-  - If `mode_config.is_multitenant` → default="web"
+  - If `mode_config.is_multiuser` → default="web"
   - If `mode_config.is_local_dev` → default="desktop"
 
 **Lines affected:** 35, 74-81 (set_default_environment function)
@@ -404,7 +404,7 @@ Already reads `QUILT_MULTITENANT_MODE` - continue using, but also query ModeConf
 **Required Changes:**
 
 - Query `mode_config.allows_quilt3_library` instead of env var
-- In multitenant mode: Never use quilt3 session
+- In multiuser mode: Never use quilt3 session
 - In local mode: Allow quilt3 session if available
 
 **Lines affected:** ~81-90 (in `_ensure_session` method)
@@ -425,7 +425,7 @@ Already reads `QUILT_MULTITENANT_MODE` - continue using, but also query ModeConf
 - Log current mode for visibility:
 
   ```
-  INFO: Starting Quilt MCP Server in MULTITENANT mode
+  INFO: Starting Quilt MCP Server in MULTIUSER mode
   INFO: - JWT authentication: REQUIRED
   INFO: - Backend: Platform GraphQL
   INFO: - State: Stateless (read-only filesystem)
@@ -454,7 +454,7 @@ Already reads `QUILT_MULTITENANT_MODE` - continue using, but also query ModeConf
 - `create_package_revision()`
 - All other QuiltOps abstract methods
 
-**Critical:** This is REQUIRED for `MULTITENANT_MODE=true` to work. Currently missing.
+**Critical:** This is REQUIRED for `MULTIUSER_MODE=true` to work. Currently missing.
 
 **Location decision:** `src/quilt_mcp/backends/platform_backend.py` (new file, parallel to quilt3_backend.py)
 
@@ -475,12 +475,12 @@ os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
 **Required Changes:**
 
 - **REMOVE** this line - no longer needed
-- Unit tests run in local mode by default (`MULTITENANT_MODE=false`)
+- Unit tests run in local mode by default (`MULTIUSER_MODE=false`)
 - Tests that need to mock auth can do so via service mocking, not env vars
 
-**Rationale:** Unit tests should test local mode (default). Multitenant mode requires full integration testing.
+**Rationale:** Unit tests should test local mode (default). Multiuser mode requires full integration testing.
 
-### Stateless Tests - Explicit Multitenant Mode
+### Stateless Tests - Explicit Multiuser Mode
 
 **File:** [tests/stateless/conftest.py](../../tests/stateless/conftest.py)
 
@@ -491,7 +491,7 @@ os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
 
 **Required Changes:**
 
-- Set `QUILT_MULTITENANT_MODE=true` explicitly
+- Set `QUILT_MULTIUSER_MODE=true` explicitly
 - Configure JWT secrets for testing
 - Remove redundant env vars (STATELESS_MODE, REQUIRE_JWT, etc.)
 - Ensure Platform_Backend is mocked or configured for tests
@@ -500,14 +500,14 @@ os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
 
 **Required:**
 
-- Test suite for `MULTITENANT_MODE=false` (local dev scenarios)
-- Test suite for `MULTITENANT_MODE=true` (platform scenarios)
-- Verify mode config prevents invalid operations (e.g., filesystem access in multitenant)
+- Test suite for `MULTIUSER_MODE=false` (local dev scenarios)
+- Test suite for `MULTIUSER_MODE=true` (platform scenarios)
+- Verify mode config prevents invalid operations (e.g., filesystem access in multiuser)
 
 **Files affected:**
 
-- [tests/integration/test_jwt_integration.py](../../tests/integration/test_jwt_integration.py) - Should test multitenant mode
-- [tests/integration/test_docker_container.py](../../tests/integration/test_docker_container.py) - Should test multitenant mode
+- [tests/integration/test_jwt_integration.py](../../tests/integration/test_jwt_integration.py) - Should test multiuser mode
+- [tests/integration/test_docker_container.py](../../tests/integration/test_docker_container.py) - Should test multiuser mode
 - Most other integration tests - Should test local mode
 
 ---
@@ -519,10 +519,10 @@ os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
 ### Single Implementation Phase
 
 1. Create `src/quilt_mcp/config/mode_config.py`
-2. Implement ModeConfig class that reads `QUILT_MULTITENANT_MODE`
+2. Implement ModeConfig class that reads `QUILT_MULTIUSER_MODE`
 3. Update all components to query ModeConfig
 4. **DELETE all code that reads deprecated env vars**
-5. Update documentation to only mention `QUILT_MULTITENANT_MODE`
+5. Update documentation to only mention `QUILT_MULTIUSER_MODE`
 
 **Result:** Clean codebase with single mode boolean. Breaking changes are acceptable.
 
@@ -532,23 +532,23 @@ os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
 
 ### Startup Validation Errors
 
-When `MULTITENANT_MODE=true` but config incomplete:
+When `MULTIUSER_MODE=true` but config incomplete:
 
 ```
-ERROR: Multitenant mode enabled but configuration incomplete.
+ERROR: Multiuser mode enabled but configuration incomplete.
 
 Missing required configuration:
   - MCP_JWT_SECRET or MCP_JWT_SECRET_SSM_PARAMETER must be set
   - MCP_JWT_ISSUER must be set
   - MCP_JWT_AUDIENCE must be set
 
-For multitenant mode, configure JWT authentication:
+For multiuser mode, configure JWT authentication:
   export MCP_JWT_SECRET="your-secret"
   export MCP_JWT_ISSUER="https://your-issuer.com"
   export MCP_JWT_AUDIENCE="your-audience"
 
-Or disable multitenant mode:
-  export QUILT_MULTITENANT_MODE=false
+Or disable multiuser mode:
+  export QUILT_MULTIUSER_MODE=false
 
 Exiting.
 ```
@@ -557,12 +557,12 @@ Exiting.
 
 When operation invalid for current mode:
 
-**In multitenant mode, trying to use quilt3 session:**
+**In multiuser mode, trying to use quilt3 session:**
 
 ```
-ERROR: quilt3 session not available in multitenant mode.
-Multitenant mode uses JWT authentication with Platform GraphQL API.
-This operation requires local development mode (QUILT_MULTITENANT_MODE=false).
+ERROR: quilt3 session not available in multiuser mode.
+Multiuser mode uses JWT authentication with Platform GraphQL API.
+This operation requires local development mode (QUILT_MULTIUSER_MODE=false).
 ```
 
 **In local mode, missing JWT when tool expects it:**
@@ -581,7 +581,7 @@ Consider running: quilt3 login
 
 1. **README.md**
    - Add section on deployment modes
-   - Document `QUILT_MULTITENANT_MODE` configuration
+   - Document `QUILT_MULTIUSER_MODE` configuration
    - Update environment variable reference
 
 2. **CLAUDE.md** (Project instructions)
@@ -590,16 +590,16 @@ Consider running: quilt3 login
 
 3. **Docker documentation** (if exists)
    - Update container configuration examples
-   - Show multitenant mode setup
+   - Show multiuser mode setup
 
 4. **Test documentation**
-   - Explain how to test multitenant mode locally
+   - Explain how to test multiuser mode locally
    - Document test environment setup
 
 ### New Documentation Needed
 
 1. **Deployment Guide**
-   - How to deploy in multitenant mode
+   - How to deploy in multiuser mode
    - JWT configuration guide
    - Security considerations
 
@@ -633,14 +633,14 @@ Current internal usage is updated as part of this implementation:
 ```bash
 QUILT_MCP_STATELESS_MODE=true
 MCP_REQUIRE_JWT=true
-QUILT_MULTITENANT_MODE=true
+QUILT_MULTIUSER_MODE=true
 QUILT_DISABLE_QUILT3_SESSION=1
 ```
 
 **After:**
 
 ```bash
-QUILT_MULTITENANT_MODE=true
+QUILT_MULTIUSER_MODE=true
 # All other mode flags deleted
 # Keep JWT config vars (secrets, issuer, audience)
 ```
@@ -657,7 +657,7 @@ QUILT_MULTITENANT_MODE=true
 
 ### Configuration Simplicity
 
-- [ ] Users set **ONE** env var (`QUILT_MULTITENANT_MODE`) to change modes
+- [ ] Users set **ONE** env var (`QUILT_MULTIUSER_MODE`) to change modes
 - [ ] No conflicting env var combinations possible
 - [ ] Clear error messages if mode misconfigured
 
@@ -670,16 +670,16 @@ QUILT_MULTITENANT_MODE=true
 
 ### Testability
 
-- [ ] Can run multitenant mode in local Docker for testing
+- [ ] Can run multiuser mode in local Docker for testing
 - [ ] Tests explicitly set mode they're testing
 - [ ] CI tests both modes
 
 ### Functionality
 
 - [ ] Local mode works exactly as before (backward compatible)
-- [ ] Multitenant mode uses GraphQL (Platform_Backend implemented)
-- [ ] Multitenant mode never accesses `~/.quilt/` directory
-- [ ] Multitenant mode enforces JWT authentication
+- [ ] Multiuser mode uses GraphQL (Platform_Backend implemented)
+- [ ] Multiuser mode never accesses `~/.quilt/` directory
+- [ ] Multiuser mode enforces JWT authentication
 - [ ] Clear errors when operations invalid for current mode
 
 ---
@@ -700,21 +700,21 @@ QUILT_MULTITENANT_MODE=true
 
 ### 2. Environment Variable Naming Convention
 
-**Question:** Should we rename `QUILT_MULTITENANT_MODE` for consistency?
+**Question:** Should we rename `QUILT_MULTIUSER_MODE` for consistency?
 
-**Current:** `QUILT_MULTITENANT_MODE` (already in use)
+**Current:** `QUILT_MULTIUSER_MODE` (already in use)
 
 **Alternatives:**
 
-- `QUILT_MODE=local|multitenant` (enumeration instead of boolean)
-- `QUILT_DEPLOYMENT_MODE=local|multitenant` (more explicit)
-- Keep `QUILT_MULTITENANT_MODE` (don't break existing users)
+- `QUILT_MODE=local|multiuser` (enumeration instead of boolean)
+- `QUILT_DEPLOYMENT_MODE=local|multiuser` (more explicit)
+- Keep `QUILT_MULTIUSER_MODE` (don't break existing users)
 
-**Recommendation:** Keep `QUILT_MULTITENANT_MODE` - it's already in use, changing it would break existing deployments for no functional benefit.
+**Recommendation:** Keep `QUILT_MULTIUSER_MODE` - it's already in use, changing it would break existing deployments for no functional benefit.
 
 ### 3. Test Environment JWT Configuration
 
-**Question:** How should tests configure JWT secrets in multitenant mode?
+**Question:** How should tests configure JWT secrets in multiuser mode?
 
 **Options:**
 
@@ -724,26 +724,26 @@ QUILT_MULTITENANT_MODE=true
 
 **Recommendation:** Option A - Tests set `MCP_JWT_SECRET=test-secret` explicitly, providing predictable behavior without AWS dependencies.
 
-### 4. Graceful Fallback in Multitenant Mode
+### 4. Graceful Fallback in Multiuser Mode
 
-**Question:** Should multitenant mode EVER fall back to non-JWT auth, or always fail hard?
+**Question:** Should multiuser mode EVER fall back to non-JWT auth, or always fail hard?
 
-**Current design:** Fail hard - multitenant mode requires JWT, no fallback.
+**Current design:** Fail hard - multiuser mode requires JWT, no fallback.
 
 **Alternative:** Allow fallback to IAM auth if JWT validation fails (more permissive).
 
-**Recommendation:** Fail hard - multitenant mode must enforce JWT for security and tenant isolation. Fallback would violate the mode contract.
+**Recommendation:** Fail hard - multiuser mode must enforce JWT for security and tenant isolation. Fallback would violate the mode contract.
 
 ---
 
 ## Summary
 
-**One boolean controls everything:** `QUILT_MULTITENANT_MODE`
+**One boolean controls everything:** `QUILT_MULTIUSER_MODE`
 
 **When true:**
 
 - Production/platform mode
-- GraphQL + JWT + stateless + multitenant
+- GraphQL + JWT + stateless + multiuser
 - Can test locally in Docker
 
 **When false (default):**

@@ -11,7 +11,6 @@ def test_packages_uses_context_permission_service():
     sentinel = object()
     context = RequestContext(
         request_id="req-1",
-        tenant_id="default",
         user_id="user-1",
         auth_service=object(),
         permission_service=sentinel,
@@ -29,7 +28,6 @@ def test_error_recovery_uses_context_permission_service():
     sentinel = object()
     context = RequestContext(
         request_id="req-2",
-        tenant_id="default",
         user_id="user-1",
         auth_service=object(),
         permission_service=sentinel,

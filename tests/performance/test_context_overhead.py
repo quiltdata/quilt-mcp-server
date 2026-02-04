@@ -9,7 +9,7 @@ from quilt_mcp.config import set_test_mode_config
 
 
 def test_context_creation_overhead_under_10ms(monkeypatch):
-    set_test_mode_config(multitenant_mode=False)
+    set_test_mode_config(multiuser_mode=False)
 
     factory = RequestContextFactory(mode="single-user")
 

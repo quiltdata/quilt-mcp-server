@@ -15,10 +15,9 @@ from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
 def workflow_context(tmp_path):
     """Ensure workflow context uses isolated storage per test."""
     storage = FileBasedWorkflowStorage(base_dir=tmp_path)
-    service = WorkflowService(tenant_id="tenant-a", storage=storage)
+    service = WorkflowService(storage=storage)
     context = RequestContext(
         request_id="req-1",
-        tenant_id="tenant-a",
         user_id="user-1",
         auth_service=object(),
         permission_service=object(),

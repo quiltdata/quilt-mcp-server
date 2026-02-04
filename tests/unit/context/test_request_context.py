@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 
 from quilt_mcp.context.request_context import RequestContext
+from quilt_mcp.exceptions import OperationNotSupportedError
 
 
 def test_request_context_stores_fields():
     context = RequestContext(
         request_id="req-1",
-        tenant_id="tenant-a",
         user_id="user-1",
         auth_service=object(),
         permission_service=object(),
@@ -18,26 +18,24 @@ def test_request_context_stores_fields():
     )
 
     assert context.request_id == "req-1"
-    assert context.tenant_id == "tenant-a"
     assert context.user_id == "user-1"
 
 
 @pytest.mark.parametrize(
-    ("request_id", "tenant_id", "auth_service", "expected_message"),
+    ("request_id", "auth_service", "permission_service", "expected_message"),
     [
-        (None, "tenant-a", object(), "request_id"),
-        ("req-1", None, object(), "tenant_id"),
-        ("req-1", "tenant-a", None, "auth_service"),
+        (None, object(), object(), "request_id"),
+        ("req-1", None, object(), "auth_service"),
+        ("req-1", object(), None, "permission_service"),
     ],
 )
-def test_request_context_requires_required_fields(request_id, tenant_id, auth_service, expected_message):
+def test_request_context_requires_required_fields(request_id, auth_service, permission_service, expected_message):
     with pytest.raises(TypeError) as excinfo:
         RequestContext(
             request_id=request_id,
-            tenant_id=tenant_id,
             user_id="user-1",
             auth_service=auth_service,
-            permission_service=object(),
+            permission_service=permission_service,
             workflow_service=object(),
         )
 
@@ -54,7 +52,6 @@ def test_request_context_is_authenticated_reflects_auth_service():
 
     authenticated = RequestContext(
         request_id="req-1",
-        tenant_id="tenant-a",
         user_id="user-1",
         auth_service=StubAuthService(True),
         permission_service=object(),
@@ -62,7 +59,6 @@ def test_request_context_is_authenticated_reflects_auth_service():
     )
     unauthenticated = RequestContext(
         request_id="req-2",
-        tenant_id="tenant-a",
         user_id=None,
         auth_service=StubAuthService(False),
         permission_service=object(),
@@ -85,7 +81,6 @@ def test_request_context_get_boto_session_delegates_to_auth_service():
 
     context = RequestContext(
         request_id="req-3",
-        tenant_id="tenant-a",
         user_id="user-1",
         auth_service=StubAuthService(),
         permission_service=object(),
@@ -112,7 +107,6 @@ def test_request_context_permission_helpers_delegate():
 
     context = RequestContext(
         request_id="req-5",
-        tenant_id="tenant-a",
         user_id="user-1",
         auth_service=object(),
         permission_service=permission_service,
@@ -156,7 +150,6 @@ def test_request_context_workflow_helpers_delegate():
 
     context = RequestContext(
         request_id="req-6",
-        tenant_id="tenant-a",
         user_id="user-1",
         auth_service=object(),
         permission_service=object(),
@@ -201,21 +194,35 @@ def test_request_context_workflow_helpers_delegate():
 
 
 @pytest.mark.parametrize(
-    ("permission_service", "workflow_service", "expected_message"),
+    ("auth_service", "permission_service", "expected_message"),
     [
-        (None, object(), "permission_service"),
-        (object(), None, "workflow_service"),
+        (None, object(), "auth_service"),
+        (object(), None, "permission_service"),
     ],
 )
-def test_request_context_rejects_missing_services(permission_service, workflow_service, expected_message):
+def test_request_context_rejects_missing_services(auth_service, permission_service, expected_message):
     with pytest.raises(TypeError) as excinfo:
         RequestContext(
             request_id="req-4",
-            tenant_id="tenant-a",
             user_id="user-1",
-            auth_service=object(),
+            auth_service=auth_service,
             permission_service=permission_service,
-            workflow_service=workflow_service,
+            workflow_service=object(),
         )
 
     assert expected_message in str(excinfo.value)
+
+
+def test_request_context_requires_workflow_service_when_used():
+    context = RequestContext(
+        request_id="req-7",
+        user_id="user-1",
+        auth_service=object(),
+        permission_service=object(),
+        workflow_service=None,
+    )
+
+    with pytest.raises(OperationNotSupportedError) as excinfo:
+        context.list_workflows()
+
+    assert "Workflows are not available" in str(excinfo.value)

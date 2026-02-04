@@ -85,7 +85,7 @@ For production testing, generate tokens using your auth system. Ensure tokens in
 1. **Start MCP server in JWT mode:**
 
    ```bash
-   export MCP_REQUIRE_JWT=true
+   export QUILT_MULTIUSER_MODE=true
    export MCP_JWT_SECRET="your-secret-key"
    python -m quilt_mcp.main
    ```
@@ -150,12 +150,12 @@ make test-stateless-mcp
 **Possible causes:**
 
 - User does not have access to the requested resource
-- Token is valid but not authorized for the platform tenant
+- Token is valid but not authorized for the platform deployment
 
 **Solutions:**
 
 1. Verify the user has access to the requested package/bucket
-2. Confirm the token is issued for the correct platform tenant
+2. Confirm the token is issued for the correct platform deployment
 
 ### Token Expiration
 

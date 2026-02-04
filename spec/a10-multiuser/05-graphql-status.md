@@ -503,7 +503,7 @@ if "errors" in payload:
 ## Next Steps
 
 1. **Document Decisions**
-   - Decide on multi-tenant support scope
+   - Decide on multi-user support scope
    - Define registry switching requirements
    - Specify session management strategy
 

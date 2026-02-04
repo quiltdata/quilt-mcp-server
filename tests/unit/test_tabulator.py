@@ -2,50 +2,9 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
-from quilt_mcp.services import athena_read_service as tabulator
-
-
-class DummyTabulatorAdmin:
-    def __init__(self, response=None):
-        self.response = response or SimpleNamespace()
-        self.calls = []
-
-    def set_table(self, **kwargs):
-        self.calls.append(("set_table", kwargs))
-        return self.response
-
-
-@pytest.fixture(autouse=True)
-def ensure_admin_enabled(monkeypatch: pytest.MonkeyPatch):
-    # This fixture is no longer needed since we moved away from TabulatorService
-    # but keeping it for backward compatibility
-    yield
-
-
-def test_create_table_normalizes_parser_format(monkeypatch: pytest.MonkeyPatch):
-    """Test that parser format is normalized - DEPRECATED TEST.
-
-    This test is now deprecated as table creation logic has moved to tools layer.
-    Keeping for backward compatibility with query operations.
-    """
-    pytest.skip("Table creation moved to TabulatorMixin - test deprecated")
-
-
-def test_create_table_returns_validation_errors(monkeypatch: pytest.MonkeyPatch):
-    """Test validation errors - DEPRECATED TEST.
-
-    This test is now deprecated as table creation logic has moved to tools layer.
-    Validation now handled by TabulatorMixin in backend.
-    """
-    pytest.skip("Table creation moved to TabulatorMixin - test deprecated")
-
-
-# TESTS FOR _tabulator_query, tabulator_buckets_list, and tabulator_bucket_query
 
 
 def test_tabulator_query_discovers_catalog_from_catalog_info(monkeypatch: pytest.MonkeyPatch):

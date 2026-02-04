@@ -4,7 +4,7 @@ JWT mode enforces `Authorization: Bearer <token>` and delegates authorization to
 
 ## Environment Variables
 
-- `MCP_REQUIRE_JWT=true`
+- `QUILT_MULTIUSER_MODE=true`
 - `MCP_JWT_SECRET` or `MCP_JWT_SECRET_SSM_PARAMETER`
 - `QUILT_CATALOG_URL`
 - `QUILT_REGISTRY_URL`
@@ -14,7 +14,7 @@ JWT mode enforces `Authorization: Bearer <token>` and delegates authorization to
 
 ```bash
 docker run --rm -p 8000:8000 \
-  -e MCP_REQUIRE_JWT=true \
+  -e QUILT_MULTIUSER_MODE=true \
   -e MCP_JWT_SECRET=dev-secret \
   -e QUILT_CATALOG_URL=https://your-catalog.quiltdata.com \
   -e QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com \

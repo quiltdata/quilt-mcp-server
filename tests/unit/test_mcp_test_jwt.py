@@ -6,12 +6,12 @@ Tests the JWT token handling, error messages, and authentication flow
 without making real HTTP requests.
 """
 
-import json
 import os
 import sys
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from pathlib import Path
+from tests.jwt_helpers import get_sample_catalog_token
 
 # Add scripts directory to path for importing mcp-test.py
 scripts_dir = Path(__file__).parent.parent.parent / "scripts"
@@ -32,11 +32,7 @@ class TestJWTAuthentication(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.test_endpoint = "http://localhost:8000/mcp"
-        self.test_jwt_token = (
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-            "eyJpZCI6InRlc3QtdXNlciIsInV1aWQiOiJ0ZXN0LXV1aWQiLCJleHAiOjk5OTk5OTk5OTl9."
-            "test-signature"
-        )
+        self.test_jwt_token = get_sample_catalog_token()
 
     def test_jwt_token_parameter_accepted(self):
         """Test that JWT token parameter is accepted and stored."""
@@ -75,8 +71,8 @@ class TestJWTAuthentication(unittest.TestCase):
 
         # Test with normal token
         masked = tester._mask_token(self.test_jwt_token)
-        self.assertTrue(masked.startswith("eyJh"))
-        self.assertTrue(masked.endswith("ture"))
+        self.assertTrue(masked.startswith(self.test_jwt_token[:4]))
+        self.assertTrue(masked.endswith(self.test_jwt_token[-4:]))
         self.assertIn("...", masked)
 
         # Test with None token
@@ -102,7 +98,7 @@ class TestJWTAuthentication(unittest.TestCase):
         error_message = str(context.exception)
         self.assertIn("Authentication failed", error_message)
         self.assertIn("JWT token rejected", error_message)
-        self.assertIn("eyJh...ture", error_message)  # Masked token
+        self.assertIn(tester._mask_token(self.test_jwt_token), error_message)  # Masked token
         self.assertIn("Troubleshooting", error_message)
 
     @patch('requests.Session.post')
@@ -140,7 +136,7 @@ class TestJWTAuthentication(unittest.TestCase):
         error_message = str(context.exception)
         self.assertIn("Authorization failed", error_message)
         self.assertIn("Insufficient permissions", error_message)
-        self.assertIn("eyJh...ture", error_message)  # Masked token
+        self.assertIn(tester._mask_token(self.test_jwt_token), error_message)  # Masked token
         self.assertIn("JWT", error_message)
 
     @patch('requests.Session.post')
@@ -180,29 +176,20 @@ class TestJWTHelperIntegration(unittest.TestCase):
         """Test that JWT helper script exists."""
         self.assertTrue(self.jwt_helper_path.exists())
 
-    @patch('subprocess.run')
-    def test_jwt_token_generation_command(self, mock_run):
-        """Test JWT token generation command structure."""
-        # Mock successful command execution
-        mock_run.return_value = Mock(
-            returncode=0, stdout="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-payload.test-signature", stderr=""
+    def test_jwt_helper_outputs_sample_token(self):
+        """Test JWT helper prints a sample token."""
+        import subprocess
+
+        result = subprocess.run(
+            ["python", str(self.jwt_helper_path)],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
-
-        # This would be the command structure used in make.dev
-        expected_command = [
-            "python",
-            str(self.jwt_helper_path),
-            "generate",
-            "--secret",
-            "test-secret",
-            "--expiry",
-            "3600",
-        ]
-
-        # Verify the command structure is valid
-        self.assertTrue(len(expected_command) > 0)
-        self.assertIn("generate", expected_command)
-        self.assertIn("--secret", expected_command)
+        self.assertEqual(result.returncode, 0)
+        token = result.stdout.strip()
+        self.assertTrue(token.startswith("eyJ"))
+        self.assertEqual(len(token.split(".")), 3)
 
 
 class TestCommandLineIntegration(unittest.TestCase):
@@ -220,7 +207,7 @@ class TestCommandLineIntegration(unittest.TestCase):
     @patch.dict(os.environ, {}, clear=True)
     def test_jwt_token_from_command_line(self):
         """Test JWT token from command-line argument."""
-        test_token = "test-jwt-token"
+        test_token = get_sample_catalog_token()
 
         # Mock command line arguments
         test_args = ["mcp-test.py", "http://localhost:8000/mcp", "--jwt-token", test_token, "--tools-test"]

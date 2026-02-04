@@ -3,7 +3,7 @@
 ## Objective
 
 Implement a pure GraphQL backend for Quilt Platform that uses JWT authentication instead of quilt3 library
-dependencies. Enables multitenant MCP server deployments with catalog-specific authentication.
+dependencies. Enables multiuser MCP server deployments with catalog-specific authentication.
 
 ## Status: ✅ Core Implementation Complete (2026-02-02)
 
@@ -18,14 +18,14 @@ dependencies. Enables multitenant MCP server deployments with catalog-specific a
 **Remaining Work:**
 
 - ⚠️ Documentation updates (mark phases complete in README, specs)
-- ⚠️ Multitenant test automation (`scripts/test-multitenant.py` orchestrator)
-- ⚠️ CI/CD workflows (`.github/workflows/test-multitenant.yml`)
+- ⚠️ Multiuser test automation (`scripts/test-multiuser.py` orchestrator)
+- ⚠️ CI/CD workflows (`.github/workflows/test-multiuser.yml`)
 - 💡 Optional: Optimize file metadata (size/hash helpers)
 
 ## Quick Links
 
 - **[13-finish-platform.md](./13-finish-platform.md)** - Complete status, pending work, verification commands
-- **[09-quick-start-multitenant.md](./09-quick-start-multitenant.md)** - 5-minute testing setup guide
+- **[09-quick-start-multiuser.md](./09-quick-start-multiuser.md)** - 5-minute testing setup guide
 
 ## Implementation Summary
 
@@ -148,7 +148,7 @@ backend.admin.list_users()
 
 ### Medium Term (Future Work)
 
-1. **Implement multitenant test automation** - Create `scripts/test-multitenant.py`
+1. **Implement multiuser test automation** - Create `scripts/test-multiuser.py`
 2. **Set up CI/CD** - Add GitHub Actions workflow
 3. **Optimize performance** - Add file size/hash helpers
 
@@ -169,8 +169,8 @@ backend.admin.list_users()
 
 **Testing:**
 
-- [09-quick-start-multitenant.md](./09-quick-start-multitenant.md) - 5-minute testing setup
-- [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md) - Testing strategy
+- [09-quick-start-multiuser.md](./09-quick-start-multiuser.md) - 5-minute testing setup
+- [08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md) - Testing strategy
 - [11-test-coverage-plan.md](./11-test-coverage-plan.md) - Test organization
 
 **Reference:**

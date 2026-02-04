@@ -25,6 +25,8 @@ from datetime import datetime
 
 from quilt_mcp.ops.factory import QuiltOpsFactory
 
+pytestmark = pytest.mark.usefixtures("backend_mode")
+
 
 # Example config for testing
 EXAMPLE_CONFIG_YAML = """schema:

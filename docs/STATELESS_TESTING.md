@@ -1,6 +1,6 @@
 # Stateless Deployment Testing
 
-This document explains how to test and validate that the Quilt MCP Server can run in true stateless, multitenant mode with strict security constraints.
+This document explains how to test and validate that the Quilt MCP Server can run in true stateless, multiuser mode with strict security constraints.
 
 ## Quick Start
 
@@ -18,7 +18,7 @@ This will:
 
 ## What Gets Tested
 
-The test suite validates **7 key scenarios** from the [stateless deployment specification](../spec/a10-multitenant/02-test-stateless.md):
+The test suite validates **7 key scenarios** from the [stateless deployment specification](../spec/a10-multiuser/02-test-stateless.md):
 
 ### 1. Basic Tool Execution ✅
 - Container starts with all security constraints
@@ -28,7 +28,7 @@ The test suite validates **7 key scenarios** from the [stateless deployment spec
 - MCP server responds to requests
 
 ### 2. JWT Authentication 🔐
-- `MCP_REQUIRE_JWT=true` environment variable set
+- `QUILT_MULTIUSER_MODE=true` environment variable set
 - Requests without JWT are rejected
 - Malformed JWT tokens are rejected
 - No fallback to local credentials (`~/.quilt/`, `~/.aws/`)
@@ -73,7 +73,7 @@ When all tests pass, you'll see:
 12 passed in 69.67s
 ```
 
-This means your container is **production-ready** for multitenant deployment.
+This means your container is **production-ready** for multiuser deployment.
 
 ### Failing Tests - Intelligent Error Messages
 
@@ -111,7 +111,7 @@ Expected: Authentication error (401/403)
 Actual: 200 OK (success)
 
 Stateless mode MUST enforce JWT authentication:
-  1. Set MCP_REQUIRE_JWT=true in environment
+  1. Set QUILT_MULTIUSER_MODE=true in environment
   2. Reject requests without Authorization header
   3. Return clear error: 'JWT token required'
 
@@ -120,7 +120,7 @@ to local credentials, violating stateless deployment constraints.
 ```
 
 **How to fix:**
-- Ensure `MCP_REQUIRE_JWT=true` environment variable is set
+- Ensure `QUILT_MULTIUSER_MODE=true` environment variable is set
 - Implement JWT validation in request handlers
 - Return 401/403 with clear error message when JWT missing
 
@@ -421,8 +421,8 @@ After passing stateless deployment tests:
 
 ## Related Documentation
 
-- [Stateless Architecture Specification](../spec/a10-multitenant/01-stateless.md)
-- [Stateless Testing Specification](../spec/a10-multitenant/02-test-stateless.md)
+- [Stateless Architecture Specification](../spec/a10-multiuser/01-stateless.md)
+- [Stateless Testing Specification](../spec/a10-multiuser/02-test-stateless.md)
 - [Production Deployment Guide](PRODUCTION_DEPLOYMENT.md) *(to be created)*
 
 ## Support

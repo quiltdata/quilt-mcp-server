@@ -169,7 +169,7 @@ This is **not** a fundamental architecture problem, but rather:
 
 - **Current**: Search functionality broken in containerized environments
 - **After Fix**: Complete stateless operation with full functionality
-- **Production**: Enables true multitenant deployment
+- **Production**: Enables true multiuser deployment
 
 ## Next Steps
 
@@ -187,7 +187,7 @@ This is **not** a fundamental architecture problem, but rather:
 
 ### Long Term (Priority 3)
 
-1. **Production Deployment**: Use enhanced JWT for multitenant architecture
+1. **Production Deployment**: Use enhanced JWT for multiuser architecture
 2. **Monitoring**: Track both AWS and catalog authentication success
 3. **Optimization**: Consider token refresh and caching strategies
 

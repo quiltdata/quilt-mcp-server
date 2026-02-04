@@ -93,7 +93,7 @@
 
 ### Primary Hypothesis: Authentication Design Flaw
 
-Based on the user's insight and analysis of the JWT implementation spec (`spec/a10-multitenant/04-finish-jwt.md`), the root cause is **NOT** a search index issue, but rather a **fundamental authentication design flaw**.
+Based on the user's insight and analysis of the JWT implementation spec (`spec/a10-multiuser/04-finish-jwt.md`), the root cause is **NOT** a search index issue, but rather a **fundamental authentication design flaw**.
 
 **The Problem**: We are trying to use IAM permissions to access the Quilt catalog search, but we are **NOT actually authenticating with the catalog**.
 
@@ -179,7 +179,7 @@ This confirms we have AWS access but **no catalog access**.
 1. **Implement Proper Catalog Authentication**
    - The stateless MCP server needs to authenticate with the Quilt catalog
    - This requires either:
-     - JWT authentication (as designed in `spec/a10-multitenant/04-finish-jwt.md`)
+     - JWT authentication (as designed in `spec/a10-multiuser/04-finish-jwt.md`)
      - Or a way to perform `quilt3.login()` in stateless mode
 
 2. **Fix the Authentication Design Flaw**
@@ -201,7 +201,7 @@ This confirms we have AWS access but **no catalog access**.
 ### Short Term (Priority 2)
 
 1. **Implement JWT Authentication**
-   - Follow the implementation plan in `spec/a10-multitenant/04-finish-jwt.md`
+   - Follow the implementation plan in `spec/a10-multiuser/04-finish-jwt.md`
    - This will enable true stateless operation with catalog authentication
 
 2. **Update Test Environment**
@@ -243,7 +243,7 @@ Based on the failures, the test environment needs:
    - Confirm the authentication design flaw hypothesis
 
 2. **Fix Authentication Architecture**
-   - Implement JWT authentication as specified in `spec/a10-multitenant/04-finish-jwt.md`
+   - Implement JWT authentication as specified in `spec/a10-multiuser/04-finish-jwt.md`
    - Or provide proper catalog credentials for testing
    - Ensure stateless operation doesn't require local credential files
 
@@ -260,4 +260,4 @@ The issues will be considered resolved when:
 - All 3 search_catalog tests pass
 - Search returns expected results for common queries
 - The system operates in a truly stateless manner without local credentials
-- The authentication architecture aligns with the multitenant production requirements
+- The authentication architecture aligns with the multiuser production requirements

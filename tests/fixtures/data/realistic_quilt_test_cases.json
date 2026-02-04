@@ -221,7 +221,7 @@
       "mcp_quilt_auth_status",
       "mcp_quilt_catalog_info"
     ],
-    "realistic_changes": "Simplified from multi-tenant auth to basic auth status - removed complex IdP mapping"
+    "realistic_changes": "Simplified from multi-user auth to basic auth status - removed complex IdP mapping"
   },
   {
     "id": "R016",

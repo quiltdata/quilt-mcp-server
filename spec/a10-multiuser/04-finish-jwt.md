@@ -8,7 +8,7 @@
 
 JWT authentication was fully implemented (commit `f36c689`, Oct 18, 2025) and then completely removed (commit `0d5c917`, Dec 4, 2025). The removal suggests that JWT wasn't needed for current use cases, which are primarily local/IAM-based development.
 
-However, for **multitenant production deployment** (see [01-stateless.md](01-stateless.md)), JWT authentication is **essential**:
+However, for **multiuser production deployment** (see [01-stateless.md](01-stateless.md)), JWT authentication is **essential**:
 
 1. **No local credentials** - Production containers must not use `~/.quilt/` or `~/.aws/` credential files
 2. **Per-user isolation** - Each request must assume a different AWS role based on JWT claims
@@ -773,7 +773,7 @@ pyjwt = "^2.8.0"
 
 **Goal**: Integrate JWT mode into stateless tests
 
-**Where**: `spec/a10-multitenant/02-test-stateless.md` implementation
+**Where**: `spec/a10-multiuser/02-test-stateless.md` implementation
 
 **What to update**:
 
@@ -918,7 +918,7 @@ No permission claims are needed in the JWT.
 - ✅ Auth events logged and monitored
 - ✅ Deployment examples for common platforms
 - ✅ Stateless tests include JWT mode
-- ✅ Ready for production multitenant deployment
+- ✅ Ready for production multiuser deployment
 
 **Phase 4 is now a collection of optional enhancements, not a formal phase with success criteria.**
 

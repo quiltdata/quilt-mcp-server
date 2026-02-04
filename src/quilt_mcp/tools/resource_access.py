@@ -2,7 +2,7 @@
 
 This tool enables backward compatibility for older MCP clients (Claude Desktop, Cursor)
 that don't support the MCP resources protocol natively. It provides a simple tool interface
-to access all 19 registered MCP resources.
+to access the registered MCP resources (mode-dependent).
 
 The tool works by directly invoking the same service functions that power the MCP resources,
 maintaining 100% data parity with the native resource implementation.
@@ -18,7 +18,7 @@ from quilt_mcp.models.responses import (
 
 # Static registry mapping URIs to their service functions
 # This mirrors the resources defined in src/quilt_mcp/resources.py
-RESOURCE_SERVICE_MAP = {
+_BASE_RESOURCE_SERVICE_MAP = {
     # Auth resources
     "auth://status": ("quilt_mcp.services.auth_metadata", "auth_status", False),
     "auth://catalog/info": ("quilt_mcp.services.auth_metadata", "catalog_info", False),
@@ -44,11 +44,27 @@ RESOURCE_SERVICE_MAP = {
     "tabulator://buckets": ("quilt_mcp.services.tabulator_service", "tabulator_buckets_list", True),
 }
 
+_STATEFUL_RESOURCE_URIS = {
+    "metadata://templates",
+    "metadata://examples",
+    "metadata://troubleshooting",
+    "workflow://workflows",
+}
+
+
+def _get_resource_service_map() -> dict[str, tuple[str | None, str | None, bool]]:
+    from quilt_mcp.config import get_mode_config
+
+    mode_config = get_mode_config()
+    if mode_config.is_multiuser:
+        return {uri: entry for uri, entry in _BASE_RESOURCE_SERVICE_MAP.items() if uri not in _STATEFUL_RESOURCE_URIS}
+    return _BASE_RESOURCE_SERVICE_MAP
+
 
 async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetResourceError:
     """Access MCP resources via tool interface for backward compatibility.
 
-    This tool provides access to all 16 MCP resources through a standard tool interface,
+    This tool provides access to MCP resources through a standard tool interface,
     enabling older MCP clients that don't support native resources to access resource data.
 
     ## Discovery Mode
@@ -69,7 +85,7 @@ async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetRes
     # Returns the resource data
     ```
 
-    ## Available Resources (16 total)
+    ## Available Resources (mode-dependent)
 
     ### Auth Resources (3)
     - `auth://status` - Authentication status
@@ -91,12 +107,12 @@ async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetRes
     - `athena://workgroups` - Workgroup list
     - `athena://query/history` - Query history (last 50)
 
-    ### Metadata Resources (3)
+    ### Metadata Resources (3, local dev only)
     - `metadata://templates` - Template list
     - `metadata://examples` - Metadata examples
     - `metadata://troubleshooting` - Troubleshooting guide
 
-    ### Workflow Resources (1)
+    ### Workflow Resources (1, local dev only)
     - `workflow://workflows` - Workflow list
 
     ### Tabulator Resources (1)
@@ -126,7 +142,8 @@ async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetRes
         # Discovery mode - list all available resources
         if uri is None or uri == "":
             resources_list = []
-            for resource_uri in RESOURCE_SERVICE_MAP.keys():
+            resource_map = _get_resource_service_map()
+            for resource_uri in resource_map.keys():
                 resources_list.append(
                     {
                         "uri": resource_uri,
@@ -142,11 +159,12 @@ async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetRes
             )
 
         # Validate URI exists
-        if uri not in RESOURCE_SERVICE_MAP:
+        resource_map = _get_resource_service_map()
+        if uri not in resource_map:
             return GetResourceError(
                 error=f"Resource not found: {uri}",
                 cause="KeyError",
-                valid_uris=list(RESOURCE_SERVICE_MAP.keys()),
+                valid_uris=list(resource_map.keys()),
                 possible_fixes=[
                     "Use discovery mode (no URI) to list available resources",
                     "Check the URI for typos",
@@ -154,7 +172,7 @@ async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetRes
             )
 
         # Get service function details
-        module_path, function_name, is_async = RESOURCE_SERVICE_MAP[uri]
+        module_path, function_name, is_async = resource_map[uri]
 
         # Handle static responses
         if module_path is None or function_name is None:

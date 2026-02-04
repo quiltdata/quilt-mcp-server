@@ -78,26 +78,26 @@ def test_detects_missing_jwt_requirement(writable_container: Container):
             key, value = env_var.split("=", 1)
             env_dict[key] = value
 
-    # This container should have QUILT_MULTITENANT_MODE=false or missing
-    multitenant_mode = env_dict.get("QUILT_MULTITENANT_MODE", "false").lower() == "true"
+    # This container should have QUILT_MULTIUSER_MODE=false or missing
+    multiuser_mode = env_dict.get("QUILT_MULTIUSER_MODE", "false").lower() == "true"
 
-    assert not multitenant_mode, "Test setup error: writable_container should not be in multitenant mode"
+    assert not multiuser_mode, "Test setup error: writable_container should not be in multiuser mode"
 
     # Verify our detection logic would catch this
-    if "QUILT_MULTITENANT_MODE" not in env_dict:
+    if "QUILT_MULTIUSER_MODE" not in env_dict:
         violation_detected = True
-        error_message = "❌ FAIL: QUILT_MULTITENANT_MODE environment variable not set"
-    elif env_dict["QUILT_MULTITENANT_MODE"].lower() != "true":
+        error_message = "❌ FAIL: QUILT_MULTIUSER_MODE environment variable not set"
+    elif env_dict["QUILT_MULTIUSER_MODE"].lower() != "true":
         violation_detected = True
-        error_message = f"❌ FAIL: QUILT_MULTITENANT_MODE should be 'true'\nActual: QUILT_MULTITENANT_MODE={env_dict['QUILT_MULTITENANT_MODE']}\n"
+        error_message = f"❌ FAIL: QUILT_MULTIUSER_MODE should be 'true'\nActual: QUILT_MULTIUSER_MODE={env_dict['QUILT_MULTIUSER_MODE']}\n"
     else:
         violation_detected = False
         error_message = ""
 
-    assert violation_detected, "Test should detect missing multitenant mode requirement"
-    assert "QUILT_MULTITENANT_MODE" in error_message, "Error should mention the variable"
+    assert violation_detected, "Test should detect missing multiuser mode requirement"
+    assert "QUILT_MULTIUSER_MODE" in error_message, "Error should mention the variable"
 
-    print("✅ Test correctly detects missing multitenant mode requirement")
+    print("✅ Test correctly detects missing multiuser mode requirement")
 
 
 def test_error_messages_are_actionable():
@@ -114,7 +114,7 @@ def test_error_messages_are_actionable():
         (
             "❌ FAIL: Server accepted request without JWT token\n"
             "Stateless mode MUST enforce JWT authentication:\n"
-            "  1. Set QUILT_MULTITENANT_MODE=true in environment\n"
+            "  1. Set QUILT_MULTIUSER_MODE=true in environment\n"
             "  2. Reject requests without Authorization header\n"
         ),
         # From test_filesystem_writes.py

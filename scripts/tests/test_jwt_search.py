@@ -12,7 +12,7 @@ repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root / "src"))
 sys.path.insert(0, str(repo_root / "tests"))
 
-from jwt_helpers import generate_test_jwt
+from jwt_helpers import get_sample_catalog_claims, get_sample_catalog_token
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
 from quilt_mcp.runtime_context import set_runtime_auth, RuntimeAuthState
 
@@ -22,23 +22,11 @@ def main():
     print("JWT Authentication Smoke Test")
     print("=" * 80)
 
-    jwt_token = generate_test_jwt(
-        secret="test-secret-key-for-stateless-testing-only",
-        expiry_seconds=3600,
-        user_id="user-123",
-        user_uuid="uuid-123",
-    )
+    jwt_token = get_sample_catalog_token()
 
     print(f"  JWT created: {jwt_token[:50]}...")
 
-    from jwt import decode
-
-    decoded = decode(
-        jwt_token,
-        "test-secret-key-for-stateless-testing-only",
-        algorithms=["HS256"],
-        options={"verify_aud": False},
-    )
+    decoded = get_sample_catalog_claims()
     print(f"  id: {decoded.get('id')}")
     print(f"  uuid: {decoded.get('uuid')}")
     print(f"  exp: {decoded.get('exp')}")

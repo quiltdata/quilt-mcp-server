@@ -184,6 +184,16 @@ class JwtDecoder:
         if not isinstance(claims, dict):
             raise JwtDecodeError("invalid_claims", "JWT claims must be a JSON object.")
 
+        allowed_keys = {"id", "uuid", "exp"}
+        if not (claims.get("id") or claims.get("uuid")):
+            raise JwtDecodeError("invalid_claims", "JWT claims must include id or uuid.")
+        extra_keys = set(claims.keys()) - allowed_keys
+        if extra_keys:
+            raise JwtDecodeError(
+                "invalid_claims",
+                f"JWT claims include unsupported fields: {sorted(extra_keys)}.",
+            )
+
         if source.startswith("ssm:"):
             logger.debug("JWT decoded successfully using secret source %s", source)
         return claims

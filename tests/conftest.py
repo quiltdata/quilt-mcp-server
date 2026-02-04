@@ -2,6 +2,8 @@
 
 import sys
 import os
+import base64
+import json
 import boto3
 import pytest
 import tempfile
@@ -46,6 +48,40 @@ if app_dir not in sys.path:
 # ============================================================================
 
 QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
+
+
+def _generate_test_jwt() -> str:
+    """Generate a lightweight unsigned JWT for platform integration tests."""
+    header = {"alg": "none", "typ": "JWT"}
+    payload = {
+        "id": "test-user",
+        "uuid": "test-uuid",
+        "sub": "test-user",
+        "email": "test-user@example.com",
+        "exp": 9999999999,
+    }
+
+    def _encode(value: dict[str, object]) -> str:
+        return base64.urlsafe_b64encode(json.dumps(value).encode("utf-8")).decode("utf-8").rstrip("=")
+
+    return f"{_encode(header)}.{_encode(payload)}."
+
+
+def _is_truthy_env(value: str | None) -> bool:
+    """Parse a permissive true/false environment variable value."""
+    if value is None:
+        return False
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
+def _backend_mode_params() -> list[str]:
+    """Resolve backend parametrization mode for test runs."""
+    requested_mode = os.getenv("TEST_BACKEND_MODE", "both").strip().lower()
+    if requested_mode in {"quilt3", "local", "single-user"}:
+        return ["quilt3"]
+    if requested_mode in {"platform", "graphql", "multiuser"}:
+        return ["platform"]
+    return ["quilt3", "platform"]
 
 
 @pytest.fixture(scope="session")
@@ -130,12 +166,9 @@ def pytest_configure(config):
     except ImportError:
         pass
 
-    # Disable JWT authentication for all tests
-    os.environ["MCP_REQUIRE_JWT"] = "false"
-
-    # Explicitly ensure unit tests run in local mode (not multitenant mode)
+    # Explicitly ensure unit tests run in local mode (not multiuser mode)
     # This forces tests to use local AWS credentials (AWS_PROFILE or default)
-    os.environ["QUILT_MULTITENANT_MODE"] = "false"
+    os.environ["QUILT_MULTIUSER_MODE"] = "false"
 
     # Remove JWT secrets to prevent development fallback behavior
     os.environ.pop("MCP_JWT_SECRET", None)
@@ -199,6 +232,44 @@ def reset_runtime_auth_state():
         reset_mode_config()
     except Exception:
         pass
+
+
+@pytest.fixture(params=_backend_mode_params())
+def backend_mode(request, monkeypatch, reset_runtime_auth_state):
+    """Run selected integration tests against quilt3 and/or platform backends."""
+    del reset_runtime_auth_state  # dependency for fixture ordering
+
+    from quilt_mcp.config import reset_mode_config, set_test_mode_config
+    from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
+
+    mode = request.param
+    token_handle = None
+
+    if mode == "platform":
+        if not _is_truthy_env(os.getenv("PLATFORM_TEST_ENABLED")):
+            pytest.skip("Platform integration tests disabled - set PLATFORM_TEST_ENABLED=true")
+
+        monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
+        monkeypatch.setenv("QUILT_CATALOG_URL", os.getenv("PLATFORM_CATALOG_URL", "https://test.quiltdata.com"))
+        monkeypatch.setenv("QUILT_REGISTRY_URL", os.getenv("PLATFORM_REGISTRY_URL", "https://registry.test.com"))
+        monkeypatch.setenv("MCP_JWT_SECRET", os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret"))
+
+        token_handle = push_runtime_context(
+            environment="web",
+            auth=RuntimeAuthState(
+                scheme="Bearer",
+                access_token=_generate_test_jwt(),
+                claims={"id": "test-user", "uuid": "test-uuid", "sub": "test-user", "exp": 9999999999},
+            ),
+        )
+
+    set_test_mode_config(multiuser_mode=(mode == "platform"))
+    try:
+        yield mode
+    finally:
+        if token_handle is not None:
+            reset_runtime_context(token_handle)
+        reset_mode_config()
 
 
 # Cached Athena service fixtures for better performance across all tests

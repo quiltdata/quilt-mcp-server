@@ -5,6 +5,8 @@ import pytest
 from quilt_mcp.constants import KNOWN_TEST_PACKAGE
 from quilt_mcp.tools.packages import package_create_from_s3
 
+pytestmark = pytest.mark.usefixtures("backend_mode")
+
 
 @pytest.mark.integration
 @pytest.mark.search  # Requires catalog session, skip in CI

@@ -331,6 +331,18 @@ class TestMCPServerConfiguration(unittest.TestCase):
         self.assertIn("quilt_mcp.tools.buckets", module_names)
         self.assertIn("quilt_mcp.tools.packages", module_names)
 
+    def test_get_tool_modules_multiuser_excludes_workflows(self):
+        """Test that multiuser mode does not register workflow tools."""
+        from quilt_mcp.config import set_test_mode_config, reset_mode_config
+
+        set_test_mode_config(multiuser_mode=True)
+        try:
+            modules = get_tool_modules()
+            module_names = [m.__name__ for m in modules]
+            self.assertNotIn("quilt_mcp.services.workflow_service", module_names)
+        finally:
+            reset_mode_config()
+
     def test_register_tools_only_public_functions(self):
         """Test that only public functions are registered as tools."""
         mock_server = Mock(spec=FastMCP)

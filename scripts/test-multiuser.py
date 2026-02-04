@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Multitenant MCP testing orchestrator.
+Multiuser MCP testing orchestrator.
 
-Runs MCP tests across multiple tenants with proper JWT authentication
-and validates tenant isolation.
+Runs MCP tests across multiple users with proper JWT authentication
+and validates stateless behavior.
 """
 
 import argparse
@@ -22,14 +22,14 @@ repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(repo_root / 'tests'))
 
 try:
-    from jwt_helpers import generate_test_jwt
+    from jwt_helpers import get_sample_catalog_token
 except ImportError:
     print("❌ Could not import jwt_helpers. Make sure tests/jwt_helpers.py exists.", file=sys.stderr)
     sys.exit(1)
 
 
-class MultitenantTestRunner:
-    """Orchestrates multitenant testing across multiple tenants."""
+class MultiuserTestRunner:
+    """Orchestrates multiuser testing across multiple users."""
 
     def __init__(self, config: Dict[str, Any], endpoint: str, verbose: bool = False):
         """Initialize test runner.
@@ -42,7 +42,7 @@ class MultitenantTestRunner:
         self.config = config
         self.endpoint = endpoint
         self.verbose = verbose
-        self.tenant_tokens: Dict[str, str] = {}
+        self.user_tokens: Dict[str, str] = {}
         self.results: Dict[str, Any] = {
             "total": 0,
             "passed": 0,
@@ -58,52 +58,42 @@ class MultitenantTestRunner:
         prefix = "🔍" if level == "DEBUG" else "ℹ️" if level == "INFO" else "❌" if level == "ERROR" else "✅"
         print(f"[{timestamp}] {prefix} {message}")
 
-    def setup_tenants(self) -> bool:
-        """Generate JWT tokens for all configured tenants.
+    def setup_users(self) -> bool:
+        """Load JWT tokens for all configured users.
 
         Returns:
             True if successful, False otherwise
         """
-        self._log("Setting up tenant JWT tokens...")
+        self._log("Setting up user JWT tokens...")
 
-        tenants_config = self.config.get("tenants", {})
-        if not tenants_config:
-            self._log("No tenants configured", "ERROR")
+        users_config = self.config.get("users", {})
+        if not users_config:
+            self._log("No users configured", "ERROR")
             return False
 
-        # Generate token for each tenant
-        for tenant_id, tenant_config in tenants_config.items():
+        # Load token for each user
+        for user_label, user_config in users_config.items():
             try:
-                jwt_secret = tenant_config.get("jwt_secret")
-                user_id = tenant_config.get("user_id")
-                user_uuid = tenant_config.get("user_uuid")
+                token = user_config.get("jwt_token") or user_config.get("token")
+                if not token:
+                    token = get_sample_catalog_token()
 
-                if not jwt_secret or not user_id or not user_uuid:
-                    self._log(f"Missing jwt_secret, user_id, or user_uuid for tenant {tenant_id}", "ERROR")
+                if not token:
+                    self._log(f"Missing JWT token for user {user_label}", "ERROR")
                     return False
 
-                self._log(f"Generating JWT for tenant: {tenant_id}", "DEBUG")
-
-                token = generate_test_jwt(
-                    secret=jwt_secret,
-                    tenant_id=tenant_id,
-                    user_id=user_id,
-                    user_uuid=user_uuid,
-                    expiry_seconds=3600,
-                )
-
-                self.tenant_tokens[tenant_id] = token
-                self._log(f"✅ Token generated for {tenant_id}")
+                self.user_tokens[user_label] = token
+                self._log(f"✅ Token loaded for {user_label}")
 
             except Exception as e:
-                self._log(f"Failed to generate token for {tenant_id}: {e}", "ERROR")
+                self._log(f"Failed to load token for {user_label}: {e}", "ERROR")
                 return False
 
-        self._log(f"✅ Generated {len(self.tenant_tokens)} tenant tokens")
+        self._log(f"✅ Loaded {len(self.user_tokens)} user tokens")
         return True
 
     def run_basic_connectivity_tests(self) -> Dict[str, Any]:
-        """Run basic connectivity tests for all tenants.
+        """Run basic connectivity tests for all users.
 
         Returns:
             Test results dictionary
@@ -119,8 +109,8 @@ class MultitenantTestRunner:
             "tests": []
         }
 
-        for tenant_id, token in self.tenant_tokens.items():
-            self._log(f"\nTesting tenant: {tenant_id}")
+        for user_label, token in self.user_tokens.items():
+            self._log(f"\nTesting user: {user_label}")
 
             try:
                 import requests
@@ -135,7 +125,7 @@ class MultitenantTestRunner:
                     self._log(f"  ❌ Initialize: FAILED - {init_result['error']}")
 
                 results["tests"].append({
-                    "tenant": tenant_id,
+                    "user": user_label,
                     "test": "initialize",
                     **init_result
                 })
@@ -151,7 +141,7 @@ class MultitenantTestRunner:
                     self._log(f"  ❌ Tools List: FAILED - {tools_result['error']}")
 
                 results["tests"].append({
-                    "tenant": tenant_id,
+                    "user": user_label,
                     "test": "tools_list",
                     **tools_result
                 })
@@ -160,20 +150,20 @@ class MultitenantTestRunner:
                 results["failed"] += 2
                 self._log(f"  ❌ Connectivity test failed: {e}", "ERROR")
                 results["tests"].append({
-                    "tenant": tenant_id,
+                    "user": user_label,
                     "error": str(e)
                 })
 
         return results
 
     def run_concurrent_tests(self) -> Dict[str, Any]:
-        """Run concurrent tenant operations test.
+        """Run concurrent user operations test.
 
         Returns:
             Test results dictionary
         """
         self._log("\n" + "="*80)
-        self._log("Running concurrent tenant operations test...")
+        self._log("Running concurrent user operations test...")
         self._log("="*80)
 
         results = {
@@ -183,47 +173,47 @@ class MultitenantTestRunner:
             "tests": []
         }
 
-        def test_tenant_concurrently(tenant_id: str, token: str) -> Dict[str, Any]:
-            """Test single tenant operation."""
+        def test_user_concurrently(user_label: str, token: str) -> Dict[str, Any]:
+            """Test single user operation."""
             try:
                 result = self._test_tools_list(token)
                 return {
-                    "tenant": tenant_id,
+                    "user": user_label,
                     "success": result["success"],
                     "error": result.get("error")
                 }
             except Exception as e:
                 return {
-                    "tenant": tenant_id,
+                    "user": user_label,
                     "success": False,
                     "error": str(e)
                 }
 
-        # Run all tenant tests concurrently
-        with ThreadPoolExecutor(max_workers=len(self.tenant_tokens)) as executor:
+        # Run all user tests concurrently
+        with ThreadPoolExecutor(max_workers=len(self.user_tokens)) as executor:
             futures = {
-                executor.submit(test_tenant_concurrently, tenant_id, token): tenant_id
-                for tenant_id, token in self.tenant_tokens.items()
+                executor.submit(test_user_concurrently, user_label, token): user_label
+                for user_label, token in self.user_tokens.items()
             }
 
             for future in as_completed(futures):
-                tenant_id = futures[future]
+                user_label = futures[future]
                 try:
                     result = future.result()
                     if result["success"]:
                         results["passed"] += 1
-                        self._log(f"  ✅ {tenant_id}: Concurrent test passed")
+                        self._log(f"  ✅ {user_label}: Concurrent test passed")
                     else:
                         results["failed"] += 1
-                        self._log(f"  ❌ {tenant_id}: Concurrent test failed - {result['error']}")
+                        self._log(f"  ❌ {user_label}: Concurrent test failed - {result['error']}")
 
                     results["tests"].append(result)
 
                 except Exception as e:
                     results["failed"] += 1
-                    self._log(f"  ❌ {tenant_id}: Exception - {e}", "ERROR")
+                    self._log(f"  ❌ {user_label}: Exception - {e}", "ERROR")
                     results["tests"].append({
-                        "tenant": tenant_id,
+                        "user": user_label,
                         "success": False,
                         "error": str(e)
                     })
@@ -244,7 +234,7 @@ class MultitenantTestRunner:
                     "params": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {},
-                        "clientInfo": {"name": "multitenant-test", "version": "1.0"}
+                        "clientInfo": {"name": "multiuser-test", "version": "1.0"}
                     },
                     "id": 1
                 },
@@ -332,8 +322,8 @@ class MultitenantTestRunner:
             True if all tests passed, False otherwise
         """
         # Setup
-        if not self.setup_tenants():
-            self._log("Failed to setup tenants", "ERROR")
+        if not self.setup_users():
+            self._log("Failed to setup users", "ERROR")
             return False
 
         # Run test scenarios
@@ -357,7 +347,7 @@ class MultitenantTestRunner:
     def print_summary(self) -> None:
         """Print test results summary."""
         print("\n" + "="*80)
-        print("📊 MULTITENANT TEST SUMMARY")
+        print("📊 MULTIUSER TEST SUMMARY")
         print("="*80)
 
         for scenario in self.results["scenarios"]:
@@ -453,24 +443,20 @@ def load_config(config_path: Path) -> Dict[str, Any]:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Multitenant MCP testing orchestrator",
+        description="Multiuser MCP testing orchestrator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run against real server with real credentials (requires env vars)
-  export TEST_TENANT_A_ID=user-a
-  export TEST_TENANT_A_UUID=uuid-a
-  export TEST_TENANT_B_ID=user-b
-  export TEST_TENANT_B_UUID=uuid-b
-  export TEST_JWT_SECRET=your-jwt-secret
-  python scripts/test-multitenant.py http://localhost:8001/mcp
+  # Run against a server (uses catalog JWT token if provided)
+  export TEST_JWT_TOKEN=your-catalog-jwt
+  python scripts/test-multiuser.py http://localhost:8001/mcp
 
   # Run with custom config
-  python scripts/test-multitenant.py http://localhost:8001/mcp \\
-    --config scripts/tests/mcp-test-multitenant.yaml
+  python scripts/test-multiuser.py http://localhost:8001/mcp \\
+    --config scripts/tests/mcp-test-multiuser.yaml
 
   # Verbose output
-  python scripts/test-multitenant.py http://localhost:8001/mcp -v
+  python scripts/test-multiuser.py http://localhost:8001/mcp -v
         """
     )
 
@@ -482,7 +468,7 @@ Examples:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path(__file__).parent / "tests" / "mcp-test-multitenant.yaml",
+        default=Path(__file__).parent / "tests" / "mcp-test-multiuser.yaml",
         help="Path to test configuration file"
     )
 
@@ -498,7 +484,7 @@ Examples:
     config = load_config(args.config)
 
     # Run tests
-    runner = MultitenantTestRunner(
+    runner = MultiuserTestRunner(
         config,
         args.endpoint,
         verbose=args.verbose,

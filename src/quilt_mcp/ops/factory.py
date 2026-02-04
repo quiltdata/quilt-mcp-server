@@ -30,8 +30,8 @@ class QuiltOpsFactory:
     deployment mode configuration. It eliminates scattered credential detection
     logic by centralizing mode decisions.
 
-    - Local mode (QUILT_MULTITENANT_MODE=false): Creates Quilt3_Backend
-    - Multitenant mode (QUILT_MULTITENANT_MODE=true): Creates Platform_Backend
+    - Local mode (QUILT_MULTIUSER_MODE=false): Creates Quilt3_Backend
+    - Multiuser mode (QUILT_MULTIUSER_MODE=true): Creates Platform_Backend
     """
 
     @staticmethod
@@ -57,8 +57,8 @@ class QuiltOpsFactory:
             return Quilt3_Backend()
 
         elif mode_config.backend_type == "graphql":
-            # Multitenant production mode - use Platform GraphQL backend
-            logger.info("Creating Platform_Backend for multitenant mode")
+            # Multiuser production mode - use Platform GraphQL backend
+            logger.info("Creating Platform_Backend for multiuser mode")
             return Platform_Backend()
 
         else:

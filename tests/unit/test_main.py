@@ -163,7 +163,7 @@ def test_main_keyboard_interrupt(monkeypatch, capsys):
 def test_transport_protocol_selection_local_mode(monkeypatch):
     """Test that local mode sets stdio transport."""
     # Ensure local mode (default)
-    monkeypatch.delenv("QUILT_MULTITENANT_MODE", raising=False)
+    monkeypatch.delenv("QUILT_MULTIUSER_MODE", raising=False)
 
     called, transport, skip_banner = call_main_with_fake_server()
 
@@ -171,10 +171,10 @@ def test_transport_protocol_selection_local_mode(monkeypatch):
     assert transport == "stdio"
 
 
-def test_transport_protocol_selection_multitenant_mode(monkeypatch):
-    """Test that multitenant mode sets http transport."""
-    # Set multitenant mode
-    monkeypatch.setenv("QUILT_MULTITENANT_MODE", "true")
+def test_transport_protocol_selection_multiuser_mode(monkeypatch):
+    """Test that multiuser mode sets http transport."""
+    # Set multiuser mode
+    monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
     # Set required JWT config to pass validation
     monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
     monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")
@@ -188,8 +188,8 @@ def test_transport_protocol_selection_multitenant_mode(monkeypatch):
 
 def test_transport_protocol_respects_existing_env_var(monkeypatch):
     """Test that existing FASTMCP_TRANSPORT is not overridden."""
-    # Set multitenant mode (which would normally set http)
-    monkeypatch.setenv("QUILT_MULTITENANT_MODE", "true")
+    # Set multiuser mode (which would normally set http)
+    monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
     # Set required JWT config to pass validation
     monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
     monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")

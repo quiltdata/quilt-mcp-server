@@ -19,7 +19,7 @@ The Platform GraphQL backend is **functionally complete** with all core operatio
 
 ### What Remains 🚧
 
-- **Multitenant Test Automation** - Test orchestrator script not yet implemented
+- **Multiuser Test Automation** - Test orchestrator script not yet implemented
 - **CI/CD Integration** - GitHub Actions workflow not set up
 - **Documentation** - README needs update to reflect implementation status
 
@@ -42,7 +42,7 @@ The Platform GraphQL backend is **functionally complete** with all core operatio
 | **Test: Buckets** | ✅ Done | [test_platform_backend_buckets.py](../../tests/unit/backends/test_platform_backend_buckets.py) | 9KB, bucket operations |
 | **Test: Admin** | ✅ Done | [test_platform_backend_admin.py](../../tests/unit/backends/test_platform_backend_admin.py) | 2KB, stub verification |
 | | | | |
-| **Multitenant Tests** | ⚠️ Partial | Specs exist, automation missing | Manual testing works |
+| **Multiuser Tests** | ⚠️ Partial | Specs exist, automation missing | Manual testing works |
 | **CI/CD Workflows** | ❌ Not Started | No .github/workflows files | Documented in spec 08 |
 | **Documentation** | ⚠️ Needs Update | README outdated | See checklist below |
 
@@ -72,7 +72,7 @@ a8ef66e - test: Add comprehensive Platform backend test coverage
 
 ```
 1320a62 - specs to. finish platform backend
-04d3f58 - docs: Add comprehensive multitenant testing specifications
+04d3f58 - docs: Add comprehensive multiuser testing specifications
 9c18f14 - docs: Simplify GraphQL endpoint config to require env var
 2b11421 - docs: Add Platform GraphQL backend implementation plan
 ```
@@ -192,7 +192,7 @@ backend.admin.list_users()
 
 **Documented in:** [11-test-coverage-plan.md](./11-test-coverage-plan.md#phase-4-create-test_platform_backend_adminpy)
 
-### 2. Multitenant Test Automation Not Complete
+### 2. Multiuser Test Automation Not Complete
 
 **What works:**
 
@@ -202,10 +202,10 @@ backend.admin.list_users()
 
 **What's missing:**
 
-- `scripts/test-multitenant.py` test orchestrator ❌
+- `scripts/test-multiuser.py` test orchestrator ❌
 - Automated GitHub Actions workflow ❌
 
-**Documented in:** [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md)
+**Documented in:** [08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md)
 
 ---
 
@@ -230,30 +230,30 @@ backend.admin.list_users()
   - [ ] Update implementation notes (GraphQL-native, not quilt3)
   - [ ] Add link to 12-graphql-native-write-operations.md
 
-### Multitenant Testing Automation (Medium Priority)
+### Multiuser Testing Automation (Medium Priority)
 
-- [ ] Create `scripts/test-multitenant.py` orchestrator
+- [ ] Create `scripts/test-multiuser.py` orchestrator
   - [ ] Implement test scenario runner
   - [ ] Support YAML config file
   - [ ] Generate JWT tokens for multiple tenants
   - [ ] Execute tests in parallel
   - [ ] Report results with clear status indicators
 
-- [ ] Create `scripts/tests/mcp-test-multitenant.yaml` config
+- [ ] Create `scripts/tests/mcp-test-multiuser.yaml` config
   - [ ] Define tenant configurations
   - [ ] Define test scenarios (isolation, concurrent ops)
   - [ ] Add expected results
 
-- [ ] Add Make targets for multitenant testing
-  - [ ] `make test-multitenant` - Run full suite
-  - [ ] `make test-multitenant-unit` - Unit tests only
-  - [ ] `make test-multitenant-integration` - Integration tests
+- [ ] Add Make targets for multiuser testing
+  - [ ] `make test-multiuser` - Run full suite
+  - [ ] `make test-multiuser-unit` - Unit tests only
+  - [ ] `make test-multiuser-integration` - Integration tests
 
-**Reference:** [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md) (detailed spec already exists)
+**Reference:** [08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md) (detailed spec already exists)
 
 ### CI/CD Integration (Medium Priority)
 
-- [ ] Create `.github/workflows/test-multitenant.yml`
+- [ ] Create `.github/workflows/test-multiuser.yml`
   - [ ] Configure secrets (JWT_SECRET, JWT_TOKENS)
   - [ ] Install dependencies with uv
   - [ ] Run unit tests
@@ -265,7 +265,7 @@ backend.admin.list_users()
   - [ ] Run tests on `a*-platform*` branches
   - [ ] Ensure no regressions
 
-**Reference:** [08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md#cicd-integration)
+**Reference:** [08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md#cicd-integration)
 
 ### Optional Enhancements (Low Priority)
 
@@ -461,8 +461,8 @@ python scripts/mcp-test.py http://localhost:8001/mcp \
 6. **[05-tabulator-test.md](./05-tabulator-test.md)** - Tabulator test design
 7. **[06-tabulator-un-service.md](./06-tabulator-un-service.md)** - Service deconstruction
 8. **[07-implementation-plan.md](./07-implementation-plan.md)** - Phase-by-phase plan
-9. **[08-multitenant-testing-spec.md](./08-multitenant-testing-spec.md)** - Testing strategy
-10. **[09-quick-start-multitenant.md](./09-quick-start-multitenant.md)** - 5-min setup
+9. **[08-multiuser-testing-spec.md](./08-multiuser-testing-spec.md)** - Testing strategy
+10. **[09-quick-start-multiuser.md](./09-quick-start-multiuser.md)** - 5-min setup
 11. **[10-jwt-helpers-integration.md](./10-jwt-helpers-integration.md)** - JWT verification
 12. **[11-test-coverage-plan.md](./11-test-coverage-plan.md)** - Test organization
 13. **[12-graphql-native-write-operations.md](./12-graphql-native-write-operations.md)** - Write ops spec
@@ -493,7 +493,7 @@ python scripts/mcp-test.py http://localhost:8001/mcp \
 
 ### Short Term (Next 2 Weeks)
 
-1. **Implement multitenant test automation** - Create test-multitenant.py
+1. **Implement multiuser test automation** - Create test-multiuser.py
 2. **Set up CI/CD** - Add GitHub Actions workflow
 3. **Integration testing** - Test against real Platform deployment
 
@@ -510,8 +510,8 @@ The Platform GraphQL backend is **functionally complete and production-ready** f
 
 - ✅ Uses pure GraphQL for all operations (read + write)
 - ✅ Has comprehensive test coverage (60+ tests, ~95% coverage)
-- ✅ Supports JWT authentication and multitenant scenarios
+- ✅ Supports JWT authentication and multiuser scenarios
 - ✅ Is architecturally consistent (no quilt3 dependency)
 - ⚠️ Needs documentation updates and CI/CD setup
 
-**Recommended Action:** Update documentation (README, specs) and merge to main. Multitenant test automation can be added incrementally.
+**Recommended Action:** Update documentation (README, specs) and merge to main. Multiuser test automation can be added incrementally.

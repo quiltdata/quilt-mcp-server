@@ -99,7 +99,7 @@ def test_tools_list_endpoint(container_url: str):
         from .conftest import make_test_jwt
         import uuid
 
-        token = make_test_jwt(secret="test-secret", extra_claims={"iss": "test-issuer", "aud": "test-audience"})
+        token = make_test_jwt(secret="test-secret")
         session_id = str(uuid.uuid4())
 
         # MCP HTTP protocol requires initialize first
@@ -246,7 +246,7 @@ def test_quilt3_operations_with_cache_disabled(
     from .conftest import get_container_filesystem_writes, make_test_jwt
 
     # Create JWT token
-    token = make_test_jwt(secret="test-secret", extra_claims={"iss": "test-issuer", "aud": "test-audience"})
+    token = make_test_jwt(secret="test-secret")
 
     # Get baseline filesystem state
     baseline_writes = set(get_container_filesystem_writes(stateless_container))
