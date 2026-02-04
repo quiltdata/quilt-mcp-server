@@ -980,7 +980,6 @@ test_resources:
   metadata://templates:
     description: List available metadata templates
     effect: none
-    mode: local_dev
     uri: metadata://templates
     uri_variables: {}
     expected_mime_type: application/json
@@ -994,7 +993,6 @@ test_resources:
   metadata://examples:
     description: Example metadata configurations
     effect: none
-    mode: local_dev
     uri: metadata://examples
     uri_variables: {}
     expected_mime_type: application/json
@@ -1008,7 +1006,6 @@ test_resources:
   metadata://troubleshooting:
     description: Common metadata issues and solutions
     effect: none
-    mode: local_dev
     uri: metadata://troubleshooting
     uri_variables: {}
     expected_mime_type: application/json
@@ -1022,7 +1019,6 @@ test_resources:
   workflow://workflows:
     description: List all tracked workflows
     effect: none
-    mode: local_dev
     uri: workflow://workflows
     uri_variables: {}
     expected_mime_type: application/json

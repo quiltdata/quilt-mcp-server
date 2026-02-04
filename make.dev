@@ -49,7 +49,7 @@ $(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py | $(RESULTS
 	@echo "Running integration tests (AWS/external services)..."
 	@uv sync --group test
 	@if [ -d "tests/integration" ] && [ "$$(find tests/integration -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v -m "not search and not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-integration.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && uv run python -m pytest tests/integration/ -v -m "not search and not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-integration.xml --cov-report=term-missing; \
 	else \
 		echo "No integration tests found, creating empty coverage file..."; \
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-integration.xml; \
@@ -154,7 +154,6 @@ test-mcp-stateless: docker-build
 			--jwt-secret "test-secret" && \
 		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
 			--jwt \
-			--server-mode multiuser \
 			--tools-test --resources-test \
 			--config scripts/tests/mcp-test.yaml && \
 		uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
