@@ -22,6 +22,8 @@ from quilt_mcp.models import (
 )
 from quilt_mcp.tools.auth_helpers import AuthorizationContext
 
+pytestmark = pytest.mark.usefixtures("backend_mode")
+
 
 @pytest.mark.search
 @pytest.mark.integration

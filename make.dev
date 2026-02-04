@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multiuser test-multiuser-fake test-catalog test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-platform-integration test-e2e test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multiuser test-multiuser-fake test-catalog test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -54,6 +54,15 @@ $(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py | $(RESULTS
 		echo "No integration tests found, creating empty coverage file..."; \
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-integration.xml; \
 	fi
+
+test-platform-integration:
+	@echo "Running platform backend integration tests..."
+	@uv sync --group test
+	@export PYTHONPATH="src" && \
+		export PLATFORM_TEST_ENABLED=true && \
+		export TEST_BACKEND_MODE=platform && \
+		export QUILT_MULTIUSER_MODE=true && \
+		uv run python -m pytest tests/integration/ -v -m "integration and not search and not admin"
 
 test-e2e: $(RESULTS_DIR)/coverage-e2e.xml
 

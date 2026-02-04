@@ -28,6 +28,8 @@ from quilt_mcp.tools.packages import (
 )
 # Models removed - using flattened parameters directly
 
+pytestmark = pytest.mark.usefixtures("backend_mode")
+
 # Test configuration - using constants
 KNOWN_PACKAGE = KNOWN_TEST_PACKAGE
 
