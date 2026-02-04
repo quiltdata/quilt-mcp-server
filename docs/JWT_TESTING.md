@@ -150,12 +150,12 @@ make test-stateless-mcp
 **Possible causes:**
 
 - User does not have access to the requested resource
-- Token is valid but not authorized for the platform tenant
+- Token is valid but not authorized for the platform deployment
 
 **Solutions:**
 
 1. Verify the user has access to the requested package/bucket
-2. Confirm the token is issued for the correct platform tenant
+2. Confirm the token is issued for the correct platform deployment
 
 ### Token Expiration
 

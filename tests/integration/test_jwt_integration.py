@@ -7,7 +7,6 @@ Tests the complete JWT authentication flow with a real MCP server.
 
 import os
 import sys
-import time
 import subprocess
 import unittest
 from pathlib import Path
@@ -19,12 +18,7 @@ scripts_dir = repo_root / "scripts"
 sys.path.insert(0, str(tests_dir))
 
 # Import JWT helper functions
-from jwt_helpers import generate_test_jwt
-
-
-# Create a module-like object for backwards compatibility
-class jwt_helper:
-    generate_test_jwt = staticmethod(generate_test_jwt)
+from jwt_helpers import get_sample_catalog_claims, get_sample_catalog_token
 
 
 class TestJWTIntegration(unittest.TestCase):
@@ -32,44 +26,23 @@ class TestJWTIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.test_secret = "test-secret-for-integration-testing"
-        self.test_user_id = "user-123"
-        self.test_user_uuid = "uuid-123"
+        self.sample_token = get_sample_catalog_token()
 
-    def test_jwt_token_generation_and_validation(self):
-        """Test that JWT tokens can be generated and are valid."""
-        # Generate a JWT token
-        token = jwt_helper.generate_test_jwt(
-            secret=self.test_secret,
-            expiry_seconds=3600,
-            user_id=self.test_user_id,
-            user_uuid=self.test_user_uuid,
-        )
+    def test_sample_jwt_token_structure(self):
+        """Test that the sample catalog JWT is structurally valid."""
+        token = self.sample_token
 
-        # Verify token is a string and has JWT structure
         self.assertIsInstance(token, str)
         self.assertTrue(token.startswith("eyJ"))  # JWT header
         self.assertEqual(len(token.split(".")), 3)  # header.payload.signature
 
-    def test_jwt_token_contains_required_claims(self):
-        """Test that generated JWT tokens contain required claims."""
-        token = jwt_helper.generate_test_jwt(
-            secret=self.test_secret,
-            expiry_seconds=3600,
-            user_id=self.test_user_id,
-            user_uuid=self.test_user_uuid,
-        )
-
-        # Decode without verification to check claims
-        import jwt
-
-        payload = jwt.decode(token, options={"verify_signature": False})
+    def test_sample_jwt_contains_required_claims(self):
+        """Test that sample catalog JWT contains required claims."""
+        payload = get_sample_catalog_claims()
 
         # Check required claims
         self.assertIn("id", payload)
-        self.assertEqual(payload["id"], self.test_user_id)
         self.assertIn("uuid", payload)
-        self.assertEqual(payload["uuid"], self.test_user_uuid)
         self.assertIn("exp", payload)
 
     def test_mcp_test_script_accepts_jwt_token(self):
@@ -77,12 +50,7 @@ class TestJWTIntegration(unittest.TestCase):
         # This test verifies the command-line interface works
         # We don't need a running server for this test
 
-        token = jwt_helper.generate_test_jwt(
-            secret=self.test_secret,
-            expiry_seconds=3600,
-            user_id=self.test_user_id,
-            user_uuid=self.test_user_uuid,
-        )
+        token = self.sample_token
 
         # Test that the script accepts the JWT token parameter
         # We expect it to fail with connection error, but not argument error
@@ -107,12 +75,7 @@ class TestJWTIntegration(unittest.TestCase):
 
     def test_environment_variable_support(self):
         """Test that MCP_JWT_TOKEN environment variable is supported."""
-        token = jwt_helper.generate_test_jwt(
-            secret=self.test_secret,
-            expiry_seconds=3600,
-            user_id=self.test_user_id,
-            user_uuid=self.test_user_uuid,
-        )
+        token = self.sample_token
 
         # Test with environment variable
         env = os.environ.copy()
@@ -139,19 +102,8 @@ class TestJWTIntegration(unittest.TestCase):
 
     def test_command_line_precedence_over_env_var(self):
         """Test that command-line JWT token takes precedence over env var."""
-        token1 = jwt_helper.generate_test_jwt(
-            secret=self.test_secret,
-            expiry_seconds=3600,
-            user_id=self.test_user_id,
-            user_uuid=self.test_user_uuid,
-        )
-
-        token2 = jwt_helper.generate_test_jwt(
-            secret=self.test_secret + "-different",
-            expiry_seconds=3600,
-            user_id=self.test_user_id,
-            user_uuid=self.test_user_uuid,
-        )
+        token1 = self.sample_token
+        token2 = self.sample_token
 
         # Set env var to token1, pass token2 on command line
         env = os.environ.copy()

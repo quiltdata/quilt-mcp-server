@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
 from quilt_mcp.services.jwt_decoder import JwtDecodeError
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
@@ -65,7 +63,7 @@ def test_jwt_auth_service_get_user_identity_from_claims():
     auth_state = RuntimeAuthState(
         scheme="Bearer",
         access_token="token",
-        claims={"id": "user-1", "uuid": "uuid-1", "email": "user@example.com"},
+        claims={"id": "user-1", "uuid": "uuid-1", "exp": 1_700_000_060},
     )
     token_handle = push_runtime_context(environment="web-service", auth=auth_state)
     try:
@@ -75,13 +73,13 @@ def test_jwt_auth_service_get_user_identity_from_claims():
         reset_runtime_context(token_handle)
 
     assert identity["user_id"] == "user-1"
-    assert identity["email"] == "user@example.com"
+    assert identity["email"] is None
 
 
 def test_jwt_auth_service_get_user_identity_decodes_token(monkeypatch):
     class StubDecoder:
         def decode(self, token: str) -> dict:
-            return {"id": "user-2", "uuid": "uuid-2", "email": "decoded@example.com"}
+            return {"id": "user-2", "uuid": "uuid-2", "exp": 1_700_000_060}
 
     monkeypatch.setattr("quilt_mcp.services.jwt_auth_service.get_jwt_decoder", lambda: StubDecoder())
 
@@ -94,4 +92,18 @@ def test_jwt_auth_service_get_user_identity_decodes_token(monkeypatch):
         reset_runtime_context(token_handle)
 
     assert identity["user_id"] == "user-2"
-    assert identity["email"] == "decoded@example.com"
+    assert identity["email"] is None
+
+
+def test_jwt_auth_service_requires_exp_claim():
+    auth_state = RuntimeAuthState(
+        scheme="Bearer",
+        access_token="token",
+        claims={"id": "user-1", "uuid": "uuid-1"},
+    )
+    token_handle = push_runtime_context(environment="web-service", auth=auth_state)
+    try:
+        service = JWTAuthService()
+        assert service.is_valid() is False
+    finally:
+        reset_runtime_context(token_handle)

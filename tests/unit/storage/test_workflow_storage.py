@@ -16,10 +16,10 @@ def test_workflow_storage_is_abstract():
 
 def test_workflow_storage_method_signatures():
     signature_map = {
-        "save": {"tenant_id", "workflow_id", "workflow"},
-        "load": {"tenant_id", "workflow_id"},
-        "list_all": {"tenant_id"},
-        "delete": {"tenant_id", "workflow_id"},
+        "save": {"workflow_id", "workflow"},
+        "load": {"workflow_id"},
+        "list_all": set(),
+        "delete": {"workflow_id"},
     }
 
     for name, expected_params in signature_map.items():

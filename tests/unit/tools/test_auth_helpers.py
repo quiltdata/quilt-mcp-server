@@ -52,7 +52,6 @@ def test_check_package_authorization_uses_context_auth_service(monkeypatch):
     stub = StubAuthService()
     request_context = RequestContext(
         request_id="req-1",
-        tenant_id="default",
         user_id="user-1",
         auth_service=stub,
         permission_service=object(),

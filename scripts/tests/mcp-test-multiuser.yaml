@@ -7,19 +7,16 @@ environment:
   QUILT_TEST_BUCKET: "${QUILT_TEST_BUCKET}"
   QUILT_CATALOG_URL: "${QUILT_CATALOG_URL}"
 
-# Define tenant configurations
-tenants:
-  tenant-a:
-    user_id: "${TEST_TENANT_A_ID:-user-a}"
-    user_uuid: "${TEST_TENANT_A_UUID:-uuid-a}"
-    jwt_secret: "${TEST_JWT_SECRET:-test-secret}"
-    description: "Primary test tenant"
+# Define user configurations
+# If jwt_token is empty, the test runner will fall back to the bundled sample catalog JWT.
+users:
+  user-a:
+    jwt_token: "${TEST_JWT_TOKEN:-}"
+    description: "Primary test user"
 
-  tenant-b:
-    user_id: "${TEST_TENANT_B_ID:-user-b}"
-    user_uuid: "${TEST_TENANT_B_UUID:-uuid-b}"
-    jwt_secret: "${TEST_JWT_SECRET:-test-secret}"
-    description: "Secondary test tenant for isolation testing"
+  user-b:
+    jwt_token: "${TEST_JWT_TOKEN:-}"
+    description: "Secondary test user for concurrency testing"
 
 # Optional: Define expected tool/resource counts for validation
 expected:
@@ -27,4 +24,4 @@ expected:
   min_resources: 10
 
 # Test scenarios are defined in test-multiuser.py
-# This file provides tenant configuration and environment setup
+# This file provides user configuration and environment setup

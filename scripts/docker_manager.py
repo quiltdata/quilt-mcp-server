@@ -276,13 +276,11 @@ class DockerManager:
 
         # Default JWT secret for testing
         if not jwt_secret:
-            jwt_secret = "test-secret-key-for-stateless-testing-only"
+            jwt_secret = "test-secret"
 
         env_vars = {
             "QUILT_MULTIUSER_MODE": "true",
             "MCP_JWT_SECRET": jwt_secret,
-            "MCP_JWT_ISSUER": "mcp-test",
-            "MCP_JWT_AUDIENCE": "mcp-server",
             "QUILT_CATALOG_URL": catalog_url,
             "QUILT_REGISTRY_URL": registry_url,
             "QUILT_DISABLE_CACHE": "true",
@@ -345,8 +343,6 @@ class DockerManager:
         env_vars = {
             "QUILT_MULTIUSER_MODE": "true",
             "MCP_JWT_SECRET": jwt_secret,
-            "MCP_JWT_ISSUER": "mcp-test",
-            "MCP_JWT_AUDIENCE": "mcp-server",
             "QUILT_CATALOG_URL": catalog_url,
             "QUILT_REGISTRY_URL": registry_url,
             "QUILT_DISABLE_CACHE": "true",

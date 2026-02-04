@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
-
-import jwt
 import pytest
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
@@ -15,6 +12,7 @@ from starlette.testclient import TestClient
 from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
 from quilt_mcp.config import set_test_mode_config
 from quilt_mcp.tools.auth_helpers import check_s3_authorization, check_package_authorization
+from tests.jwt_helpers import get_sample_catalog_token
 
 
 @pytest.mark.integration
@@ -112,12 +110,7 @@ def test_jwt_mode_requires_valid_token(monkeypatch):
     )
     assert missing.status_code in {401, 403}
 
-    payload = {
-        "id": "user-1",
-        "uuid": "uuid-1",
-        "exp": int(time.time()) + 300,
-    }
-    token = jwt.encode(payload, secret, algorithm="HS256")
+    token = get_sample_catalog_token()
     ok = client.post("/tool", json={}, headers={"Authorization": f"Bearer {token}"})
     assert ok.status_code == 200
 
@@ -136,8 +129,8 @@ def test_jwt_mode_rejects_invalid_token(monkeypatch):
     app.add_middleware(JwtAuthMiddleware, require_jwt=True)
     client = TestClient(app)
 
-    payload = {"id": "user-1", "uuid": "uuid-1", "exp": int(time.time()) + 300}
-    token = jwt.encode(payload, "wrong-secret", algorithm="HS256")
+    token = get_sample_catalog_token()
+    token = token[:-1] + ("a" if token[-1] != "a" else "b")
 
     response = client.post("/tool", json={}, headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 403

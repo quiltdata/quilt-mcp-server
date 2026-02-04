@@ -192,7 +192,7 @@ def test_no_fallback_to_local_credentials(stateless_container: Container):
 
 def test_jwt_secret_not_written_to_filesystem(stateless_container: Container):
     """Verify JWT secret is not persisted to container filesystem."""
-    secret = "test-secret-key-for-stateless-testing-only"
+    secret = "test-secret"
 
     script = r"""
 import os
@@ -242,7 +242,7 @@ def test_request_with_valid_jwt_succeeds(container_url: str):
     from .conftest import make_test_jwt
     import uuid
 
-    token = make_test_jwt(secret="test-secret", extra_claims={"iss": "test-issuer", "aud": "test-audience"})
+    token = make_test_jwt(secret="test-secret")
     session_id = str(uuid.uuid4())
 
     # MCP HTTP protocol requires initialize first

@@ -24,11 +24,11 @@ import requests
 import yaml
 from jsonschema import validate
 
-# Import JWT helper functions for auto-generation
+# Import JWT helper functions for sample catalog token
 # Add tests directory to path for jwt_helpers
 repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / 'tests'))
-from jwt_helpers import generate_test_jwt
+sys.path.insert(0, str(repo_root / "tests"))
+from jwt_helpers import get_sample_catalog_token
 
 
 class ResourceFailureType(enum.Enum):
@@ -526,7 +526,7 @@ class MCPTester:
                     "Authorization failed: Insufficient permissions\n"
                     f"Token preview: {self._mask_token(self.jwt_token)}\n"
                     "Troubleshooting:\n"
-                    "  - Verify JWT is valid for the Platform tenant\n"
+                    "  - Verify JWT is valid for the Platform deployment\n"
                     "  - Check that the user has access to the requested package/bucket"
                 )
 
@@ -1488,10 +1488,8 @@ Examples:
   mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4 --tools-test
 
 JWT Authentication:
-  # Auto-generate JWT token (recommended - simplest approach)
-  mcp-test.py http://localhost:8000/mcp --jwt \
-    --secret test-secret \
-    --tools-test
+  # Use bundled sample catalog JWT token
+  mcp-test.py http://localhost:8000/mcp --jwt --tools-test
 
   # Using environment variable
   export MCP_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -1500,8 +1498,7 @@ JWT Authentication:
   # Using command-line argument
   mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..." --tools-test
 
-  # Or generate token separately with jwt_helpers
-  python tests/jwt_helpers.py generate --secret test-secret --id user-123 --uuid user-uuid
+  # Or provide your own catalog JWT token via env/CLI
 
 For detailed JWT testing documentation, see: docs/JWT_TESTING.md
         """
@@ -1549,25 +1546,7 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                             "Alternatively, set MCP_JWT_TOKEN environment variable. "
                             "⚠️  Prefer env var for production use to avoid token exposure in logs.")
     jwt_group.add_argument("--jwt", action="store_true",
-                       help="Auto-generate JWT token using jwt_helper library. "
-                            "Requires --secret. "
-                            "Optionally provide --jwt-id and --jwt-uuid.")
-
-    # JWT generation parameters (only used with --jwt)
-    parser.add_argument("--secret", type=str,
-                       help="JWT signing secret (required with --jwt)")
-    parser.add_argument("--jwt-expiry", type=int, default=3600,
-                       help="JWT token expiry in seconds (default: 3600, only with --jwt)")
-    parser.add_argument("--jwt-id", type=str, default=None,
-                       help="JWT id claim (user id, optional)")
-    parser.add_argument("--jwt-uuid", type=str, default=None,
-                       help="JWT uuid claim (user uuid, optional)")
-    parser.add_argument("--jwt-issuer", type=str, default=None,
-                       help="JWT issuer claim (optional)")
-    parser.add_argument("--jwt-audience", type=str, default=None,
-                       help="JWT audience claim (optional)")
-    parser.add_argument("--jwt-tenant-id", type=str, default=None,
-                       help="JWT tenant_id claim for multiuser mode (optional)")
+                       help="Use bundled sample catalog JWT token (HTTP transport only).")
     parser.add_argument("-t", "--tools-test", action="store_true",
                        help="Run tools test with test configurations")
     parser.add_argument("-T", "--test-tool", metavar="TOOL_NAME",
@@ -1603,34 +1582,20 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
     jwt_token = None
 
     if args.jwt:
-        # Auto-generate JWT token using jwt_helper library
+        # Use sample catalog JWT for testing
         if transport != "http":
             print("❌ --jwt only supported for HTTP transport")
             sys.exit(1)
 
-        if not args.secret:
-            print("❌ --jwt requires --secret")
-            sys.exit(1)
-
-        print("🔐 Auto-generating JWT token...")
+        print("🔐 Using sample catalog JWT token...")
 
         try:
-            jwt_token = generate_test_jwt(
-                secret=args.secret,
-                expiry_seconds=args.jwt_expiry,
-                user_id=args.jwt_id,
-                user_uuid=args.jwt_uuid,
-                issuer=args.jwt_issuer,
-                audience=args.jwt_audience,
-                tenant_id=args.jwt_tenant_id,
-            )
-            print("✅ JWT token generated successfully")
+            jwt_token = get_sample_catalog_token()
             if args.verbose:
-                # Show masked token for debugging
                 masked = f"{jwt_token[:8]}...{jwt_token[-8:]}" if len(jwt_token) > 16 else "***"
                 print(f"   Token preview: {masked}")
         except Exception as e:
-            print(f"❌ Failed to generate JWT token: {e}")
+            print(f"❌ Failed to load sample JWT token: {e}")
             sys.exit(1)
     else:
         # Use provided token (command line takes precedence over env var)

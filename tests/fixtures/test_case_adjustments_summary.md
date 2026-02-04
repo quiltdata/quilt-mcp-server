@@ -17,7 +17,7 @@ I've adjusted the ChatGPT-suggested test cases to align with actual Quilt functi
 
 ### 2. **Simplified Overly Complex Scenarios**
 - **Biological Specificity**: Removed overly specific biological terms (RIN scores, hepatocytes) for broader applicability
-- **Multi-Tenant Auth**: Simplified complex IdP scenarios to basic authentication status
+- **Multiuser Auth**: Simplified complex IdP scenarios to basic authentication status
 - **Cross-Bucket Operations**: Simplified complex migration scenarios to basic operations
 - **Statistical Analysis**: Removed complex statistical operations not built into Quilt
 - **Workflow Timing**: Removed time-to-publish metrics (not tracked by Quilt)

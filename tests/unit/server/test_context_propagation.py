@@ -18,7 +18,6 @@ from quilt_mcp.context.request_context import RequestContext
 def _make_context(request_id: str) -> RequestContext:
     return RequestContext(
         request_id=request_id,
-        tenant_id="default",
         user_id="user",
         auth_service=object(),
         permission_service=object(),

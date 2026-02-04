@@ -142,15 +142,9 @@ test-mcp-stateless: docker-build
 			--image $$TEST_DOCKER_IMAGE \
 			--name mcp-stateless-test \
 			--port 8002 \
-			--jwt-secret "test-secret-key-for-stateless-testing-only" && \
+			--jwt-secret "test-secret" && \
 		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
 			--jwt \
-			--secret "test-secret-key-for-stateless-testing-only" \
-			--jwt-issuer "mcp-test" \
-			--jwt-audience "mcp-server" \
-			--jwt-tenant-id "test-tenant" \
-			--jwt-id "$${MCP_JWT_TEST_ID:-test-user-id}" \
-			--jwt-uuid "$${MCP_JWT_TEST_UUID:-test-user-uuid}" \
 			--tools-test --resources-test \
 			--config scripts/tests/mcp-test.yaml && \
 		uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
@@ -167,7 +161,7 @@ test-multiuser:
 
 # Multiuser Testing with Fake Roles (for local development)
 test-multiuser-fake: docker-build
-	@echo "👥 Testing multiuser MCP with fake tenant JWTs (local dev only)..."
+	@echo "👥 Testing multiuser MCP with sample catalog JWTs (local dev only)..."
 	@uv sync --group test
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
 		uv run python scripts/docker_manager.py start \

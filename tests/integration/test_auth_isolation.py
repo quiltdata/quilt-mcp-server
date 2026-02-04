@@ -18,7 +18,7 @@ async def test_concurrent_requests_have_isolated_auth_services():
         auth_state = RuntimeAuthState(
             scheme="Bearer",
             access_token=f"token-{user_id}",
-            claims={"sub": user_id},
+            claims={"id": user_id},
         )
         token_handle = push_runtime_context(environment="web-service", auth=auth_state)
         try:

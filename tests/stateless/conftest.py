@@ -7,7 +7,7 @@ from typing import Generator, Optional
 import pytest
 import docker
 from docker.models.containers import Container
-import jwt
+from tests.jwt_helpers import get_sample_catalog_token
 
 
 def make_test_jwt(
@@ -17,11 +17,8 @@ def make_test_jwt(
     expires_in: int = 600,
     extra_claims: Optional[dict] = None,
 ) -> str:
-    """Generate a signed JWT for stateless tests."""
-    payload = {"sub": subject, "exp": int(time.time()) + expires_in}
-    if extra_claims:
-        payload.update(extra_claims)
-    return jwt.encode(payload, secret, algorithm="HS256")
+    """Return a catalog-format JWT for stateless tests."""
+    return get_sample_catalog_token()
 
 
 @pytest.fixture(scope="session")
@@ -95,8 +92,6 @@ def stateless_container(
             environment={
                 "QUILT_MULTIUSER_MODE": "true",  # Enable multiuser mode
                 "MCP_JWT_SECRET": "test-secret",  # Test JWT secret
-                "MCP_JWT_ISSUER": "test-issuer",  # Test JWT issuer
-                "MCP_JWT_AUDIENCE": "test-audience",  # Test JWT audience
                 "QUILT_DISABLE_CACHE": "true",  # Disable caching
                 "HOME": "/tmp",  # Redirect home directory  # noqa: S108
                 "LOG_LEVEL": "DEBUG",  # Verbose logging

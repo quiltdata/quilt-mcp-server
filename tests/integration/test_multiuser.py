@@ -7,13 +7,10 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 from quilt_mcp.context.factory import RequestContextFactory
-from quilt_mcp.services.workflow_service import WorkflowService
-from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
 
 
 @pytest.mark.integration
-def test_multiuser_contexts_are_isolated(tmp_path, monkeypatch):
-    storage = FileBasedWorkflowStorage(base_dir=tmp_path)
+def test_multiuser_contexts_are_isolated(monkeypatch):
     factory = RequestContextFactory(mode="multiuser")
 
     class _StubAuth:
@@ -22,22 +19,16 @@ def test_multiuser_contexts_are_isolated(tmp_path, monkeypatch):
 
     monkeypatch.setattr(factory, "_create_auth_service", lambda: _StubAuth())
     monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
-    monkeypatch.setattr(
-        factory,
-        "_create_workflow_service",
-        lambda tenant_id: WorkflowService(tenant_id=tenant_id, storage=storage),
-    )
+    monkeypatch.setattr(factory, "_create_workflow_service", lambda: None)
 
-    tenants = [f"tenant-{i}" for i in range(6)]
-
-    def _create_context(tenant_id: str):
-        return factory.create_context(tenant_id=tenant_id)
+    def _create_context():
+        return factory.create_context()
 
     with ThreadPoolExecutor(max_workers=6) as executor:
-        contexts = list(executor.map(_create_context, tenants))
+        contexts = list(executor.map(lambda _: _create_context(), range(6)))
 
-    assert {context.tenant_id for context in contexts} == set(tenants)
-    assert len({id(context.workflow_service) for context in contexts}) == len(tenants)
+    assert all(context.workflow_service is None for context in contexts)
+    assert len({context.request_id for context in contexts}) == len(contexts)
 
 
 @pytest.mark.integration
@@ -50,7 +41,7 @@ def test_single_user_mode_ignores_multiuser_inputs(monkeypatch):
 
     monkeypatch.setattr(factory, "_create_auth_service", lambda: _StubAuth())
     monkeypatch.setattr(factory, "_create_permission_service", lambda auth_service: object())
-    monkeypatch.setattr(factory, "_create_workflow_service", lambda tenant_id: object())
+    monkeypatch.setattr(factory, "_create_workflow_service", lambda: object())
 
     context = factory.create_context()
-    assert context.tenant_id == "default"
+    assert context.workflow_service is not None

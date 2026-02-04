@@ -242,9 +242,17 @@ def get_tool_modules() -> list[Any]:
     from importlib import import_module
 
     from quilt_mcp.tools import _MODULE_PATHS
+    from quilt_mcp.config import get_mode_config
+
+    mode_config = get_mode_config()
+    excluded_modules = set()
+    if mode_config.is_multiuser:
+        excluded_modules.update({"workflow_orchestration"})
 
     modules: list[Any] = []
     for module_name, module_path in _MODULE_PATHS.items():
+        if module_name in excluded_modules:
+            continue
         module = import_module(module_path)
         modules.append(module)
     return modules

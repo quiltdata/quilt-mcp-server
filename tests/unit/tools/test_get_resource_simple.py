@@ -3,6 +3,7 @@
 import pytest
 from quilt_mcp.tools.resource_access import get_resource
 from quilt_mcp.models.responses import GetResourceSuccess, GetResourceError
+from quilt_mcp.config import set_test_mode_config
 
 
 class TestGetResourceSimple:
@@ -57,3 +58,20 @@ class TestGetResourceSimple:
         assert isinstance(result, GetResourceSuccess)
         assert result.uri == "metadata://troubleshooting"
         assert "message" in result.data
+
+    @pytest.mark.asyncio
+    async def test_multiuser_hides_stateful_resources(self):
+        """Multiuser mode should not expose stateful resources."""
+        set_test_mode_config(multiuser_mode=True)
+
+        result = await get_resource()
+        assert isinstance(result, GetResourceSuccess)
+        uris = {entry["uri"] for entry in result.data["resources"]}
+        assert "workflow://workflows" not in uris
+        assert "metadata://templates" not in uris
+        assert "metadata://examples" not in uris
+        assert "metadata://troubleshooting" not in uris
+
+        missing = await get_resource(uri="workflow://workflows")
+        assert isinstance(missing, GetResourceError)
+        assert "not found" in missing.error.lower()

@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Backend Architecture**: Platform backend now production-ready
   - Replaced NotImplementedError stubs with full GraphQL implementations
-  - Multi-tenant safe with per-instance authentication and session management
+  - Multiuser safe with per-instance authentication and session management
   - Stateless operation with JWT runtime context
   - Full support for all copy modes in package operations (`none`, `all`, `new`)
 
@@ -52,10 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `QuiltOpsFactory` for automatic backend detection and instantiation
   - Comprehensive error handling with typed exceptions
 
-- **Request Context Architecture**: Multi-tenant support and request-scoped services
-  - `RequestContext` for propagating tenant, auth, and service state
+- **Request Context Architecture**: Multiuser support and request-scoped services
+  - `RequestContext` for propagating user, auth, and service state
   - `RequestContextFactory` for mode-aware context creation
-  - Tenant extraction and validation for multi-user deployments
+  - User extraction and validation for multi-user deployments
   - Request context propagation through MCP handler layer
 
 - **Modular Backend Architecture**: Split `Quilt3_Backend` into focused mixins
@@ -112,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Multi-Tenant Authentication**: Complete authentication architecture for multi-user deployments
+- **Multiuser Authentication**: Complete authentication architecture for multi-user deployments
   - JWT-based authentication with bearer token support for HTTP transports
   - IAM-based authentication mode as alternative for AWS environments
   - JWT middleware for automatic token validation and session management

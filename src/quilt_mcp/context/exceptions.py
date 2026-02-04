@@ -22,21 +22,3 @@ class ServiceInitializationError(RuntimeError):
         super().__init__(message)
         self.service_name = service_name
         self.reason = reason
-
-
-class TenantValidationError(ValueError):
-    """Raised when tenant validation fails for the selected mode."""
-
-    def __init__(self, mode: str, message: str | None = None) -> None:
-        if message is None:
-            if mode == "single-user":
-                message = "Tenant validation failed for single-user mode. Tenant information must not be provided."
-            elif mode == "multiuser":
-                message = "Tenant validation failed for multiuser mode. Tenant information is required."
-            else:
-                message = (
-                    f"Tenant validation failed for {mode} mode. "
-                    "Tenant information is required or forbidden based on the mode."
-                )
-        super().__init__(message)
-        self.mode = mode

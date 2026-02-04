@@ -41,6 +41,9 @@ def register_resources(mcp: "FastMCP") -> None:
     Args:
         mcp: FastMCP server instance to register resources with
     """
+    from quilt_mcp.config import get_mode_config
+
+    mode_config = get_mode_config()
 
     # ====================
     # Auth Resources
@@ -223,75 +226,76 @@ def register_resources(mcp: "FastMCP") -> None:
         )
         return _serialize_result(result)
 
-    # ====================
-    # Metadata Resources
-    # ====================
+    if mode_config.is_local_dev:
+        # ====================
+        # Metadata Resources
+        # ====================
 
-    @mcp.resource(
-        "metadata://templates",
-        name="Metadata Templates",
-        description="List available metadata templates",
-        mime_type="application/json",
-    )
-    async def metadata_templates() -> str:
-        """List metadata templates."""
-        from quilt_mcp.services.metadata_service import list_metadata_templates
+        @mcp.resource(
+            "metadata://templates",
+            name="Metadata Templates",
+            description="List available metadata templates",
+            mime_type="application/json",
+        )
+        async def metadata_templates() -> str:
+            """List metadata templates."""
+            from quilt_mcp.services.metadata_service import list_metadata_templates
 
-        result = await asyncio.to_thread(list_metadata_templates)
-        return _serialize_result(result)
+            result = await asyncio.to_thread(list_metadata_templates)
+            return _serialize_result(result)
 
-    @mcp.resource(
-        "metadata://examples",
-        name="Metadata Examples",
-        description="Example metadata configurations",
-        mime_type="application/json",
-    )
-    async def metadata_examples() -> str:
-        """Get metadata examples."""
-        from quilt_mcp.services.metadata_service import show_metadata_examples
+        @mcp.resource(
+            "metadata://examples",
+            name="Metadata Examples",
+            description="Example metadata configurations",
+            mime_type="application/json",
+        )
+        async def metadata_examples() -> str:
+            """Get metadata examples."""
+            from quilt_mcp.services.metadata_service import show_metadata_examples
 
-        result = await asyncio.to_thread(show_metadata_examples)
-        return _serialize_result(result)
+            result = await asyncio.to_thread(show_metadata_examples)
+            return _serialize_result(result)
 
-    @mcp.resource(
-        "metadata://troubleshooting",
-        name="Metadata Troubleshooting",
-        description="Common metadata issues and solutions",
-        mime_type="application/json",
-    )
-    async def metadata_troubleshooting() -> str:
-        """Get troubleshooting guide."""
-        # This function doesn't exist, create a simple placeholder
-        result = {"status": "info", "message": "For metadata troubleshooting, use fix_metadata_validation_issues()"}
-        return _serialize_result(result)
+        @mcp.resource(
+            "metadata://troubleshooting",
+            name="Metadata Troubleshooting",
+            description="Common metadata issues and solutions",
+            mime_type="application/json",
+        )
+        async def metadata_troubleshooting() -> str:
+            """Get troubleshooting guide."""
+            # This function doesn't exist, create a simple placeholder
+            result = {"status": "info", "message": "For metadata troubleshooting, use fix_metadata_validation_issues()"}
+            return _serialize_result(result)
 
-    # ====================
-    # Workflow Resources
-    # ====================
+        # ====================
+        # Workflow Resources
+        # ====================
 
-    @mcp.resource(
-        "workflow://workflows",
-        name="Workflows List",
-        description="List all tracked workflows",
-        mime_type="application/json",
-    )
-    async def workflows() -> str:
-        """List all workflows."""
-        from quilt_mcp.services.workflow_service import workflow_list_all
-        from quilt_mcp.context.factory import RequestContextFactory
-        from quilt_mcp.context.propagation import reset_current_context, set_current_context
+        @mcp.resource(
+            "workflow://workflows",
+            name="Workflows List",
+            description="List all tracked workflows",
+            mime_type="application/json",
+        )
+        async def workflows() -> str:
+            """List all workflows."""
+            from quilt_mcp.services.workflow_service import workflow_list_all
+            from quilt_mcp.context.factory import RequestContextFactory
+            from quilt_mcp.context.propagation import reset_current_context, set_current_context
 
-        def _call_with_context():
-            factory = RequestContextFactory(mode="auto")
-            context = factory.create_context()
-            token = set_current_context(context)
-            try:
-                return workflow_list_all()
-            finally:
-                reset_current_context(token)
+            def _call_with_context():
+                factory = RequestContextFactory(mode="auto")
+                context = factory.create_context()
+                token = set_current_context(context)
+                try:
+                    return workflow_list_all()
+                finally:
+                    reset_current_context(token)
 
-        result = await asyncio.to_thread(_call_with_context)
-        return _serialize_result(result)
+            result = await asyncio.to_thread(_call_with_context)
+            return _serialize_result(result)
 
     # ====================
     # Tabulator Resources

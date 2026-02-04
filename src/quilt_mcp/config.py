@@ -99,11 +99,6 @@ class ModeConfig:
         return self.is_local_dev
 
     @property
-    def tenant_mode(self) -> Literal["single-user", "multiuser"]:
-        """Tenant mode for context factory."""
-        return "multiuser" if self.is_multiuser else "single-user"
-
-    @property
     def requires_graphql(self) -> bool:
         """True if GraphQL backend is required."""
         return self.is_multiuser
@@ -137,12 +132,6 @@ class ModeConfig:
         # Check required JWT configuration
         if not os.getenv("MCP_JWT_SECRET"):
             errors.append("Multiuser mode requires MCP_JWT_SECRET environment variable")
-
-        if not os.getenv("MCP_JWT_ISSUER"):
-            errors.append("Multiuser mode requires MCP_JWT_ISSUER environment variable")
-
-        if not os.getenv("MCP_JWT_AUDIENCE"):
-            errors.append("Multiuser mode requires MCP_JWT_AUDIENCE environment variable")
 
         if not os.getenv("QUILT_CATALOG_URL"):
             errors.append("Multiuser mode requires QUILT_CATALOG_URL environment variable")
