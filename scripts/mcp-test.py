@@ -716,7 +716,8 @@ class MCPTester:
         specific_resource: str = None,
         process: Optional[subprocess.Popen] = None,
         selection_stats: Optional[Dict[str, Any]] = None,
-        jwt_token: Optional[str] = None
+        jwt_token: Optional[str] = None,
+        server_mode: Optional[str] = None
     ) -> bool:
         """Run test suite with tools and/or resources tests, print summary, return success.
 
@@ -742,6 +743,7 @@ class MCPTester:
             process: Running subprocess with stdio pipes (alternative to stdin_fd/stdout_fd)
             selection_stats: Stats from filter_tests_by_idempotence() (optional)
             jwt_token: JWT token for authentication (HTTP transport only)
+            server_mode: Server deployment mode ('local_dev' or 'multiuser')
 
         Returns:
             True if all tests passed (no failures), False otherwise
@@ -770,11 +772,11 @@ class MCPTester:
         if run_resources:
             # Create ResourcesTester instance
             if transport == "http":
-                tester = ResourcesTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config, jwt_token=jwt_token)
+                tester = ResourcesTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config, jwt_token=jwt_token, server_mode=server_mode)
             elif process:
-                tester = ResourcesTester(process=process, verbose=verbose, transport=transport, config=config)
+                tester = ResourcesTester(process=process, verbose=verbose, transport=transport, config=config, server_mode=server_mode)
             else:
-                tester = ResourcesTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport=transport, config=config)
+                tester = ResourcesTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport=transport, config=config, server_mode=server_mode)
 
             # Initialize and run tests
             tester.initialize()
@@ -968,16 +970,18 @@ class ToolsTester(MCPTester):
 class ResourcesTester(MCPTester):
     """Resource testing subclass with integrated result tracking."""
 
-    def __init__(self, config: Dict[str, Any] = None, **kwargs):
+    def __init__(self, config: Dict[str, Any] = None, server_mode: Optional[str] = None, **kwargs):
         """Initialize ResourcesTester with test configuration.
 
         Args:
             config: Test configuration dictionary
+            server_mode: Server deployment mode ('local_dev' or 'multiuser')
             **kwargs: Passed to MCPTester parent
         """
         super().__init__(**kwargs)
         self.config = config or {}
         self.results = TestResults()
+        self.server_mode = server_mode
 
         # Track available resources
         self.available_uris = set()
@@ -1061,6 +1065,19 @@ class ResourcesTester(MCPTester):
         try:
             print(f"\n--- Testing resource: {uri_pattern} ---")
 
+            # Check mode compatibility
+            required_mode = test_config.get("mode")
+            if required_mode and self.server_mode:
+                if required_mode != self.server_mode:
+                    print(f"  ⏭️  Skipped (requires {required_mode} mode, server is in {self.server_mode} mode)")
+                    self.results.record_skip({
+                        "uri": uri_pattern,
+                        "reason": f"Resource requires {required_mode} mode (server is {self.server_mode})",
+                        "required_mode": required_mode,
+                        "current_mode": self.server_mode
+                    })
+                    return
+
             # Substitute URI variables if needed
             uri = uri_pattern
             uri_vars = test_config.get("uri_variables", {})
@@ -1081,22 +1098,26 @@ class ResourcesTester(MCPTester):
             is_templated = '{' in uri_pattern
             if is_templated:
                 if uri_pattern not in self.available_templates:
-                    print(f"  ❌ Template not found in server resourceTemplates")
+                    print(f"  ❌ Template '{uri_pattern}' not found in server resourceTemplates")
+                    print(f"     This may indicate the resource template is disabled in the current mode")
                     self.results.record_failure({
                         "uri": uri_pattern,
                         "resolved_uri": uri,
-                        "error": "Template not found in server resourceTemplates",
-                        "uri_variables": uri_vars
+                        "error": f"Template '{uri_pattern}' not found in server resourceTemplates (may be mode-restricted)",
+                        "uri_variables": uri_vars,
+                        "available_templates_count": len(self.available_templates)
                     })
                     return
             else:
                 if uri not in self.available_uris:
-                    print(f"  ❌ Resource not found in server resources")
+                    print(f"  ❌ Resource '{uri}' not found in server resources")
+                    print(f"     This may indicate the resource is disabled in the current mode")
                     self.results.record_failure({
                         "uri": uri_pattern,
                         "resolved_uri": uri,
-                        "error": "Resource not found in server resources",
-                        "uri_variables": uri_vars
+                        "error": f"Resource '{uri}' not found in server resources (may be mode-restricted)",
+                        "uri_variables": uri_vars,
+                        "available_count": len(self.available_uris)
                     })
                     return
 
@@ -1562,6 +1583,9 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
     parser.add_argument("--config", type=Path,
                        default=Path(__file__).parent / "tests" / "mcp-test.yaml",
                        help="Path to test configuration file (auto-generated by mcp-list.py)")
+    parser.add_argument("--server-mode", type=str,
+                       choices=["local_dev", "multiuser"],
+                       help="Server deployment mode (affects which resources are available)")
 
     args = parser.parse_args()
 
@@ -1678,7 +1702,8 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                     run_resources=run_resources,
                     specific_tool=args.test_tool if args.test_tool else None,
                     specific_resource=args.test_resource if args.test_resource else None,
-                    jwt_token=jwt_token
+                    jwt_token=jwt_token,
+                    server_mode=args.server_mode
                 )
             else:  # stdio
                 success = MCPTester.run_test_suite(
@@ -1690,7 +1715,8 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                     run_tools=run_tools,
                     run_resources=run_resources,
                     specific_tool=args.test_tool if args.test_tool else None,
-                    specific_resource=args.test_resource if args.test_resource else None
+                    specific_resource=args.test_resource if args.test_resource else None,
+                    server_mode=args.server_mode
                 )
 
             sys.exit(0 if success else 1)
