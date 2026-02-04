@@ -62,7 +62,7 @@ exclude = ["shared", "scripts"]
 "" = "src"
 
 [build-system]
-requires = ["setuptools>=61.0,<75.0", "wheel"]
+requires = ["setuptools>=80.10,<80.11", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]
