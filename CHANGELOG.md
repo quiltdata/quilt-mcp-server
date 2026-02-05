@@ -8,6 +8,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-02-04
+
+### Added
+
+- **Test Documentation**: New [TESTING.md](TESTING.md) guide documenting test structure and commands
+  - Clear explanation of test organization by directory (unit, func, e2e, fixtures)
+  - Documented minimal marker usage (only `platform` and `slow`)
+  - Common test commands and requirements-based skip behavior
+
+### Changed
+
+- **JWT Authentication Enhancement**: JWT auth now supports AWS credential exchange (#A17)
+  - Exchanges JWT access tokens for temporary AWS credentials via `/api/auth/get_credentials` endpoint
+  - Implements automatic credential caching with 5-minute expiration buffer
+  - Thread-safe credential refresh for concurrent requests
+  - Follows same pattern as Quilt catalog frontend and quilt3 library
+  - Requires `QUILT_REGISTRY_URL` environment variable to be configured
+  - Users with JWT authentication can now access AWS services (S3, Athena, etc.)
+
+- **Test Infrastructure Reorganization**: Complete restructuring of test suite for better maintainability
+  - Split large monolithic unit tests into smaller, focused test files
+  - Reorganized tests by type: `unit/`, `func/` (mocked), `e2e/` (real services), `fixtures/`
+  - Enhanced test runner with improved progress tracking and accurate per-subtask test counts
+  - Dynamic test count collection for better progress reporting
+  - Updated CI/CD workflows for new test structure
+  - Added test validation scripts for structure compliance
+
+### Fixed
+
+- **Test Runner Progress Tracking**: Fixed test progress reporting to show accurate counts per subtask
+  - Test counts now dynamically collected before execution
+  - Progress bars show realistic completion percentages
+  - Better error grouping by test phase
+
+- **Visualization Data Processing**: Improved data handling in visualization engine
+  - Fixed file type suggestion logic to use actual file extensions instead of grouped types
+  - Improved empty row handling: columns cleaned first, then rows after filling missing values
+  - More robust data cleaning pipeline for visualization generation
+
+### Removed
+
+- **Deprecated Stack Buckets Module**: Removed unused [stack_buckets.py](src/quilt_mcp/tools/stack_buckets.py)
+  - Module was not actively used and functionality is handled elsewhere
+  - No user-facing impact as this was internal infrastructure
+
+- **Obsolete Test Directories**: Cleaned up old test organization
+  - Removed legacy `integration/`, `load/`, `performance/`, `security/` test folders
+  - Tests migrated to new `unit/`, `func/`, `e2e/` structure
+
+### Documentation
+
+- **Test Organization**: Updated README with new test commands
+  - Added `make test-func` and `make test-e2e` targets
+  - Clarified multiuser vs local dev mode architecture sections
+  - Comprehensive testing guide in TESTING.md
+
+- **Specification Documents**: Added detailed specs in `spec/a17-test-cleanup/`
+  - Documented testing issues and refactor approach
+  - Test improvement plans and folder structure fixes
+  - JWT credentials implementation details
+
 ## [0.14.0] - 2026-02-04
 
 ### Changed
