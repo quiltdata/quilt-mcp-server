@@ -1,8 +1,22 @@
 # Platform Backend E2E Testing Fix
 
-**Status:** ✅ COMPLETED
+**Status:** ❌ INVALID APPROACH - DO NOT USE
 **Date:** 2026-02-04
-**Commit:** `0850383` - "fix: enable test-e2e-platform with backend override"
+**Commit:** `0850383` - "fix: enable test-e2e-platform with backend override" (TO BE REVERTED)
+
+---
+
+## ⚠️ CRITICAL WARNING
+
+**This document describes an INVALID approach that implements authentication backwards.**
+
+The implementation disables JWT authentication to get AWS access, when it should be **using JWT to obtain AWS credentials** (like the catalog does).
+
+**See:** [06-jwt-to-aws-credentials-issue.md](./06-jwt-to-aws-credentials-issue.md) for the correct approach.
+
+**Action Required:** Revert commit `0850383` completely.
+
+---
 
 ## Problem Statement
 
@@ -22,6 +36,7 @@ The architecture tightly coupled backend selection to authentication mode:
 | `QUILT_MULTIUSER_MODE=false` | Quilt3 (local) | IAM/quilt3 | ✅ Available |
 
 **The problem:** Platform backend e2e tests needed BOTH:
+
 1. **Platform backend** (GraphQL API) for package operations
 2. **Local AWS credentials** (IAM) for S3 bucket operations
 
@@ -50,6 +65,7 @@ This allows the configuration:
 #### 1. Config Layer ([src/quilt_mcp/config.py](../../src/quilt_mcp/config.py))
 
 **Added backend type override parameter:**
+
 ```python
 def __init__(self, multiuser_mode: Optional[bool] = None,
              backend_type_override: Optional[str] = None):
@@ -58,6 +74,7 @@ def __init__(self, multiuser_mode: Optional[bool] = None,
 ```
 
 **Modified backend_type property:**
+
 ```python
 @property
 def backend_type(self) -> Literal["quilt3", "graphql"]:
@@ -71,6 +88,7 @@ def backend_type(self) -> Literal["quilt3", "graphql"]:
 ```
 
 **Updated test helper:**
+
 ```python
 def set_test_mode_config(multiuser_mode: bool,
                         backend_type_override: Optional[str] = None) -> None:
@@ -84,6 +102,7 @@ def set_test_mode_config(multiuser_mode: bool,
 #### 2. Test Fixture Layer ([tests/conftest.py](../../tests/conftest.py))
 
 **Modified backend_mode fixture for platform tests:**
+
 ```python
 if mode == "platform":
     # Keep multiuser mode FALSE to allow local AWS credentials for S3 access
@@ -110,6 +129,7 @@ set_test_mode_config(
 ```
 
 **Key changes:**
+
 - Removed `QUILT_MULTIUSER_MODE=true` (was blocking S3 access)
 - Added `QUILT_BACKEND_TYPE=graphql` (forces Platform backend)
 - Removed `MCP_JWT_SECRET` (not needed for local dev mode)
@@ -118,35 +138,39 @@ set_test_mode_config(
 #### 3. Make Target Layer ([make.dev](../../make.dev))
 
 **Updated test-e2e-platform target:**
+
 ```makefile
 test-e2e-platform: test-catalog
-	@echo "Running platform backend e2e tests..."
-	@echo "Platform tests use GraphQL backend with local AWS credentials (not JWT mode)"
-	@uv sync --group test
-	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && \
-		export PLATFORM_TEST_ENABLED=true && \
-		export TEST_BACKEND_MODE=platform && \
-		export QUILT_BACKEND_TYPE=graphql && \
-		eval "$$(uv run python scripts/quilt_config_env.py)" && \
-		uv run python -m pytest tests/e2e/ -v -m "not admin"; \
-	else \
-		echo "No e2e tests found"; \
-	fi
+ @echo "Running platform backend e2e tests..."
+ @echo "Platform tests use GraphQL backend with local AWS credentials (not JWT mode)"
+ @uv sync --group test
+ @if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
+  export PYTHONPATH="src" && \
+  export PLATFORM_TEST_ENABLED=true && \
+  export TEST_BACKEND_MODE=platform && \
+  export QUILT_BACKEND_TYPE=graphql && \
+  eval "$$(uv run python scripts/quilt_config_env.py)" && \
+  uv run python -m pytest tests/e2e/ -v -m "not admin"; \
+ else \
+  echo "No e2e tests found"; \
+ fi
 ```
 
 **Added:**
+
 - `QUILT_BACKEND_TYPE=graphql` environment variable
 - Informative echo message about the configuration
 
 #### 4. Test Compatibility Fixes
 
 **Fixed fixture scope issues** ([tests/e2e/test_tabulator_integration.py](../../tests/e2e/test_tabulator_integration.py)):
+
 - Changed `backend` fixture from `scope="module"` to function scope
 - Changed `created_table` fixture from `scope="module"` to function scope
 - Reason: Module-scoped fixtures were created before backend_mode fixture set up runtime context
 
 **Skipped quilt3-specific tests** ([tests/e2e/test_elasticsearch_index_discovery.py](../../tests/e2e/test_elasticsearch_index_discovery.py)):
+
 ```python
 @pytest.mark.skipif(
     os.getenv("TEST_BACKEND_MODE") == "platform",
@@ -161,12 +185,14 @@ class TestPureFunctions:
 ### Test Execution
 
 **Before fix:**
+
 ```
 ERROR: AWS access is not available in JWT mode
 All tests failing immediately at backend creation
 ```
 
 **After fix:**
+
 ```
 82 passed, 59 skipped, 16 failed, 1 error in 104.76s
 ```
@@ -185,6 +211,7 @@ All tests failing immediately at backend creation
 The 16 failing tests require **real catalog authorization** that the test JWT fixture doesn't provide:
 
 **Package operations (7 tests):**
+
 - `test_packages_list_returns_data[platform]` - GraphQL query not authorized
 - `test_packages_list_prefix[platform]` - GraphQL query not authorized
 - `test_package_browse_known_package[platform]` - GraphQL query not authorized
@@ -194,6 +221,7 @@ The 16 failing tests require **real catalog authorization** that the test JWT fi
 - `test_packages_list_invalid_registry_fails[platform]` - GraphQL query not authorized
 
 **Tabulator operations (6 tests):**
+
 - `test_list_tables_real[platform]` - GraphQL query not authorized
 - `test_create_table_real[platform]` - GraphQL mutation not authorized
 - `test_rename_table_real[platform]` - GraphQL mutation not authorized
@@ -202,6 +230,7 @@ The 16 failing tests require **real catalog authorization** that the test JWT fi
 - `test_full_lifecycle_real[platform]` - GraphQL mutation not authorized
 
 **Catalog operations (3 tests):**
+
 - `test_catalog_info_returns_data[platform]` - GraphQL query not authorized
 - `test_catalog_url_package_view[platform]` - Missing catalog host
 - `test_catalog_url_bucket_view[platform]` - Missing catalog host
@@ -209,6 +238,7 @@ The 16 failing tests require **real catalog authorization** that the test JWT fi
 **Why these fail:**
 
 1. The test JWT token ([tests/fixtures/data/sample-catalog-jwt.json](../../tests/fixtures/data/sample-catalog-jwt.json)) is a minimal fixture:
+
    ```json
    {
      "id": "81a35282-0149-4eb3-bb8e-627379db6a1c",
@@ -226,6 +256,7 @@ The 16 failing tests require **real catalog authorization** that the test JWT fi
 ### ✅ Working Operations
 
 **S3 Bucket Operations (via IAM credentials):**
+
 - `bucket_objects_list` - List objects in buckets
 - `bucket_object_info` - Get object metadata
 - `bucket_objects_put` - Upload objects
@@ -234,11 +265,13 @@ The 16 failing tests require **real catalog authorization** that the test JWT fi
 - `bucket_object_text` - Read text files
 
 **Platform Backend (via JWT token):**
+
 - Backend initialization
 - GraphQL endpoint resolution
 - Browsing session management (read operations)
 
 **Test Infrastructure:**
+
 - Fixture setup/teardown
 - Backend mode switching
 - Runtime context management
@@ -249,18 +282,21 @@ The 16 failing tests require **real catalog authorization** that the test JWT fi
 ### ⚠️ Limited Operations
 
 **Package Mutations (require real catalog auth):**
+
 - `package_create` - Create new packages
 - `package_update` - Update existing packages
 - `package_delete` - Delete packages
 - `search_packages` - Search package registry
 
 **Tabulator Operations (require real catalog auth):**
+
 - `create_tabulator_table` - Create tables
 - `rename_tabulator_table` - Rename tables
 - `delete_tabulator_table` - Delete tables
 - `list_tabulator_tables` - List tables
 
 **Catalog Operations (require real catalog auth):**
+
 - `catalog_info` - Get catalog metadata
 - Package browsing in catalog context
 
@@ -280,6 +316,7 @@ make test-e2e-platform
 ```
 
 **Output:**
+
 ```
 Running platform backend e2e tests...
 Platform tests use GraphQL backend with local AWS credentials (not JWT mode)
@@ -316,6 +353,7 @@ print(f'Requires JWT: {config.requires_jwt}')
 ```
 
 **Expected output:**
+
 ```
 Backend type: graphql
 Is multiuser: False
@@ -453,6 +491,7 @@ The `test-e2e-platform` target is now functional and provides valuable testing o
 6. Runtime context management functions
 
 The 16 failing tests are expected and will require either:
+
 - Real catalog authentication (for production testing)
 - GraphQL mutation mocking (for unit testing)
 - Or acceptance that these operations require the quilt3 backend
