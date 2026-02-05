@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import time
-from typing import Any, Dict, Literal
+import threading
+from datetime import datetime, timezone
+from typing import Any, Dict, Literal, Optional, cast
 
 from quilt_mcp.runtime_context import (
     get_runtime_auth,
@@ -28,30 +31,156 @@ class JWTAuthService:
 
     def __init__(self) -> None:
         self._decoder = get_jwt_decoder()
+        self._cached_credentials: Optional[Dict[str, Any]] = None
+        self._credentials_lock = threading.Lock()
 
     def get_session(self):
-        """JWT auth does not provide AWS credentials."""
+        """Get boto3 session with temporary AWS credentials from JWT.
+
+        This method exchanges the JWT access token for temporary AWS credentials
+        by calling the /api/auth/get_credentials endpoint, following the same
+        pattern as the Quilt catalog frontend and quilt3 library.
+
+        Raises:
+            JwtAuthServiceError: If JWT token is missing, invalid, or expired,
+                or if credential exchange fails.
+
+        Returns:
+            boto3.Session configured with temporary AWS credentials
+        """
+        return self.get_boto3_session()
+
+    def get_boto3_session(self):
+        """Get boto3 session with temporary AWS credentials from JWT.
+
+        Exchanges JWT token for temporary AWS credentials and caches them
+        with automatic refresh when expired.
+
+        Returns:
+            boto3.Session configured with temporary AWS credentials
+        """
+        import boto3
+
         runtime_auth = get_runtime_auth()
-        if runtime_auth is None:
+        if runtime_auth is None or not runtime_auth.access_token:
             raise JwtAuthServiceError(
                 "JWT authentication required. Provide Authorization: Bearer header.",
                 code="missing_jwt",
             )
 
-        claims = runtime_auth.claims or get_runtime_claims()
-        if not claims and runtime_auth.access_token:
+        # Validate JWT token
+        if runtime_auth.claims:
+            claims = runtime_auth.claims
+        else:
             try:
-                self._decoder.decode(runtime_auth.access_token)
+                claims = self._decoder.decode(runtime_auth.access_token)
             except JwtDecodeError as exc:
                 raise JwtAuthServiceError(f"Invalid JWT: {exc.detail}", code=exc.code) from exc
 
-        raise JwtAuthServiceError(
-            "AWS credentials are not available for JWT authentication.",
-            code="aws_not_supported",
+        # Get or refresh AWS credentials
+        credentials = self._get_or_refresh_credentials(runtime_auth.access_token)
+
+        # Create boto3 session with temporary credentials
+        return boto3.Session(
+            aws_access_key_id=credentials['AccessKeyId'],
+            aws_secret_access_key=credentials['SecretAccessKey'],
+            aws_session_token=credentials['SessionToken'],
         )
 
-    def get_boto3_session(self):
-        return self.get_session()
+    def _get_or_refresh_credentials(self, access_token: str) -> Dict[str, Any]:
+        """Get cached credentials or fetch new ones if expired.
+
+        Args:
+            access_token: JWT access token for authentication
+
+        Returns:
+            Dictionary with AWS credentials (AccessKeyId, SecretAccessKey,
+            SessionToken, Expiration)
+        """
+        with self._credentials_lock:
+            # Check if we have cached credentials that are still valid
+            if self._cached_credentials and self._are_credentials_valid():
+                return self._cached_credentials
+
+            # Fetch new credentials
+            self._cached_credentials = self._fetch_temporary_credentials(access_token)
+            return self._cached_credentials
+
+    def _are_credentials_valid(self) -> bool:
+        """Check if cached credentials are still valid.
+
+        Returns:
+            True if credentials exist and haven't expired (with 5 minute buffer)
+        """
+        if not self._cached_credentials:
+            return False
+
+        expiration = self._cached_credentials.get('Expiration')
+        if not expiration:
+            return False
+
+        # Parse expiration time (ISO 8601 format from AWS)
+        if isinstance(expiration, str):
+            expiration_dt = datetime.fromisoformat(expiration.replace('Z', '+00:00'))
+        else:
+            # Already a datetime object
+            expiration_dt = expiration
+
+        # Add 5 minute buffer before expiration
+        now = datetime.now(timezone.utc)
+        buffer_seconds = 300  # 5 minutes
+        return (expiration_dt.timestamp() - now.timestamp()) > buffer_seconds
+
+    def _fetch_temporary_credentials(self, access_token: str) -> Dict[str, Any]:
+        """Exchange JWT token for temporary AWS credentials.
+
+        Calls the /api/auth/get_credentials endpoint following the same
+        pattern as the Quilt catalog and quilt3 library.
+
+        Args:
+            access_token: JWT access token
+
+        Returns:
+            Dictionary with AWS credentials
+
+        Raises:
+            JwtAuthServiceError: If credential exchange fails
+        """
+        import requests
+
+        registry_url = os.getenv("QUILT_REGISTRY_URL")
+        if not registry_url:
+            raise JwtAuthServiceError("QUILT_REGISTRY_URL environment variable not configured", code="missing_config")
+
+        endpoint = f"{registry_url.rstrip('/')}/api/auth/get_credentials"
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        try:
+            response = requests.get(endpoint, headers=headers, timeout=30)
+
+            if response.status_code == 401:
+                raise JwtAuthServiceError("JWT token invalid or expired. Please re-authenticate.", code="invalid_jwt")
+
+            if response.status_code == 403:
+                raise JwtAuthServiceError("Access denied. Check your permissions.", code="forbidden")
+
+            response.raise_for_status()
+            credentials = cast(Dict[str, Any], response.json())
+
+            # Validate response has required fields
+            required_fields = ['AccessKeyId', 'SecretAccessKey', 'SessionToken', 'Expiration']
+            missing_fields = [f for f in required_fields if f not in credentials]
+            if missing_fields:
+                raise JwtAuthServiceError(
+                    f"Invalid credential response: missing fields {missing_fields}", code="invalid_response"
+                )
+
+            return credentials
+
+        except requests.exceptions.Timeout:
+            raise JwtAuthServiceError("Timeout while fetching AWS credentials", code="timeout")
+        except requests.exceptions.RequestException as exc:
+            raise JwtAuthServiceError(f"Failed to fetch AWS credentials: {str(exc)}", code="request_failed") from exc
 
     def is_valid(self) -> bool:
         runtime_auth = get_runtime_auth()

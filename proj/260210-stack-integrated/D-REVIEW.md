@@ -9,6 +9,8 @@ perspective.
 **Note:** This is NOT a full infrastructure/operations review. This focuses on code quality, test
 coverage, maintainability, and basic deployability.
 
+This review distinguishes between **measured checks** (tool-enforced, reproducible) and **assessed checks** (human judgment based on evidence). Both are required for a go/no-go decision.
+
 All review outputs are written to `./review/` for documentation and tracking.
 
 ---
@@ -96,7 +98,7 @@ gh run list --limit 5
 **Criteria:**
 
 - [ ] No modules > 500 lines (measured)
-- [ ] Cyclomatic complexity reasonable (< 15 per function)
+- [ ] Cyclomatic complexity reasonable (< 15 per function, assessed)
 - [ ] Clear module boundaries (no circular imports)
 - [ ] Type hints present (mypy passing)
 - [ ] No TODO/FIXME in production paths
@@ -167,6 +169,8 @@ grep -r "QUILT_" README.md docs/
 
 ### 5. Security & Credentials
 
+**Scope note:** This gate checks for obvious *code-level security failures* (e.g., credential leakage, unsafe defaults). It does **not** replace threat modeling, penetration testing, or formal security audits.
+
 **Criteria:**
 
 - [ ] No hardcoded credentials/secrets
@@ -204,6 +208,8 @@ cat src/quilt_mcp/context/request_context.py
 ---
 
 ### 6. Observability
+
+**Scope note:** This section focuses on *observability* (logs, errors, retries). Operational concerns such as alerting, dashboards, and SLOs are intentionally out of scope.
 
 **Criteria:**
 
@@ -406,6 +412,7 @@ make test-all coverage lint
 - ⚠️ **Warning**: Minor gaps, non-blocking
 - ❌ **Fail**: Critical issues, blocks deployment
 - 🔍 **Unknown**: Needs investigation
+- 🧠 **Assessed**: Reviewer judgment applied using documented evidence
 
 ---
 

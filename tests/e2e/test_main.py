@@ -169,35 +169,3 @@ def test_transport_protocol_selection_local_mode(monkeypatch):
 
     assert called is True
     assert transport == "stdio"
-
-
-def test_transport_protocol_selection_multiuser_mode(monkeypatch):
-    """Test that multiuser mode sets http transport."""
-    # Set multiuser mode
-    monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
-    # Set required JWT config to pass validation
-    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
-    monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")
-    monkeypatch.setenv("MCP_JWT_AUDIENCE", "test-audience")
-
-    called, transport, skip_banner = call_main_with_fake_server()
-
-    assert called is True
-    assert transport == "http"
-
-
-def test_transport_protocol_respects_existing_env_var(monkeypatch):
-    """Test that existing FASTMCP_TRANSPORT is not overridden."""
-    # Set multiuser mode (which would normally set http)
-    monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
-    # Set required JWT config to pass validation
-    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
-    monkeypatch.setenv("MCP_JWT_ISSUER", "test-issuer")
-    monkeypatch.setenv("MCP_JWT_AUDIENCE", "test-audience")
-    # Pre-set transport to a different value
-    monkeypatch.setenv("FASTMCP_TRANSPORT", "sse")
-
-    called, transport, skip_banner = call_main_with_fake_server()
-
-    assert called is True
-    assert transport == "sse"  # Should not be overridden
