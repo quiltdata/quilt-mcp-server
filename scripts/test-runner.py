@@ -224,8 +224,35 @@ class TestRunnerState:
         return "\n".join(lines)
 
 
+def collect_test_count(pytest_args: list[str]) -> int:
+    """Run pytest --collect-only to count tests."""
+    try:
+        result = subprocess.run(
+            ["uv", "run", "pytest", "--collect-only", "-q"] + pytest_args,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        # Parse output like "1146 tests collected in 0.31s"
+        match = re.search(r'(\d+) tests? collected', result.stdout)
+        if match:
+            return int(match.group(1))
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+        pass
+    return 0
+
+
 def init_phases() -> list[PhaseStats]:
-    """Initialize all test phases."""
+    """Initialize all test phases with dynamic test counts."""
+    print("📊 Collecting test counts...")
+
+    # Collect actual test counts
+    coverage_count = collect_test_count(["tests/unit", "tests/func", "tests/e2e"])
+    scripts_count = collect_test_count(["scripts/tests/"])
+
+    print(f"   Coverage: {coverage_count} tests")
+    print(f"   Scripts: {scripts_count} tests")
+
     return [
         PhaseStats(
             name="Lint",
@@ -235,7 +262,7 @@ def init_phases() -> list[PhaseStats]:
         PhaseStats(
             name="Coverage",
             subtasks=["unit", "functional", "e2e", "analysis", "validation"],
-            tests_total=975,  # All main tests
+            tests_total=coverage_count,
         ),
         PhaseStats(
             name="Docker",
@@ -245,7 +272,7 @@ def init_phases() -> list[PhaseStats]:
         PhaseStats(
             name="Script Tests",
             subtasks=["pytest scripts", "MCP server tests", "MCP stateless"],
-            tests_total=64,  # 24 scripts + 39 MCP + 1 stateless run
+            tests_total=scripts_count,  # Just pytest scripts count (MCP tests reported differently)
         ),
         PhaseStats(
             name="MCPB Validate",
