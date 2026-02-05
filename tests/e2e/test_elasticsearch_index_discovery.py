@@ -42,6 +42,10 @@ def backend(quilt3_backend):
 # ============================================================================
 
 
+@pytest.mark.skipif(
+    os.getenv("TEST_BACKEND_MODE") == "platform",
+    reason="Quilt3ElasticsearchBackend requires quilt3 backend"
+)
 class TestPureFunctions:
     """Test pure static methods with no side effects."""
 

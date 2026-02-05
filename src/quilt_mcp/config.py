@@ -50,16 +50,21 @@ class ModeConfig:
     for all mode-related decisions and validation of required configuration.
     """
 
-    def __init__(self, multiuser_mode: Optional[bool] = None):
+    def __init__(self, multiuser_mode: Optional[bool] = None, backend_type_override: Optional[str] = None):
         """Initialize ModeConfig with environment variable parsing.
 
         Args:
             multiuser_mode: Override for testing. If None, reads from environment.
+            backend_type_override: Override backend type selection (for testing).
+                                  If None, reads from QUILT_BACKEND_TYPE environment variable.
         """
         if multiuser_mode is not None:
             self._multiuser_mode = multiuser_mode
         else:
             self._multiuser_mode = self._parse_bool(os.getenv("QUILT_MULTIUSER_MODE"), default=False)
+
+        # Backend type override for testing (allows platform backend with local AWS credentials)
+        self._backend_type_override = backend_type_override or os.getenv("QUILT_BACKEND_TYPE")
 
     @staticmethod
     def _parse_bool(value: Optional[str], default: bool = False) -> bool:
@@ -80,7 +85,18 @@ class ModeConfig:
 
     @property
     def backend_type(self) -> Literal["quilt3", "graphql"]:
-        """Backend type based on deployment mode."""
+        """Backend type based on deployment mode or override.
+
+        Returns:
+            Backend type - either from override (QUILT_BACKEND_TYPE env var)
+            or based on multiuser mode setting.
+        """
+        if self._backend_type_override:
+            backend = self._backend_type_override.lower()
+            if backend in ("graphql", "platform"):
+                return "graphql"
+            elif backend in ("quilt3", "local"):
+                return "quilt3"
         return "graphql" if self.is_multiuser else "quilt3"
 
     @property
@@ -172,11 +188,12 @@ def create_test_mode_config(multiuser_mode: bool) -> ModeConfig:
     return ModeConfig(multiuser_mode=multiuser_mode)
 
 
-def set_test_mode_config(multiuser_mode: bool) -> None:
+def set_test_mode_config(multiuser_mode: bool, backend_type_override: Optional[str] = None) -> None:
     """Set a test ModeConfig instance as the singleton (used in tests).
 
     Args:
         multiuser_mode: Whether to enable multiuser mode
+        backend_type_override: Override backend type selection (for testing)
     """
     global _mode_config_instance
-    _mode_config_instance = ModeConfig(multiuser_mode=multiuser_mode)
+    _mode_config_instance = ModeConfig(multiuser_mode=multiuser_mode, backend_type_override=backend_type_override)

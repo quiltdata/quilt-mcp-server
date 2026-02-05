@@ -228,11 +228,14 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
         if not quilt_catalog_url or not quilt_registry_url:
             pytest.skip("Platform functional tests require QUILT_CATALOG_URL and QUILT_REGISTRY_URL to be set")
 
-        monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
+        # Keep multiuser mode FALSE to allow local AWS credentials for S3 access
+        # But override backend type to use Platform/GraphQL backend
+        monkeypatch.setenv("QUILT_MULTIUSER_MODE", "false")
+        monkeypatch.setenv("QUILT_BACKEND_TYPE", "graphql")
         monkeypatch.setenv("QUILT_CATALOG_URL", quilt_catalog_url)
         monkeypatch.setenv("QUILT_REGISTRY_URL", quilt_registry_url)
-        monkeypatch.setenv("MCP_JWT_SECRET", os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret"))
 
+        # Push runtime context with JWT token for platform operations that need it
         token_handle = push_runtime_context(
             environment="web",
             auth=RuntimeAuthState(
@@ -242,7 +245,7 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
             ),
         )
 
-    set_test_mode_config(multiuser_mode=(mode == "platform"))
+    set_test_mode_config(multiuser_mode=False, backend_type_override=("graphql" if mode == "platform" else None))
     try:
         yield mode
     finally:

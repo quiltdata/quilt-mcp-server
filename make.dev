@@ -94,11 +94,13 @@ test-e2e-quilt3: test-catalog
 
 test-e2e-platform: test-catalog
 	@echo "Running platform backend e2e tests..."
+	@echo "Platform tests use GraphQL backend with local AWS credentials (not JWT mode)"
 	@uv sync --group test
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
 		export PYTHONPATH="src" && \
 		export PLATFORM_TEST_ENABLED=true && \
 		export TEST_BACKEND_MODE=platform && \
+		export QUILT_BACKEND_TYPE=graphql && \
 		eval "$$(uv run python scripts/quilt_config_env.py)" && \
 		uv run python -m pytest tests/e2e/ -v -m "not admin"; \
 	else \

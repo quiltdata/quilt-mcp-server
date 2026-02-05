@@ -56,12 +56,15 @@ def test_table_name():
     return f"test_tabulator_{timestamp}"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def backend():
     """Create real backend - NO MOCKING!
 
     This fixture creates a real backend instance using QuiltOpsFactory.
     It will fail loudly if credentials are not available.
+
+    Note: Changed from module scope to function scope to ensure backend_mode
+    fixture sets up runtime context before backend creation.
     """
     try:
         backend = QuiltOpsFactory.create()
@@ -110,7 +113,7 @@ def test_bucket():
     return bucket
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def created_table(backend, test_bucket, test_table_name):
     """Create a test table and clean it up after all tests.
 
