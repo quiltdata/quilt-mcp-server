@@ -7,7 +7,7 @@ comparative analysis in CSV format.
 
 Input Files:
 - build/test-results/coverage-unit.xml
-- build/test-results/coverage-integration.xml
+- build/test-results/coverage-func.xml
 - build/test-results/coverage-e2e.xml
 
 Output:
@@ -16,7 +16,7 @@ Output:
 CSV Columns:
 - file: Source file path
 - unit_coverage: Unit test coverage percentage
-- integration_coverage: Integration test coverage percentage
+- func_coverage: Func test coverage percentage
 - e2e_coverage: E2E test coverage percentage
 - combined_coverage: Overall coverage percentage
 - lines_total: Total lines in file
@@ -49,7 +49,7 @@ class CoverageData:
     def __init__(self, file_path: str):
         self.file_path = file_path
         self.unit_lines: Set[int] = set()
-        self.integration_lines: Set[int] = set()
+        self.func_lines: Set[int] = set()
         self.e2e_lines: Set[int] = set()
         self.total_lines = 0
 
@@ -59,8 +59,8 @@ class CoverageData:
 
         if suite_type == "unit":
             self.unit_lines = covered_lines
-        elif suite_type == "integration":
-            self.integration_lines = covered_lines
+        elif suite_type == "func":
+            self.func_lines = covered_lines
         elif suite_type == "e2e":
             self.e2e_lines = covered_lines
 
@@ -70,27 +70,27 @@ class CoverageData:
             return 0.0, 0.0, 0.0, 0.0
 
         unit_pct = len(self.unit_lines) / self.total_lines * 100
-        integration_pct = len(self.integration_lines) / self.total_lines * 100
+        func_pct = len(self.func_lines) / self.total_lines * 100
         e2e_pct = len(self.e2e_lines) / self.total_lines * 100
 
-        combined_lines = self.unit_lines | self.integration_lines | self.e2e_lines
+        combined_lines = self.unit_lines | self.func_lines | self.e2e_lines
         combined_pct = len(combined_lines) / self.total_lines * 100
 
-        return unit_pct, integration_pct, e2e_pct, combined_pct
+        return unit_pct, func_pct, e2e_pct, combined_pct
 
     def get_coverage_gaps(self) -> str:
         """Identify coverage gaps between test suites."""
         gaps = []
 
-        unit_only = self.unit_lines - self.integration_lines - self.e2e_lines
+        unit_only = self.unit_lines - self.func_lines - self.e2e_lines
         if unit_only:
             gaps.append(f"unit-only:{len(unit_only)}")
 
-        integration_only = self.integration_lines - self.unit_lines - self.e2e_lines
-        if integration_only:
-            gaps.append(f"integration-only:{len(integration_only)}")
+        func_only = self.func_lines - self.unit_lines - self.e2e_lines
+        if func_only:
+            gaps.append(f"func-only:{len(func_only)}")
 
-        e2e_only = self.e2e_lines - self.unit_lines - self.integration_lines
+        e2e_only = self.e2e_lines - self.unit_lines - self.func_lines
         if e2e_only:
             gaps.append(f"e2e-only:{len(e2e_only)}")
 
@@ -162,7 +162,7 @@ def generate_coverage_analysis() -> None:
     # Define coverage XML files
     coverage_files = {
         "unit": test_results_dir / "coverage-unit.xml",
-        "integration": test_results_dir / "coverage-integration.xml",
+        "func": test_results_dir / "coverage-func.xml",
         "e2e": test_results_dir / "coverage-e2e.xml",
     }
 
@@ -181,7 +181,7 @@ def generate_coverage_analysis() -> None:
         with open(output_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([
-                'file', 'unit_pct_covered', 'integration_pct_covered', 'e2e_pct_covered',
+                'file', 'unit_pct_covered', 'func_pct_covered', 'e2e_pct_covered',
                 'combined_pct_covered', 'lines_total', 'lines_covered', 'coverage_gaps'
             ])
         return
@@ -192,7 +192,7 @@ def generate_coverage_analysis() -> None:
     for file_path in all_files:
         coverage = CoverageData(file_path)
 
-        for suite_type in ["unit", "integration", "e2e"]:
+        for suite_type in ["unit", "func", "e2e"]:
             if file_path in all_coverage_data[suite_type]:
                 covered_lines, total_lines = all_coverage_data[suite_type][file_path]
                 coverage.add_coverage(suite_type, covered_lines, total_lines)
@@ -206,37 +206,37 @@ def generate_coverage_analysis() -> None:
 
             # Write header
             writer.writerow([
-                'file', 'unit_pct_covered', 'integration_pct_covered', 'e2e_pct_covered',
+                'file', 'unit_pct_covered', 'func_pct_covered', 'e2e_pct_covered',
                 'combined_pct_covered', 'lines_total', 'lines_covered', 'coverage_gaps'
             ])
 
             # Calculate totals for summary using global line tracking
             total_lines_all = 0
             all_unit_lines = set()
-            all_integration_lines = set()
+            all_func_lines = set()
             all_e2e_lines = set()
 
             # Write data rows and accumulate totals with global line tracking
             for file_path in sorted(file_coverage_map.keys()):
                 coverage = file_coverage_map[file_path]
-                unit_pct, integration_pct, e2e_pct, combined_pct = coverage.get_coverage_percentages()
+                unit_pct, func_pct, e2e_pct, combined_pct = coverage.get_coverage_percentages()
 
-                combined_lines = coverage.unit_lines | coverage.integration_lines | coverage.e2e_lines
+                combined_lines = coverage.unit_lines | coverage.func_lines | coverage.e2e_lines
 
                 # Accumulate totals for summary - track lines globally to avoid double counting
                 total_lines_all += coverage.total_lines
                 # Create globally unique line identifiers to properly track coverage across files
                 for line_num in coverage.unit_lines:
                     all_unit_lines.add(f"{file_path}:{line_num}")
-                for line_num in coverage.integration_lines:
-                    all_integration_lines.add(f"{file_path}:{line_num}")
+                for line_num in coverage.func_lines:
+                    all_func_lines.add(f"{file_path}:{line_num}")
                 for line_num in coverage.e2e_lines:
                     all_e2e_lines.add(f"{file_path}:{line_num}")
 
                 writer.writerow([
                     file_path,
                     f"{unit_pct:.1f}",
-                    f"{integration_pct:.1f}",
+                    f"{func_pct:.1f}",
                     f"{e2e_pct:.1f}",
                     f"{combined_pct:.1f}",
                     coverage.total_lines,
@@ -247,18 +247,18 @@ def generate_coverage_analysis() -> None:
             # Calculate summary percentages using global line counts
             if total_lines_all > 0:
                 summary_unit_pct = len(all_unit_lines) / total_lines_all * 100
-                summary_integration_pct = len(all_integration_lines) / total_lines_all * 100
+                summary_func_pct = len(all_func_lines) / total_lines_all * 100
                 summary_e2e_pct = len(all_e2e_lines) / total_lines_all * 100
 
                 # Combined coverage is the union of all covered lines
-                all_combined_lines = all_unit_lines | all_integration_lines | all_e2e_lines
+                all_combined_lines = all_unit_lines | all_func_lines | all_e2e_lines
                 summary_combined_pct = len(all_combined_lines) / total_lines_all * 100
 
                 # Write summary row
                 writer.writerow([
                     "SUMMARY",
                     f"{summary_unit_pct:.1f}",
-                    f"{summary_integration_pct:.1f}",
+                    f"{summary_func_pct:.1f}",
                     f"{summary_e2e_pct:.1f}",
                     f"{summary_combined_pct:.1f}",
                     total_lines_all,

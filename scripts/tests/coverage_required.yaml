@@ -6,7 +6,7 @@
 # The test_coverage.py script will validate that actual coverage meets or exceeds these thresholds.
 #
 # PHILOSOPHY: We focus on combined coverage, which measures whether code is tested
-# by ANY test suite (unit, integration, or e2e). What matters is that code is tested,
+# by ANY test suite (unit, func, or e2e). What matters is that code is tested,
 # not which test category it falls under.
 
 # Overall project coverage thresholds

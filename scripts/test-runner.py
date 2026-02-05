@@ -4,9 +4,9 @@ Test Runner TUI - Orchestrates all test phases with single-line progress updates
 
 Runs 5 phases of testing with hierarchical progress tracking:
 1. Lint (ruff format, ruff check, mypy)
-2. Coverage (unit, integration, e2e tests + analysis + validation)
+2. Coverage (unit, functional, e2e tests + analysis + validation)
 3. Docker (check, build)
-4. Script Tests (pytest scripts/tests + MCP integration tests + MCP stateless)
+4. Script Tests (pytest scripts/tests + MCP server tests + MCP stateless)
 5. MCPB Validate (check-tools, build, validate, UVX test)
 
 Usage:
@@ -234,7 +234,7 @@ def init_phases() -> list[PhaseStats]:
         ),
         PhaseStats(
             name="Coverage",
-            subtasks=["unit", "integration", "e2e", "analysis", "validation"],
+            subtasks=["unit", "functional", "e2e", "analysis", "validation"],
             tests_total=975,  # All main tests
         ),
         PhaseStats(
@@ -244,7 +244,7 @@ def init_phases() -> list[PhaseStats]:
         ),
         PhaseStats(
             name="Script Tests",
-            subtasks=["pytest scripts", "MCP integration", "MCP stateless"],
+            subtasks=["pytest scripts", "MCP server tests", "MCP stateless"],
             tests_total=64,  # 24 scripts + 39 MCP + 1 stateless run
         ),
         PhaseStats(
@@ -322,7 +322,7 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
     elif phase.name == "Coverage":
         if "unit" in line.lower() and "test" in line.lower():
             phase.current_subtask_idx = 0
-        elif "integration" in line.lower() and "test" in line.lower():
+        elif ("functional" in line.lower() or "func" in line.lower()) and "test" in line.lower():
             phase.current_subtask_idx = 1
         elif "e2e" in line.lower() or "end-to-end" in line.lower():
             phase.current_subtask_idx = 2
@@ -342,7 +342,7 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
     elif phase.name == "Script Tests":
         if "pytest scripts" in line.lower():
             phase.current_subtask_idx = 0
-        elif "mcp" in line.lower() and "integration" in line.lower():
+        elif "mcp" in line.lower() and "server" in line.lower():
             phase.current_subtask_idx = 1
         elif "stateless" in line.lower():
             phase.current_subtask_idx = 2
@@ -542,7 +542,7 @@ def main() -> int:
 
     phases_cmds = [
         (0, base_make + ["lint"]),
-        (1, base_make + ["coverage"]),  # Runs unit + integration + e2e + analysis + validation
+        (1, base_make + ["coverage"]),  # Runs unit + functional + e2e + analysis + validation
         (2, base_make + ["docker-build"]),  # Includes docker-check as dependency
         # Phase 4: Run test-scripts components - pytest scripts + MCP tests + stateless
         (
@@ -552,7 +552,7 @@ def main() -> int:
                 "-c",
                 'export PYTHONPATH="src" && '
                 'uv run python -m pytest scripts/tests/ -v && '
-                'echo "\\n===🧪 Running MCP server integration tests (idempotent only)..." && '
+                'echo "\\n===🧪 Running MCP server tests (idempotent only)..." && '
                 'uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test --no-generate && '
                 'echo "\\n===🧪 Running MCP stateless tests..." && '
                 'make -s test-mcp-stateless',

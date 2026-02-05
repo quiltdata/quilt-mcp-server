@@ -90,7 +90,7 @@ class CoverageReport:
         row = self.files[file_path]
         return {
             'unit_pct_covered': float(row['unit_pct_covered']),
-            'integration_pct_covered': float(row['integration_pct_covered']),
+            'func_pct_covered': float(row['func_pct_covered']),
             'e2e_pct_covered': float(row['e2e_pct_covered']),
             'combined_pct_covered': float(row['combined_pct_covered']),
         }
@@ -102,7 +102,7 @@ class CoverageReport:
 
         return {
             'unit_pct_covered': float(self.summary['unit_pct_covered']),
-            'integration_pct_covered': float(self.summary['integration_pct_covered']),
+            'func_pct_covered': float(self.summary['func_pct_covered']),
             'e2e_pct_covered': float(self.summary['e2e_pct_covered']),
             'combined_pct_covered': float(self.summary['combined_pct_covered']),
         }
