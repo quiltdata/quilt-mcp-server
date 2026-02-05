@@ -9,8 +9,6 @@ import pytest
 import docker
 from docker.models.containers import Container
 
-pytestmark = pytest.mark.docker
-
 
 def test_no_state_persists_across_restarts(
     docker_client: docker.DockerClient,

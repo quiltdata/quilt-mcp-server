@@ -196,8 +196,8 @@ class DataProcessor:
                 if len(data) > max_rows:
                     data = data.sample(n=max_rows, random_state=42)
 
-                # Remove completely empty rows and columns
-                data = data.dropna(how="all").dropna(axis=1, how="all")
+                # Remove completely empty columns
+                data = data.dropna(axis=1, how="all")
 
                 # Fill missing values with appropriate defaults
                 for col in data.columns:
@@ -205,6 +205,9 @@ class DataProcessor:
                         data[col] = data[col].fillna("Unknown")
                     else:
                         data[col] = data[col].fillna(data[col].median())
+
+                # Remove rows that are still completely empty after filling
+                data = data.dropna(how="all")
 
                 return data
             else:

@@ -15,6 +15,8 @@ import pytest
 
 from quilt_mcp.tools.packages import package_update, package_delete
 
+TEST_REGISTRY = "s3://test-bucket"
+
 
 # Removed TestPackageCreateValidation class - package_create now uses QuiltOps
 # and is a thin wrapper. Parameter validation is handled by QuiltOps backend.
@@ -49,7 +51,7 @@ class TestPackageUpdateValidation:
         # Should suggest proper S3 URI format
         assert "s3://" in result.error
 
-    def test_package_update_with_explicit_registry(self, test_bucket):
+    def test_package_update_with_explicit_registry(self):
         """package_update() works when registry explicitly provided.
 
         Validates:
@@ -59,7 +61,7 @@ class TestPackageUpdateValidation:
         result = package_update(
             package_name="test/coverage-test",
             s3_uris=["s3://test-bucket/updated.csv"],
-            registry=test_bucket,  # Explicit registry provided
+            registry=TEST_REGISTRY,  # Explicit registry provided
             message="Update test",
         )
 
@@ -98,7 +100,7 @@ class TestPackageDeleteValidation:
         # Should suggest proper S3 URI format
         assert "s3://" in result.error
 
-    def test_package_delete_with_explicit_registry(self, test_bucket):
+    def test_package_delete_with_explicit_registry(self):
         """package_delete() works when registry explicitly provided.
 
         Validates:
@@ -107,7 +109,7 @@ class TestPackageDeleteValidation:
         """
         result = package_delete(
             package_name="test/coverage-test",
-            registry=test_bucket,  # Explicit registry provided
+            registry=TEST_REGISTRY,  # Explicit registry provided
         )
 
         # If it fails, it should NOT be a registry configuration error

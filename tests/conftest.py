@@ -2,14 +2,15 @@
 
 import sys
 import os
-import base64
-import json
 import boto3
 import pytest
 import tempfile
+import shutil
 from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict, Any
+
+from tests.jwt_helpers import get_sample_catalog_claims, get_sample_catalog_token
 
 # Load environment variables from .env file
 try:
@@ -48,23 +49,6 @@ if app_dir not in sys.path:
 # ============================================================================
 
 QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
-
-
-def _generate_test_jwt() -> str:
-    """Generate a lightweight unsigned JWT for platform integration tests."""
-    header = {"alg": "none", "typ": "JWT"}
-    payload = {
-        "id": "test-user",
-        "uuid": "test-uuid",
-        "sub": "test-user",
-        "email": "test-user@example.com",
-        "exp": 9999999999,
-    }
-
-    def _encode(value: dict[str, object]) -> str:
-        return base64.urlsafe_b64encode(json.dumps(value).encode("utf-8")).decode("utf-8").rstrip("=")
-
-    return f"{_encode(header)}.{_encode(payload)}."
 
 
 def _is_truthy_env(value: str | None) -> bool:
@@ -155,19 +139,10 @@ def anyio_backend():
     return "asyncio"
 
 
-def pytest_configure(config):
-    """Configure pytest and set up AWS session if needed."""
-    # CRITICAL: Ensure tests use IAM credentials, not JWT authentication
-    # Clear any existing runtime auth context to prevent JWT fallback
-    try:
-        from quilt_mcp.runtime_context import clear_runtime_auth
-
-        clear_runtime_auth()
-    except ImportError:
-        pass
-
-    # Explicitly ensure unit tests run in local mode (not multiuser mode)
-    # This forces tests to use local AWS credentials (AWS_PROFILE or default)
+@pytest.fixture(scope="session")
+def test_env():
+    """Configure test environment defaults (opt-in)."""
+    # Ensure unit tests run in local mode (not multiuser mode)
     os.environ["QUILT_MULTIUSER_MODE"] = "false"
 
     # Remove JWT secrets to prevent development fallback behavior
@@ -183,7 +158,7 @@ def pytest_configure(config):
         pass
 
     # Configure boto3 default session to use AWS_PROFILE if set
-    # This must be done very early before any imports that create boto3 clients
+    # This must be done before any imports that create boto3 clients
     if os.getenv("AWS_PROFILE"):
         boto3.setup_default_session(profile_name=os.getenv("AWS_PROFILE"))
 
@@ -191,14 +166,12 @@ def pytest_configure(config):
     if not os.getenv("ATHENA_WORKGROUP"):
         os.environ["ATHENA_WORKGROUP"] = "primary"
 
-    # Add custom markers
-    config.addinivalue_line("markers", "integration: mark test as integration test")
-    config.addinivalue_line("markers", "slow: mark test as slow-running test")
+    yield
 
 
-@pytest.fixture(autouse=True)
-def reset_runtime_auth_state():
-    """Ensure runtime auth state doesn't leak between tests."""
+@pytest.fixture
+def clean_auth():
+    """Ensure runtime auth state doesn't leak between tests (opt-in)."""
     try:
         from quilt_mcp.runtime_context import clear_runtime_auth, update_runtime_metadata
 
@@ -235,9 +208,10 @@ def reset_runtime_auth_state():
 
 
 @pytest.fixture(params=_backend_mode_params())
-def backend_mode(request, monkeypatch, reset_runtime_auth_state):
-    """Run selected integration tests against quilt3 and/or platform backends."""
-    del reset_runtime_auth_state  # dependency for fixture ordering
+def backend_mode(request, monkeypatch, clean_auth, test_env):
+    """Run selected functional tests against quilt3 and/or platform backends."""
+    del clean_auth  # dependency for fixture ordering
+    del test_env
 
     from quilt_mcp.config import reset_mode_config, set_test_mode_config
     from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
@@ -247,19 +221,24 @@ def backend_mode(request, monkeypatch, reset_runtime_auth_state):
 
     if mode == "platform":
         if not _is_truthy_env(os.getenv("PLATFORM_TEST_ENABLED")):
-            pytest.skip("Platform integration tests disabled - set PLATFORM_TEST_ENABLED=true")
+            pytest.skip("Platform functional tests disabled - set PLATFORM_TEST_ENABLED=true")
+
+        quilt_catalog_url = os.getenv("QUILT_CATALOG_URL")
+        quilt_registry_url = os.getenv("QUILT_REGISTRY_URL")
+        if not quilt_catalog_url or not quilt_registry_url:
+            pytest.skip("Platform functional tests require QUILT_CATALOG_URL and QUILT_REGISTRY_URL to be set")
 
         monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
-        monkeypatch.setenv("QUILT_CATALOG_URL", os.getenv("PLATFORM_CATALOG_URL", "https://test.quiltdata.com"))
-        monkeypatch.setenv("QUILT_REGISTRY_URL", os.getenv("PLATFORM_REGISTRY_URL", "https://registry.test.com"))
+        monkeypatch.setenv("QUILT_CATALOG_URL", quilt_catalog_url)
+        monkeypatch.setenv("QUILT_REGISTRY_URL", quilt_registry_url)
         monkeypatch.setenv("MCP_JWT_SECRET", os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret"))
 
         token_handle = push_runtime_context(
             environment="web",
             auth=RuntimeAuthState(
                 scheme="Bearer",
-                access_token=_generate_test_jwt(),
-                claims={"id": "test-user", "uuid": "test-uuid", "sub": "test-user", "exp": 9999999999},
+                access_token=get_sample_catalog_token(),
+                claims=get_sample_catalog_claims(),
             ),
         )
 
@@ -311,7 +290,7 @@ def athena_service_cache_controller():
     return _cached_athena_service.cache_clear
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def cached_athena_service_constructor(athena_service_factory):
     """Patch athena_glue module to reuse cached service instances in tests."""
     from quilt_mcp.tools import athena_glue
@@ -339,6 +318,50 @@ def cached_athena_service_constructor(athena_service_factory):
         athena_glue.AthenaQueryService = original_constructor
 
 
+@pytest.fixture
+def requires_admin():
+    """Skip tests unless admin functionality is available."""
+    try:
+        from quilt_mcp.services import governance_service as governance
+
+        if not getattr(governance, "ADMIN_AVAILABLE", False):
+            pytest.skip("Admin functionality not available")
+    except Exception as exc:
+        pytest.skip(f"Admin check failed: {exc}")
+
+
+@pytest.fixture
+def requires_catalog(quilt3_backend):
+    """Skip tests unless quilt3 catalog authentication is available."""
+    return quilt3_backend
+
+
+@pytest.fixture
+def requires_search(requires_catalog):
+    """Skip tests unless search backend is available."""
+    try:
+        from quilt_mcp.search.utils.backend_status import get_search_backend_status
+
+        status = get_search_backend_status()
+        if not status.get("available"):
+            pytest.skip(f"Search backend unavailable: {status.get('status')}")
+    except Exception as exc:
+        pytest.skip(f"Search backend check failed: {exc}")
+
+
+@pytest.fixture(scope="session")
+def requires_docker():
+    """Skip tests unless Docker CLI and daemon are available."""
+    if shutil.which("docker") is None:
+        pytest.skip("Docker CLI not available")
+    try:
+        import subprocess
+
+        subprocess.run(["docker", "info"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as exc:
+        pytest.skip(f"Docker daemon unavailable: {exc}")
+
+
 # ============================================================================
 # Quilt3 Backend Fixture
 # ============================================================================
@@ -346,7 +369,7 @@ def cached_athena_service_constructor(athena_service_factory):
 
 @pytest.fixture(scope="session")
 def quilt3_backend():
-    """Provide initialized Quilt3_Backend for integration tests.
+    """Provide initialized Quilt3_Backend for functional tests.
 
     This fixture creates a session-scoped Quilt3_Backend instance that uses
     the current quilt3 session and AWS credentials from the environment.
@@ -366,7 +389,7 @@ def quilt3_backend():
         try:
             auth_status = backend.get_auth_status()
             if not auth_status.is_authenticated:
-                pytest.skip("Quilt3 not authenticated - skipping integration tests")
+                pytest.skip("Quilt3 not authenticated - skipping functional tests")
         except Exception as e:
             pytest.skip(f"Failed to verify auth status: {e}")
 
@@ -375,3 +398,32 @@ def quilt3_backend():
         pytest.skip(f"Failed to import Quilt3_Backend: {e}")
     except Exception as e:
         pytest.skip(f"Failed to initialize Quilt3_Backend: {e}")
+
+
+@pytest.fixture(scope="session")
+def platform_backend():
+    """Provide initialized Platform_Backend for functional tests.
+
+    Returns:
+        Platform_Backend: Initialized backend instance
+
+    Raises:
+        pytest.skip: If platform backend initialization fails or auth is unavailable
+    """
+    try:
+        from quilt_mcp.backends.platform_backend import Platform_Backend
+
+        backend = Platform_Backend()
+
+        try:
+            auth_status = backend.get_auth_status()
+            if not auth_status.is_authenticated:
+                pytest.skip("Platform backend not authenticated - skipping functional tests")
+        except Exception as e:
+            pytest.skip(f"Failed to verify platform auth status: {e}")
+
+        return backend
+    except ImportError as e:
+        pytest.skip(f"Failed to import Platform_Backend: {e}")
+    except Exception as e:
+        pytest.skip(f"Failed to initialize Platform_Backend: {e}")

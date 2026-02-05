@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.14.0"
+version = "0.14.1"
 description = "Secure MCP server for accessing Quilt data with IAM or JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Information Analysis",
 ]
@@ -106,14 +107,8 @@ addopts = "-v --tb=short --color=yes"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 markers = [
-    "admin: marks tests that require Quilt admin privileges (deselect with '-m \"not admin\"')",
-    "integration: marks tests that require AWS credentials, network access, or external services (deselect with '-m \"not integration\"')",
-    "search: marks tests that require Elasticsearch search functionality (deselect with '-m \"not search\"')",
+    "platform: marks tests that require platform authentication (deselect with '-m \"not platform\"')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
-    "docker: marks tests that require Docker container runtime (deselect with '-m \"not docker\"')",
-    "asyncio: marks tests as async tests that require pytest-asyncio",
-    "requires_catalog: marks tests that require authenticated catalog access (deselect with '-m \"not requires_catalog\"')",
 ]
 
 [tool.ruff]
@@ -121,7 +116,7 @@ markers = [
 config = "ruff.toml"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

@@ -7,6 +7,7 @@ The test suite exhibits a significant asymmetry: **quilt3 backend is extensively
 ## What `make test-all` Actually Tests
 
 The test runner orchestrates 5 phases:
+
 1. **Lint** - Format + type checking
 2. **Coverage** - Unit, integration, E2E tests
 3. **Docker** - Build validation
@@ -20,11 +21,13 @@ Key finding: **Integration tests predominantly exercise quilt3 backend against r
 ### Quilt3 Backend (Live-tested)
 
 **Unit Tests:**
+
 - 1,343 LOC
 - 60 test functions
 - Minimal mocking (basic initialization only)
 
 **Integration Tests:**
+
 - 20 test files (~271 test functions total)
 - Uses `quilt3_backend` session fixture ([tests/conftest.py:274](tests/conftest.py#L274))
 - Real AWS operations: S3, Athena, Elasticsearch
@@ -40,12 +43,14 @@ Key finding: **Integration tests predominantly exercise quilt3 backend against r
 ### Platform Backend (Mock-only)
 
 **Unit Tests:**
+
 - 2,582 LOC
 - 93 test functions
 - All GraphQL responses mocked
 - No live catalog communication
 
 **Integration Tests:**
+
 - **ZERO live tests**
 - [test_multiuser_access.py](tests/integration/test_multiuser_access.py) - Uses stub classes, not real platform backend
 - [test_multiuser.py](tests/integration/test_multiuser.py) - Stub-based concurrency tests
@@ -104,6 +109,7 @@ def platform_backend():
 ```
 
 **Tests to add:**
+
 - `test_platform_packages_integration.py` - Package CRUD via GraphQL
 - `test_platform_buckets_integration.py` - Bucket list/config via API
 - `test_platform_auth_integration.py` - JWT token validation
@@ -122,6 +128,7 @@ class _StubAuth:
 ```
 
 **Upgrade to real platform backend:**
+
 - Test concurrent users with real JWT tokens
 - Verify GraphQL query isolation
 - Test permission inheritance from catalog roles
@@ -131,6 +138,7 @@ class _StubAuth:
 **Priority: Medium**
 
 Current platform unit tests mock GraphQL responses. Need tests that:
+
 - Execute real queries against catalog
 - Verify response schema matches expectations
 - Test error handling for malformed queries
@@ -141,6 +149,7 @@ Current platform unit tests mock GraphQL responses. Need tests that:
 **Priority: Medium**
 
 Existing stateless tests ([test_stateless/](tests/stateless/)) focus on Docker deployment. Need:
+
 - Full workflow tests: JWT → GraphQL → S3 operations
 - Permission verification across user roles
 - Package operations in multiuser context
@@ -150,6 +159,7 @@ Existing stateless tests ([test_stateless/](tests/stateless/)) focus on Docker d
 **Priority: Low**
 
 Current E2E tests assume quilt3 backend. Add:
+
 - `test_platform_e2e_workflows.py` - Complete user workflows
 - Package creation → browse → delete lifecycle
 - Search across multiple users' packages
@@ -157,25 +167,29 @@ Current E2E tests assume quilt3 backend. Add:
 ## Implementation Path
 
 ### Phase 1: Foundation (Week 1)
+
 1. Create `platform_backend` fixture in conftest.py
 2. Add environment variable validation (catalog URL, JWT)
 3. Write 5 basic integration tests (auth, buckets, packages, content, admin)
 
 ### Phase 2: Multiuser (Week 2)
+
 4. Upgrade [test_multiuser_access.py](tests/integration/test_multiuser_access.py) to use real backend
-5. Add concurrent user tests with real JWT tokens
-6. Test permission isolation
+2. Add concurrent user tests with real JWT tokens
+3. Test permission isolation
 
 ### Phase 3: Coverage (Week 3)
+
 7. Achieve parity: 20+ platform integration tests matching quilt3 coverage
-8. Add GraphQL schema validation tests
-9. Document platform testing requirements in [CLAUDE.md](../../CLAUDE.md)
+2. Add GraphQL schema validation tests
+3. Document platform testing requirements in [CLAUDE.md](../../CLAUDE.md)
 
 ## Risk Mitigation
 
 **Challenge:** Platform backend requires live catalog with JWT authentication
 
 **Solutions:**
+
 - Use test catalog instance (not production)
 - Generate test JWTs with short expiration
 - Add `@pytest.mark.platform_integration` to skip when credentials unavailable
@@ -184,16 +198,19 @@ Current E2E tests assume quilt3 backend. Add:
 ## Metrics
 
 **Success criteria:**
+
 - Platform backend has ≥20 integration test files
 - Integration tests cover all GraphQL mutations/queries
 - CI runs platform tests when `PLATFORM_TEST_ENABLED=true`
 - Coverage report shows >80% for platform backend with integration tests
 
 **Current state:**
+
 - Quilt3: ~60% unit + 40% integration coverage
 - Platform: 100% unit (mocked) + 0% integration
 
 **Target state:**
+
 - Platform: ~40% unit (mocked) + 60% integration (live)
 
 ## Related Files

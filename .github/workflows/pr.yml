@@ -56,6 +56,10 @@ jobs:
         QUILT_CATALOG_URL: ${{ secrets.QUILT_CATALOG_URL }}
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
+        PLATFORM_TEST_ENABLED: ${{ secrets.PLATFORM_CATALOG_URL != '' && 'true' || 'false' }}
+        PLATFORM_CATALOG_URL: ${{ secrets.PLATFORM_CATALOG_URL }}
+        PLATFORM_REGISTRY_URL: ${{ secrets.PLATFORM_REGISTRY_URL }}
+        PLATFORM_TEST_JWT_SECRET: ${{ secrets.PLATFORM_TEST_JWT_SECRET }}
 
     - name: Debug GitHub context for dev-release
       run: |

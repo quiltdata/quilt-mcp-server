@@ -9,6 +9,8 @@ import docker
 from docker.models.containers import Container
 from tests.jwt_helpers import get_sample_catalog_token
 
+pytestmark = pytest.mark.usefixtures("requires_docker")
+
 
 def make_test_jwt(
     *,

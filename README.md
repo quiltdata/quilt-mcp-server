@@ -93,6 +93,7 @@ Override defaults via environment or MCP config:
 ## Architecture
 
 Multiuser Mode (Production)
+
 - Stateless: No server-side workflows or templates
 - JWT auth: Catalog-issued JWTs only (claims: `id`, `uuid`, `exp`)
 - Read/write operations go through the catalog API
@@ -100,6 +101,7 @@ Multiuser Mode (Production)
 - Single tenant per deployment (no tenant tracking)
 
 Local Dev Mode
+
 - Stateful: File-based storage in `~/.quilt/`
 - IAM auth: Uses AWS credentials or quilt3 session
 - Full feature set, including workflows
@@ -118,6 +120,8 @@ make run
 
 # Test
 make test
+make test-func
+make test-e2e
 ```
 
 ## Documentation

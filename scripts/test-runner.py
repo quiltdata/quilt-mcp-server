@@ -4,9 +4,9 @@ Test Runner TUI - Orchestrates all test phases with single-line progress updates
 
 Runs 5 phases of testing with hierarchical progress tracking:
 1. Lint (ruff format, ruff check, mypy)
-2. Coverage (unit, integration, e2e tests + analysis + validation)
+2. Coverage (unit, functional, e2e tests + analysis + validation)
 3. Docker (check, build)
-4. Script Tests (pytest scripts/tests + MCP integration tests + MCP stateless)
+4. Script Tests (pytest scripts/tests + MCP server tests + MCP stateless)
 5. MCPB Validate (check-tools, build, validate, UVX test)
 
 Usage:
@@ -80,6 +80,8 @@ class PhaseStats:
 
     name: str
     subtasks: list[str]
+    subtask_test_counts: list[int] = field(default_factory=list)  # Expected test counts per subtask
+    subtask_start_counts: list[int] = field(default_factory=list)  # Actual test count at start of each subtask
     current_subtask_idx: int = 0
     tests_passed: int = 0
     tests_failed: int = 0
@@ -133,12 +135,30 @@ class TestRunnerState:
         if phase.tests_total == 0:
             return ""
 
-        # Calculate cumulative position across ALL phases
-        prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
-        current_test_num = prior_tests + phase.tests_passed + phase.tests_failed
-        total_tests = sum(p.tests_total for p in self.phases)
+        # If we have per-subtask counts, show progress within current subtask
+        if (phase.subtask_test_counts and
+            phase.current_subtask_idx < len(phase.subtask_test_counts) and
+            phase.current_subtask_idx < len(phase.subtask_start_counts)):
 
-        parts = [f"Test {current_test_num}/{total_tests}"]
+            # Tests done at start of current subtask
+            subtask_start = phase.subtask_start_counts[phase.current_subtask_idx]
+            # Tests done in current subtask
+            current_subtask_done = (phase.tests_passed + phase.tests_failed) - subtask_start
+            # Expected total for current subtask
+            current_subtask_total = phase.subtask_test_counts[phase.current_subtask_idx]
+
+            # Only show test progress if subtask has measurable tests
+            if current_subtask_total > 0:
+                parts = [f"Test {current_subtask_done}/{current_subtask_total}"]
+            else:
+                parts = []  # No test progress for subtasks without test counts
+        else:
+            # Fallback: show cumulative across all phases
+            prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
+            current_test_num = prior_tests + phase.tests_passed + phase.tests_failed
+            total_tests = sum(p.tests_total for p in self.phases)
+            parts = [f"Test {current_test_num}/{total_tests}"]
+
         # Use hourglass for in-progress passing tests (not checkmark which implies done)
         if self.total_passed > 0:
             parts.append(f"⏳ {self.total_passed}")
@@ -224,8 +244,39 @@ class TestRunnerState:
         return "\n".join(lines)
 
 
+def collect_test_count(pytest_args: list[str]) -> int:
+    """Run pytest --collect-only to count tests."""
+    try:
+        result = subprocess.run(
+            ["uv", "run", "pytest", "--collect-only", "-q"] + pytest_args,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        # Parse output like "1146 tests collected in 0.31s"
+        match = re.search(r'(\d+) tests? collected', result.stdout)
+        if match:
+            return int(match.group(1))
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+        pass
+    return 0
+
+
 def init_phases() -> list[PhaseStats]:
-    """Initialize all test phases."""
+    """Initialize all test phases with dynamic test counts."""
+    print("📊 Collecting test counts...")
+
+    # Collect per-subtask test counts
+    unit_count = collect_test_count(["tests/unit"])
+    func_count = collect_test_count(["tests/func"])
+    e2e_count = collect_test_count(["tests/e2e"])
+    coverage_count = unit_count + func_count + e2e_count
+
+    scripts_count = collect_test_count(["scripts/tests/"])
+
+    print(f"   Unit: {unit_count} | Functional: {func_count} | E2E: {e2e_count}")
+    print(f"   Scripts: {scripts_count}")
+
     return [
         PhaseStats(
             name="Lint",
@@ -234,8 +285,9 @@ def init_phases() -> list[PhaseStats]:
         ),
         PhaseStats(
             name="Coverage",
-            subtasks=["unit", "integration", "e2e", "analysis", "validation"],
-            tests_total=975,  # All main tests
+            subtasks=["unit", "functional", "e2e", "analysis", "validation"],
+            subtask_test_counts=[unit_count, func_count, e2e_count, 0, 0],
+            tests_total=coverage_count,
         ),
         PhaseStats(
             name="Docker",
@@ -244,8 +296,9 @@ def init_phases() -> list[PhaseStats]:
         ),
         PhaseStats(
             name="Script Tests",
-            subtasks=["pytest scripts", "MCP integration", "MCP stateless"],
-            tests_total=64,  # 24 scripts + 39 MCP + 1 stateless run
+            subtasks=["pytest scripts", "MCP server tests", "MCP stateless"],
+            subtask_test_counts=[scripts_count, 0, 0],  # Only pytest scripts reports test counts
+            tests_total=scripts_count,  # Just pytest scripts count (MCP tests reported differently)
         ),
         PhaseStats(
             name="MCPB Validate",
@@ -322,7 +375,7 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
     elif phase.name == "Coverage":
         if "unit" in line.lower() and "test" in line.lower():
             phase.current_subtask_idx = 0
-        elif "integration" in line.lower() and "test" in line.lower():
+        elif ("functional" in line.lower() or "func" in line.lower()) and "test" in line.lower():
             phase.current_subtask_idx = 1
         elif "e2e" in line.lower() or "end-to-end" in line.lower():
             phase.current_subtask_idx = 2
@@ -342,7 +395,7 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
     elif phase.name == "Script Tests":
         if "pytest scripts" in line.lower():
             phase.current_subtask_idx = 0
-        elif "mcp" in line.lower() and "integration" in line.lower():
+        elif "mcp" in line.lower() and "server" in line.lower():
             phase.current_subtask_idx = 1
         elif "stateless" in line.lower():
             phase.current_subtask_idx = 2
@@ -356,8 +409,13 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
         elif "mcpb validate" in line or "validating" in line.lower():
             phase.current_subtask_idx = 2
 
-    # Reset lap timer if subtask changed
+    # Record test count at start of new subtask if subtask changed
     if phase.current_subtask_idx != old_subtask_idx:
+        # Ensure subtask_start_counts list is large enough
+        while len(phase.subtask_start_counts) <= phase.current_subtask_idx:
+            phase.subtask_start_counts.append(0)
+        # Record current test count at start of this subtask
+        phase.subtask_start_counts[phase.current_subtask_idx] = phase.tests_passed + phase.tests_failed
         state.reset_lap_timer()
 
 
@@ -509,6 +567,10 @@ def run_phase(phase_idx: int, cmd: list[str], state: TestRunnerState, live: Opti
     state.current_phase = phase_idx
     phase = state.phases[phase_idx]
 
+    # Initialize subtask_start_counts for first subtask
+    if not phase.subtask_start_counts:
+        phase.subtask_start_counts = [0]  # First subtask starts at 0
+
     if not USE_TUI:
         print(f"\n{'=' * 80}")
         print(f"Phase {phase_idx + 1}/5: {phase.name}")
@@ -542,7 +604,7 @@ def main() -> int:
 
     phases_cmds = [
         (0, base_make + ["lint"]),
-        (1, base_make + ["coverage"]),  # Runs unit + integration + e2e + analysis + validation
+        (1, base_make + ["coverage"]),  # Runs unit + functional + e2e + analysis + validation
         (2, base_make + ["docker-build"]),  # Includes docker-check as dependency
         # Phase 4: Run test-scripts components - pytest scripts + MCP tests + stateless
         (
@@ -552,7 +614,7 @@ def main() -> int:
                 "-c",
                 'export PYTHONPATH="src" && '
                 'uv run python -m pytest scripts/tests/ -v && '
-                'echo "\\n===🧪 Running MCP server integration tests (idempotent only)..." && '
+                'echo "\\n===🧪 Running MCP server tests (idempotent only)..." && '
                 'uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test --no-generate && '
                 'echo "\\n===🧪 Running MCP stateless tests..." && '
                 'make -s test-mcp-stateless',

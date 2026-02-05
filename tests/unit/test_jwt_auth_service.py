@@ -16,7 +16,13 @@ def test_jwt_auth_requires_runtime_auth():
     assert excinfo.value.code == "missing_jwt"
 
 
-def test_jwt_auth_rejects_aws_session_usage():
+def test_jwt_auth_requires_registry_url_for_credentials():
+    """Test that JWT auth requires QUILT_REGISTRY_URL to exchange JWT for AWS credentials."""
+    import os
+
+    # Clear QUILT_REGISTRY_URL if it exists
+    old_registry_url = os.environ.pop("QUILT_REGISTRY_URL", None)
+
     auth_state = RuntimeAuthState(
         scheme="Bearer",
         access_token="token",
@@ -27,6 +33,10 @@ def test_jwt_auth_rejects_aws_session_usage():
         service = JWTAuthService()
         with pytest.raises(JwtAuthServiceError) as excinfo:
             service.get_boto3_session()
-        assert excinfo.value.code == "aws_not_supported"
+        assert excinfo.value.code == "missing_config"
+        assert "QUILT_REGISTRY_URL" in str(excinfo.value)
     finally:
         reset_runtime_context(token_handle)
+        # Restore original value
+        if old_registry_url is not None:
+            os.environ["QUILT_REGISTRY_URL"] = old_registry_url
