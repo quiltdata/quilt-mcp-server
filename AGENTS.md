@@ -65,7 +65,7 @@
 ```bash
 # Testing (run these after code changes)
 make test              # Unit tests only (fast, default)
-make test-all          # All tests (unit, integration, e2e, scripts, mcpb)
+make test-all          # All tests (unit, func, e2e, scripts, mcpb)
 make lint              # Format code + type checking (run before commit)
 
 # Development server
@@ -74,7 +74,7 @@ make run-inspector     # Launch MCP Inspector UI
 
 # Coverage & validation
 make coverage          # Generate coverage report
-make test-integration  # Integration tests with AWS
+make test-func         # Func tests (mocked)
 
 # Build & package
 make mcpb              # Create MCPB package
@@ -135,7 +135,7 @@ src/quilt_mcp/
 ```text
 tests/
 ├── unit/            # Component tests (backends split by domain)
-├── integration/     # Multi-component tests
+├── func/            # Mocked multi-module tests
 ├── e2e/             # Full workflow tests
 ├── security/        # Auth & access tests
 ├── performance/     # Benchmarks

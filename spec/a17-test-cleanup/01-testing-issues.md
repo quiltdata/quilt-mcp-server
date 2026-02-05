@@ -31,17 +31,20 @@ The test suite has grown organically to **1,181 tests across 133 files** with **
 **Problem:** 1,889 lines of mock/patch usage creates brittle tests that can pass while production code fails.
 
 **Evidence:**
+
 ```bash
 $ grep -r "mock\|Mock\|patch" tests/ --include="*.py" | wc -l
 1889
 ```
 
 **Examples:**
+
 - [tests/unit/backends/test_quilt3_backend_packages.py](tests/unit/backends/test_quilt3_backend_packages.py):23 - Patches quilt3 module
 - Heavy mocking in backend tests obscures integration issues
 - Mock setups often more complex than the code being tested
 
 **Impact:**
+
 - False confidence in test coverage
 - Tests don't catch real integration issues
 - Refactoring becomes risky (mocks don't update with code)
@@ -58,11 +61,13 @@ $ grep -r "mock\|Mock\|patch" tests/ --include="*.py" | wc -l
 **Evidence:**
 
 **Conftest files:**
+
 - [tests/conftest.py](tests/conftest.py) - 377 lines, complex pytest_configure
 - [tests/integration/conftest.py](tests/integration/conftest.py) - 75 lines, Athena service patching
 - [tests/stateless/conftest.py](tests/stateless/conftest.py) - 220 lines, Docker container management
 
 **Fixture scope distribution:**
+
 ```
 16 @pytest.fixture(scope="session")
  5 @pytest.fixture(scope="module")
@@ -71,6 +76,7 @@ $ grep -r "mock\|Mock\|patch" tests/ --include="*.py" | wc -l
 ```
 
 **Autouse fixtures:**
+
 - `reset_runtime_auth_state` - Runs before/after EVERY test
 - `cached_athena_service_constructor` - Patches module globally
 
@@ -103,6 +109,7 @@ $ grep -r "mock\|Mock\|patch" tests/ --include="*.py" | wc -l
    - 76 tests skip when PLATFORM_TEST_ENABLED=false
 
 **Impact:**
+
 - Hidden test dependencies
 - Difficult to run tests in isolation
 - Slow test startup due to autouse fixtures
@@ -110,6 +117,7 @@ $ grep -r "mock\|Mock\|patch" tests/ --include="*.py" | wc -l
 - New tests inherit complex setup unintentionally
 
 **Recommendation:**
+
 - Remove autouse fixtures where possible
 - Make fixtures opt-in with explicit dependencies
 - Reduce session-scoped fixtures with state
@@ -122,11 +130,13 @@ $ grep -r "mock\|Mock\|patch" tests/ --include="*.py" | wc -l
 **Problem:** Tests parametrized with `backend_mode` fixture run twice (quilt3 + platform), causing duplication and slow tests.
 
 **Evidence:**
+
 - 76 tests skipped when platform mode disabled
 - Integration tests take 171 seconds (partly due to duplication)
 - Many tests don't actually need both modes
 
 **Example:**
+
 ```python
 def test_something(backend_mode):
     # Runs twice: once for quilt3, once for platform
@@ -134,11 +144,13 @@ def test_something(backend_mode):
 ```
 
 **Impact:**
+
 - Nearly 2x integration test time
 - Confusion about which mode is being tested
 - Setup/teardown overhead multiplied
 
 **Recommendation:**
+
 - Use explicit `@pytest.mark.parametrize` only where needed
 - Create separate test files for mode-specific tests
 - Default to quilt3 mode for most tests
@@ -150,6 +162,7 @@ def test_something(backend_mode):
 **Problem:** Some test files are extremely large, testing too many things in one file.
 
 **Largest test files:**
+
 ```
 997 lines - tests/unit/backends/test_quilt3_backend_packages.py
 867 lines - tests/unit/backends/test_platform_backend_packages.py
@@ -166,12 +179,14 @@ def test_something(backend_mode):
 **Example:** [tests/unit/backends/test_quilt3_backend_packages.py](tests/unit/backends/test_quilt3_backend_packages.py) has 52 test functions/classes in 997 lines.
 
 **Impact:**
+
 - Hard to navigate and understand
 - Slow to run (e.g., quilt_tools test takes 1.53s)
 - Difficult to isolate failures
 - Merge conflicts more likely
 
 **Recommendation:**
+
 - Split large files by feature/functionality
 - Maximum ~300 lines per test file
 - Group related tests into classes
@@ -183,6 +198,7 @@ def test_something(backend_mode):
 **Problem:** Several tests take >1 second, slowing down the development feedback loop.
 
 **Slowest unit tests:**
+
 ```
 1.53s - test_mcp_server.py::test_quilt_tools
 1.11s - services/test_permission_service.py::test_permission_cache_expiration
@@ -195,16 +211,19 @@ def test_something(backend_mode):
 ```
 
 **Integration test time:**
+
 ```
 171.23s total (1 failed, 150 passed, 76 skipped)
 ```
 
 **Impact:**
+
 - Developers wait longer for feedback
 - CI/CD pipeline takes longer
 - Discourages running full test suite locally
 
 **Recommendation:**
+
 - Investigate why permission tests are slow (cache expiration waits?)
 - Mock time-dependent operations
 - Parallelize integration tests
@@ -217,6 +236,7 @@ def test_something(backend_mode):
 **Problem:** Unclear boundaries between test types and test discovery issues.
 
 **Test directory structure:**
+
 ```
 tests/
 ├── unit/           (52 test functions in largest file)
@@ -230,6 +250,7 @@ tests/
 ```
 
 **Issues:**
+
 1. **Confusion about test types:**
    - What makes a test "unit" vs "integration"?
    - E2E tests are actually faster than integration tests
@@ -245,11 +266,13 @@ tests/
    - Files in `fixtures/runners/` look like tests but might not run
 
 **Impact:**
+
 - Developers unsure where to add new tests
 - Tests may not run in CI
 - Duplicated test logic
 
 **Recommendation:**
+
 - Document test type definitions in TESTING.md
 - Rename or reorganize test runners
 - Remove unused test suites (or document their purpose)
@@ -297,6 +320,7 @@ def pytest_configure(config):
 ```
 
 **Issues:**
+
 1. Global environment variable manipulation
 2. Singleton resets
 3. boto3 session setup
@@ -304,12 +328,14 @@ def pytest_configure(config):
 5. Comments indicate complexity ("CRITICAL", "NEVER")
 
 **Impact:**
+
 - Hard to understand test behavior
 - Environment-dependent test results
 - Difficult to debug failures
 - Scary to modify
 
 **Recommendation:**
+
 - Move configuration to explicit fixtures
 - Document why each setting is needed
 - Reduce global state manipulation
@@ -321,12 +347,14 @@ def pytest_configure(config):
 **Problem:** Some tests import from other test files, creating coupling.
 
 **Evidence:**
+
 ```python
 # Multiple test files import from config helpers
 from quilt_mcp.config import set_test_mode_config, reset_mode_config
 ```
 
 **Files with test imports:**
+
 - [tests/unit/test_utils.py](tests/unit/test_utils.py)
 - [tests/unit/tools/test_get_resource_simple.py](tests/unit/tools/test_get_resource_simple.py)
 - [tests/unit/context/test_factory.py](tests/unit/context/test_factory.py)
@@ -334,11 +362,13 @@ from quilt_mcp.config import set_test_mode_config, reset_mode_config
 - [tests/unit/ops/test_factory.py](tests/unit/ops/test_factory.py) (15 imports!)
 
 **Impact:**
+
 - Tests coupled to test infrastructure
 - Harder to move tests around
 - Unclear dependencies
 
 **Recommendation:**
+
 - Move shared test helpers to `tests/helpers/` or `tests/utils/`
 - Make test utilities explicit and documented
 
@@ -349,6 +379,7 @@ from quilt_mcp.config import set_test_mode_config, reset_mode_config
 **Problem:** Some tests are failing or consistently skipped.
 
 **Failing tests:**
+
 1. **Integration:** `test_athena.py::TestTabulatorWorkflow::test_tabulator_complete_workflow[quilt3]`
    - Error: "tabulator_data_catalog not configured"
    - Requires Tabulator-enabled catalog
@@ -359,17 +390,20 @@ from quilt_mcp.config import set_test_mode_config, reset_mode_config
    - Unclear why failing
 
 **Skipped tests:**
+
 - 76 tests skipped when `PLATFORM_TEST_ENABLED=false`
 - 4 tests skipped in e2e suite (reason unclear)
 - 6 xfailed tests (expected failures)
 - 7 xpassed tests (expected failures that now pass!)
 
 **Impact:**
+
 - Failing tests indicate missing configuration or bugs
 - Skipped tests reduce effective coverage
 - Xpassed tests indicate outdated expectations
 
 **Recommendation:**
+
 - Fix or properly skip failing tests
 - Investigate xpassed tests (remove xfail marker?)
 - Document skip conditions clearly
@@ -381,6 +415,7 @@ from quilt_mcp.config import set_test_mode_config, reset_mode_config
 **Problem:** Several specialized test directories exist but their purpose and maintenance status is unclear.
 
 **Specialized suites:**
+
 1. **stateless/** (5 files, 220-line conftest)
    - Docker-based deployment tests
    - Tests read-only filesystem constraints
@@ -400,11 +435,13 @@ from quilt_mcp.config import set_test_mode_config, reset_mode_config
    - Unclear if regularly run
 
 **Impact:**
+
 - Tests may bitrot if not run regularly
 - Unclear if required for PR approval
 - Duplicated test logic possible
 
 **Recommendation:**
+
 - Document each test suite's purpose in TESTING.md
 - Specify when each suite should run (local/CI/nightly)
 - Remove unmaintained suites or mark as experimental
@@ -423,11 +460,13 @@ from quilt_mcp.config import set_test_mode_config, reset_mode_config
 ```
 
 This is **extremely high** compared to industry standards:
+
 - Typical projects: 30-50% test-to-source ratio
 - Well-tested projects: 50-70% ratio
 - This project: 86% ratio
 
 **Implications:**
+
 - Very comprehensive test coverage (good!)
 - Potentially over-tested with diminishing returns
 - High maintenance burden
@@ -440,26 +479,31 @@ This is **extremely high** compared to industry standards:
 ## Test Speed Analysis
 
 ### Unit Tests
+
 - Total: 905 tests
 - Runtime: ~2-3 seconds (estimated from durations)
 - Slowest: 1.53s (test_quilt_tools)
 
 ### Integration Tests
+
 - Total: 227 tests (150 passed, 76 skipped, 1 failed)
 - Runtime: 171.23 seconds (2:51)
 - Average: 0.75s per test
 
 ### E2E Tests
+
 - Total: 67 tests (62 passed, 4 skipped, 1 failed)
 - Runtime: 2.61 seconds
 - Average: 0.04s per test (very fast!)
 
 **Observations:**
+
 - E2E tests are surprisingly fast (probably well-mocked)
 - Integration tests are slow (real AWS calls?)
 - Unit tests have some slow outliers
 
 **Recommendation:**
+
 - Investigate why integration tests are slow
 - Consider splitting into "fast integration" and "slow integration"
 - Run slow tests in parallel or nightly
@@ -469,6 +513,7 @@ This is **extremely high** compared to industry standards:
 ## Dependency Issues
 
 **External dependencies for tests:**
+
 1. AWS credentials (AWS_PROFILE or IAM role)
 2. QUILT_TEST_BUCKET environment variable
 3. Docker daemon (for stateless tests)
@@ -477,11 +522,13 @@ This is **extremely high** compared to industry standards:
 6. Elasticsearch (for search tests)
 
 **Issues:**
+
 - Many tests fail silently without proper setup
 - Setup requirements not documented in README
 - New developers struggle to run full suite
 
 **Recommendation:**
+
 - Document all test dependencies in TESTING.md
 - Provide setup script for test environment
 - Use pytest markers to skip tests missing dependencies
@@ -504,20 +551,23 @@ Despite the issues, the test suite has strengths:
 ## Recommendations Summary
 
 ### High Priority
+
 1. **Reduce mocking:** Shift to integration tests with real services where possible
 2. **Simplify fixtures:** Remove autouse fixtures, make opt-in
 3. **Fix failing tests:** 2 failing tests should pass or be skipped properly
 
 ### Medium Priority
+
 4. **Reduce backend duplication:** Make backend_mode fixture opt-in
-5. **Split large test files:** Break up 997-line test files
-6. **Speed up slow tests:** Investigate 1+ second tests
-7. **Clarify test organization:** Document test types in TESTING.md
+2. **Split large test files:** Break up 997-line test files
+3. **Speed up slow tests:** Investigate 1+ second tests
+4. **Clarify test organization:** Document test types in TESTING.md
 
 ### Low Priority
+
 8. **Clean up test imports:** Move shared helpers to dedicated module
-9. **Document specialized suites:** Clarify security/performance/load test purposes
-10. **Reduce configuration complexity:** Simplify pytest_configure
+2. **Document specialized suites:** Clarify security/performance/load test purposes
+3. **Reduce configuration complexity:** Simplify pytest_configure
 
 ---
 
