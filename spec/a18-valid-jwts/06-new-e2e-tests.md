@@ -40,14 +40,14 @@
 
 #### Negative Tests (Invalid Auth Should Fail)
 
-3. `test_missing_jwt_denies_access` - No JWT → 401/403
+1. `test_missing_jwt_denies_access` - No JWT → 401/403
 2. `test_malformed_jwt_denies_access` - Malformed JWT → 401/403
 3. `test_expired_jwt_denies_access` - Expired JWT → 401/403
 4. `test_wrong_signature_denies_access` - Invalid signature → 401/403
 
 #### Comprehensive Tests (Every Endpoint Must Enforce)
 
-7. `test_tool_calls_require_jwt` - Tool calls need JWT even with active session
+1. `test_tool_calls_require_jwt` - Tool calls need JWT even with active session
 2. `test_resources_require_jwt` - Resource access needs JWT even with active session
 
 ### 4. Verified Unit Tests Still Work ✅
