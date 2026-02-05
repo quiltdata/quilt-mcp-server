@@ -80,7 +80,8 @@ class PhaseStats:
 
     name: str
     subtasks: list[str]
-    subtask_test_counts: list[int] = field(default_factory=list)  # Test counts per subtask
+    subtask_test_counts: list[int] = field(default_factory=list)  # Expected test counts per subtask
+    subtask_start_counts: list[int] = field(default_factory=list)  # Actual test count at start of each subtask
     current_subtask_idx: int = 0
     tests_passed: int = 0
     tests_failed: int = 0
@@ -135,12 +136,15 @@ class TestRunnerState:
             return ""
 
         # If we have per-subtask counts, show progress within current subtask
-        if phase.subtask_test_counts and phase.current_subtask_idx < len(phase.subtask_test_counts):
-            # Calculate tests done in prior subtasks
-            prior_subtask_tests = sum(phase.subtask_test_counts[:phase.current_subtask_idx])
+        if (phase.subtask_test_counts and
+            phase.current_subtask_idx < len(phase.subtask_test_counts) and
+            phase.current_subtask_idx < len(phase.subtask_start_counts)):
+
+            # Tests done at start of current subtask
+            subtask_start = phase.subtask_start_counts[phase.current_subtask_idx]
             # Tests done in current subtask
-            current_subtask_done = (phase.tests_passed + phase.tests_failed) - prior_subtask_tests
-            # Total for current subtask
+            current_subtask_done = (phase.tests_passed + phase.tests_failed) - subtask_start
+            # Expected total for current subtask
             current_subtask_total = phase.subtask_test_counts[phase.current_subtask_idx]
 
             parts = [f"Test {current_subtask_done}/{current_subtask_total}"]
@@ -400,8 +404,13 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
         elif "mcpb validate" in line or "validating" in line.lower():
             phase.current_subtask_idx = 2
 
-    # Reset lap timer if subtask changed
+    # Record test count at start of new subtask if subtask changed
     if phase.current_subtask_idx != old_subtask_idx:
+        # Ensure subtask_start_counts list is large enough
+        while len(phase.subtask_start_counts) <= phase.current_subtask_idx:
+            phase.subtask_start_counts.append(0)
+        # Record current test count at start of this subtask
+        phase.subtask_start_counts[phase.current_subtask_idx] = phase.tests_passed + phase.tests_failed
         state.reset_lap_timer()
 
 
@@ -552,6 +561,10 @@ def run_phase(phase_idx: int, cmd: list[str], state: TestRunnerState, live: Opti
     """Run a single test phase."""
     state.current_phase = phase_idx
     phase = state.phases[phase_idx]
+
+    # Initialize subtask_start_counts for first subtask
+    if not phase.subtask_start_counts:
+        phase.subtask_start_counts = [0]  # First subtask starts at 0
 
     if not USE_TUI:
         print(f"\n{'=' * 80}")
