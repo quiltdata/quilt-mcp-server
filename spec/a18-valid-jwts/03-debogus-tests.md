@@ -14,12 +14,14 @@ The JWT tests were fundamentally bogus - they validated JWT **signatures** but n
 ### test-mcp vs test-mcp-stateless Divergence
 
 **test-mcp (Local/Docker with AWS credentials):**
+
 - Filters to idempotent-only tools via `filter_tests_by_idempotence()`
 - Runs ~20 read-only tools that actually execute S3 operations
 - Uses AWS credentials from environment
 - Tests pass because credentials are valid
 
 **test-mcp-stateless (HTTP+JWT, BEFORE changes):**
+
 - Ran ALL tools from config (no filtering)
 - Only validated tool/resource **registration** (MCP protocol)
 - Never executed tools that required S3 access
@@ -145,46 +147,48 @@ if run_tools or run_resources:
 **File:** `make.dev`
 
 **BEFORE:**
+
 ```makefile
 test-mcp-stateless: docker-build
-	@echo "🔐 Testing stateless MCP with JWT authentication..."
-	@uv sync --group test
-	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		uv run python scripts/docker_manager.py start \
-			--mode stateless \
-			--image $$TEST_DOCKER_IMAGE \
-			--name mcp-stateless-test \
-			--port 8002 \
-			--jwt-secret "test-secret" && \
-		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
-			--jwt \
-			--tools-test --resources-test \
-			--config scripts/tests/mcp-test.yaml && \
-		uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
-		(uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
-	@echo "✅ Stateless JWT testing with catalog authentication completed"
+ @echo "🔐 Testing stateless MCP with JWT authentication..."
+ @uv sync --group test
+ @export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+  uv run python scripts/docker_manager.py start \
+   --mode stateless \
+   --image $$TEST_DOCKER_IMAGE \
+   --name mcp-stateless-test \
+   --port 8002 \
+   --jwt-secret "test-secret" && \
+  (uv run python scripts/mcp-test.py http://localhost:8002/mcp \
+   --jwt \
+   --tools-test --resources-test \
+   --config scripts/tests/mcp-test.yaml && \
+  uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
+  (uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
+ @echo "✅ Stateless JWT testing with catalog authentication completed"
 ```
 
 **AFTER:**
+
 ```makefile
 test-mcp-stateless: docker-build
-	@echo "🔐 Testing stateless MCP with JWT authentication..."
-	@uv sync --group test
-	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		uv run python scripts/docker_manager.py start \
-			--mode stateless \
-			--image $$TEST_DOCKER_IMAGE \
-			--name mcp-stateless-test \
-			--port 8002 \
-			--jwt-secret "test-secret" && \
-		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
-			--jwt \
-			--tools-test --resources-test \
-			--idempotent-only \
-			--config scripts/tests/mcp-test.yaml && \
-		uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
-		(uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
-	@echo "✅ Stateless JWT testing with catalog authentication completed"
+ @echo "🔐 Testing stateless MCP with JWT authentication..."
+ @uv sync --group test
+ @export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+  uv run python scripts/docker_manager.py start \
+   --mode stateless \
+   --image $$TEST_DOCKER_IMAGE \
+   --name mcp-stateless-test \
+   --port 8002 \
+   --jwt-secret "test-secret" && \
+  (uv run python scripts/mcp-test.py http://localhost:8002/mcp \
+   --jwt \
+   --tools-test --resources-test \
+   --idempotent-only \
+   --config scripts/tests/mcp-test.yaml && \
+  uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
+  (uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
+ @echo "✅ Stateless JWT testing with catalog authentication completed"
 ```
 
 **Key Change:** Added `--idempotent-only` flag
