@@ -834,6 +834,79 @@ class ToolsTester(MCPTester):
         except:
             return "Could not parse result"
 
+    def _is_error_response(self, result: Dict[str, Any]) -> bool:
+        """Check if the MCP response indicates an error.
+
+        MCP tools can return errors in two forms:
+        1. JSON error responses with an "error" field (runtime errors from tool execution)
+        2. Plain text validation errors (parameter validation failures from MCP server)
+
+        This method checks if the response represents either error condition.
+
+        Args:
+            result: The MCP tool response
+
+        Returns:
+            True if the response indicates an error, False otherwise
+
+        Examples:
+            JSON error: {"error": "AWS access is not available in JWT mode", ...}
+            Validation error: "1 validation error for call[tool_name]\ns3_uri\n  String should match..."
+        """
+        try:
+            content = result.get("content", [])
+            if content and isinstance(content[0], dict) and "text" in content[0]:
+                text_content = content[0]["text"]
+
+                # Check for validation errors (plain text containing "validation error")
+                if "validation error" in text_content.lower():
+                    return True
+
+                # Try to parse as JSON and check for error field
+                try:
+                    data = json.loads(text_content)
+                    # Error responses have an "error" field with a string value
+                    return "error" in data and isinstance(data["error"], str)
+                except json.JSONDecodeError:
+                    # If it's not JSON and not a validation error, assume success
+                    return False
+
+            return False
+        except Exception:
+            return False
+
+    def _extract_error_message(self, result: Dict[str, Any]) -> str:
+        """Extract the error message from an error response.
+
+        Args:
+            result: The MCP tool response with an error
+
+        Returns:
+            The error message string
+        """
+        try:
+            content = result.get("content", [])
+            if content and isinstance(content[0], dict) and "text" in content[0]:
+                text_content = content[0]["text"]
+
+                # Check for validation errors (plain text)
+                if "validation error" in text_content.lower():
+                    # Extract the first line which contains the validation error summary
+                    first_line = text_content.split('\n')[0]
+                    return f"Validation error: {first_line}"
+
+                # Try to parse as JSON
+                try:
+                    data = json.loads(text_content)
+                    return data.get("error", "Unknown error")
+                except json.JSONDecodeError:
+                    # Return the raw text if it's not JSON
+                    return text_content[:200] if len(text_content) > 200 else text_content
+
+            return "Could not parse error message"
+        except Exception:
+            return "Could not parse error message"
+
     def run_test(self, tool_name: str, test_config: Dict[str, Any]) -> None:
         """Run a single tool test with smart validation.
 
@@ -852,6 +925,24 @@ class ToolsTester(MCPTester):
 
             # Call the tool
             result = self.call_tool(actual_tool_name, test_args)
+
+            # Check for error responses
+            # MCP tools return typed responses with error variants that have an "error" field
+            # If the response contains an error, the test should fail
+            if self._is_error_response(result):
+                error_msg = self._extract_error_message(result)
+                print(f"❌ {tool_name}: FAILED - Tool returned error response")
+                print(f"   Error: {error_msg}")
+
+                self.results.record_failure({
+                    "name": tool_name,
+                    "actual_tool": actual_tool_name,
+                    "arguments": test_args,
+                    "error": f"Tool returned error response: {error_msg}",
+                    "error_type": "ErrorResponse",
+                    "result_summary": self._summarize_result(result)
+                })
+                return
 
             # Schema validation (existing)
             if "response_schema" in test_config:
