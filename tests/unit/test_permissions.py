@@ -19,7 +19,6 @@ from quilt_mcp.services.permission_discovery import (
 )
 
 
-@pytest.mark.integration
 class TestAWSPermissionsDiscover:
     """Test cases for AWS permissions discovery."""
 
@@ -122,7 +121,6 @@ class TestAWSPermissionsDiscover:
         assert "Failed to discover AWS permissions" in result["error"]
 
 
-@pytest.mark.integration
 class TestBucketAccessCheck:
     """Test cases for bucket access checking."""
 
@@ -177,7 +175,6 @@ class TestBucketAccessCheck:
         assert result["operation_tests"]["write"] is False
 
 
-@pytest.mark.integration
 class TestBucketRecommendations:
     """Test cases for bucket recommendations."""
 
@@ -242,7 +239,6 @@ class TestBucketRecommendations:
         assert "temp-work" in recommendations["temporary_storage"]
 
 
-@pytest.mark.integration
 class TestPermissionDiscoveryEngine:
     """Test cases for the core permission discovery engine."""
 
@@ -325,7 +321,6 @@ class TestPermissionDiscoveryEngine:
         assert len(identity.account_id) == 12  # AWS account IDs are 12 digits
 
 
-@pytest.mark.integration
 class TestIntegrationWithS3Package:
     """Test integration between permissions and S3-to-package functionality."""
 

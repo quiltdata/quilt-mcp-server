@@ -24,17 +24,18 @@ from quilt_mcp.validators import (
     validate_package_naming,
 )
 
+TEST_BUCKET = "test-bucket"
+TEST_REGISTRY = "s3://test-bucket"
 
-@pytest.mark.search
-@pytest.mark.integration
+
 class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""
 
-    def test_invalid_package_name(self, test_bucket):
+    def test_invalid_package_name(self):
         """Test that invalid package names are rejected - validation happens inside function."""
         # Call function directly with invalid package name
         result = package_create_from_s3(
-            source_bucket=test_bucket,
+            source_bucket=TEST_BUCKET,
             package_name="invalid-name",  # Missing namespace
         )
 
@@ -66,8 +67,6 @@ class TestPackageCreateFromS3:
         mock_discover,
         mock_validate,
         mock_s3_client,
-        test_bucket,
-        test_registry,
     ):
         """Test handling when no objects are found in source bucket."""
         # Setup mocks
@@ -77,7 +76,7 @@ class TestPackageCreateFromS3:
         mock_create.return_value = {"top_hash": "test_hash_123"}
         mock_recommendations.return_value = {
             "success": True,
-            "recommendations": {"package_creation": [test_registry]},
+            "recommendations": {"package_creation": [TEST_REGISTRY]},
         }
         # Mock bucket access check to return success for target registry
         mock_access_check.return_value = {
@@ -86,9 +85,9 @@ class TestPackageCreateFromS3:
         }
 
         result = package_create_from_s3(
-            source_bucket=test_bucket,
+            source_bucket=TEST_BUCKET,
             package_name=KNOWN_TEST_PACKAGE,
-            target_registry=test_registry,
+            target_registry=TEST_REGISTRY,
         )
 
         # The function should fail because no objects were found in the source bucket
@@ -100,7 +99,6 @@ class TestPackageCreateFromS3:
         )
 
 
-@pytest.mark.integration
 class TestUtilityFunctions:
     """Test cases for utility functions."""
 
@@ -191,7 +189,6 @@ class TestValidation:
         pass
 
 
-@pytest.mark.integration
 class TestEnhancedFunctionality:
     """Test cases for enhanced S3-to-package functionality."""
 
@@ -231,7 +228,7 @@ class TestEnhancedFunctionality:
         assert "" in flat
         assert len(flat[""]) == 5
 
-    def test_generate_readme_content(self, test_bucket, test_registry):
+    def test_generate_readme_content(self):
         """Test README generation."""
         organized_structure = {
             "data/processed": [{"Key": "data.csv"}],
@@ -243,7 +240,7 @@ class TestEnhancedFunctionality:
             description="Test package",
             organized_structure=organized_structure,
             total_size=1000000,
-            source_info={"bucket": test_bucket},
+            source_info={"bucket": TEST_BUCKET},
             metadata_template="standard",
         )
 
@@ -253,7 +250,7 @@ class TestEnhancedFunctionality:
         assert "Usage" in readme
         assert "Package.browse" in readme
 
-    def test_generate_package_metadata(self, test_bucket, test_registry):
+    def test_generate_package_metadata(self):
         """Test metadata generation."""
         organized_structure = {
             "data/processed": [{"Key": "data.csv", "Size": 1000}],
@@ -261,7 +258,7 @@ class TestEnhancedFunctionality:
 
         metadata = _generate_package_metadata(
             package_name=KNOWN_TEST_PACKAGE,
-            source_info={"bucket": test_bucket, "prefix": "data/"},
+            source_info={"bucket": TEST_BUCKET, "prefix": "data/"},
             organized_structure=organized_structure,
             metadata_template="ml",
             user_metadata={"tags": ["test"]},
@@ -270,7 +267,7 @@ class TestEnhancedFunctionality:
         assert "quilt" in metadata
         assert "ml" in metadata
         assert "user_metadata" in metadata
-        assert metadata["quilt"]["source"]["bucket"] == test_bucket
+        assert metadata["quilt"]["source"]["bucket"] == TEST_BUCKET
         assert metadata["user_metadata"]["tags"] == ["test"]
 
 

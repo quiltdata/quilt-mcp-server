@@ -7,8 +7,6 @@ test suite correctly detects when stateless constraints are violated.
 import pytest
 from docker.models.containers import Container
 
-pytestmark = pytest.mark.docker
-
 
 def test_detects_writable_filesystem(writable_container: Container):
     """Verify test suite detects when filesystem is writable (VIOLATION)."""
