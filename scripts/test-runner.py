@@ -147,7 +147,11 @@ class TestRunnerState:
             # Expected total for current subtask
             current_subtask_total = phase.subtask_test_counts[phase.current_subtask_idx]
 
-            parts = [f"Test {current_subtask_done}/{current_subtask_total}"]
+            # Only show test progress if subtask has measurable tests
+            if current_subtask_total > 0:
+                parts = [f"Test {current_subtask_done}/{current_subtask_total}"]
+            else:
+                parts = []  # No test progress for subtasks without test counts
         else:
             # Fallback: show cumulative across all phases
             prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
@@ -293,6 +297,7 @@ def init_phases() -> list[PhaseStats]:
         PhaseStats(
             name="Script Tests",
             subtasks=["pytest scripts", "MCP server tests", "MCP stateless"],
+            subtask_test_counts=[scripts_count, 0, 0],  # Only pytest scripts reports test counts
             tests_total=scripts_count,  # Just pytest scripts count (MCP tests reported differently)
         ),
         PhaseStats(
