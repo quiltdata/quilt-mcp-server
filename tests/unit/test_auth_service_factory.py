@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from quilt_mcp.config import get_mode_config, set_test_mode_config
@@ -13,6 +11,7 @@ from quilt_mcp.services.auth_service import (
 )
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
+from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
 
 
 def test_default_mode_is_iam():
@@ -51,6 +50,22 @@ def test_mode_switching_resets_service(monkeypatch):
 
     set_test_mode_config(multiuser_mode=False)
     assert isinstance(create_auth_service(), IAMAuthService)
+
+
+def test_jwt_auth_service_reads_runtime_claims(monkeypatch):
+    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+    set_test_mode_config(multiuser_mode=True)
+
+    service = create_auth_service()
+    assert isinstance(service, JWTAuthService)
+
+    auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims={"id": "user-1"})
+    token_handle = push_runtime_context(environment="web-service", auth=auth_state)
+    try:
+        identity = service.get_user_identity()
+        assert identity["user_id"] == "user-1"
+    finally:
+        reset_runtime_context(token_handle)
 
 
 def test_logs_auth_mode(caplog):

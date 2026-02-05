@@ -96,7 +96,11 @@ test-e2e-platform: test-catalog
 	@echo "Running platform backend e2e tests..."
 	@uv sync --group test
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=platform && uv run python -m pytest tests/e2e/ -v -m "not admin"; \
+		export PYTHONPATH="src" && \
+		export PLATFORM_TEST_ENABLED=true && \
+		export TEST_BACKEND_MODE=platform && \
+		eval "$$(uv run python scripts/quilt_config_env.py)" && \
+		uv run python -m pytest tests/e2e/ -v -m "not admin"; \
 	else \
 		echo "No e2e tests found"; \
 	fi

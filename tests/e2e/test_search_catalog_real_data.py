@@ -3,13 +3,13 @@
 import pytest
 
 from quilt_mcp.tools.search import search_catalog
-from tests.func.search_catalog_helpers import (
+from tests.e2e.search_catalog_helpers import (
     assert_valid_search_response,
     diagnostic_search,
     get_result_shape,
 )
 
-pytest_plugins = ("tests.func.search_catalog_helpers",)
+pytest_plugins = ("tests.e2e.search_catalog_helpers",)
 
 pytestmark = pytest.mark.usefixtures("requires_search")
 

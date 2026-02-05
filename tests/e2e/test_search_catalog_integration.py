@@ -10,7 +10,7 @@ Tests that pass with zero results are BROKEN and hide bugs.
 import pytest
 
 from quilt_mcp.tools.search import search_catalog
-from tests.func.search_catalog_helpers import diagnostic_search
+from tests.e2e.search_catalog_helpers import diagnostic_search
 
 pytestmark = pytest.mark.usefixtures("requires_search")
 

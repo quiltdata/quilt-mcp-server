@@ -120,6 +120,8 @@ make run
 
 # Test
 make test
+make test-func
+make test-e2e
 ```
 
 ## Documentation

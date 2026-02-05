@@ -38,3 +38,9 @@ Some tests depend on external capabilities and will skip automatically when unav
 - Search tests: require search backend availability
 - Docker tests: require Docker CLI/runtime
 - Catalog tests: require quilt3 authentication
+
+## Notes
+
+- Functional tests (`tests/func/`) use mocked backends and placeholder bucket fixtures.
+- End-to-end tests (`tests/e2e/`) require real services and environment configuration
+  (e.g., `PLATFORM_TEST_ENABLED`, `QUILT_CATALOG_URL`, `QUILT_REGISTRY_URL`, `QUILT_TEST_BUCKET`).

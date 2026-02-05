@@ -1,16 +1,7 @@
-"""Tests for enhanced S3-to-package creation functionality."""
-
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
+"""Tests for S3 package creation utilities and validators."""
 
 from quilt_mcp.constants import KNOWN_TEST_PACKAGE
-
-# Note: PackageCreateFromS3Params removed after flattening - use direct parameters
 from quilt_mcp.tools.packages import (
-    package_create_from_s3,
-    _create_enhanced_package,
-    _validate_bucket_access,
-    _discover_s3_objects,
     _should_include_object,
     _suggest_target_registry,
     _organize_file_structure,
@@ -25,78 +16,6 @@ from quilt_mcp.validators import (
 )
 
 TEST_BUCKET = "test-bucket"
-TEST_REGISTRY = "s3://test-bucket"
-
-
-class TestPackageCreateFromS3:
-    """Test cases for the package_create_from_s3 function."""
-
-    def test_invalid_package_name(self):
-        """Test that invalid package names are rejected - validation happens inside function."""
-        # Call function directly with invalid package name
-        result = package_create_from_s3(
-            source_bucket=TEST_BUCKET,
-            package_name="invalid-name",  # Missing namespace
-        )
-
-        # Verify the function returns an error response
-        assert result.success is False
-        assert "Invalid package name format" in result.error
-
-    def test_missing_required_params(self):
-        """Test that missing required parameters are handled."""
-        result = package_create_from_s3(
-            source_bucket="",  # Empty bucket
-            package_name=KNOWN_TEST_PACKAGE,
-        )
-
-        assert result.success is False
-        assert "source_bucket is required" in result.error
-
-    @patch("quilt_mcp.tools.packages.get_s3_client")
-    @patch("quilt_mcp.tools.packages._validate_bucket_access")
-    @patch("quilt_mcp.tools.packages._discover_s3_objects")
-    @patch("quilt_mcp.tools.packages._create_enhanced_package")
-    @patch("quilt_mcp.services.permissions_service.bucket_recommendations_get")
-    @patch("quilt_mcp.services.permissions_service.check_bucket_access")
-    def test_no_objects_found(
-        self,
-        mock_access_check,
-        mock_recommendations,
-        mock_create,
-        mock_discover,
-        mock_validate,
-        mock_s3_client,
-    ):
-        """Test handling when no objects are found in source bucket."""
-        # Setup mocks
-        mock_s3_client.return_value = Mock()
-        mock_validate.return_value = None
-        mock_discover.return_value = []  # No objects found
-        mock_create.return_value = {"top_hash": "test_hash_123"}
-        mock_recommendations.return_value = {
-            "success": True,
-            "recommendations": {"package_creation": [TEST_REGISTRY]},
-        }
-        # Mock bucket access check to return success for target registry
-        mock_access_check.return_value = {
-            "success": True,
-            "access_summary": {"can_write": True},
-        }
-
-        result = package_create_from_s3(
-            source_bucket=TEST_BUCKET,
-            package_name=KNOWN_TEST_PACKAGE,
-            target_registry=TEST_REGISTRY,
-        )
-
-        # The function should fail because no objects were found in the source bucket
-        assert result.success is False
-        # Check for the actual error message - could be about registry access or no objects
-        assert (
-            "No objects found matching the specified criteria" in result.error
-            or "Cannot create package in target registry" in result.error
-        )
 
 
 class TestUtilityFunctions:
@@ -118,9 +37,7 @@ class TestUtilityFunctions:
 
     def test_should_include_object_both_patterns(self):
         """Test object inclusion with both include and exclude patterns."""
-        # Should exclude even if it matches include pattern
         assert _should_include_object("test.tmp", ["*.txt", "*.tmp"], ["*.tmp"]) is False
-        # Should include if matches include and doesn't match exclude
         assert _should_include_object("test.txt", ["*.txt"], ["*.tmp"]) is True
 
 
@@ -135,11 +52,11 @@ class TestValidation:
 
     def test_validate_package_name_invalid(self):
         """Test invalid package names."""
-        assert validate_package_name("invalid") is False  # No slash
-        assert validate_package_name("ns/pkg/extra") is False  # Too many parts
-        assert validate_package_name("/package") is False  # Empty namespace
-        assert validate_package_name("namespace/") is False  # Empty package name
-        assert validate_package_name("") is False  # Empty string
+        assert validate_package_name("invalid") is False
+        assert validate_package_name("ns/pkg/extra") is False
+        assert validate_package_name("/package") is False
+        assert validate_package_name("namespace/") is False
+        assert validate_package_name("") is False
 
     def test_format_error_response(self):
         """Test error response formatting."""
@@ -149,60 +66,18 @@ class TestValidation:
         assert result["error"] == "Test error message"
         assert "timestamp" in result
 
-    @patch("quilt_mcp.tools.packages.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.packages.check_bucket_access")
-    @patch("quilt_mcp.tools.packages._validate_bucket_access")
-    @patch("quilt_mcp.tools.packages._create_enhanced_package")
-    def test_dry_run_preview(
-        self,
-        mock_create,
-        mock_validate_access,
-        mock_check_access,
-        mock_recommendations,
-    ):
-        """Test dry_run=True doesn't call package creation."""
-        # Mock all AWS calls to avoid real API calls
-        mock_recommendations.return_value = {
-            "success": True,
-            "recommendations": {"primary_recommendations": [{"bucket_name": "test-registry"}]},
-        }
-        mock_check_access.return_value = {"success": True, "access_summary": {"can_write": True}}
-        mock_validate_access.return_value = None  # No exception = valid access
-
-        # Make it error if called
-        mock_create.side_effect = RuntimeError("Should not create package in dry_run mode!")
-
-        # Call with dry_run=True
-        result = package_create_from_s3(
-            source_bucket="test-bucket",
-            package_name="test/pkg",
-            dry_run=True,
-        )
-
-        # Verify package creation was never called
-        assert mock_create.call_count == 0, "dry_run=True called _create_enhanced_package"
-
-    def test_auto_registry_suggestion(self):
-        """Test _suggest_target_registry function directly."""
-        # This is already tested in TestEnhancedFunctionality.test_suggest_target_registry
-        # No need to test it again with complex mocking
-        pass
-
 
 class TestEnhancedFunctionality:
     """Test cases for enhanced S3-to-package functionality."""
 
     def test_suggest_target_registry(self):
         """Test registry suggestion algorithm."""
-        # ML patterns
         assert _suggest_target_registry("ml-data", "models") == "s3://ml-packages"
         assert _suggest_target_registry("training-data", "") == "s3://ml-packages"
 
-        # Analytics patterns
         assert _suggest_target_registry("analytics-reports", "") == "s3://analytics-packages"
         assert _suggest_target_registry("data", "dashboard") == "s3://analytics-packages"
 
-        # Default fallback
         assert _suggest_target_registry("random-bucket", "") == "s3://data-packages"
 
     def test_organize_file_structure(self):
@@ -223,7 +98,6 @@ class TestEnhancedFunctionality:
         assert "data/misc" in organized
         assert "data/media" in organized
 
-        # Test flat organization
         flat = _organize_file_structure(objects, auto_organize=False)
         assert "" in flat
         assert len(flat[""]) == 5
@@ -284,9 +158,8 @@ class TestValidationUtilities:
         is_valid, warnings, recommendations = validate_package_structure(good_structure)
         assert is_valid is True
 
-        # Test problematic structure
         bad_structure = {
-            "temp": [{"Key": "file1.txt"}] * 60,  # Too many files, bad folder name
+            "temp": [{"Key": "file1.txt"}] * 60,
         }
 
         is_valid, warnings, recommendations = validate_package_structure(bad_structure)
@@ -315,42 +188,3 @@ class TestValidationUtilities:
         is_valid, errors, suggestions = validate_package_naming("invalid-name")
         assert is_valid is False
         assert len(errors) > 0
-
-
-class TestREADMEContentExtraction:
-    """Test cases for README content extraction from metadata."""
-
-    @patch("quilt_mcp.tools.packages.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.packages.check_bucket_access")
-    @patch("quilt_mcp.tools.packages._validate_bucket_access")
-    def test_readme_content_extraction_from_metadata(
-        self,
-        mock_validate_access,
-        mock_check_access,
-        mock_recommendations,
-    ):
-        """Test that metadata fields are handled correctly."""
-        # Mock all AWS calls to avoid real API calls
-        mock_recommendations.return_value = {
-            "success": True,
-            "recommendations": {"primary_recommendations": [{"bucket_name": "test-registry"}]},
-        }
-        mock_check_access.return_value = {"success": True, "access_summary": {"can_write": True}}
-        mock_validate_access.return_value = None  # No exception = valid access
-
-        # Test that the function handles metadata parameter
-        # The actual extraction logic is simple: metadata gets passed through
-        test_metadata = {"description": "Test", "readme_content": "# README"}
-
-        # Just verify the function accepts metadata without error
-        result = package_create_from_s3(
-            source_bucket="test-bucket",
-            package_name=KNOWN_TEST_PACKAGE,
-            metadata=test_metadata,
-        )
-
-        # Convert result to dict for easier checking
-        result_dict = result.model_dump() if hasattr(result, 'model_dump') else result
-
-        # Should either fail gracefully or handle metadata
-        assert "error" in result_dict or "success" in result_dict

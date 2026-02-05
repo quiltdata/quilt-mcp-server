@@ -134,9 +134,9 @@ src/quilt_mcp/
 
 ```text
 tests/
-├── unit/            # Component tests (backends split by domain)
+├── unit/            # Single-module tests, no network
 ├── func/            # Mocked multi-module tests
-├── e2e/             # Full workflow tests
+├── e2e/             # End-to-end workflows with real services
 ├── security/        # Auth & access tests
 ├── performance/     # Benchmarks
 └── fixtures/        # Test data
