@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-platform-integration test-e2e test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multiuser test-multiuser-fake test-catalog test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multiuser test-multiuser-fake test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -30,11 +30,31 @@ test-all: test-catalog | $(RESULTS_DIR)
 		export PYTHONPATH="src" && \
 		uv run python scripts/test-runner.py
 
+test-catalog:
+	@echo "Validating .env Quilt config matches quiltx..."
+	@uv sync --group test
+	@ENV_CATALOG_URL=$${QUILT_CATALOG_URL:-} && \
+		if [ -z "$$ENV_CATALOG_URL" ]; then \
+			echo "❌ QUILT_CATALOG_URL missing from environment (.env?)"; \
+			exit 1; \
+		fi; \
+		QUILTX_OUTPUT="$$(uv run python scripts/quilt_config_env.py)" && \
+		QUILT_CATALOG_URL="" && QUILT_REGISTRY_URL="" && \
+		eval "$$QUILTX_OUTPUT" && \
+		QUILTX_CATALOG_URL=$$QUILT_CATALOG_URL && \
+		if [ "$$ENV_CATALOG_URL" != "$$QUILTX_CATALOG_URL" ]; then \
+			echo "❌ QUILT_CATALOG_URL mismatch"; \
+			echo "   .env : $$ENV_CATALOG_URL"; \
+			echo "   quiltx: $$QUILTX_CATALOG_URL"; \
+			exit 1; \
+		fi; \
+		echo "✅ Quilt config matches quiltx"
+
 
 test-ci: | $(RESULTS_DIR)
 	@echo "Running CI tests..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not slow and not search and not admin and not docker and not requires_catalog"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
+	@export PYTHONPATH="src" && uv run python -m pytest tests/unit tests/func -v -m "not slow and not platform"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
 
 test-unit: $(RESULTS_DIR)/coverage-unit.xml
 
@@ -43,34 +63,49 @@ $(RESULTS_DIR)/coverage-unit.xml: tests/unit/test_*.py | $(RESULTS_DIR)
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-unit.xml --cov-report=term-missing
 
-test-integration: test-catalog $(RESULTS_DIR)/coverage-integration.xml
+test-func: test-catalog $(RESULTS_DIR)/coverage-func.xml
 
-$(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py | $(RESULTS_DIR)
-	@echo "Running integration tests (AWS/external services)..."
+$(RESULTS_DIR)/coverage-func.xml: tests/func/test_*.py | $(RESULTS_DIR)
+	@echo "Running func tests (mocked)..."
 	@uv sync --group test
-	@if [ -d "tests/integration" ] && [ "$$(find tests/integration -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && uv run python -m pytest tests/integration/ -v -m "not search and not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-integration.xml --cov-report=term-missing; \
+	@if [ -d "tests/func" ] && [ "$$(find tests/func -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run python -m pytest tests/func/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-func.xml --cov-report=term-missing; \
 	else \
-		echo "No integration tests found, creating empty coverage file..."; \
-		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-integration.xml; \
+		echo "No func tests found, creating empty coverage file..."; \
+		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-func.xml; \
 	fi
 
-test-platform-integration:
-	@echo "Running platform backend integration tests..."
+test-func-quilt3: test-catalog
+	@$(MAKE) TEST_BACKEND_MODE=quilt3 PLATFORM_TEST_ENABLED=false $(RESULTS_DIR)/coverage-func.xml
+
+test-func-platform: test-catalog
+	@echo "Running platform backend func tests..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && \
 		export PLATFORM_TEST_ENABLED=true && \
 		export TEST_BACKEND_MODE=platform && \
-		export QUILT_MULTIUSER_MODE=true && \
-		uv run python -m pytest tests/integration/ -v -m "integration and not search and not admin"
+		eval "$$(uv run python scripts/quilt_config_env.py)" && \
+		uv run python -m pytest tests/func/ -v
 
-test-e2e: $(RESULTS_DIR)/coverage-e2e.xml
+test-e2e: test-catalog $(RESULTS_DIR)/coverage-e2e.xml
+
+test-e2e-quilt3: test-catalog
+	@$(MAKE) TEST_BACKEND_MODE=quilt3 PLATFORM_TEST_ENABLED=false $(RESULTS_DIR)/coverage-e2e.xml
+
+test-e2e-platform: test-catalog
+	@echo "Running platform backend e2e tests..."
+	@uv sync --group test
+	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=platform && uv run python -m pytest tests/e2e/ -v -m "not admin"; \
+	else \
+		echo "No e2e tests found"; \
+	fi
 
 $(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py | $(RESULTS_DIR)
 	@echo "Running end-to-end workflow tests..."
 	@uv sync --group test
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v -m "not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run python -m pytest tests/e2e/ -v -m "not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
 	else \
 		echo "No e2e tests found, creating empty coverage file..."; \
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-e2e.xml; \
@@ -78,7 +113,7 @@ $(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py | $(RESULTS_DIR)
 
 coverage: $(RESULTS_DIR)/coverage-analysis.csv coverage-results | $(RESULTS_DIR)
 
-$(RESULTS_DIR)/coverage-analysis.csv: $(RESULTS_DIR)/coverage-unit.xml $(RESULTS_DIR)/coverage-integration.xml $(RESULTS_DIR)/coverage-e2e.xml scripts/coverage_analysis.py | $(RESULTS_DIR)
+$(RESULTS_DIR)/coverage-analysis.csv: $(RESULTS_DIR)/coverage-unit.xml $(RESULTS_DIR)/coverage-func.xml $(RESULTS_DIR)/coverage-e2e.xml scripts/coverage_analysis.py | $(RESULTS_DIR)
 	@echo "Generating coverage analysis report..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
@@ -104,25 +139,25 @@ test-scripts: coverage docker-check docker-build scripts/tests/test_*.py | $(RES
 	else \
 		echo "No script tests found"; \
 	fi
-	@echo "\n===🧪 Running MCP server integration tests (idempotent only)..."
+	@echo "\n===🧪 Running MCP server tests (idempotent only)..."
 	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test
 	@echo "\n===✅ Finished all script tests"
 
 # Default - uses local server (fast) with verbose output
 test-mcp:
-	@echo "===🧪 Running MCP server integration tests (local mode, verbose)..."
+	@echo "===🧪 Running MCP server tests (local mode, verbose)..."
 	@uv sync --group test
 	@uv run python scripts/tests/test_mcp.py
 
 # Explicit local mode with verbose output
 test-mcp-local:
-	@echo "===🧪 Running MCP server integration tests (local mode, verbose)..."
+	@echo "===🧪 Running MCP server tests (local mode, verbose)..."
 	@uv sync --group test
 	@uv run python scripts/tests/test_mcp.py --local -v
 
 # Docker mode (requires docker-build)
 test-mcp-docker: docker-build
-	@echo "===🧪 Running MCP server integration tests (Docker mode, verbose)..."
+	@echo "===🧪 Running MCP server tests (Docker mode, verbose)..."
 	@uv sync --group test
 	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
 
@@ -160,13 +195,13 @@ test-mcp-stateless: docker-build
 		(uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
 	@echo "✅ Stateless JWT testing with catalog authentication completed"
 
-# Multiuser integration tests (Platform backend expectations)
+# Multiuser platform tests (Platform backend expectations)
 test-multiuser:
-	@echo "Running multiuser integration tests..."
+	@echo "Running multiuser platform tests..."
 	@uv sync --group test
 	@export QUILT_MULTIUSER_MODE=true && \
 		export PYTHONPATH="src" && \
-		uv run python -m pytest tests/integration/test_multiuser.py -v
+		uv run python -m pytest tests/func/test_multiuser.py -v
 
 # Multiuser Testing with Fake Roles (for local development)
 test-multiuser-fake: docker-build

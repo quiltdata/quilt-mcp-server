@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.21
 
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 WORKDIR /app
 
 # Copy project metadata and lockfile first for better caching
@@ -31,7 +31,7 @@ COPY spec ./spec
 # Install the project itself (fast since dependencies are already installed)
 RUN uv sync --frozen --no-dev
 
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS runtime
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS runtime
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
