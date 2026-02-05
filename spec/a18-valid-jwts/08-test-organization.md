@@ -64,10 +64,12 @@ requests to `container_url` and validate responses.
 ## Executive Summary
 
 We have two test directories that are poorly organized:
+
 - `tests/stateless/` - Has proper Docker infrastructure, tests stateless-specific constraints
 - `tests/e2e/` - Has NO infrastructure, tests are broken and can't run
 
 **Goal:** Reorganize tests so:
+
 - `test-stateless` runs stateless-specific tests (Docker constraints, read-only filesystem)
 - `test-e2e` runs backend-agnostic functional tests (works for both quilt3 and platform backends)
 
@@ -76,21 +78,25 @@ We have two test directories that are poorly organized:
 ### tests/stateless/ - WORKING
 
 **Infrastructure:**
+
 - `conftest.py` - Docker fixtures, container management
 - `stateless_container` fixture - Starts containerized server with constraints
 - `container_url` fixture - HTTP endpoint for testing
 
 **Tests:**
+
 - `test_basic_execution.py` - Container starts, constraints enforced
 - `test_jwt_authentication.py` - JWT authentication enforcement (158 lines)
 - `test_persistent_state.py` - No state persists across restarts
 
 **Make target:**
+
 ```bash
 make test-stateless  # Runs: pytest tests/stateless/
 ```
 
 **What it tests:**
+
 - Read-only filesystem enforcement
 - Security constraints (no-new-privileges, cap-drop)
 - Memory/CPU limits
@@ -104,17 +110,20 @@ make test-stateless  # Runs: pytest tests/stateless/
 **Infrastructure:** NONE
 
 **Tests:**
+
 - `test_jwt_enforcement.py` - Comprehensive JWT tests (301 lines, BROKEN)
   - Tries to define own fixtures (`mcp_endpoint`, `valid_jwt`)
   - Fixtures not found at runtime
   - Connection errors: `[Errno 61] Connection refused`
 
 **Make target:**
+
 ```bash
 make test-e2e  # Runs: pytest tests/e2e/
 ```
 
 **What it TRIES to test:**
+
 - Valid JWT allows access (positive tests)
 - Invalid JWT denied (negative tests)
 - Expired JWT rejected
@@ -131,11 +140,13 @@ make test-e2e  # Runs: pytest tests/e2e/
 Both directories test JWT authentication:
 
 **tests/stateless/test_jwt_authentication.py:**
+
 - Environment variable checks ✅
 - Missing JWT fails ✅
 - Malformed JWT fails ✅
 
 **tests/e2e/test_jwt_enforcement.py:**
+
 - Valid JWT succeeds ❌ (no server)
 - Missing JWT fails ❌ (no server)
 - Malformed JWT fails ❌ (no server)
@@ -150,6 +161,7 @@ Both directories test JWT authentication:
 `tests/stateless/` has Docker infrastructure but `tests/e2e/` doesn't.
 
 **Current approach:**
+
 ```
 tests/
 ├── stateless/
@@ -166,6 +178,7 @@ tests/
 What's the difference between "stateless test" and "e2e test"?
 
 **Current confusion:**
+
 - JWT auth tests in both places
 - Docker infrastructure only in stateless/
 - e2e tests can't run without infrastructure
@@ -175,6 +188,7 @@ What's the difference between "stateless test" and "e2e test"?
 ### Principle: Separate by Concern
 
 **tests/stateless/** - Tests stateless deployment constraints
+
 - Focus: Container configuration, security, resource limits
 - Infrastructure: Docker with read-only filesystem, security opts
 - Backend: Platform/stateless only (container-specific)
@@ -185,6 +199,7 @@ What's the difference between "stateless test" and "e2e test"?
   - Memory/CPU limits enforced
 
 **tests/e2e/** - Tests MCP protocol behavior (backend-agnostic)
+
 - Focus: MCP protocol correctness, API contracts, functional workflows
 - Infrastructure: Docker containers (same fixtures as stateless)
 - Backend: **Backend-agnostic** - tests don't know/care what's inside
@@ -198,6 +213,7 @@ What's the difference between "stateless test" and "e2e test"?
 ### Shared Infrastructure Approach
 
 **Option A: Shared conftest.py in tests/**
+
 ```
 tests/
 ├── conftest.py              # Shared fixtures (Docker, JWT, etc)
@@ -208,6 +224,7 @@ tests/
 ```
 
 **Option B: Stateless infrastructure, e2e imports**
+
 ```
 tests/
 ├── stateless/
@@ -225,6 +242,7 @@ tests/
 ### Step 1: Move Fixtures to tests/conftest.py
 
 Move from `tests/stateless/conftest.py` to `tests/conftest.py`:
+
 - `docker_client` - Docker client fixture
 - `docker_image_name` - Image name configuration
 - `build_docker_image` - Docker build fixture
@@ -237,6 +255,7 @@ Move from `tests/stateless/conftest.py` to `tests/conftest.py`:
 ### Step 2: Keep Stateless-Specific Tests in tests/stateless/
 
 Keep these tests focused on stateless deployment:
+
 - `test_basic_execution.py` - Container constraints
 - `test_persistent_state.py` - No state persistence
 
@@ -247,11 +266,13 @@ Move JWT tests to e2e (see Step 3).
 Create `tests/e2e/test_jwt_enforcement.py` with comprehensive coverage:
 
 **From tests/stateless/test_jwt_authentication.py (keep 2 tests):**
+
 - `test_jwt_required_environment_variable()` - Container config ← KEEP in stateless
 - `test_request_without_jwt_fails_clearly()` ← MOVE to e2e
 - `test_request_with_malformed_jwt_fails_clearly()` ← MOVE to e2e
 
 **From tests/e2e/test_jwt_enforcement.py (add all):**
+
 - `test_valid_jwt_allows_access()` - Positive test
 - `test_missing_jwt_denies_access()` - Negative test (DUPLICATE)
 - `test_malformed_jwt_denies_access()` - Negative test (DUPLICATE)
@@ -266,6 +287,7 @@ Create `tests/e2e/test_jwt_enforcement.py` with comprehensive coverage:
 ### Step 4: ~~Add Backend Parametrization~~ Make E2E Tests Backend-Agnostic
 
 **WRONG APPROACH (from original spec):**
+
 ```python
 @pytest.mark.parametrize("backend_mode", ["platform", "quilt3"])  # ❌ NO!
 def test_valid_jwt_allows_access(container_url: str, backend_mode: str):
@@ -273,6 +295,7 @@ def test_valid_jwt_allows_access(container_url: str, backend_mode: str):
 ```
 
 **CORRECT APPROACH:**
+
 ```python
 # tests/e2e/test_jwt_enforcement.py
 
@@ -291,38 +314,43 @@ def test_valid_jwt_allows_access(container_url: str):
 **CRITICAL FIX:** Make targets must START containers, not just build them!
 
 **make test-stateless:**
+
 ```makefile
 test-stateless: docker-build
-	@echo "Running stateless deployment constraint tests..."
-	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		export QUILT_DISABLE_CACHE=true && \
-		export PYTHONPATH="src" && \
-		uv run python -m pytest tests/stateless/ -v
+ @echo "Running stateless deployment constraint tests..."
+ @export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+  export QUILT_DISABLE_CACHE=true && \
+  export PYTHONPATH="src" && \
+  uv run python -m pytest tests/stateless/ -v
 ```
 
 **What it does:**
+
 - Builds Docker image (`docker-build` dependency)
 - Pytest fixtures START containerized server with constraints
 - Tests validate container configuration
 - Fixtures STOP and cleanup containers after tests
 
 **What it tests:**
+
 - Read-only filesystem enforcement
 - Security constraints
 - Resource limits
 - No persistent state
 
 **make test-e2e:**
+
 ```makefile
 test-e2e: docker-build
-	@echo "Running end-to-end MCP protocol tests..."
-	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		export QUILT_DISABLE_CACHE=true && \
-		export PYTHONPATH="src" && \
-		uv run python -m pytest tests/e2e/ -v
+ @echo "Running end-to-end MCP protocol tests..."
+ @export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+  export QUILT_DISABLE_CACHE=true && \
+  export PYTHONPATH="src" && \
+  uv run python -m pytest tests/e2e/ -v
 ```
 
 **What it does:**
+
 - Builds Docker image (`docker-build` dependency)
 - Pytest fixtures START containerized MCP server
 - Tests make HTTP/MCP requests to `container_url`
@@ -330,6 +358,7 @@ test-e2e: docker-build
 - Fixtures STOP and cleanup containers after tests
 
 **What it tests:**
+
 - JWT authentication enforcement (comprehensive)
 - Package operations (end-to-end)
 - Search functionality
@@ -342,6 +371,7 @@ test-e2e: docker-build
 
 **Create:** `tests/conftest.py`
 **Content:** Move from `tests/stateless/conftest.py`:
+
 - All Docker fixtures
 - JWT helper functions
 - Utility functions
@@ -351,6 +381,7 @@ test-e2e: docker-build
 **CRITICAL REMOVAL:** Delete `backend_mode` from pytestmark!
 
 **Current (WRONG):**
+
 ```python
 pytestmark = pytest.mark.usefixtures(
     "test_env",
@@ -364,6 +395,7 @@ pytestmark = pytest.mark.usefixtures(
 ```
 
 **Corrected:**
+
 ```python
 pytestmark = pytest.mark.usefixtures(
     "test_env",
@@ -381,10 +413,12 @@ pytestmark = pytest.mark.usefixtures(
 ### Update: tests/stateless/conftest.py
 
 **Keep:**
+
 - Stateless-specific fixtures (if any)
 - Or delete if empty after move
 
 **Import from parent:**
+
 ```python
 # Import shared fixtures from tests/conftest.py
 from ..conftest import *  # noqa
@@ -393,9 +427,11 @@ from ..conftest import *  # noqa
 ### Update: tests/stateless/test_jwt_authentication.py
 
 **Keep:**
+
 - `test_jwt_required_environment_variable()` - Checks container env vars
 
 **Remove:**
+
 - `test_request_without_jwt_fails_clearly()` - Move to e2e
 - `test_request_with_malformed_jwt_fails_clearly()` - Move to e2e
 
@@ -404,10 +440,12 @@ from ..conftest import *  # noqa
 ### Create: tests/e2e/test_jwt_enforcement.py
 
 **Merge:**
+
 1. JWT tests from `tests/stateless/test_jwt_authentication.py`
 2. JWT tests from `tests/e2e/test_jwt_enforcement.py` (broken version)
 
 **Organize:**
+
 ```python
 class TestJWTEnforcement:
     """Test JWT authentication enforcement (negative tests)."""
@@ -481,6 +519,7 @@ Docker fixtures available to both test suites via `tests/conftest.py`
 ### 3. Backend Agnosticism
 
 E2E tests are backend-agnostic - they test MCP protocol behavior:
+
 ```python
 def test_package_browse(container_url: str):
     # Test works against ANY backend
@@ -501,6 +540,7 @@ JWT tests consolidated in one place (e2e), not spread across two directories
 ## Migration Steps (Implementation Order)
 
 ### Phase 1: Infrastructure Consolidation
+
 1. Create `tests/conftest.py`
 2. Move Docker fixtures from `tests/stateless/conftest.py`
 3. Update `tests/stateless/conftest.py` to import from parent
@@ -508,6 +548,7 @@ JWT tests consolidated in one place (e2e), not spread across two directories
 5. Verify `make test-stateless` still works
 
 ### Phase 2: JWT Test Consolidation
+
 1. Create new `tests/e2e/test_jwt_enforcement.py` with comprehensive tests
 2. Update to use shared fixtures from `tests/conftest.py`
 3. Verify tests can run: `pytest tests/e2e/test_jwt_enforcement.py`
@@ -515,11 +556,13 @@ JWT tests consolidated in one place (e2e), not spread across two directories
 5. Rename remaining file to `test_multiuser_config.py`
 
 ### Phase 3: Cleanup
+
 1. Delete old broken `tests/e2e/test_jwt_enforcement.py` if different
 2. Update documentation in test files
 3. Run full test suite: `make test-all`
 
 ### Phase 4: ~~Backend Parametrization~~ Verification
+
 1. ~~Add backend parametrization~~ Verify e2e tests are backend-agnostic
 2. ~~Test against both backends~~ Confirm tests use `container_url` fixture only
 3. **COMPLETED:** Removed `backend_mode` from `tests/e2e/conftest.py` (Phase 1, step 4)
@@ -533,6 +576,7 @@ JWT tests consolidated in one place (e2e), not spread across two directories
 **Answer:** YES - E2E tests MUST always use Docker containers.
 
 **Option A (CORRECT):** Always containerized (consistent with production)
+
 ```python
 def test_package_browse(container_url: str):
     # Always hits containerized server
@@ -540,6 +584,7 @@ def test_package_browse(container_url: str):
 ```
 
 **Option B (WRONG):** Direct backend calls
+
 ```python
 def test_package_browse(backend: Quilt3Backend):  # ❌ NO!
     # Direct backend call - this is NOT e2e testing
@@ -548,6 +593,7 @@ def test_package_browse(backend: Quilt3Backend):  # ❌ NO!
 ```
 
 **Rationale:**
+
 - E2E tests validate the full MCP protocol stack (HTTP transport, JWT auth, JSON-RPC)
 - Direct backend calls bypass transport/auth layers
 - Docker ensures realistic production-like environment
@@ -558,10 +604,12 @@ def test_package_browse(backend: Quilt3Backend):  # ❌ NO!
 **Current state:** Quilt3 backend being deprecated in favor of platform backend
 
 **Impact on tests:**
+
 - Stateless tests: Platform only (already correct)
 - E2E tests: **Already backend-agnostic** - no changes needed!
 
 **Recommendation:**
+
 - ~~Keep backend parametrization~~ E2E tests are already backend-agnostic
 - When quilt3 deprecated, **no test changes needed**
 - Just change the Docker container configuration (environment variables)
@@ -572,6 +620,7 @@ def test_package_browse(backend: Quilt3Backend):  # ❌ NO!
 **Current:** Uses old `scripts/mcp-test.py` approach (from spec 07)
 
 **Options:**
+
 1. Delete it (redundant with `test-stateless` + `test-e2e`)
 2. Keep as convenience wrapper
 3. Migrate to pytest-based approach
@@ -583,24 +632,29 @@ def test_package_browse(backend: Quilt3Backend):  # ❌ NO!
 ### After Implementation
 
 ✅ **Both test suites run successfully:**
+
 ```bash
 make test-stateless  # Passes
 make test-e2e        # Passes
 ```
 
 ✅ **Clear separation of concerns:**
+
 - Stateless tests only check deployment constraints
 - E2E tests only check functional correctness
 
 ✅ **No duplicate tests:**
+
 - JWT tests only in e2e/
 - Container constraint tests only in stateless/
 
 ✅ **Shared infrastructure:**
+
 - Docker fixtures in tests/conftest.py
 - Both suites can use them
 
 ✅ **Comprehensive JWT coverage:**
+
 - Positive tests (valid JWT works)
 - Negative tests (invalid JWT fails)
 - Per-request enforcement
@@ -611,6 +665,7 @@ make test-e2e        # Passes
 **Problem:** Tests are split across two directories with duplicate functionality and broken infrastructure
 
 **Solution:**
+
 - **tests/stateless/** - Deployment constraint tests (Docker-specific)
 - **tests/e2e/** - Functional correctness tests (backend-agnostic)
 - **tests/conftest.py** - Shared infrastructure (Docker fixtures, JWT helpers)
