@@ -40,28 +40,31 @@ def get_sample_catalog_token() -> str:
 ### Files Using Fake JWTs
 
 **Core test infrastructure:**
+
 1. `tests/conftest.py` - Imports `get_sample_catalog_token`, `get_sample_catalog_claims`
 2. `tests/jwt_helpers.py` - The source of all fake tokens
 
 **Unit tests (7 files):**
 3. `tests/unit/test_jwt_decoder.py` - ALL token validation tests use fake tokens
-   - `test_decode_valid_token` - Uses `get_sample_catalog_token()`
-   - `test_decode_expired_token` - Uses `get_expired_catalog_token()`
-   - `test_decode_requires_exp` - Uses `get_missing_exp_catalog_token()`
-   - `test_decode_rejects_extra_claims` - Uses `get_extra_claim_catalog_token()`
 
-4. `tests/unit/test_jwt_middleware.py` - Middleware tests use fake tokens
+- `test_decode_valid_token` - Uses `get_sample_catalog_token()`
+- `test_decode_expired_token` - Uses `get_expired_catalog_token()`
+- `test_decode_requires_exp` - Uses `get_missing_exp_catalog_token()`
+- `test_decode_rejects_extra_claims` - Uses `get_extra_claim_catalog_token()`
+
+1. `tests/unit/test_jwt_middleware.py` - Middleware tests use fake tokens
    - Uses both `get_sample_catalog_token()` and `get_sample_catalog_claims()`
 
-5. `tests/unit/test_mcp_test_jwt.py` - MCP test script validation uses fake tokens
+2. `tests/unit/test_mcp_test_jwt.py` - MCP test script validation uses fake tokens
 
 **Functional tests (3 files):**
 6. `tests/func/test_jwt_integration.py` - "Integration" tests use fake tokens
-   - `test_sample_jwt_token_structure`
-   - `test_sample_jwt_contains_required_claims`
-   - `test_mcp_test_script_accepts_jwt_token`
 
-7. `tests/func/test_auth_modes.py` - Auth mode tests use fake tokens
+- `test_sample_jwt_token_structure`
+- `test_sample_jwt_contains_required_claims`
+- `test_mcp_test_script_accepts_jwt_token`
+
+1. `tests/func/test_auth_modes.py` - Auth mode tests use fake tokens
    - Uses `get_sample_catalog_token()`
 
 **Stateless tests:**
@@ -77,6 +80,7 @@ All these tests are **NOT actually validating JWT authentication**:
 4. **Stateless Tests** - Container tests with tokens that won't get AWS credentials
 
 The tests pass because:
+
 - They use `"test-secret"` as the JWT secret
 - The static fixtures were generated with the same `"test-secret"`
 - None of the tests actually connect to a real catalog or attempt AWS credential exchange
@@ -252,6 +256,7 @@ if __name__ == "__main__":
 The JWT secret must match the catalog's secret. Tests need to either:
 
 **Option A: Use real catalog secret (preferred for integration tests)**
+
 ```python
 # tests/conftest.py
 @pytest.fixture
@@ -264,6 +269,7 @@ def jwt_secret():
 ```
 
 **Option B: Keep test-secret for unit tests (mock the backend)**
+
 ```python
 # tests/unit/test_jwt_decoder.py
 def test_decode_valid_token(monkeypatch):
@@ -280,10 +286,12 @@ def test_decode_valid_token(monkeypatch):
 ### Step 3: Categorize Tests
 
 **Unit tests** - Can continue using static fixtures with test-secret:
+
 - `tests/unit/test_jwt_decoder.py` - Testing decoder logic
 - `tests/unit/test_jwt_middleware.py` - Testing middleware logic (mock backend)
 
 **Integration/E2E tests** - MUST use real tokens:
+
 - `tests/func/test_jwt_integration.py` - Testing real JWT flow
 - `tests/func/test_auth_modes.py` - Testing real auth modes
 - `tests/stateless/` - Testing real stateless container auth

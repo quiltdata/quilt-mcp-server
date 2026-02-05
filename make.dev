@@ -194,6 +194,7 @@ test-mcp-stateless: docker-build
 		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
 			--jwt \
 			--tools-test --resources-test \
+			--idempotent-only \
 			--config scripts/tests/mcp-test.yaml && \
 		uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
 		(uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)

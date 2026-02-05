@@ -34,6 +34,7 @@ The tests use static fixture JWTs signed with `"test-secret"`:
 The test infrastructure uses the SAME fake secret:
 
 **In make.dev (line 193):**
+
 ```bash
 test-mcp-stateless: docker-build
     ...
@@ -41,6 +42,7 @@ test-mcp-stateless: docker-build
 ```
 
 **In docker_manager.py (line 279):**
+
 ```python
 if not jwt_secret:
     jwt_secret = "test-secret"  # Default JWT secret for testing
@@ -53,6 +55,7 @@ env_vars = {
 ```
 
 **Result:** The JWT decoder validates the signature successfully because:
+
 - Token was signed with `"test-secret"`
 - Server validates with `MCP_JWT_SECRET="test-secret"`
 - Signature validation passes ✓
@@ -87,12 +90,14 @@ class JwtAuthMiddleware(BaseHTTPMiddleware):
 ```
 
 **What it validates:**
+
 - ✅ JWT signature matches secret
 - ✅ JWT is not expired (exp > current time)
 - ✅ JWT has required claims (id/uuid, exp)
 - ✅ JWT has no extra claims
 
 **What it DOES NOT validate:**
+
 - ❌ Token is from a real catalog
 - ❌ Token can be exchanged for AWS credentials
 - ❌ User actually exists in the catalog
@@ -132,6 +137,7 @@ class JWTAuthService:
 ```
 
 **This is where fake JWTs would fail:**
+
 1. Server makes HTTP request to `{QUILT_REGISTRY_URL}/api/auth/get_credentials`
 2. Sends fake JWT in Authorization header
 3. Catalog validates JWT against its own secret (NOT "test-secret")
@@ -145,6 +151,7 @@ class JWTAuthService:
 ### test-mcp-stateless Test Flow
 
 **From make.dev (lines 184-200):**
+
 ```bash
 test-mcp-stateless: docker-build
     @echo "🔐 Testing stateless MCP with JWT authentication..."
@@ -164,11 +171,13 @@ test-mcp-stateless: docker-build
 ```
 
 **What it does:**
+
 1. Starts Docker container with `MCP_JWT_SECRET="test-secret"`
 2. Runs `mcp-test.py --jwt --tools-test --resources-test`
 3. Stops container
 
 **From scripts/mcp-test.py (lines 1604-1619):**
+
 ```python
 if args.jwt:
     # Use sample catalog JWT for testing
@@ -184,6 +193,7 @@ if args.jwt:
 ```
 
 **What mcp-test.py tests:**
+
 - `--tools-test`: Validates MCP protocol tools registration
 - `--resources-test`: Validates MCP protocol resources registration
 
@@ -201,12 +211,14 @@ test_tools:
 ```
 
 **BUT:** Looking at mcp-test.py implementation, `--tools-test` and `--resources-test` just verify:
+
 - Tools are registered in MCP protocol
 - Resources are registered in MCP protocol
 - Schema validation passes
 - No actual tool EXECUTION happens
 
 **Evidence from mcp-test.py (lines 717-778):**
+
 ```python
 def run_test_suite(
     stdin_fd: Optional[int] = None,
@@ -247,6 +259,7 @@ The tests validate:
    - Schema validation passes
 
 **What NEVER gets tested:**
+
 - ❌ Calling any tool that needs AWS credentials
 - ❌ JWT credential exchange with catalog
 - ❌ S3 access with temporary credentials
@@ -258,6 +271,7 @@ The tests validate:
 From `spec/a11-client-testing/09-stateless-mcp-test-analysis.md`, we see:
 
 **Search tests FAIL:**
+
 ```
 ❌ search_catalog.global.no_bucket - ValidationError: Expected at least 1 results, got 0
 ❌ search_catalog.file.no_bucket - ValidationError: Expected at least 1 results, got 0
@@ -265,6 +279,7 @@ From `spec/a11-client-testing/09-stateless-mcp-test-analysis.md`, we see:
 ```
 
 **Why?** Because search requires catalog authentication:
+
 1. Search calls `UnifiedSearchEngine`
 2. Which calls `Quilt3ElasticsearchBackend`
 3. Which calls `self.quilt_service.get_session()`
