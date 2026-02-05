@@ -169,11 +169,12 @@ class VisualizationEngine:
         """Suggest appropriate visualizations based on package content."""
         suggestions = []
 
-        # Data file visualizations
-        for file_type, files in file_types.items():
-            if file_type in ["csv", "tsv", "xlsx", "parquet"] and files:
+        # Data file visualizations (based on file extensions)
+        for data_file in data_files:
+            ext = Path(data_file).suffix.lower().lstrip(".")
+            if ext in ["csv", "tsv", "xlsx", "parquet"]:
                 suggestions.extend(["bar_chart", "line_chart", "scatter_plot", "heatmap"])
-            elif file_type == "json" and files:
+            elif ext == "json":
                 suggestions.extend(["line_chart", "scatter_plot", "tree_map"])
 
         # Genomic visualizations
