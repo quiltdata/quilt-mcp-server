@@ -80,6 +80,7 @@ class PhaseStats:
 
     name: str
     subtasks: list[str]
+    subtask_test_counts: list[int] = field(default_factory=list)  # Test counts per subtask
     current_subtask_idx: int = 0
     tests_passed: int = 0
     tests_failed: int = 0
@@ -133,12 +134,23 @@ class TestRunnerState:
         if phase.tests_total == 0:
             return ""
 
-        # Calculate cumulative position across ALL phases
-        prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
-        current_test_num = prior_tests + phase.tests_passed + phase.tests_failed
-        total_tests = sum(p.tests_total for p in self.phases)
+        # If we have per-subtask counts, show progress within current subtask
+        if phase.subtask_test_counts and phase.current_subtask_idx < len(phase.subtask_test_counts):
+            # Calculate tests done in prior subtasks
+            prior_subtask_tests = sum(phase.subtask_test_counts[:phase.current_subtask_idx])
+            # Tests done in current subtask
+            current_subtask_done = (phase.tests_passed + phase.tests_failed) - prior_subtask_tests
+            # Total for current subtask
+            current_subtask_total = phase.subtask_test_counts[phase.current_subtask_idx]
 
-        parts = [f"Test {current_test_num}/{total_tests}"]
+            parts = [f"Test {current_subtask_done}/{current_subtask_total}"]
+        else:
+            # Fallback: show cumulative across all phases
+            prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
+            current_test_num = prior_tests + phase.tests_passed + phase.tests_failed
+            total_tests = sum(p.tests_total for p in self.phases)
+            parts = [f"Test {current_test_num}/{total_tests}"]
+
         # Use hourglass for in-progress passing tests (not checkmark which implies done)
         if self.total_passed > 0:
             parts.append(f"⏳ {self.total_passed}")
@@ -246,12 +258,16 @@ def init_phases() -> list[PhaseStats]:
     """Initialize all test phases with dynamic test counts."""
     print("📊 Collecting test counts...")
 
-    # Collect actual test counts
-    coverage_count = collect_test_count(["tests/unit", "tests/func", "tests/e2e"])
+    # Collect per-subtask test counts
+    unit_count = collect_test_count(["tests/unit"])
+    func_count = collect_test_count(["tests/func"])
+    e2e_count = collect_test_count(["tests/e2e"])
+    coverage_count = unit_count + func_count + e2e_count
+
     scripts_count = collect_test_count(["scripts/tests/"])
 
-    print(f"   Coverage: {coverage_count} tests")
-    print(f"   Scripts: {scripts_count} tests")
+    print(f"   Unit: {unit_count} | Functional: {func_count} | E2E: {e2e_count}")
+    print(f"   Scripts: {scripts_count}")
 
     return [
         PhaseStats(
@@ -262,6 +278,7 @@ def init_phases() -> list[PhaseStats]:
         PhaseStats(
             name="Coverage",
             subtasks=["unit", "functional", "e2e", "analysis", "validation"],
+            subtask_test_counts=[unit_count, func_count, e2e_count, 0, 0],
             tests_total=coverage_count,
         ),
         PhaseStats(
