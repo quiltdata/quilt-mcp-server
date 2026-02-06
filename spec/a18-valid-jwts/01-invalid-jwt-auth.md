@@ -131,28 +131,20 @@ This JWT is useless because GraphQL will reject it immediately.
 
 ## The ONLY Valid Test
 
-The only meaningful JWT test is:
+The only meaningful JWT test must:
 
-```python
-def test_jwt_authentication_with_real_graphql():
-    """Test JWT auth by actually calling GraphQL."""
-    # 1. Get real JWT from quilt3
-    token = get_real_jwt_from_quilt3()
+1. Obtain a **real JWT** from quilt3 authentication
+2. Call a Platform backend operation that invokes GraphQL
+3. Verify it returns **real data** (proving GraphQL accepted the JWT)
 
-    # 2. Call MCP tool that uses Platform backend
-    result = call_mcp_tool("bucket_list", auth=token)
-
-    # 3. Verify it returns real data (not an auth error)
-    assert len(result.buckets) > 0
-    assert result.status != "unauthorized"
-```
-
-**This tests:**
+**This would test:**
 
 - JWT extraction from Authorization header ✓
 - JWT pass-through to GraphQL ✓
 - GraphQL validation of JWT ✓
 - GraphQL returning actual data ✓
+
+**Current tests do none of this.**
 
 ## What JWT Validation Actually Tests
 
@@ -177,63 +169,6 @@ All the current JWT validation tests are testing code that's **not used in produ
 
 **Reality:** Platform backend bypasses this - JWT goes straight through
 
-## The Testing Strategy Should Be
-
-### Unit Tests: DELETE
-
-Delete all JWT validation unit tests. They test code that doesn't run.
-
-**Files to delete:**
-
-- `tests/unit/test_jwt_decoder.py`
-- `tests/unit/test_jwt_middleware.py`
-- `tests/unit/test_jwt_auth_service.py`
-- `tests/fixtures/data/sample-catalog-jwt*.json`
-
-### Integration Tests: REPLACE
-
-Replace fake JWT tests with real GraphQL tests.
-
-**Current (WRONG):**
-
-```python
-def test_jwt_middleware_validates_token():
-    token = get_sample_catalog_token()  # Fake JWT
-    # Test local validation
-    assert middleware.validate(token)  # Meaningless
-```
-
-**Correct:**
-
-```python
-def test_jwt_authenticates_with_graphql():
-    token = get_real_jwt_from_quilt3()  # Real JWT
-    backend = Platform_Backend()
-    # This actually calls GraphQL
-    status = backend.get_auth_status()  # GraphQL validates JWT
-    assert status.is_authenticated
-```
-
-### E2E Tests: ONLY THING THAT MATTERS
-
-```python
-def test_end_to_end_jwt_auth():
-    """The ONLY test that matters for JWT auth."""
-    # 1. Obtain valid JWT (from quilt3 or catalog login)
-    token = quilt3.session.get_access_token()
-
-    # 2. Call Platform backend (directly or via MCP tool)
-    backend = Platform_Backend()
-    os.environ["QUILT_ACCESS_TOKEN"] = token
-
-    # 3. Ensure it ACTUALLY calls GraphQL and returns valid data
-    buckets = backend.list_buckets()  # Calls GraphQL
-
-    # 4. Verify real data returned (proves GraphQL accepted JWT)
-    assert len(buckets) > 0
-    assert buckets[0].name  # Real bucket name
-```
-
 ## Why This Matters
 
 ### Current State: False Confidence
@@ -257,180 +192,6 @@ def test_end_to_end_jwt_auth():
 3. **Fake fixtures:** Maintaining fake JWTs that don't work in production
 4. **Test maintenance:** Tests that don't test reality
 
-## The Fix
-
-### 1. Delete Fake JWT Infrastructure
-
-**Delete these files:**
-
-```bash
-rm tests/fixtures/data/sample-catalog-jwt*.json
-rm tests/unit/test_jwt_decoder.py
-rm tests/unit/test_jwt_middleware.py
-rm tests/unit/test_jwt_auth_service.py
-```
-
-**Update `tests/jwt_helpers.py`:**
-
-```python
-# DELETE these functions
-def get_sample_catalog_token() -> str: ...
-def load_sample_catalog_jwt() -> Dict: ...
-
-# REPLACE with
-def get_real_jwt_from_quilt3() -> str:
-    """Extract real JWT from quilt3 authentication."""
-    from quilt3.session import _load_auth
-    from quilt3.util import get_from_config
-
-    registry_url = get_from_config('registryUrl')
-    auth = _load_auth()
-    return auth[registry_url]['access_token']
-```
-
-### 2. Write Real Integration Tests
-
-**New test file: `tests/integration/test_graphql_jwt_auth.py`:**
-
-```python
-"""Test JWT authentication with real GraphQL backend.
-
-These tests verify that JWT tokens are correctly passed through to
-the Platform GraphQL backend, which performs the actual validation.
-"""
-
-import pytest
-from quilt_mcp.backends.platform_backend import Platform_Backend
-from quilt_mcp.ops.exceptions import AuthenticationError
-
-
-def test_valid_jwt_calls_graphql_successfully():
-    """Test that valid JWT from quilt3 authenticates with GraphQL."""
-    # Requires: quilt3 configured and authenticated
-    # Requires: QUILT_CATALOG_URL and QUILT_REGISTRY_URL set
-
-    backend = Platform_Backend()
-
-    # This calls GraphQL: query { me { name email isAdmin } }
-    status = backend.get_auth_status()
-
-    assert status.is_authenticated
-    assert status.catalog_name
-    assert status.registry_url
-
-
-def test_invalid_jwt_fails_at_graphql():
-    """Test that invalid JWT is rejected by GraphQL."""
-    import os
-
-    # Set fake JWT
-    os.environ["QUILT_ACCESS_TOKEN"] = "fake-jwt-token"
-
-    backend = Platform_Backend()
-
-    # This should fail when GraphQL validates the JWT
-    with pytest.raises(AuthenticationError, match="not authorized"):
-        backend.get_auth_status()
-
-
-def test_list_buckets_with_valid_jwt():
-    """Test that list_buckets works with real JWT."""
-    backend = Platform_Backend()
-
-    # This calls GraphQL: query { bucketConfigs { name } }
-    buckets = backend.list_buckets()
-
-    assert isinstance(buckets, list)
-    assert len(buckets) > 0
-    assert buckets[0].name  # Real bucket name
-
-
-def test_search_packages_with_valid_jwt():
-    """Test that search_packages works with real JWT."""
-    backend = Platform_Backend()
-
-    # This calls GraphQL: query SearchPackages(...)
-    results = backend.search_packages("test", "s3://test-bucket")
-
-    assert isinstance(results, list)
-    # May be empty, but should not raise AuthenticationError
-```
-
-### 3. Update E2E Tests
-
-**Update `tests/e2e/test-e2e-platform.sh`:**
-
-```bash
-#!/bin/bash
-# E2E test for Platform backend with JWT authentication
-
-set -e
-
-echo "🔐 Testing JWT authentication with real GraphQL backend..."
-
-# 1. Verify quilt3 is authenticated
-if ! uv run python -c "from quilt3.session import _load_auth; _load_auth()" 2>/dev/null; then
-    echo "❌ Not authenticated with quilt3"
-    echo "Run: quilt3 config https://your-catalog.quiltdata.com"
-    exit 1
-fi
-
-# 2. Test Platform backend with real JWT
-uv run python -c "
-from quilt_mcp.backends.platform_backend import Platform_Backend
-
-backend = Platform_Backend()
-
-# Test 1: Auth status
-status = backend.get_auth_status()
-assert status.is_authenticated, 'JWT auth failed'
-print(f'✓ Authenticated as {status.catalog_name}')
-
-# Test 2: List buckets
-buckets = backend.list_buckets()
-assert len(buckets) > 0, 'No buckets returned'
-print(f'✓ Listed {len(buckets)} buckets')
-
-# Test 3: Search packages
-results = backend.search_packages('', buckets[0].name)
-print(f'✓ Search returned {len(results)} packages')
-"
-
-echo "✅ JWT authentication with GraphQL backend works!"
-```
-
-## Implementation Plan
-
-1. **Delete fake JWT fixtures** (5 min)
-   - Delete `tests/fixtures/data/sample-catalog-jwt*.json`
-   - Update `tests/jwt_helpers.py` to use real JWTs
-
-2. **Delete invalid unit tests** (5 min)
-   - Delete `tests/unit/test_jwt_decoder.py`
-   - Delete `tests/unit/test_jwt_middleware.py`
-   - Delete portions of other tests using fake JWTs
-
-3. **Write real integration tests** (30 min)
-   - Create `tests/integration/test_graphql_jwt_auth.py`
-   - Test real JWT → Platform backend → GraphQL flow
-
-4. **Update E2E tests** (15 min)
-   - Update `tests/e2e/test-e2e-platform.sh`
-   - Verify end-to-end JWT auth with GraphQL
-
-5. **Update documentation** (10 min)
-   - Document that JWT validation happens at GraphQL
-   - Explain pass-through architecture
-
-## Success Criteria
-
-- [ ] All fake JWT fixtures deleted
-- [ ] All JWT validation unit tests deleted
-- [ ] Real integration tests call GraphQL with real JWTs
-- [ ] E2E tests verify end-to-end JWT → GraphQL flow
-- [ ] Tests fail appropriately with invalid JWTs
-- [ ] Tests pass with valid JWTs from quilt3
-
 ## Related Specs
 
 - `spec/a18-jwt-testing/01-bogus-jwts.md` - Fake JWT problem
@@ -439,6 +200,11 @@ echo "✅ JWT authentication with GraphQL backend works!"
 
 ## Conclusion
 
-The current JWT testing is fundamentally flawed because it tests local validation when the architecture is pass-through to GraphQL. All JWT validation tests should be deleted and replaced with integration tests that actually call GraphQL with real JWTs.
+The current JWT testing is fundamentally flawed because it tests local validation when the architecture is JWT pass-through to GraphQL.
 
-**The only test that matters:** Pass a JWT to GraphQL via Platform backend, verify it returns real data.
+**What's being tested:** Local JWT signature validation with fake tokens and `test-secret`
+
+**What should be tested:** End-to-end flow with real JWT → Platform backend → GraphQL
+→ real data
+
+The test suite provides false confidence while the actual authentication mechanism remains completely untested.
