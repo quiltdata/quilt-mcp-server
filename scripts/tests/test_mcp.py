@@ -3,7 +3,7 @@
 Comprehensive MCP server testing script.
 
 This script:
-1. Generates test configuration using mcp-list.py
+1. Generates test configuration using mcp-test-setup.py
 2. Launches MCP server (Docker container or local process)
 3. Runs tool/resource tests via stdio transport (delegates to mcp-test.py)
 4. Cleans up server on exit
@@ -35,7 +35,7 @@ except ImportError:
 SCRIPT_DIR = Path(__file__).parent
 SCRIPTS_DIR = SCRIPT_DIR.parent
 REPO_ROOT = SCRIPTS_DIR.parent
-MCP_LIST_SCRIPT = SCRIPTS_DIR / "mcp-list.py"
+MCP_TEST_SETUP_SCRIPT = SCRIPTS_DIR / "mcp-test-setup.py"
 MCP_TEST_SCRIPT = SCRIPTS_DIR / "mcp-test.py"
 TEST_CONFIG_PATH = SCRIPT_DIR / "mcp-test.yaml"
 
@@ -319,12 +319,12 @@ def determine_server_mode(args) -> str:
 
 
 def generate_test_config() -> bool:
-    """Generate test configuration using mcp-list.py."""
+    """Generate test configuration using mcp-test-setup.py."""
     print("🔧 Generating test configuration...")
 
     try:
         result = subprocess.run(
-            [sys.executable, str(MCP_LIST_SCRIPT)],
+            [sys.executable, str(MCP_TEST_SETUP_SCRIPT)],
             env={**os.environ, "PYTHONPATH": str(REPO_ROOT / "src")},
             capture_output=True,
             text=True,

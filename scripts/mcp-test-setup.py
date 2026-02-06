@@ -153,7 +153,7 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
 
     output = {
         "metadata": {
-            "generated_by": "scripts/mcp-list.py",
+            "generated_by": "scripts/mcp-test-setup.py",
             "tool_count": len(tools),
             "resource_count": len(resources),
             "total_count": len(items),
@@ -177,7 +177,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     """
     # Extract test-relevant configuration from environment
     test_config = {
-        "_generated_by": "scripts/mcp-list.py - Auto-generated test configuration",
+        "_generated_by": "scripts/mcp-test-setup.py - Auto-generated test configuration",
         "_note": "Edit test cases below to customize arguments and validation",
         "environment": {
             "AWS_PROFILE": env_vars.get("AWS_PROFILE", "default"),
@@ -246,10 +246,10 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
         # Bucket operations (discovery)
         "bucket_objects_list": {"bucket": bucket_name, "prefix": f"{test_package}/", "max_keys": 5},
-        "bucket_object_info": {"s3_uri": f"{test_bucket}/{test_package}/.timestamp"},
-        "bucket_object_link": {"s3_uri": f"{test_bucket}/{test_package}/.timestamp"},
-        "bucket_object_text": {"s3_uri": f"{test_bucket}/{test_package}/.timestamp", "max_bytes": 200},
-        "bucket_object_fetch": {"s3_uri": f"{test_bucket}/{test_package}/.timestamp", "max_bytes": 200},
+        "bucket_object_info": {"s3_uri": f"s3://{test_bucket}/{test_package}/.timestamp"},
+        "bucket_object_link": {"s3_uri": f"s3://{test_bucket}/{test_package}/.timestamp"},
+        "bucket_object_text": {"s3_uri": f"s3://{test_bucket}/{test_package}/.timestamp", "max_bytes": 200},
+        "bucket_object_fetch": {"s3_uri": f"s3://{test_bucket}/{test_package}/.timestamp", "max_bytes": 200},
         # bucket_objects_put: Intentionally omitted - will be skipped as 'create' effect
 
         # Package operations (read-only)
@@ -265,7 +265,10 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         # Query operations
         "athena_query_validate": {"query": "SHOW TABLES"},
         "athena_query_execute": {"query": "SELECT 1 as test_value", "max_results": 10},
+        "athena_tables_list": {"database": "default"},
+        "athena_table_schema": {"database": "default", "table": "test_table"},
         "tabulator_bucket_query": {"bucket_name": bucket_name, "query": "SELECT 1 as test_value", "max_results": 10},
+        "tabulator_tables_list": {"bucket": bucket_name},
         "tabulator_open_query_status": {},
         # tabulator_open_query_toggle: Omitted - 'configure' effect
         # tabulator_table_create, tabulator_table_delete, tabulator_table_rename: Omitted - write effects
@@ -280,9 +283,12 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
         # Permissions operations - limit to test bucket for faster execution
         "discover_permissions": {"check_buckets": [bucket_name]},
+        "check_bucket_access": {"bucket": bucket_name},
 
-        # Admin/Governance operations (all omitted - require special permissions and have side effects)
-        # admin_user_*, admin_sso_*, admin_tabulator_*: All omitted
+        # Admin/Governance operations (read-only ones included for testing)
+        "admin_user_get": {"name": "admin"},
+        # admin_user_create, admin_user_delete, etc.: Omitted - write effects
+        # admin_sso_*, admin_tabulator_*: Omitted - write effects
     }
 
     # Process tools in defined order

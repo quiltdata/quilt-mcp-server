@@ -41,16 +41,16 @@ class TestScriptImports:
         spec.loader.exec_module(mcp_test)
         assert hasattr(mcp_test, 'MCPTester')
 
-    def test_mcp_list_import(self):
-        """Test mcp-list.py can be imported."""
+    def test_mcp_test_setup_import(self):
+        """Test mcp-test-setup.py can be imported."""
         import importlib.util
         spec = importlib.util.spec_from_file_location(
-            "mcp_list", SCRIPTS_DIR / "mcp-list.py"
+            "mcp_test_setup", SCRIPTS_DIR / "mcp-test-setup.py"
         )
-        mcp_list = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mcp_list)
+        mcp_test_setup = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mcp_test_setup)
         # Check it has expected functionality
-        assert hasattr(mcp_list, 'main')
+        assert hasattr(mcp_test_setup, 'main')
 
 
 class TestScriptExecution:
@@ -78,13 +78,13 @@ class TestScriptExecution:
         assert result.returncode == 0
         assert "usage:" in result.stdout.lower() or "MCP endpoint" in result.stdout
 
-    def test_mcp_list_help(self):
-        """Test mcp-list.py shows help."""
+    def test_mcp_test_setup_help(self):
+        """Test mcp-test-setup.py shows help."""
         build_dir = (SCRIPTS_DIR.parent / "build")
         build_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "mcp-list.py"), "--help"],
+            [sys.executable, str(SCRIPTS_DIR / "mcp-test-setup.py"), "--help"],
             capture_output=True,
             text=True
         )
@@ -317,7 +317,7 @@ class TestScriptSyntax:
         "version.py",
         "coverage_analysis.py",
         "mcp-test.py",
-        "mcp-list.py",
+        "mcp-test-setup.py",
         "docker_manager.py",
         "post_release_status.py"
     ])

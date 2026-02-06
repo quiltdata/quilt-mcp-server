@@ -387,6 +387,61 @@ class SearchValidator:
         return True, None
 
 
+def validate_test_coverage(server_tools: List[Dict[str, Any]], config_tools: Dict[str, Any]) -> None:
+    """Validate that all server tools are covered by test config.
+
+    This prevents tools from going untested when new capabilities are added.
+    Raises descriptive error with remediation steps if coverage gaps exist.
+
+    Args:
+        server_tools: List of tool dicts from server (with 'name' field)
+        config_tools: Dict of test configurations keyed by tool name (may include variants)
+
+    Raises:
+        ValueError: If any server tools are not covered by test config
+    """
+    # Extract tool names from server
+    server_tool_names = {tool['name'] for tool in server_tools}
+
+    # Extract base tool names from config (handles variants like "search_catalog.file.no_bucket")
+    # Variants use format: "tool_name.variant" and have a "tool" field with actual tool name
+    config_tool_names = set()
+    for config_key, config_value in config_tools.items():
+        if isinstance(config_value, dict) and 'tool' in config_value:
+            # This is a variant - use the "tool" field
+            config_tool_names.add(config_value['tool'])
+        else:
+            # Regular tool - use the key itself
+            config_tool_names.add(config_key)
+
+    # Find uncovered tools
+    uncovered = server_tool_names - config_tool_names
+
+    if uncovered:
+        raise ValueError(
+            f"\n{'='*80}\n"
+            f"❌ ERROR: {len(uncovered)} tool(s) on server are NOT covered by test config!\n"
+            f"{'='*80}\n\n"
+            f"Uncovered tools:\n" +
+            "\n".join(f"  • {tool}" for tool in sorted(uncovered)) +
+            f"\n\n"
+            f"📋 Coverage Summary:\n"
+            f"   Server has: {len(server_tool_names)} tools\n"
+            f"   Config has: {len(config_tool_names)} tool configs (including variants)\n"
+            f"   Missing:    {len(uncovered)} tools\n\n"
+            f"🔧 Action Required:\n"
+            f"   1. Run: uv run scripts/mcp-test-setup.py\n"
+            f"   2. This regenerates scripts/tests/mcp-test.yaml with ALL server tools\n"
+            f"   3. Re-run this test\n\n"
+            f"💡 Why This Matters:\n"
+            f"   • New tools were added to server but not to test config\n"
+            f"   • Running mcp-test-setup.py ensures test coverage stays synchronized\n"
+            f"   • This prevents capabilities from going untested\n"
+            f"   • Config drift detection is critical for CI/CD reliability\n"
+            f"{'='*80}\n"
+        )
+
+
 class MCPTester:
     """MCP endpoint testing client supporting both stdio and HTTP transports."""
 
@@ -762,8 +817,17 @@ class MCPTester:
             else:
                 tester = ToolsTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport=transport, config=config)
 
-            # Initialize and run tests
+            # Initialize session
             tester.initialize()
+
+            # CRITICAL: Validate that config covers all server tools (prevents drift)
+            # This check ensures mcp-test-setup.py was run after any tool additions
+            if not specific_tool:  # Skip validation when testing specific tool
+                server_tools = tester.list_tools()
+                config_tools = config.get('test_tools', {}) if config else {}
+                validate_test_coverage(server_tools, config_tools)
+
+            # Run tests
             tester.run_all_tests(specific_tool=specific_tool)
             tools_results = tester.to_dict()
 
@@ -891,9 +955,10 @@ class ToolsTester(MCPTester):
 
                 # Check for validation errors (plain text)
                 if "validation error" in text_content.lower():
-                    # Extract the first line which contains the validation error summary
-                    first_line = text_content.split('\n')[0]
-                    return f"Validation error: {first_line}"
+                    # Return the FULL validation error with all details
+                    # Pydantic validation errors have multiple lines with field names,
+                    # error types, and messages - we need ALL of this information
+                    return text_content.strip()
 
                 # Try to parse as JSON
                 try:
@@ -1460,7 +1525,19 @@ def print_detailed_summary(
                 print(f"        Tool: {test['actual_tool']}")
                 if test['arguments']:
                     print(f"        Input: {json.dumps(test['arguments'], indent=9)}")
-                print(f"        Error: {test['error']}")
+
+                # Format error message with proper indentation for multi-line errors
+                error_msg = test['error']
+                if '\n' in error_msg:
+                    # Multi-line error (e.g., validation errors) - indent each line
+                    lines = error_msg.split('\n')
+                    print(f"        Error: {lines[0]}")
+                    for line in lines[1:]:
+                        print(f"               {line}")
+                else:
+                    # Single-line error
+                    print(f"        Error: {error_msg}")
+
                 print(f"        Error Type: {test['error_type']}")
 
         if tools_results.get('untested_side_effects'):
@@ -1719,7 +1796,7 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                        help="Test specific resource by URI")
     parser.add_argument("--config", type=Path,
                        default=Path(__file__).parent / "tests" / "mcp-test.yaml",
-                       help="Path to test configuration file (auto-generated by mcp-list.py)")
+                       help="Path to test configuration file (auto-generated by mcp-test-setup.py)")
     parser.add_argument("--idempotent-only", action="store_true",
                        help="Run only idempotent (read-only) tools with effect='none' (matches test-mcp behavior)")
 

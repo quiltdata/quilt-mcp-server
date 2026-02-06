@@ -72,14 +72,14 @@ Development and testing utilities:
 
 ```text
 scripts/
-├── 📄 mcp-list.py            # Generate canonical tool listings & test configs
+├── 📄 mcp-test-setup.py      # Generate canonical tool listings & test configs
 ├── 📄 mcp-test.py            # MCP endpoint testing (uses auto-generated config)
 └── 📁 tests/
     └── 📄 mcp-test.yaml      # Auto-generated test configuration
 ```
 
 **Key Scripts:**
-- `mcp-list.py` - Introspects MCP server to generate:
+- `mcp-test-setup.py` - Introspects MCP server to generate:
   - `tests/fixtures/mcp-list.csv` - Tool and resource catalog
   - `build/tools_metadata.json` - Structured metadata
   - `scripts/tests/mcp-test.yaml` - Test configuration for mcp-test.py

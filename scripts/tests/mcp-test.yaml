@@ -1,4 +1,4 @@
-_generated_by: scripts/mcp-list.py - Auto-generated test configuration
+_generated_by: scripts/mcp-test-setup.py - Auto-generated test configuration
 _note: Edit test cases below to customize arguments and validation
 environment:
   AWS_PROFILE: default
@@ -111,7 +111,8 @@ test_tools:
     description: Get detailed information about a specific user - Quilt governance
       and administrative operations
     effect: none
-    arguments: {}
+    arguments:
+      name: admin
     response_schema:
       type: object
       properties:
@@ -238,7 +239,9 @@ test_tools:
     description: Get detailed schema information for a specific table - Athena querying
       and Glue catalog inspection workflows
     effect: none
-    arguments: {}
+    arguments:
+      database: default
+      table: test_table
     response_schema:
       type: object
       properties:
@@ -252,7 +255,8 @@ test_tools:
     description: List tables in a specific database - Athena querying and Glue catalog
       inspection workflows
     effect: none
-    arguments: {}
+    arguments:
+      database: default
     response_schema:
       type: object
       properties:
@@ -267,7 +271,7 @@ test_tools:
       and object retrieval tasks
     effect: none
     arguments:
-      s3_uri: quilt-ernest-staging/raw/test/.timestamp
+      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
       max_bytes: 200
     response_schema:
       type: object
@@ -283,7 +287,7 @@ test_tools:
       and object retrieval tasks
     effect: none
     arguments:
-      s3_uri: quilt-ernest-staging/raw/test/.timestamp
+      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
     response_schema:
       type: object
       properties:
@@ -298,7 +302,7 @@ test_tools:
       exploration and object retrieval tasks
     effect: none
     arguments:
-      s3_uri: quilt-ernest-staging/raw/test/.timestamp
+      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
     response_schema:
       type: object
       properties:
@@ -313,7 +317,7 @@ test_tools:
       retrieval tasks
     effect: none
     arguments:
-      s3_uri: quilt-ernest-staging/raw/test/.timestamp
+      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
       max_bytes: 200
     response_schema:
       type: object
@@ -389,7 +393,8 @@ test_tools:
   check_bucket_access:
     description: Check the caller's access to ``bucket``.
     effect: none
-    arguments: {}
+    arguments:
+      bucket: quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -773,7 +778,8 @@ test_tools:
   tabulator_tables_list:
     description: List all tabulator tables in a bucket.
     effect: none
-    arguments: {}
+    arguments:
+      bucket: quilt-ernest-staging
     response_schema:
       type: object
       properties:
