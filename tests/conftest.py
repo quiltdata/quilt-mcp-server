@@ -527,6 +527,8 @@ def stateless_container(
     - Resource limits (512M memory, 1.0 CPU)
     - JWT-only authentication mode
 
+    Function-scoped: Each test gets a fresh container to ensure isolation.
+
     Used by both stateless tests (to verify constraints) and e2e tests
     (to test MCP protocol functionality).
     """
@@ -556,6 +558,8 @@ def stateless_container(
             environment={
                 "QUILT_MULTIUSER_MODE": "true",  # Enable multiuser mode
                 "MCP_JWT_SECRET": "test-secret",  # Test JWT secret
+                "QUILT_CATALOG_URL": "http://test-catalog.example.com",  # Required for multiuser
+                "QUILT_REGISTRY_URL": "http://test-registry.example.com",  # Required for multiuser
                 "QUILT_DISABLE_CACHE": "true",  # Disable caching
                 "HOME": "/tmp",  # Redirect home directory  # noqa: S108
                 "LOG_LEVEL": "DEBUG",  # Verbose logging
@@ -569,17 +573,36 @@ def stateless_container(
         # Wait for container to be healthy
         print(f"🚀 Started container: {container.short_id}")
         import time
+        import httpx
 
-        time.sleep(3)  # Give it time to start
-
-        # Reload container to get latest status
+        # Wait for HTTP server to be ready (up to 10 seconds)
         container.reload()
+        ports = container.ports
+        if "8000/tcp" not in ports or not ports["8000/tcp"]:
+            raise RuntimeError("Container port 8000 not exposed")
 
-        if container.status != "running":
+        host_port = ports["8000/tcp"][0]["HostPort"]
+        url = f"http://localhost:{host_port}"
+
+        for attempt in range(20):  # 20 attempts * 0.5s = 10s max
+            time.sleep(0.5)
+            container.reload()
+
+            if container.status != "running":
+                logs = container.logs().decode("utf-8")
+                raise RuntimeError(f"Container failed to start: {logs}")
+
+            try:
+                response = httpx.get(f"{url}/", timeout=2.0)
+                if response.status_code == 200:
+                    print(f"✅ Container running and healthy: {container.short_id}")
+                    break
+            except (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError):
+                # Server not ready yet, continue waiting
+                continue
+        else:
             logs = container.logs().decode("utf-8")
-            raise RuntimeError(f"Container failed to start: {logs}")
-
-        print(f"✅ Container running: {container.short_id}")
+            raise RuntimeError(f"Container did not become healthy after 10s: {logs}")
 
         yield container
 
@@ -603,6 +626,8 @@ def container_url(stateless_container) -> str:
 
     E2E tests are completely backend-agnostic - they only use this URL
     to make HTTP requests and don't know or care what backend is running.
+
+    Function-scoped to match stateless_container fixture.
     """
     stateless_container.reload()
     ports = stateless_container.ports

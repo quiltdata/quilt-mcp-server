@@ -174,11 +174,10 @@ test-orchestrator: docker-build
 # Stateless Deployment Testing (convenience target - included in test-all)
 test-stateless: docker-build
 	@echo "Running stateless deployment tests only..."
-	@echo "💡 Tip: Run 'make test-all' to run all tests including stateless"
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
 		export QUILT_DISABLE_CACHE=true && \
 		export PYTHONPATH="src" && \
-		uv run python -m pytest tests/stateless/ -v --tb=short --color=yes
+		uv run --group test python -m pytest tests/stateless/ -v --tb=short --color=yes
 
 # Stateless MCP Testing with JWT Authentication (using Python docker_manager)
 test-mcp-stateless: docker-build
