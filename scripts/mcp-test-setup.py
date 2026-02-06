@@ -4,15 +4,26 @@
 This script inspects the actual MCP server implementation to generate
 authoritative tool and resource listings, eliminating manual maintenance and drift.
 Resources are distinguished from tools with a 'type' column in the CSV output.
+
+Phase 2 Enhancement: Intelligent test discovery with validation
+- Executes tools with test parameters to discover what actually works
+- Records PASSED/FAILED/SKIPPED status for each tool
+- Captures actual response values for test expectations
+- Uses discovered data to inform later tool tests
 """
 
+import asyncio
 import csv
 import inspect
 import json
 import os
+import re
 import sys
+import time
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 from dotenv import dotenv_values
@@ -27,6 +38,308 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from quilt_mcp.utils import create_configured_server
+
+
+# ============================================================================
+# Phase 2: Discovery Models & Engine
+# ============================================================================
+
+@dataclass
+class DiscoveryResult:
+    """Result of attempting to discover/validate a tool."""
+    tool_name: str
+    status: Literal['PASSED', 'FAILED', 'SKIPPED']
+    duration_ms: float
+
+    # Successful execution (status='PASSED')
+    response: Optional[Dict[str, Any]] = None
+    discovered_data: Dict[str, Any] = field(default_factory=dict)
+
+    # Failed execution (status='FAILED')
+    error: Optional[str] = None
+    error_category: Optional[str] = None  # access_denied, timeout, validation_error, etc.
+
+    # Metadata
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    @property
+    def success(self) -> bool:
+        """Backward compatibility: success = (status == 'PASSED')"""
+        return self.status == 'PASSED'
+
+
+class DiscoveredDataRegistry:
+    """Registry for data discovered during tool execution."""
+
+    def __init__(self):
+        self.s3_keys: List[str] = []
+        self.package_names: List[str] = []
+        self.tables: List[Dict[str, str]] = []
+        self.catalog_resources: List[Dict[str, str]] = []
+
+    def add_s3_keys(self, keys: List[str]):
+        """Add discovered S3 keys."""
+        self.s3_keys.extend(keys)
+
+    def add_package_names(self, names: List[str]):
+        """Add discovered package names."""
+        self.package_names.extend(names)
+
+    def add_tables(self, tables: List[Dict[str, str]]):
+        """Add discovered tables."""
+        self.tables.extend(tables)
+
+    def add_catalog_resource(self, uri: str, resource_type: str):
+        """Add discovered catalog resource."""
+        self.catalog_resources.append({"uri": uri, "type": resource_type})
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Export registry as dictionary."""
+        return {
+            "s3_keys": self.s3_keys[:10],  # Limit to first 10
+            "package_names": self.package_names[:10],
+            "tables": self.tables[:10],
+            "catalog_resources": self.catalog_resources[:10],
+        }
+
+
+class DiscoveryOrchestrator:
+    """Coordinates tool execution and data discovery."""
+
+    def __init__(self, server, timeout: float = 5.0, verbose: bool = True):
+        self.server = server
+        self.timeout = timeout
+        self.verbose = verbose
+        self.registry = DiscoveredDataRegistry()
+        self.results: Dict[str, DiscoveryResult] = {}
+
+    async def discover_tool(
+        self,
+        tool_name: str,
+        handler,
+        arguments: Dict[str, Any],
+        effect: str
+    ) -> DiscoveryResult:
+        """
+        Execute a tool and capture its behavior.
+
+        Returns:
+            DiscoveryResult with status, response, error, and discovered data.
+        """
+        start_time = time.time()
+
+        # Safety guard: Skip write operations
+        if effect in ['create', 'update', 'remove']:
+            return DiscoveryResult(
+                tool_name=tool_name,
+                status='SKIPPED',
+                duration_ms=0,
+                error=f"Skipped: write operation (effect={effect})"
+            )
+
+        try:
+            # Execute tool with timeout
+            # Check if function is async
+            if inspect.iscoroutinefunction(handler.fn):
+                result = await asyncio.wait_for(
+                    handler.fn(**arguments),
+                    timeout=self.timeout
+                )
+            else:
+                # Synchronous function - run in executor with timeout
+                loop = asyncio.get_event_loop()
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: handler.fn(**arguments)),
+                    timeout=self.timeout
+                )
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            # Convert result to dict if it's a Pydantic model or has dict() method
+            if hasattr(result, 'model_dump'):
+                result = result.model_dump()
+            elif hasattr(result, 'dict'):
+                result = result.dict()
+            elif not isinstance(result, dict):
+                # Try to convert to dict
+                result = {"content": [result]}
+
+            # Extract discovered data from response
+            discovered_data = self._extract_data(tool_name, result)
+
+            return DiscoveryResult(
+                tool_name=tool_name,
+                status='PASSED',
+                duration_ms=duration_ms,
+                response=result,
+                discovered_data=discovered_data
+            )
+
+        except asyncio.TimeoutError:
+            duration_ms = (time.time() - start_time) * 1000
+            return DiscoveryResult(
+                tool_name=tool_name,
+                status='FAILED',
+                duration_ms=duration_ms,
+                error=f"Timeout after {self.timeout}s",
+                error_category="timeout"
+            )
+
+        except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
+            error_category = self._categorize_error(str(e))
+
+            return DiscoveryResult(
+                tool_name=tool_name,
+                status='FAILED',
+                duration_ms=duration_ms,
+                error=str(e),
+                error_category=error_category
+            )
+
+    def _extract_data(self, tool_name: str, response: Any) -> Dict[str, Any]:
+        """Extract reusable data from tool response."""
+        discovered = {}
+
+        try:
+            # Handle different response types
+            if not isinstance(response, dict):
+                return discovered
+
+            # Extract S3 keys from bucket_objects_list
+            if tool_name == 'bucket_objects_list':
+                s3_keys = []
+                # Check for objects in response (new structure)
+                objects = response.get('objects', [])
+                if isinstance(objects, list):
+                    for item in objects:
+                        if isinstance(item, dict):
+                            # Prefer s3_uri if available, otherwise construct from key
+                            s3_uri = item.get('s3_uri')
+                            if not s3_uri and 'key' in item:
+                                bucket = response.get('bucket', '')
+                                s3_uri = f"s3://{bucket}/{item['key']}" if bucket else item['key']
+                            if s3_uri:
+                                s3_keys.append(s3_uri)
+
+                # Also check content array (legacy structure)
+                content = response.get('content', [])
+                if isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, dict) and 'key' in item:
+                            key = item['key']
+                            # Construct full S3 URI if we have bucket info
+                            if 'bucket' in item:
+                                s3_uri = f"s3://{item['bucket']}/{key}"
+                            else:
+                                s3_uri = key
+                            s3_keys.append(s3_uri)
+
+                if s3_keys:
+                    self.registry.add_s3_keys(s3_keys)
+                    discovered['s3_keys'] = s3_keys[:5]  # Store first 5
+
+            # Extract package names from search_catalog
+            elif 'search_catalog' in tool_name:
+                package_names = []
+                # Check content array
+                content = response.get('content', [])
+                if isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, dict):
+                            # Look for package name in various fields
+                            pkg_name = item.get('package_name') or item.get('name') or item.get('id')
+                            if pkg_name and isinstance(pkg_name, str):
+                                package_names.append(pkg_name)
+
+                if package_names:
+                    self.registry.add_package_names(package_names)
+                    discovered['package_names'] = package_names[:5]
+
+            # Extract tables from tabulator_tables_list or athena_tables_list
+            elif 'tables_list' in tool_name:
+                tables = []
+                # Check content array
+                content = response.get('content', [])
+                if isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, dict) and 'name' in item:
+                            table_info = {
+                                'table': item['name'],
+                                'database': item.get('database', 'default')
+                            }
+                            if 'columns' in item:
+                                table_info['columns'] = item['columns']
+                            tables.append(table_info)
+
+                if tables:
+                    self.registry.add_tables(tables)
+                    discovered['tables'] = tables[:5]
+
+            # Extract schema from table schema operations
+            elif 'schema' in tool_name.lower():
+                content = response.get('content', [])
+                if content and isinstance(content, list) and isinstance(content[0], dict):
+                    schema_info = content[0]
+                    if 'columns' in schema_info:
+                        discovered['columns'] = schema_info['columns']
+
+        except Exception as e:
+            # Log extraction error but don't fail discovery
+            if self.verbose:
+                print(f"   ⚠️  Data extraction error for {tool_name}: {e}")
+
+        return discovered
+
+    def _categorize_error(self, error_msg: str) -> str:
+        """Categorize error for reporting and recommendations."""
+        error_lower = error_msg.lower()
+
+        if any(kw in error_lower for kw in ['access', 'denied', 'forbidden', 'unauthorized', 'permission']):
+            return 'access_denied'
+        elif any(kw in error_lower for kw in ['timeout', 'timed out']):
+            return 'timeout'
+        elif any(kw in error_lower for kw in ['not found', 'does not exist', 'no such']):
+            return 'resource_not_found'
+        elif any(kw in error_lower for kw in ['unavailable', 'connection', 'network']):
+            return 'service_unavailable'
+        elif any(kw in error_lower for kw in ['invalid', 'validation', 'schema']):
+            return 'validation_error'
+        else:
+            return 'unknown'
+
+    def print_summary(self):
+        """Print discovery results summary."""
+        passed = sum(1 for r in self.results.values() if r.status == 'PASSED')
+        failed = sum(1 for r in self.results.values() if r.status == 'FAILED')
+        skipped = sum(1 for r in self.results.values() if r.status == 'SKIPPED')
+
+        print(f"\n📊 Test Results Summary:")
+        print(f"  ✓ {passed} PASSED")
+        print(f"  ✗ {failed} FAILED")
+        print(f"  ⊘ {skipped} SKIPPED (write-effect tools)")
+
+        if failed > 0:
+            print(f"\n❌ Failed Tools:")
+            for tool_name, result in self.results.items():
+                if result.status == 'FAILED':
+                    print(f"   • {tool_name}: {result.error}")
+
+        # Print discovered data summary
+        registry_dict = self.registry.to_dict()
+        if any(registry_dict.values()):
+            print(f"\n💾 Discovered Data:")
+            if registry_dict['s3_keys']:
+                print(f"  - {len(self.registry.s3_keys)} S3 keys from bucket_objects_list")
+            if registry_dict['package_names']:
+                print(f"  - {len(self.registry.package_names)} package names from search")
+            if registry_dict['tables']:
+                print(f"  - {len(self.registry.tables)} tables from table listing")
+
+
+# ============================================================================
+# Phase 1: Introspection (Existing)
+# ============================================================================
 
 async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     """Extract comprehensive metadata from all registered tools."""
@@ -167,17 +480,40 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
         json.dump(output, f, indent=2, ensure_ascii=False)
 
 
-async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None]):
+def _truncate_response(response: Any, max_size: int = 1000) -> Any:
+    """Truncate large responses to keep YAML config manageable."""
+    if not isinstance(response, dict):
+        return response
+
+    result = {}
+    for key, value in response.items():
+        if isinstance(value, list):
+            # Truncate arrays to first few items
+            if len(value) > 3:
+                result[key] = value[:3] + [{"_truncated": f"{len(value) - 3} more items"}]
+            else:
+                result[key] = value
+        elif isinstance(value, str) and len(value) > max_size:
+            result[key] = value[:max_size] + f"... (truncated, {len(value)} total chars)"
+        else:
+            result[key] = value
+
+    return result
+
+
+async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None], skip_discovery: bool = False):
     """Generate mcp-test.yaml configuration with all available tools and resources.
 
     This creates test configurations for mcp-test.py to validate the MCP server.
     Each tool gets a basic test case that can be customized as needed.
     Each resource gets test configuration with URI patterns and validation rules.
     Environment configuration from .env is embedded for self-contained testing.
+
+    Phase 2 Enhancement: Runs discovery to validate tools and capture real data.
     """
     # Extract test-relevant configuration from environment
     test_config = {
-        "_generated_by": "scripts/mcp-test-setup.py - Auto-generated test configuration",
+        "_generated_by": "scripts/mcp-test-setup.py - Auto-generated test configuration with discovery",
         "_note": "Edit test cases below to customize arguments and validation",
         "environment": {
             "AWS_PROFILE": env_vars.get("AWS_PROFILE", "default"),
@@ -195,6 +531,9 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
             "fail_fast": False
         }
     }
+
+    # Initialize discovery orchestrator
+    orchestrator = DiscoveryOrchestrator(server, timeout=5.0, verbose=True)
 
     # Get all registered tools
     # Get all tools
@@ -468,8 +807,74 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
             test_config["test_tools"][tool_name] = test_case
 
+    # ========================================================================
+    # Phase 2: Discovery - Execute tools and validate
+    # ========================================================================
+    if not skip_discovery:
+        print(f"\n🔍 Phase 2: Discovering & Validating Tools...")
+        print(f"   Running discovery for {len(test_config['test_tools'])} tool configurations...")
+
+        discovery_count = 0
+        for test_key, test_case in test_config["test_tools"].items():
+            # Get the actual tool name (may differ from test_key for variants)
+            actual_tool_name = test_case.get("tool", test_key)
+
+            # Skip if not in server_tools
+            if actual_tool_name not in server_tools:
+                continue
+
+            handler = server_tools[actual_tool_name]
+            arguments = test_case.get("arguments", {})
+            effect = test_case.get("effect", "none")
+
+            # Run discovery
+            result = await orchestrator.discover_tool(
+                actual_tool_name,
+                handler,
+                arguments,
+                effect
+            )
+
+            # Store result
+            orchestrator.results[test_key] = result
+
+            # Add discovery info to test case
+            discovery_info = {
+                "status": result.status,
+                "duration_ms": round(result.duration_ms, 2),
+                "discovered_at": result.timestamp
+            }
+
+            if result.status == 'PASSED':
+                # Add response example (truncate if too large)
+                if result.response:
+                    discovery_info["response_example"] = _truncate_response(result.response, max_size=1000)
+                if result.discovered_data:
+                    discovery_info["discovered_data"] = result.discovered_data
+
+                discovery_count += 1
+                if discovery_count <= 5 or orchestrator.verbose:  # Print first 5 or all if verbose
+                    print(f"  ✓ {test_key} ({result.duration_ms:.0f}ms)")
+
+            elif result.status == 'FAILED':
+                discovery_info["error"] = result.error
+                discovery_info["error_category"] = result.error_category
+                print(f"  ✗ {test_key}: {result.error}")
+
+            elif result.status == 'SKIPPED':
+                if discovery_count <= 3:  # Only print first few skipped
+                    print(f"  ⊘ {test_key}: {result.error}")
+
+            test_case["discovery"] = discovery_info
+
+        # Print summary
+        orchestrator.print_summary()
+
+        # Add discovered data registry to config
+        test_config["discovered_data"] = orchestrator.registry.to_dict()
+
     # Generate resource test configuration
-    print("🗂️  Generating resource test configuration...")
+    print(f"\n🗂️  Generating resource test configuration...")
 
     import re
     # Get resources from FastMCP server
@@ -556,6 +961,35 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
 async def main():
     """Generate all canonical tool and resource listings."""
+    import argparse
+
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Generate MCP test configuration with intelligent discovery"
+    )
+    parser.add_argument(
+        "--skip-discovery",
+        action="store_true",
+        help="Skip tool discovery phase (generate config without validation)"
+    )
+    parser.add_argument(
+        "--quick",
+        action="store_true",
+        help="Quick mode: validate only essential tools (not yet implemented)"
+    )
+    parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="Re-discover only tools with FAILED status (not yet implemented)"
+    )
+    parser.add_argument(
+        "--discovery-timeout",
+        type=float,
+        default=5.0,
+        help="Timeout in seconds for each tool discovery (default: 5.0)"
+    )
+    args = parser.parse_args()
+
     # Load environment configuration from .env
     repo_root = Path(__file__).parent.parent
     env_file = repo_root / ".env"
@@ -569,7 +1003,10 @@ async def main():
     else:
         print("⚠️  No .env file found - using default test configuration")
 
-    print("🔍 Extracting tools from MCP server...")
+    if args.skip_discovery:
+        print("⚠️  Discovery phase skipped (--skip-discovery flag)")
+
+    print("\n🔍 Phase 1: Introspection - Extracting tools from MCP server...")
 
     # Create server instance to introspect tools
     server = create_configured_server(verbose=False)
@@ -591,24 +1028,35 @@ async def main():
     tests_fixtures_dir = output_dir / "tests" / "fixtures"
     scripts_tests_dir = Path(__file__).parent / "tests"
 
-    print("📝 Generating CSV output...")
+    print("\n📝 Generating CSV output...")
     generate_csv_output(all_items, str(tests_fixtures_dir / "mcp-list.csv"))
 
     print("📋 Generating JSON metadata...")
     generate_json_output(all_items, str(output_dir / "build" / "tools_metadata.json"))
 
-    print("🧪 Generating test configuration YAML...")
-    await generate_test_yaml(server, str(scripts_tests_dir / "mcp-test.yaml"), env_vars)
+    print("\n🧪 Phase 3: Generation - Creating test configuration YAML...")
+    await generate_test_yaml(
+        server,
+        str(scripts_tests_dir / "mcp-test.yaml"),
+        env_vars,
+        skip_discovery=args.skip_discovery
+    )
 
-    print("✅ Canonical tool and resource listings generated!")
+    print("\n✅ Canonical tool and resource listings generated!")
     print("📂 Files created:")
     print("   - tests/fixtures/mcp-list.csv")
     print("   - build/tools_metadata.json")
-    print("   - scripts/tests/mcp-test.yaml")
-    print(f"📈 Summary:")
+    print("   - scripts/tests/mcp-test.yaml (with discovery results)")
+    print(f"\n📈 Summary:")
     print(f"   - {len(tools)} tools")
     print(f"   - {len(resources)} resources")
     print(f"   - {len(all_items)} total items")
+
+    if not args.skip_discovery:
+        print(f"\n💡 Next steps:")
+        print(f"   1. Review failed tools (if any) and fix environment issues")
+        print(f"   2. Commit updated mcp-test.yaml: git add scripts/tests/mcp-test.yaml")
+        print(f"   3. Run tests: uv run python scripts/mcp-test.py")
 
 if __name__ == "__main__":
     import asyncio
