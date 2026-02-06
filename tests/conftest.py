@@ -10,8 +10,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict, Any
 
-from tests.jwt_helpers import get_sample_catalog_claims, get_sample_catalog_token
-
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
@@ -231,14 +229,35 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
         monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
         monkeypatch.setenv("QUILT_CATALOG_URL", quilt_catalog_url)
         monkeypatch.setenv("QUILT_REGISTRY_URL", quilt_registry_url)
-        monkeypatch.setenv("MCP_JWT_SECRET", os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret"))
+
+        jwt_secret = os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret")
+        monkeypatch.setenv("MCP_JWT_SECRET", jwt_secret)
+
+        # Use real JWT from environment if available, otherwise generate test JWT
+        access_token = os.getenv("PLATFORM_TEST_JWT_TOKEN")
+        if not access_token:
+            # Generate test JWT for mocked platform tests
+            import jwt as pyjwt
+            import time
+            import uuid
+
+            claims = {
+                "id": "test-user-platform",
+                "uuid": str(uuid.uuid4()),
+                "exp": int(time.time()) + 3600,
+            }
+            access_token = pyjwt.encode(claims, jwt_secret, algorithm="HS256")
+        else:
+            # Decode real JWT to get claims
+            import jwt as pyjwt
+            claims = pyjwt.decode(access_token, options={"verify_signature": False})
 
         token_handle = push_runtime_context(
             environment="web",
             auth=RuntimeAuthState(
                 scheme="Bearer",
-                access_token=get_sample_catalog_token(),
-                claims=get_sample_catalog_claims(),
+                access_token=access_token,
+                claims=claims,
             ),
         )
 
@@ -458,11 +477,31 @@ def make_test_jwt(
     expires_in: int = 600,
     extra_claims: Dict[str, Any] | None = None,
 ) -> str:
-    """Return a catalog-format JWT for testing.
+    """Generate a catalog-format JWT for testing.
 
-    This is a convenience wrapper around jwt_helpers for test fixtures.
+    Args:
+        secret: HS256 shared secret for signing
+        subject: User ID (goes in 'id' claim)
+        expires_in: Expiration time in seconds from now
+        extra_claims: Additional claims to include
+
+    Returns:
+        Signed JWT token string
     """
-    return get_sample_catalog_token()
+    import jwt
+    import time
+    import uuid
+
+    payload: Dict[str, Any] = {
+        "id": subject,
+        "uuid": str(uuid.uuid4()),
+        "exp": int(time.time()) + expires_in,
+    }
+
+    if extra_claims:
+        payload.update(extra_claims)
+
+    return jwt.encode(payload, secret, algorithm="HS256")
 
 
 @pytest.fixture(scope="session")

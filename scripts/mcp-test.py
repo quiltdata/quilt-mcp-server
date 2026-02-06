@@ -24,11 +24,27 @@ import requests
 import yaml
 from jsonschema import validate
 
-# Import JWT helper functions for sample catalog token
-# Add tests directory to path for jwt_helpers
-repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / "tests"))
-from jwt_helpers import get_sample_catalog_token
+# JWT generation for testing
+import jwt as pyjwt
+import uuid as uuid_module
+
+
+def generate_test_jwt(secret: str = "test-secret", expires_in: int = 3600) -> str:
+    """Generate a test JWT token for testing.
+
+    Args:
+        secret: HS256 shared secret for signing
+        expires_in: Expiration time in seconds from now
+
+    Returns:
+        Signed JWT token string
+    """
+    payload = {
+        "id": "test-user-mcp-test",
+        "uuid": str(uuid_module.uuid4()),
+        "exp": int(time.time()) + expires_in,
+    }
+    return pyjwt.encode(payload, secret, algorithm="HS256")
 
 
 class ResourceFailureType(enum.Enum):
@@ -1824,10 +1840,10 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
             print("❌ --jwt only supported for HTTP transport")
             sys.exit(1)
 
-        print("🔐 Using sample catalog JWT token...")
+        print("🔐 Generating test JWT token...")
 
         try:
-            jwt_token = get_sample_catalog_token()
+            jwt_token = generate_test_jwt(secret="test-secret")
             if args.verbose:
                 masked = f"{jwt_token[:8]}...{jwt_token[-8:]}" if len(jwt_token) > 16 else "***"
                 print(f"   Token preview: {masked}")

@@ -7,14 +7,31 @@ Generates a Platform-style JWT and validates decoding/auth flow.
 import sys
 from pathlib import Path
 
-# Add src and tests to path
+# Add src to path
 repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root / "src"))
-sys.path.insert(0, str(repo_root / "tests"))
 
-from jwt_helpers import get_sample_catalog_claims, get_sample_catalog_token
+import jwt as pyjwt
+import time
+import uuid
+
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
 from quilt_mcp.runtime_context import set_runtime_auth, RuntimeAuthState
+
+
+def generate_test_jwt(secret: str = "test-secret", expires_in: int = 3600) -> tuple:
+    """Generate a test JWT token and claims.
+
+    Returns:
+        Tuple of (token, claims)
+    """
+    claims = {
+        "id": "test-user-jwt-search",
+        "uuid": str(uuid.uuid4()),
+        "exp": int(time.time()) + expires_in,
+    }
+    token = pyjwt.encode(claims, secret, algorithm="HS256")
+    return token, claims
 
 
 def main():
@@ -22,11 +39,9 @@ def main():
     print("JWT Authentication Smoke Test")
     print("=" * 80)
 
-    jwt_token = get_sample_catalog_token()
+    jwt_token, decoded = generate_test_jwt()
 
     print(f"  JWT created: {jwt_token[:50]}...")
-
-    decoded = get_sample_catalog_claims()
     print(f"  id: {decoded.get('id')}")
     print(f"  uuid: {decoded.get('uuid')}")
     print(f"  exp: {decoded.get('exp')}")

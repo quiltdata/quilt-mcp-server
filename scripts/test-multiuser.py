@@ -16,16 +16,28 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+import jwt as pyjwt
+import uuid
 
-# Add tests directory to path for jwt_helpers
 repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / 'tests'))
 
-try:
-    from jwt_helpers import get_sample_catalog_token
-except ImportError:
-    print("❌ Could not import jwt_helpers. Make sure tests/jwt_helpers.py exists.", file=sys.stderr)
-    sys.exit(1)
+
+def generate_test_jwt(secret: str = "test-secret", expires_in: int = 3600) -> str:
+    """Generate a test JWT token for testing.
+
+    Args:
+        secret: HS256 shared secret for signing
+        expires_in: Expiration time in seconds from now
+
+    Returns:
+        Signed JWT token string
+    """
+    payload = {
+        "id": "test-user-multiuser",
+        "uuid": str(uuid.uuid4()),
+        "exp": int(time.time()) + expires_in,
+    }
+    return pyjwt.encode(payload, secret, algorithm="HS256")
 
 
 class MultiuserTestRunner:
@@ -76,7 +88,7 @@ class MultiuserTestRunner:
             try:
                 token = user_config.get("jwt_token") or user_config.get("token")
                 if not token:
-                    token = get_sample_catalog_token()
+                    token = generate_test_jwt()
 
                 if not token:
                     self._log(f"Missing JWT token for user {user_label}", "ERROR")
