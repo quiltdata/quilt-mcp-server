@@ -230,66 +230,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         except Exception as exc:
             raise BackendError(f"Platform backend list_buckets failed: {exc}") from exc
 
-    def search_packages(self, query: str, registry: str) -> List[Package_Info]:
-        try:
-            bucket = self._extract_bucket_from_registry(registry)
-            search_string = query.strip() if query else ""
-            variables = {"buckets": [bucket], "searchString": search_string or None}
-
-            gql = """
-            query SearchPackages($buckets: [String!], $searchString: String) {
-              searchPackages(buckets: $buckets, searchString: $searchString) {
-                __typename
-                ... on PackagesSearchResultSet {
-                  firstPage(size: 1000, order: NEWEST) {
-                    hits {
-                      name
-                      bucket
-                      hash
-                      modified
-                      comment
-                      meta
-                    }
-                  }
-                }
-                ... on EmptySearchResultSet {
-                  _
-                }
-                ... on InvalidInput {
-                  errors { path message name context }
-                }
-                ... on OperationError {
-                  message
-                  name
-                  context
-                }
-              }
-            }
-            """
-            result = self.execute_graphql_query(gql, variables=variables)
-            payload = result.get("data", {}).get("searchPackages") or {}
-            typename = payload.get("__typename")
-            if typename in {"EmptySearchResultSet", None}:
-                return []
-            if typename == "InvalidInput":
-                errors = payload.get("errors", [])
-                message = "; ".join(err.get("message", "invalid input") for err in errors)
-                raise ValidationError(f"Invalid search input: {message}")
-            if typename == "OperationError":
-                raise BackendError(payload.get("message", "Search operation failed"))
-
-            hits = payload.get("firstPage", {}).get("hits", [])
-            results: List[Package_Info] = []
-            for hit in hits:
-                results.append(self._transform_search_hit(hit, registry))
-            return results
-        except ValidationError:
-            raise
-        except Exception as exc:
-            raise BackendError(
-                f"Platform backend search_packages failed: {exc}",
-                context={"query": query, "registry": registry},
-            ) from exc
+    # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
+    # search_packages() is now a concrete method in QuiltOps that calls:
+    # - _backend_search_packages() primitive
+    # - _transform_search_result_to_package_info() primitive
 
     def get_package_info(self, package_name: str, registry: str) -> Package_Info:
         try:
@@ -504,7 +448,14 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
         raise AuthenticationError("AWS client access is not available in Platform backend.")
 
-    def create_package_revision(
+    # HIGH-LEVEL METHODS REMOVED - Now implemented in QuiltOps base class
+    # create_package_revision() is now a concrete method in QuiltOps that calls:
+    # - _backend_create_empty_package() primitive
+    # - _backend_add_file_to_package() primitive
+    # - _backend_set_package_metadata() primitive
+    # - _backend_push_package() primitive
+
+    def _create_package_revision_REMOVED_see_base_class(
         self,
         package_name: str,
         s3_uris: List[str],
@@ -787,6 +738,472 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             self._admin_ops = Platform_Admin_Ops(self)
         return self._admin_ops
 
+    # =========================================================================
+    # Backend Primitives (Template Method Pattern)
+    # =========================================================================
+    # These methods implement the abstract backend primitives defined in QuiltOps.
+    # They wrap GraphQL operations without adding validation or transformation logic.
+
+    def _backend_create_empty_package(self) -> Any:
+        """Create a new empty package representation (backend primitive).
+
+        Returns:
+            Internal package representation (entries list)
+        """
+        return {"entries": []}
+
+    def _backend_add_file_to_package(self, package: Any, logical_key: str, s3_uri: str) -> None:
+        """Add a file reference to package representation (backend primitive).
+
+        Args:
+            package: Internal package representation
+            logical_key: Logical path within package
+            s3_uri: S3 URI of file to add
+        """
+        package["entries"].append(
+            {
+                "logicalKey": logical_key,
+                "physicalKey": s3_uri,
+                "hash": None,
+                "size": None,
+                "meta": None,
+            }
+        )
+
+    def _backend_set_package_metadata(self, package: Any, metadata: Dict[str, Any]) -> None:
+        """Set metadata on package representation (backend primitive).
+
+        Args:
+            package: Internal package representation
+            metadata: Metadata dictionary
+        """
+        package["metadata"] = metadata
+
+    def _backend_push_package(self, package: Any, package_name: str, registry: str, message: str, copy: bool) -> str:
+        """Push package via GraphQL packageConstruct mutation (backend primitive).
+
+        Args:
+            package: Internal package representation
+            package_name: Full package name
+            registry: Registry S3 URL
+            message: Commit message
+            copy: If True, promote package to copy objects
+
+        Returns:
+            Top hash of pushed package (empty string if push fails)
+        """
+        bucket = self._extract_bucket_from_registry(registry)
+
+        mutation = """
+        mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
+          packageConstruct(params: $params, src: $src) {
+            __typename
+            ... on PackagePushSuccess {
+              package { name }
+              revision { hash }
+            }
+            ... on PackagePushInvalidInputFailure {
+              errors { path message }
+            }
+            ... on PackagePushComputeFailure {
+              message
+            }
+          }
+        }
+        """
+
+        variables = {
+            "params": {
+                "bucket": bucket,
+                "name": package_name,
+                "message": message,
+                "userMeta": package.get("metadata", {}),
+                "workflow": None,
+            },
+            "src": {"entries": package["entries"]},
+        }
+
+        result = self.execute_graphql_query(mutation, variables=variables)
+        package_construct = result.get("data", {}).get("packageConstruct", {})
+        typename = package_construct.get("__typename")
+
+        if typename == "PackagePushSuccess":
+            revision = package_construct.get("revision", {})
+            top_hash = revision.get("hash", "")
+
+            # If copy=True, promote the package to copy objects to registry
+            if copy:
+                top_hash = self._promote_package(bucket, package_name, top_hash, message, package.get("metadata", {}))
+
+            return top_hash
+        elif typename == "PackagePushInvalidInputFailure":
+            errors = package_construct.get("errors", [])
+            error_messages = [f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors]
+            raise ValidationError(f"Invalid package input: {'; '.join(error_messages)}")
+        elif typename == "PackagePushComputeFailure":
+            message_text = package_construct.get("message", "Package creation failed")
+            raise Exception(f"Package creation compute failure: {message_text}")
+        else:
+            raise Exception(f"Unexpected response type: {typename}")
+
+    def _backend_get_package(self, package_name: str, registry: str, top_hash: Optional[str] = None) -> Any:
+        """Retrieve package via GraphQL query (backend primitive).
+
+        Args:
+            package_name: Full package name
+            registry: Registry S3 URL
+            top_hash: Optional specific version hash
+
+        Returns:
+            Package data structure with contentsFlatMap
+
+        Raises:
+            NotFoundError: If package not found
+        """
+        bucket = self._extract_bucket_from_registry(registry)
+
+        query = """
+        query GetPackage($bucket: String!, $name: String!, $hash: String!) {
+          package(bucket: $bucket, name: $name) {
+            revision(hashOrTag: $hash) {
+              hash
+              userMeta
+              contentsFlatMap(max: 10000)
+            }
+          }
+        }
+        """
+
+        variables = {
+            "bucket": bucket,
+            "name": package_name,
+            "hash": top_hash or "latest",
+        }
+
+        result = self.execute_graphql_query(query, variables=variables)
+        package_data = result.get("data", {}).get("package")
+
+        if not package_data:
+            raise NotFoundError(f"Package not found: {package_name}")
+
+        return package_data
+
+    def _backend_get_package_entries(self, package: Any) -> Dict[str, Dict[str, Any]]:
+        """Get all entries from package data (backend primitive).
+
+        Args:
+            package: Package data structure from GraphQL
+
+        Returns:
+            Dict mapping logical_key to entry metadata
+        """
+        return package.get("revision", {}).get("contentsFlatMap", {})
+
+    def _backend_get_package_metadata(self, package: Any) -> Dict[str, Any]:
+        """Get metadata from package data (backend primitive).
+
+        Args:
+            package: Package data structure from GraphQL
+
+        Returns:
+            Package metadata dictionary (empty dict if no metadata)
+        """
+        return package.get("revision", {}).get("userMeta", {})
+
+    def _backend_search_packages(self, query: str, registry: str) -> List[Dict[str, Any]]:
+        """Execute GraphQL package search (backend primitive).
+
+        Args:
+            query: Search query string
+            registry: Registry S3 URL
+
+        Returns:
+            List of package data dictionaries (not domain objects)
+        """
+        bucket = self._extract_bucket_from_registry(registry)
+
+        gql = """
+        query SearchPackages($buckets: [String!], $searchString: String) {
+          searchPackages(buckets: $buckets, searchString: $searchString) {
+            __typename
+            ... on PackagesSearchResultSet {
+              firstPage(size: 1000, order: NEWEST) {
+                hits {
+                  name
+                  bucket
+                  hash
+                  modified
+                  comment
+                  meta
+                }
+              }
+            }
+            ... on EmptySearchResultSet {
+              _
+            }
+            ... on InvalidInput {
+              errors { path message name context }
+            }
+            ... on OperationError {
+              message
+              name
+              context
+            }
+          }
+        }
+        """
+
+        result = self.execute_graphql_query(gql, variables={"buckets": [bucket], "searchString": query})
+        search_result = result.get("data", {}).get("searchPackages", {})
+        typename = search_result.get("__typename")
+
+        # Handle both old and new API response types
+        if typename == "PackageSearchResults":
+            # New API format
+            hits = search_result.get("hits", [])
+        elif typename == "PackagesSearchResultSet":
+            # Old API format (with pagination)
+            hits = search_result.get("firstPage", {}).get("hits", [])
+        elif typename == "EmptySearchResultSet":
+            # Empty results
+            return []
+        elif typename == "InvalidInput":
+            errors = search_result.get("errors", [])
+            raise ValidationError(f"Search invalid input: {errors}")
+        elif typename == "OperationError":
+            message = search_result.get("message", "Search failed")
+            raise Exception(f"Search operation error: {message}")
+        else:
+            raise Exception(f"Unexpected search response type: {typename}")
+
+        # Return raw hits (not transformed to domain objects)
+        return [
+            {
+                "name": hit.get("name", ""),
+                "bucket": hit.get("bucket", bucket),
+                "top_hash": hit.get("hash", ""),
+                "modified": hit.get("modified"),
+                "comment": hit.get("comment"),
+                "meta": hit.get("meta"),
+                "registry": registry,
+            }
+            for hit in hits
+        ]
+
+    def _backend_diff_packages(self, pkg1: Any, pkg2: Any) -> Dict[str, List[str]]:
+        """Compute diff between two package data structures (backend primitive).
+
+        Args:
+            pkg1: First package data structure from GraphQL
+            pkg2: Second package data structure from GraphQL
+
+        Returns:
+            Dict with keys "added", "deleted", "modified"
+        """
+        map1 = self._backend_get_package_entries(pkg1)
+        map2 = self._backend_get_package_entries(pkg2)
+
+        keys1 = set(map1.keys())
+        keys2 = set(map2.keys())
+
+        added = sorted(keys2 - keys1)
+        deleted = sorted(keys1 - keys2)
+
+        modified: List[str] = []
+        for key in sorted(keys1 & keys2):
+            if not self._entries_equal(map1.get(key), map2.get(key)):
+                modified.append(key)
+
+        return {"added": added, "deleted": deleted, "modified": modified}
+
+    def _backend_browse_package_content(self, package: Any, path: str) -> List[Dict[str, Any]]:
+        """List contents of package at path via GraphQL (backend primitive).
+
+        Args:
+            package: Package data structure from GraphQL (must include name and bucket)
+            path: Path within package to browse
+
+        Returns:
+            List of content entry dictionaries (not domain objects)
+        """
+        # Extract package info from package data
+        package_name = package.get("name", "")
+        bucket = package.get("bucket", "")
+
+        gql = """
+        query BrowseContent($bucket: String!, $name: String!, $path: String!) {
+          package(bucket: $bucket, name: $name) {
+            revision(hashOrTag: "latest") {
+              dir(path: $path) {
+                path
+                size
+                children {
+                  __typename
+                  ... on PackageFile { path size physicalKey }
+                  ... on PackageDir { path size }
+                }
+              }
+              file(path: $path) {
+                path
+                size
+                physicalKey
+              }
+            }
+          }
+        }
+        """
+
+        result = self.execute_graphql_query(
+            gql, variables={"bucket": bucket, "name": package_name, "path": path or ""}
+        )
+        revision = result.get("data", {}).get("package", {}).get("revision")
+
+        if not revision:
+            raise NotFoundError(f"Package not found: {package_name}")
+
+        dir_info = revision.get("dir")
+        file_info = revision.get("file")
+
+        if dir_info:
+            children = dir_info.get("children", [])
+            return [
+                {
+                    "path": entry.get("path", ""),
+                    "size": entry.get("size"),
+                    "type": "directory" if entry.get("__typename") == "PackageDir" else "file",
+                }
+                for entry in children
+            ]
+
+        if file_info:
+            return [
+                {
+                    "path": file_info.get("path", ""),
+                    "size": file_info.get("size"),
+                    "type": "file",
+                }
+            ]
+
+        raise NotFoundError(f"Path not found in package: {path}")
+
+    def _backend_get_file_url(
+        self, package_name: str, registry: str, path: str, top_hash: Optional[str] = None
+    ) -> str:
+        """Generate download URL via browsing session (backend primitive).
+
+        Args:
+            package_name: Full package name
+            registry: Registry S3 URL
+            path: Path to file within package
+            top_hash: Optional specific version hash
+
+        Returns:
+            Presigned URL for file download
+        """
+        bucket = self._extract_bucket_from_registry(registry)
+
+        # Get revision hash if not provided
+        if not top_hash:
+            gql = """
+            query GetRevisionHash($bucket: String!, $name: String!) {
+              package(bucket: $bucket, name: $name) {
+                revision(hashOrTag: "latest") {
+                  hash
+                }
+              }
+            }
+            """
+            result = self.execute_graphql_query(gql, variables={"bucket": bucket, "name": package_name})
+            top_hash = result.get("data", {}).get("package", {}).get("revision", {}).get("hash")
+
+        if not top_hash:
+            raise Exception("Missing revision hash for browsing session")
+
+        scope = f"s3://{bucket}#package={package_name}&hash={top_hash}"
+        return self._browse_client.get_presigned_url(scope=scope, path=path)
+
+    def _backend_get_session_info(self) -> Dict[str, Any]:
+        """Get Platform session information (backend primitive).
+
+        Returns:
+            Dict with session info
+        """
+        return {
+            "is_authenticated": bool(self._access_token),
+            "catalog_url": self._catalog_url,
+            "registry_url": self._registry_url,
+        }
+
+    def _backend_get_catalog_config(self, catalog_url: str) -> Dict[str, Any]:
+        """Fetch catalog config.json via requests (backend primitive).
+
+        Args:
+            catalog_url: Catalog URL
+
+        Returns:
+            Raw config dictionary
+
+        Raises:
+            Exception: If config fetch fails
+        """
+        normalized_url = normalize_url(catalog_url)
+        config_url = f"{normalized_url}/config.json"
+
+        response = self._requests.get(config_url, timeout=10)
+        response.raise_for_status()
+
+        return response.json()
+
+    def _backend_list_buckets(self) -> List[Dict[str, Any]]:
+        """List S3 buckets via GraphQL (backend primitive).
+
+        Returns:
+            List of bucket information dictionaries
+        """
+        gql = """
+        query ListBuckets {
+          bucketConfigs {
+            name
+          }
+        }
+        """
+
+        result = self.execute_graphql_query(gql)
+        buckets = result.get("data", {}).get("bucketConfigs", [])
+
+        return [{"name": bucket["name"]} for bucket in buckets if bucket.get("name")]
+
+    def _backend_get_boto3_session(self) -> Any:
+        """Get boto3 session (backend primitive).
+
+        Raises:
+            AuthenticationError: Platform backend doesn't support boto3 access
+        """
+        raise AuthenticationError("AWS client access is not available in Platform backend.")
+
+    def _transform_search_result_to_package_info(self, result: Dict[str, Any], registry: str) -> Package_Info:
+        """Transform GraphQL search result to Package_Info (backend primitive).
+
+        Args:
+            result: Backend-specific search result dictionary
+            registry: Registry URL for context
+
+        Returns:
+            Package_Info domain object
+        """
+        return self._transform_search_hit(result, registry)
+
+    def _transform_content_entry_to_content_info(self, entry: Dict[str, Any]) -> Content_Info:
+        """Transform GraphQL content entry to Content_Info (backend primitive).
+
+        Args:
+            entry: Backend-specific content entry dictionary
+
+        Returns:
+            Content_Info domain object
+        """
+        return self._transform_content_entry(entry)
+
     # ---------------------------------------------------------------------
     # Helpers
     # ---------------------------------------------------------------------
@@ -856,7 +1273,8 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     def _transform_search_hit(self, hit: Dict[str, Any], registry: str) -> Package_Info:
         name = hit.get("name") or ""
         bucket = hit.get("bucket") or self._extract_bucket_from_registry(registry)
-        top_hash = hit.get("hash") or ""
+        # Handle both GraphQL response format ("hash") and primitive format ("top_hash")
+        top_hash = hit.get("top_hash") or hit.get("hash") or ""
         modified = self._normalize_package_datetime(hit.get("modified"))
 
         meta = self._parse_meta(hit.get("meta"))
@@ -1028,7 +1446,15 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         else:
             raise BackendError(f"Unexpected packagePromote response type: {typename}")
 
-    def _validate_package_creation_inputs(self, package_name: str, s3_uris: List[str]) -> None:
+    # =========================================================================
+    # VALIDATION METHODS REMOVED - Now in QuiltOps base class
+    # =========================================================================
+    # The following methods have been removed as they are now in QuiltOps base class:
+    #
+    # - _validate_package_creation_inputs()   -> Now in QuiltOps._validate_package_creation_inputs()
+    # - _validate_package_update_inputs()     -> Now in QuiltOps._validate_package_update_inputs()
+
+    def _validate_package_creation_inputs_REMOVED(self, package_name: str, s3_uris: List[str]) -> None:
         import re
 
         if not package_name or not isinstance(package_name, str):
@@ -1084,20 +1510,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                 },
             )
 
-    def _extract_logical_key(self, s3_uri: str, auto_organize: bool = True) -> str:
-        if auto_organize:
-            parts = s3_uri[5:].split("/", 1)
-            if len(parts) >= 2:
-                return parts[1]
-            return s3_uri.split("/")[-1]
-        return s3_uri.split("/")[-1]
-
-    def _build_catalog_url(self, package_name: str, registry: str) -> Optional[str]:
-        try:
-            if self._catalog_url:
-                bucket = self._extract_bucket_from_registry(registry)
-                base = normalize_url(self._catalog_url)
-                return f"{base}/b/{bucket}/packages/{package_name}"
-        except Exception:
-            return None
-        return None
+    # =========================================================================
+    # TRANSFORMATION METHODS REMOVED - Now in QuiltOps base class
+    # =========================================================================
+    # The following methods have been removed as they are now in QuiltOps base class:
+    #
+    # - _extract_logical_key()    -> Now in QuiltOps._extract_logical_key()
+    # - _build_catalog_url()      -> Now in QuiltOps._build_catalog_url()

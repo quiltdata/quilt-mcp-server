@@ -250,6 +250,7 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
         else:
             # Decode real JWT to get claims
             import jwt as pyjwt
+
             claims = pyjwt.decode(access_token, options={"verify_signature": False})
 
         token_handle = push_runtime_context(
