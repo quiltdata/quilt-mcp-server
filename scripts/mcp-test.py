@@ -838,7 +838,9 @@ class MCPTester:
 
             # CRITICAL: Validate that config covers all server tools (prevents drift)
             # This check ensures mcp-test-setup.py was run after any tool additions
-            if not specific_tool:  # Skip validation when testing specific tool
+            # IMPORTANT: Skip validation when running with --idempotent-only filter
+            # because the filtered config won't have write-effect tools
+            if not specific_tool and selection_stats is None:  # Skip validation when testing specific tool or using filters
                 server_tools = tester.list_tools()
                 config_tools = config.get('test_tools', {}) if config else {}
                 validate_test_coverage(server_tools, config_tools)
@@ -1467,8 +1469,9 @@ def filter_tests_by_idempotence(config: Dict[str, Any], idempotent_only: bool) -
         # Count by effect type
         effect_counts[effect] = effect_counts.get(effect, 0) + 1
 
-        # Filter: idempotent_only means only 'none' effect
-        if idempotent_only and effect == 'none':
+        # Filter: idempotent_only means read-only effects ('none' or 'none-context-required')
+        is_idempotent = effect in ['none', 'none-context-required']
+        if idempotent_only and is_idempotent:
             filtered_tools[tool_name] = tool_config
         elif not idempotent_only:
             filtered_tools[tool_name] = tool_config
