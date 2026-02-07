@@ -39,7 +39,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
     def __init__(self) -> None:
         self._access_token = self._load_access_token()
-        self._claims = self._load_claims()
 
         # Admin operations (lazy loaded)
         self._admin_ops: Optional[AdminOps] = None
@@ -421,113 +420,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # - _backend_add_file_to_package() primitive
     # - _backend_set_package_metadata() primitive
     # - _backend_push_package() primitive
-
-    def _create_package_revision_REMOVED_see_base_class(
-        self,
-        package_name: str,
-        s3_uris: List[str],
-        metadata: Optional[Dict] = None,
-        registry: Optional[str] = None,
-        message: str = "Package created via QuiltOps",
-        auto_organize: bool = True,
-        copy: bool = False,
-    ) -> Package_Creation_Result:
-        try:
-            self._validate_package_creation_inputs(package_name, s3_uris)
-
-            # Extract bucket from registry
-            if not registry:
-                raise ValidationError("Registry is required for package creation")
-            bucket = self._extract_bucket_from_registry(registry)
-
-            # Build GraphQL packageConstruct mutation
-            mutation = """
-            mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
-              packageConstruct(params: $params, src: $src) {
-                __typename
-                ... on PackagePushSuccess {
-                  package { name }
-                  revision { hash }
-                }
-                ... on PackagePushInvalidInputFailure {
-                  errors { path message }
-                }
-                ... on PackagePushComputeFailure {
-                  message
-                }
-              }
-            }
-            """
-
-            # Construct entries array
-            entries = [
-                {
-                    "logicalKey": self._extract_logical_key(s3_uri, auto_organize),
-                    "physicalKey": s3_uri,
-                    "hash": None,
-                    "size": None,
-                    "meta": None,
-                }
-                for s3_uri in s3_uris
-            ]
-
-            # Build variables
-            variables = {
-                "params": {
-                    "bucket": bucket,
-                    "name": package_name,
-                    "message": message,
-                    "userMeta": metadata or {},
-                    "workflow": None,
-                },
-                "src": {"entries": entries},
-            }
-
-            # Execute mutation
-            result = self.execute_graphql_query(mutation, variables=variables)
-
-            # Parse response
-            package_construct = result.get("data", {}).get("packageConstruct", {})
-            typename = package_construct.get("__typename")
-
-            effective_registry = registry
-            catalog_url = self._build_catalog_url(package_name, effective_registry)
-
-            if typename == "PackagePushSuccess":
-                revision = package_construct.get("revision", {})
-                top_hash = revision.get("hash", "")
-
-                # If copy=True, promote the package to copy objects to registry
-                if copy:
-                    top_hash = self._promote_package(bucket, package_name, top_hash, message, metadata or {})
-
-                return Package_Creation_Result(
-                    package_name=package_name,
-                    top_hash=top_hash,
-                    registry=effective_registry,
-                    catalog_url=catalog_url,
-                    file_count=len(s3_uris),
-                    success=True,
-                )
-            elif typename == "PackagePushInvalidInputFailure":
-                errors = package_construct.get("errors", [])
-                error_messages = [
-                    f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors
-                ]
-                raise ValidationError(f"Invalid package input: {'; '.join(error_messages)}")
-            elif typename == "PackagePushComputeFailure":
-                message_text = package_construct.get("message", "Package creation failed")
-                raise BackendError(f"Package creation compute failure: {message_text}")
-            else:
-                raise BackendError(f"Unexpected response type: {typename}")
-
-        except (ValidationError, NotImplementedError):
-            raise
-        except Exception as exc:
-            raise BackendError(
-                f"Platform backend create_package_revision failed: {exc}",
-                context={"package_name": package_name, "registry": registry},
-            ) from exc
 
     def update_package_revision(
         self,

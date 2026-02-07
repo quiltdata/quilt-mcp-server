@@ -1180,26 +1180,6 @@ class QuiltOps(ABC):
             raise BackendError(f"Package creation failed: {str(e)}", context=error_context) from e
 
     @abstractmethod
-    def list_all_packages(self, registry: str) -> List[str]:
-        """List all package names in the specified registry.
-
-        Retrieves a list of all package names available in the given registry.
-        This provides a simple way to discover packages without detailed metadata.
-
-        Args:
-            registry: Registry URL to list packages from
-
-        Returns:
-            List[str]: List of package names in "user/package" format
-
-        Raises:
-            AuthenticationError: When authentication credentials are invalid or missing
-            BackendError: When the backend operation fails or registry is unreachable
-            ValidationError: When registry parameter is invalid
-        """
-        pass
-
-    @abstractmethod
     def diff_packages(
         self,
         package1_name: str,

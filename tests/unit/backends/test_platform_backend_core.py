@@ -345,31 +345,6 @@ def test_get_content_url_presigned(monkeypatch):
     assert url == "https://signed"
 
 
-def test_list_all_packages_paginates(monkeypatch):
-    from quilt_mcp.backends.platform_backend import Platform_Backend
-
-    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
-    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
-    token = _push_jwt_context()
-    try:
-        backend = Platform_Backend()
-    finally:
-        reset_runtime_context(token)
-
-    responses = [
-        {"data": {"packages": {"total": 101, "page": [{"name": "a"}]}}},
-        {"data": {"packages": {"total": 101, "page": [{"name": "b"}]}}},
-    ]
-
-    def _side_effect(*args, **kwargs):
-        return responses.pop(0)
-
-    backend.execute_graphql_query = _side_effect
-
-    results = backend.list_all_packages("s3://test-bucket")
-    assert results == ["a", "b"]
-
-
 def test_get_package_info_missing(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 

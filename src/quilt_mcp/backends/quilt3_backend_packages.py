@@ -195,13 +195,6 @@ class Quilt3_Backend_Packages:
     # - _build_catalog_url()                  -> Now in QuiltOps._build_catalog_url()
     # - _escape_elasticsearch_query()         -> Now in Quilt3_Backend._escape_elasticsearch_query()
 
-    def list_all_packages(self, registry: str) -> list[str]:
-        """List all package names (stub implementation).
-
-        This method is not yet implemented. See Task 3.3 in the migration tasks.
-        """
-        raise NotImplementedError("list_all_packages() not yet implemented - see Task 3.3")
-
     def diff_packages(
         self,
         package1_name: str,

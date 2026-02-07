@@ -182,9 +182,6 @@ class MockQuiltOps(QuiltOps):
     def get_boto3_client(self, service_name, region_name=None):
         return Mock()
 
-    def list_all_packages(self, registry):
-        return []
-
     def diff_packages(self, package1_name, package1_registry, package2_name, package2_registry):
         return {"added": [], "deleted": [], "modified": []}
 
