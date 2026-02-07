@@ -829,11 +829,14 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
         if typename == "PackagePushSuccess":
             revision = package_construct.get("revision", {})
-            top_hash = revision.get("hash", "")
+            top_hash: str = str(revision.get("hash", ""))
 
             # If copy=True, promote the package to copy objects to registry
             if copy:
-                top_hash = self._promote_package(bucket, package_name, top_hash, message, package.get("metadata", {}))
+                promoted_hash = self._promote_package(
+                    bucket, package_name, top_hash, message, package.get("metadata", {})
+                )
+                return str(promoted_hash)
 
             return top_hash
         elif typename == "PackagePushInvalidInputFailure":
@@ -897,7 +900,8 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         Returns:
             Dict mapping logical_key to entry metadata
         """
-        return package.get("revision", {}).get("contentsFlatMap", {})
+        result: Dict[str, Dict[str, Any]] = package.get("revision", {}).get("contentsFlatMap", {})
+        return result
 
     def _backend_get_package_metadata(self, package: Any) -> Dict[str, Any]:
         """Get metadata from package data (backend primitive).
@@ -908,7 +912,8 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         Returns:
             Package metadata dictionary (empty dict if no metadata)
         """
-        return package.get("revision", {}).get("userMeta", {})
+        result: Dict[str, Any] = package.get("revision", {}).get("userMeta", {})
+        return result
 
     def _backend_search_packages(self, query: str, registry: str) -> List[Dict[str, Any]]:
         """Execute GraphQL package search (backend primitive).
@@ -1152,7 +1157,8 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         response = self._requests.get(config_url, timeout=10)
         response.raise_for_status()
 
-        return response.json()
+        result: Dict[str, Any] = response.json()
+        return result
 
     def _backend_list_buckets(self) -> List[Dict[str, Any]]:
         """List S3 buckets via GraphQL (backend primitive).

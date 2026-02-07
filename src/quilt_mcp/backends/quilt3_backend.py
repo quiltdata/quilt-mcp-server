@@ -359,7 +359,8 @@ class Quilt3_Backend(
         response = requests.get(config_url, timeout=10)
         response.raise_for_status()
 
-        return response.json()
+        result: Dict[str, Any] = response.json()
+        return result
 
     def _backend_list_buckets(self) -> List[Dict[str, Any]]:
         """List S3 buckets via boto3 (backend primitive).

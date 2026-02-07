@@ -85,7 +85,7 @@ class QuiltOps(ABC):
         from .exceptions import ValidationError
 
         if not isinstance(uri, str) or not uri.startswith('s3://'):
-            context = {"field": "s3_uri", "uri": uri}
+            context: Dict[str, Any] = {"field": "s3_uri", "uri": uri}
             if index is not None:
                 context["index"] = index
                 error_msg = f"Invalid S3 URI at index {index}: must start with 's3://'"
