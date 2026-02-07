@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import inspect
 import io
+import json
 import os
 import pathlib
 import re
@@ -645,16 +647,17 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     mode_config = get_mode_config()
 
     try:
-        from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
+        from quilt_mcp.middleware.jwt_extraction import JwtExtractionMiddleware
 
         # Add last so it runs first in Starlette's middleware stack.
-        app.add_middleware(JwtAuthMiddleware, require_jwt=mode_config.requires_jwt)
+        # This middleware only extracts JWT - GraphQL backend validates it.
+        app.add_middleware(JwtExtractionMiddleware, require_jwt=mode_config.requires_jwt)
         if mode_config.requires_jwt:
-            logger.info("JWT middleware enabled for HTTP transport")
+            logger.info("JWT extraction middleware enabled for HTTP transport (validation at GraphQL)")
         else:
-            logger.info("JWT middleware present but not enforced (IAM mode)")
+            logger.info("JWT extraction middleware present but not enforced (IAM mode)")
     except ImportError as exc:  # pragma: no cover
-        logger.error("JWT middleware unavailable: %s", exc)
+        logger.error("JWT extraction middleware unavailable: %s", exc)
         raise
 
     return app
@@ -729,3 +732,72 @@ def run_server(skip_banner: bool = False) -> None:
             print("Network connection issue. Check your network settings and firewall.", file=sys.stderr)
 
         raise
+
+
+# JWT Utilities for Testing and Runtime
+
+
+def get_jwt_from_auth_config(registry_url: str) -> Optional[str]:
+    """
+    Read JWT from ~/.quilt/auth.json for a given registry.
+
+    Args:
+        registry_url: The registry URL (e.g., "https://registry.quiltdata.com")
+
+    Returns:
+        JWT token string if found, None otherwise
+    """
+    auth_file = pathlib.Path.home() / ".quilt" / "auth.json"
+
+    if not auth_file.exists():
+        return None
+
+    try:
+        with open(auth_file) as f:
+            auth_data = json.load(f)
+
+        # Navigate: auth.json -> tokens -> {registry_url} -> token
+        tokens = auth_data.get("tokens", {})
+        registry_data = tokens.get(registry_url, {})
+        token = registry_data.get("token")
+        return token if isinstance(token, str) else None
+    except (json.JSONDecodeError, KeyError, OSError):
+        return None
+
+
+def extract_jwt_claims_unsafe(token: str) -> Dict[str, Any]:
+    """
+    Extract claims from JWT WITHOUT validation (debugging/logging only).
+
+    WARNING: This does NOT validate the JWT signature, expiration, or issuer.
+    Only use for debugging, logging, or when the JWT will be validated elsewhere.
+
+    Args:
+        token: JWT token string
+
+    Returns:
+        Decoded claims dictionary
+
+    Raises:
+        ValueError: If token is malformed
+    """
+    if not token or token.count(".") != 2:
+        raise ValueError("Malformed JWT token - must have 3 dot-separated parts")
+
+    # JWT format: header.payload.signature
+    parts = token.split(".")
+    payload = parts[1]
+
+    # Add padding if needed (base64 requires length divisible by 4)
+    padding = len(payload) % 4
+    if padding:
+        payload += "=" * (4 - padding)
+
+    try:
+        decoded_bytes = base64.urlsafe_b64decode(payload)
+        claims = json.loads(decoded_bytes)
+        if not isinstance(claims, dict):
+            raise ValueError("JWT payload must be a JSON object")
+        return claims
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Failed to decode JWT payload: {exc}") from exc

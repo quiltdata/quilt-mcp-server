@@ -30,7 +30,6 @@ from quilt_mcp.runtime_context import (
     get_runtime_claims,
 )
 from quilt_mcp.services.browsing_session_client import BrowsingSessionClient
-from quilt_mcp.services.jwt_decoder import JwtDecodeError, get_jwt_decoder
 from quilt_mcp.utils import graphql_endpoint, normalize_url, get_dns_name_from_url
 
 logger = logging.getLogger(__name__)
@@ -1215,18 +1214,19 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # ---------------------------------------------------------------------
 
     def _load_claims(self) -> Dict[str, Any]:
+        """
+        Load JWT claims from runtime context.
+
+        Note: This does NOT decode JWTs locally. Claims are populated by
+        the middleware or GraphQL response. If no claims are present,
+        returns empty dict (GraphQL will validate when accessed).
+
+        Returns:
+            JWT claims dict or empty dict if not present
+        """
         claims = get_runtime_claims()
         if claims:
             return claims
-
-        runtime_auth = get_runtime_auth()
-        if runtime_auth and runtime_auth.access_token:
-            decoder = get_jwt_decoder()
-            try:
-                return decoder.decode(runtime_auth.access_token)
-            except JwtDecodeError as exc:
-                raise AuthenticationError(f"Invalid JWT: {exc.detail}") from exc
-
         return {}
 
     def _load_access_token(self) -> str:

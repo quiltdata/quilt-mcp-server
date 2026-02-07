@@ -5,10 +5,7 @@ from __future__ import annotations
 import pytest
 
 from quilt_mcp.config import get_mode_config, set_test_mode_config
-from quilt_mcp.services.auth_service import (
-    AuthServiceError,
-    create_auth_service,
-)
+from quilt_mcp.services.auth_service import create_auth_service
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
 from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
@@ -23,28 +20,16 @@ def test_default_mode_is_iam():
     assert isinstance(service, IAMAuthService)
 
 
-def test_jwt_mode_requires_secret(monkeypatch):
-    # We still need to test JWT validation, which requires environment variables
-    monkeypatch.delenv("MCP_JWT_SECRET", raising=False)
-    monkeypatch.delenv("MCP_JWT_SECRET_SSM_PARAMETER", raising=False)
-    set_test_mode_config(multiuser_mode=True)
-
-    with pytest.raises(AuthServiceError):
-        create_auth_service()
-
-
-def test_jwt_mode_enabled(monkeypatch):
-    # We still need to test JWT validation, which requires environment variables
-    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+def test_jwt_mode_enabled():
+    """Test that JWT mode returns JWTAuthService."""
     set_test_mode_config(multiuser_mode=True)
 
     service = create_auth_service()
     assert isinstance(service, JWTAuthService)
 
 
-def test_mode_switching_resets_service(monkeypatch):
-    # We still need to test JWT validation, which requires environment variables
-    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+def test_mode_switching_resets_service():
+    """Test that mode switching returns correct service type."""
     set_test_mode_config(multiuser_mode=True)
     assert isinstance(create_auth_service(), JWTAuthService)
 
@@ -52,8 +37,8 @@ def test_mode_switching_resets_service(monkeypatch):
     assert isinstance(create_auth_service(), IAMAuthService)
 
 
-def test_jwt_auth_service_reads_runtime_claims(monkeypatch):
-    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+def test_jwt_auth_service_reads_runtime_claims():
+    """Test that JWT auth service extracts user ID from runtime claims."""
     set_test_mode_config(multiuser_mode=True)
 
     service = create_auth_service()
