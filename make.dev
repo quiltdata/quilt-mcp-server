@@ -148,10 +148,18 @@ test-scripts: coverage docker-check docker-build scripts/tests/test_*.py | $(RES
 	@echo "\n===✅ Finished all script tests"
 
 # Default - uses local server (fast) with verbose output
-test-mcp:
-	@echo "===🧪 Running MCP server tests (local mode, verbose)..."
+# Smart regeneration via Make dependencies (only if sources changed)
+test-mcp: scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running MCP server tests (local mode)..."
 	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py
+	@uv run python scripts/tests/test_mcp.py --no-generate
+
+# Generate test config only when dependencies change
+TOOL_SOURCES := $(shell find src/quilt_mcp/tools -name "*.py" -type f 2>/dev/null)
+scripts/tests/mcp-test.yaml: scripts/mcp-test-setup.py $(TOOL_SOURCES) src/quilt_mcp/main.py
+	@echo "🔧 Regenerating test configuration (sources changed)..."
+	@uv sync --group test
+	@uv run python scripts/mcp-test-setup.py
 
 # Explicit local mode with verbose output
 test-mcp-local:
