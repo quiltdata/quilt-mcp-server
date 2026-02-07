@@ -7,3 +7,7 @@ This package contains common utilities organized into modules:
 - naming_validator: Package naming validation
 - structure_validator: Package structure validation
 """
+
+from quilt_mcp.utils.common import create_configured_server
+
+__all__ = ["create_configured_server"]
