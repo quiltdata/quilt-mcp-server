@@ -8,13 +8,24 @@ endpoints while maintaining privacy and reliability.
 import json
 import os
 import time
+import platform
+import sys
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 import logging
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, wait
 
 logger = logging.getLogger(__name__)
+
+# Quilt3-compatible telemetry constants
+TELEMETRY_URL = "https://telemetry.quiltdata.cloud/Prod/metrics"
+TELEMETRY_USER_AGENT = "QuiltMCP"
+TELEMETRY_CLIENT_TYPE = "quilt-mcp-server"
+TELEMETRY_SCHEMA_VERSION = "mcp-usage-metrics-v1"
+DISABLE_USAGE_METRICS_ENVVAR = "QUILT_DISABLE_USAGE_METRICS"
+MAX_CLEANUP_WAIT_SECS = 5
 
 
 class TelemetryTransport(ABC):
@@ -147,26 +158,29 @@ class LocalFileTransport(TelemetryTransport):
 
 
 class HTTPTransport(TelemetryTransport):
-    """HTTP-based telemetry transport."""
+    """HTTP-based telemetry transport using async requests (quilt3-compatible)."""
 
-    def __init__(self, endpoint: str, api_key: Optional[str] = None, timeout: int = 30):
+    def __init__(self, endpoint: Optional[str] = None, api_key: Optional[str] = None, timeout: int = 30):
         from quilt_mcp.utils import normalize_url
 
-        self.endpoint = normalize_url(endpoint)
+        # Default to quilt3 telemetry endpoint
+        self.endpoint = normalize_url(endpoint) if endpoint else TELEMETRY_URL
         self.api_key = api_key
         self.timeout = timeout
         self.session = None
+        self.pending_reqs: list = []
 
-        # Initialize HTTP session
+        # Initialize HTTP session with async support (like quilt3)
         try:
-            import requests
+            from requests_futures.sessions import FuturesSession
 
-            self.session = requests.Session()
+            # Use ThreadPoolExecutor with max 2 workers (same as quilt3)
+            self.session = FuturesSession(executor=ThreadPoolExecutor(max_workers=2))
 
-            # Set headers
+            # Set headers (use quilt3's user agent)
             headers = {
                 "Content-Type": "application/json",
-                "User-Agent": "QuiltMCP-Telemetry/1.0",
+                "User-Agent": TELEMETRY_USER_AGENT,
             }
 
             if self.api_key:
@@ -175,74 +189,105 @@ class HTTPTransport(TelemetryTransport):
             self.session.headers.update(headers)
 
         except ImportError:
-            logger.warning("requests library not available, HTTP transport disabled")
+            logger.warning("requests_futures library not available, HTTP transport disabled")
             self.session = None
 
+    def cleanup_completed_requests(self) -> None:
+        """Clean up completed async requests (quilt3-compatible)."""
+        if not self.session:
+            return
+
+        # Remove completed requests from pending list
+        self.pending_reqs = [r for r in self.pending_reqs if not r.done()]
+
     def send_session(self, session_data: Any) -> bool:
-        """Send session data via HTTP."""
+        """Send session data via HTTP asynchronously (quilt3-compatible)."""
         if not self.session:
             return False
 
         try:
+            self.cleanup_completed_requests()
+
             # Convert session data to dict if needed
             if hasattr(session_data, "__dict__"):
                 data = session_data.__dict__
             else:
                 data = session_data
 
+            # Get navigator URL from environment (if available)
+            navigator_url = os.getenv("QUILT_CATALOG_URL") or os.getenv("QUILT_NAVIGATOR_URL")
+
+            # Format payload to match quilt3 schema
             payload = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "type": "session",
-                "transport": "http",
-                "data": data,
+                "api_name": data.get("tool_name", "unknown"),
+                "python_session_id": data.get("session_id", "unknown"),
+                "telemetry_schema_version": TELEMETRY_SCHEMA_VERSION,
+                "navigator_url": navigator_url,
+                "client_type": TELEMETRY_CLIENT_TYPE,
+                "client_version": self._get_mcp_version(),
+                "platform": sys.platform,
+                "python_implementation": platform.python_implementation(),
+                "python_version_major": platform.python_version_tuple()[0],
+                "python_version_minor": platform.python_version_tuple()[1],
+                "python_version_patch": platform.python_version_tuple()[2],
+                # MCP-specific extensions
+                "mcp_data": {
+                    "execution_time": data.get("execution_time"),
+                    "success": data.get("success"),
+                    "total_calls": data.get("total_calls"),
+                    "task_type": data.get("task_type"),
+                },
             }
 
-            response = self.session.post(f"{self.endpoint}/telemetry/session", json=payload, timeout=self.timeout)
+            # Send asynchronously (non-blocking like quilt3)
+            future = self.session.post(self.endpoint, json=payload, timeout=self.timeout)
+            self.pending_reqs.append(future)
 
-            if response.status_code == 200:
-                logger.debug(f"Successfully sent telemetry session to {self.endpoint}")
-                return True
-            else:
-                logger.warning(f"HTTP telemetry failed: {response.status_code} {response.text}")
-                return False
+            logger.debug(f"Queued telemetry session to {self.endpoint}")
+            return True
 
         except Exception as e:
             logger.error(f"Failed to send telemetry via HTTP: {e}")
             return False
 
+    def _get_mcp_version(self) -> str:
+        """Get MCP server version."""
+        try:
+            from quilt_mcp import __version__
+
+            return __version__
+        except ImportError:
+            return "unknown"
+
     def send_batch(self, batch_data: List[Any]) -> bool:
-        """Send batch data via HTTP."""
+        """Send batch data via HTTP asynchronously."""
         if not self.session:
             return False
 
         try:
-            sessions: list[dict[str, Any]] = []
+            self.cleanup_completed_requests()
+
+            # Send each session individually (matching quilt3 pattern)
             for session_data in batch_data:
-                if hasattr(session_data, "__dict__"):
-                    data = session_data.__dict__
-                else:
-                    data = session_data
-                sessions.append(data)
+                self.send_session(session_data)
 
-            payload = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "type": "batch",
-                "transport": "http",
-                "sessions": sessions,
-            }
-
-            response = self.session.post(f"{self.endpoint}/telemetry/batch", json=payload, timeout=self.timeout)
-
-            if response.status_code == 200:
-                logger.debug(f"Successfully sent telemetry batch to {self.endpoint}")
-                return True
-            else:
-                logger.warning(f"HTTP telemetry batch failed: {response.status_code} {response.text}")
-                return False
+            logger.debug(f"Queued {len(batch_data)} telemetry sessions to {self.endpoint}")
+            return True
 
         except Exception as e:
             logger.error(f"Failed to send telemetry batch via HTTP: {e}")
             return False
+
+    def wait_for_pending(self, timeout: int = MAX_CLEANUP_WAIT_SECS) -> None:
+        """Wait for all pending requests to complete (quilt3-compatible)."""
+        if not self.session or not self.pending_reqs:
+            return
+
+        try:
+            wait(self.pending_reqs, timeout=timeout)
+            logger.debug(f"Waited for {len(self.pending_reqs)} pending telemetry requests")
+        except Exception as e:
+            logger.warning(f"Error waiting for pending requests: {e}")
 
     def is_available(self) -> bool:
         """Check if HTTP transport is available."""
@@ -379,5 +424,26 @@ def create_transport(config) -> TelemetryTransport:
             log_group = config.endpoint.replace("cloudwatch:", "")
             return CloudWatchTransport(log_group)
 
-    # Default to local file transport
-    return LocalFileTransport()
+    # Default to quilt3-compatible HTTP transport
+    return HTTPTransport()
+
+
+# Global transport instance for atexit cleanup
+_global_http_transport: Optional[HTTPTransport] = None
+
+
+def register_http_transport(transport: HTTPTransport) -> None:
+    """Register HTTP transport for cleanup on exit (quilt3-compatible)."""
+    global _global_http_transport
+    _global_http_transport = transport
+
+
+# Cleanup pending requests on exit (quilt3-compatible)
+import atexit
+
+
+@atexit.register
+def cleanup_pending_requests():
+    """Finish up any pending telemetry requests on exit."""
+    if _global_http_transport:
+        _global_http_transport.wait_for_pending()

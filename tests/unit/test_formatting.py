@@ -4,7 +4,7 @@ import pytest
 import pandas as pd
 from unittest.mock import Mock, patch
 
-from quilt_mcp.formatting import (
+from quilt_mcp.utils.formatting import (
     format_as_table,
     should_use_table_format,
     enhance_result_with_table_format,

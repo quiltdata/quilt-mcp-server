@@ -8,7 +8,7 @@ from quilt_mcp.config import get_mode_config, set_test_mode_config
 from quilt_mcp.services.auth_service import create_auth_service
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
-from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
+from quilt_mcp.context.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
 
 
 def test_default_mode_is_iam():

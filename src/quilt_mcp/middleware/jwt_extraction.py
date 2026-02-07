@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     RuntimeAuthState,
     get_runtime_environment,
     push_runtime_context,

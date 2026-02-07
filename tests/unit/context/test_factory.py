@@ -10,7 +10,7 @@ import pytest
 
 from quilt_mcp.context.exceptions import ServiceInitializationError
 from quilt_mcp.context.factory import RequestContextFactory
-from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
+from quilt_mcp.context.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
 from quilt_mcp.config import set_test_mode_config
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.jwt_auth_service import JWTAuthService

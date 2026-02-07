@@ -25,7 +25,7 @@ from quilt_mcp.domain import (
     Catalog_Config,
     Package_Creation_Result,
 )
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     get_runtime_auth,
     get_runtime_claims,
 )

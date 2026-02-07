@@ -8,7 +8,7 @@ from typing import Literal, Optional
 from quilt_mcp.context.exceptions import ServiceInitializationError
 from quilt_mcp.context.user_extraction import extract_user_id
 from quilt_mcp.context.request_context import RequestContext
-from quilt_mcp.runtime_context import get_runtime_auth
+from quilt_mcp.context.runtime_context import get_runtime_auth
 from quilt_mcp.services.auth_service import AuthService
 from quilt_mcp.config import get_mode_config
 from quilt_mcp.services.iam_auth_service import IAMAuthService

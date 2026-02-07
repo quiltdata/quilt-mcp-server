@@ -259,7 +259,7 @@ class TestTableFormatPerformance:
 
     def test_large_dataset_table_formatting(self):
         """Test table formatting with large datasets."""
-        from quilt_mcp.formatting import format_as_table, should_use_table_format
+        from quilt_mcp.utils.formatting import format_as_table, should_use_table_format
 
         # Create a large dataset
         large_data = [{"id": i, "name": f"item_{i}", "value": i * 10} for i in range(1000)]
@@ -277,7 +277,7 @@ class TestTableFormatPerformance:
 
     def test_wide_table_formatting(self):
         """Test table formatting with many columns."""
-        from quilt_mcp.formatting import should_use_table_format
+        from quilt_mcp.utils.formatting import should_use_table_format
 
         # Create data with many columns
         wide_data = [{f"col_{i}": f"value_{i}" for i in range(25)} for _ in range(3)]

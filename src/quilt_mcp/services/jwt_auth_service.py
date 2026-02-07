@@ -8,7 +8,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, Literal, Optional, cast
 
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     get_runtime_auth,
     get_runtime_claims,
 )

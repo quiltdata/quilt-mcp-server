@@ -18,7 +18,7 @@ import boto3
 from fastmcp import FastMCP
 from fastmcp.resources import Resource
 
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     set_default_environment,
 )
 
@@ -354,7 +354,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 def _runtime_boto3_session() -> Optional[boto3.Session]:
     """Return a boto3 session sourced from the active runtime context if available."""
     try:
-        from quilt_mcp.runtime_context import get_runtime_auth
+        from quilt_mcp.context.runtime_context import get_runtime_auth
     except ImportError:
         return None
 
@@ -530,7 +530,7 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     from quilt_mcp.config import resource_config
 
     if resource_config.RESOURCES_ENABLED:
-        from quilt_mcp.resources import register_resources
+        from quilt_mcp.tools.resources import register_resources
 
         register_resources(mcp)
 

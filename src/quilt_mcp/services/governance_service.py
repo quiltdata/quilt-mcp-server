@@ -13,7 +13,7 @@ import logging
 from typing import Annotated, Dict, List, Any, Optional
 from pydantic import Field
 from ..utils import format_error_response
-from ..formatting import format_users_as_table, format_roles_as_table
+from quilt_mcp.utils.formatting import format_users_as_table, format_roles_as_table
 from ..ops.quilt_ops import QuiltOps
 from ..ops.exceptions import NotFoundError, BackendError, ValidationError, AuthenticationError, PermissionError
 

@@ -462,7 +462,7 @@ class AthenaQueryService:
                 formatted_data = df.to_csv(index=False)
             elif output_format.lower() == "table":
                 # Format as readable ASCII table
-                from ..formatting import format_as_table
+                from quilt_mcp.utils.formatting import format_as_table
 
                 formatted_data = format_as_table(df)
             elif output_format.lower() == "parquet":
@@ -484,7 +484,7 @@ class AthenaQueryService:
 
             # For auto-detection, add table format when appropriate
             if output_format.lower() in ["json", "csv"]:
-                from ..formatting import should_use_table_format, format_as_table
+                from quilt_mcp.utils.formatting import should_use_table_format, format_as_table
 
                 if should_use_table_format(df):
                     result_copy["formatted_data_table"] = format_as_table(df)

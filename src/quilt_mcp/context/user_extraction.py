@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from quilt_mcp.runtime_context import RuntimeAuthState
+from quilt_mcp.context.runtime_context import RuntimeAuthState
 
 
 def extract_user_id(auth_state: Optional[RuntimeAuthState]) -> Optional[str]:

@@ -47,7 +47,7 @@ async def tabulator_tables_list(bucket: str) -> Dict[str, Any]:
 
             enriched_tables.append(table_info)
 
-        from quilt_mcp.formatting import format_tabulator_results_as_table
+        from quilt_mcp.utils import format_tabulator_results_as_table
 
         result = {
             "success": True,

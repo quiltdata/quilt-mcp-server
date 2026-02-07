@@ -1,4 +1,4 @@
-"""Exceptions for request context handling."""
+"""Exceptions for request context handling and Quilt MCP operations."""
 
 from __future__ import annotations
 
@@ -22,3 +22,39 @@ class ServiceInitializationError(RuntimeError):
         super().__init__(message)
         self.service_name = service_name
         self.reason = reason
+
+
+class TenantValidationError(ValueError):
+    """Raised when tenant validation fails for the selected mode."""
+
+    def __init__(self, mode: str, message: str | None = None) -> None:
+        if message is None:
+            if mode == "single-user":
+                message = "Tenant validation failed for single-user mode. Tenant information must not be provided."
+            elif mode == "multitenant":
+                message = "Tenant validation failed for multitenant mode. Tenant information is required."
+            else:
+                message = (
+                    f"Tenant validation failed for {mode} mode. "
+                    "Tenant information is required or forbidden based on the mode."
+                )
+        super().__init__(message)
+        self.mode = mode
+
+
+class QuiltMCPError(RuntimeError):
+    """Base exception for Quilt MCP server errors."""
+
+    def __init__(self, message: str, *, error_code: str = "quilt_mcp_error") -> None:
+        super().__init__(message)
+        self.error_code = error_code
+
+
+class OperationNotSupportedError(QuiltMCPError):
+    """Operation not supported in current mode."""
+
+    def __init__(self, message: str, mode: str = "multiuser") -> None:
+        super().__init__(
+            f"{message} (Current mode: {mode})",
+            error_code="OPERATION_NOT_SUPPORTED",
+        )

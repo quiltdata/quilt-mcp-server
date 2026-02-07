@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from quilt_mcp.ops.exceptions import BackendError, NotFoundError, ValidationError
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     RuntimeAuthState,
     get_runtime_environment,
     push_runtime_context,

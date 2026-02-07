@@ -8,7 +8,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from quilt_mcp.context.factory import RequestContextFactory
 from quilt_mcp.context.propagation import reset_current_context, set_current_context
-from quilt_mcp.runtime_context import RuntimeAuthState
+from quilt_mcp.context.runtime_context import RuntimeAuthState
 
 
 def extract_auth_info(headers: Optional[Mapping[str, str]]) -> Optional[RuntimeAuthState]:

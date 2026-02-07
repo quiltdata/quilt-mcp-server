@@ -9,7 +9,7 @@ from quilt_mcp.tools.packages import (
     _generate_package_metadata,
 )
 from quilt_mcp.utils import validate_package_name, format_error_response
-from quilt_mcp.validators import (
+from quilt_mcp.utils.validators import (
     validate_package_structure,
     validate_metadata_compliance,
     validate_package_naming,

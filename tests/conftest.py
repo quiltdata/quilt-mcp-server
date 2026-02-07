@@ -176,7 +176,7 @@ def test_env():
 def clean_auth():
     """Ensure runtime auth state doesn't leak between tests (opt-in)."""
     try:
-        from quilt_mcp.runtime_context import clear_runtime_auth, update_runtime_metadata
+        from quilt_mcp.context.runtime_context import clear_runtime_auth, update_runtime_metadata
 
         clear_runtime_auth()
         update_runtime_metadata(jwt_assumed_session=None, jwt_assumed_expiration=None)
@@ -194,7 +194,7 @@ def clean_auth():
     yield
 
     try:
-        from quilt_mcp.runtime_context import clear_runtime_auth, update_runtime_metadata
+        from quilt_mcp.context.runtime_context import clear_runtime_auth, update_runtime_metadata
 
         clear_runtime_auth()
         update_runtime_metadata(jwt_assumed_session=None, jwt_assumed_expiration=None)
@@ -217,7 +217,7 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
     del test_env
 
     from quilt_mcp.config import reset_mode_config, set_test_mode_config
-    from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
+    from quilt_mcp.context.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
 
     mode = request.param
     token_handle = None

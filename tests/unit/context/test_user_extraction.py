@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from quilt_mcp.context.user_extraction import extract_user_id
-from quilt_mcp.runtime_context import RuntimeAuthState
+from quilt_mcp.context.runtime_context import RuntimeAuthState
 
 
 def test_extract_user_from_claims_id():

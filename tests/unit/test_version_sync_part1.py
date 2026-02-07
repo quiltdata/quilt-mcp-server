@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from quilt_mcp.version_sync import (
+from scripts.version_sync import (
     read_project_version,
     generate_manifest_from_template,
     check_version_sync_required,
