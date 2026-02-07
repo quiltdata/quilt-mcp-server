@@ -339,28 +339,7 @@ class Quilt3_Backend(
             "registry_url": None,  # Will be derived from catalog config if needed
         }
 
-    def _backend_get_catalog_config(self, catalog_url: str) -> Dict[str, Any]:
-        """Fetch catalog config.json (backend primitive).
-
-        Args:
-            catalog_url: Catalog URL
-
-        Returns:
-            Raw config dictionary
-
-        Raises:
-            Exception: If config fetch fails
-        """
-        from quilt_mcp.utils.common import normalize_url
-
-        normalized_url = normalize_url(catalog_url)
-        config_url = f"{normalized_url}/config.json"
-
-        response = requests.get(config_url, timeout=10)
-        response.raise_for_status()
-
-        result: Dict[str, Any] = response.json()
-        return result
+    # _backend_get_catalog_config inherited from base class (standard HTTP GET)
 
     def _backend_list_buckets(self) -> List[Dict[str, Any]]:
         """List S3 buckets via boto3 (backend primitive).

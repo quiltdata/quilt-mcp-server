@@ -134,7 +134,20 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # Auth + catalog
     # ---------------------------------------------------------------------
 
-    def get_auth_status(self) -> Auth_Status:
+    def _backend_get_auth_status(self) -> Auth_Status:
+        """Backend primitive: Get basic authentication status.
+
+        Returns Auth_Status with basic fields only (is_authenticated, logged_in_url,
+        catalog_name, registry_url=None). Catalog config enrichment (region,
+        tabulator_data_catalog) is handled by QuiltOps Template Method.
+
+        Returns:
+            Auth_Status object with basic authentication fields only
+
+        Raises:
+            AuthenticationError: When authentication credentials are invalid
+            BackendError: When the backend operation fails to retrieve auth status
+        """
         try:
             query = """
             query AuthStatus {
@@ -152,11 +165,13 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             catalog_url = self._catalog_url
             catalog_name = get_dns_name_from_url(catalog_url) if catalog_url else None
 
+            # Return basic Auth_Status (no catalog config enrichment)
+            # QuiltOps Template Method will enrich with region, tabulator_data_catalog, and registry_url
             return Auth_Status(
                 is_authenticated=is_authenticated,
                 logged_in_url=catalog_url,
                 catalog_name=catalog_name,
-                registry_url=self._registry_url,
+                registry_url=None,  # Will be enriched by Template Method
             )
         except AuthenticationError:
             raise
@@ -734,31 +749,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             for hit in hits
         ]
 
-    def _backend_diff_packages(self, pkg1: Any, pkg2: Any) -> Dict[str, List[str]]:
-        """Compute diff between two package data structures (backend primitive).
-
-        Args:
-            pkg1: First package data structure from GraphQL
-            pkg2: Second package data structure from GraphQL
-
-        Returns:
-            Dict with keys "added", "deleted", "modified"
-        """
-        map1 = self._backend_get_package_entries(pkg1)
-        map2 = self._backend_get_package_entries(pkg2)
-
-        keys1 = set(map1.keys())
-        keys2 = set(map2.keys())
-
-        added = sorted(keys2 - keys1)
-        deleted = sorted(keys1 - keys2)
-
-        modified: List[str] = []
-        for key in sorted(keys1 & keys2):
-            if not self._entries_equal(map1.get(key), map2.get(key)):
-                modified.append(key)
-
-        return {"added": added, "deleted": deleted, "modified": modified}
+    # _backend_diff_packages inherited from base class (uses _backend_get_package_entries)
 
     def _backend_browse_package_content(self, package: Any, path: str) -> List[Dict[str, Any]]:
         """List contents of package at path via GraphQL (backend primitive).
@@ -878,26 +869,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             "registry_url": self._registry_url,
         }
 
-    def _backend_get_catalog_config(self, catalog_url: str) -> Dict[str, Any]:
-        """Fetch catalog config.json via requests (backend primitive).
-
-        Args:
-            catalog_url: Catalog URL
-
-        Returns:
-            Raw config dictionary
-
-        Raises:
-            Exception: If config fetch fails
-        """
-        normalized_url = normalize_url(catalog_url)
-        config_url = f"{normalized_url}/config.json"
-
-        response = self._requests.get(config_url, timeout=10)
-        response.raise_for_status()
-
-        result: Dict[str, Any] = response.json()
-        return result
+    # _backend_get_catalog_config inherited from base class (standard HTTP GET)
 
     def _backend_list_buckets(self) -> List[Dict[str, Any]]:
         """List S3 buckets via GraphQL (backend primitive).
@@ -1015,17 +987,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             type=content_type,
             modified_date=None,
             download_url=None,
-        )
-
-    def _entries_equal(self, entry1: Any, entry2: Any) -> bool:
-        if entry1 is None or entry2 is None:
-            return False
-        if not isinstance(entry1, dict) or not isinstance(entry2, dict):
-            return bool(entry1 == entry2)
-        return (
-            entry1.get("hash") == entry2.get("hash")
-            and entry1.get("size") == entry2.get("size")
-            and entry1.get("physicalKey") == entry2.get("physicalKey")
         )
 
     def _normalize_package_datetime(self, datetime_value: Any) -> str:

@@ -5,12 +5,15 @@ for Quilt operations. Implementations can use either quilt3 library or Platform 
 while maintaining consistent domain-driven operations for MCP tools.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config, Package_Creation_Result
 from .admin_ops import AdminOps
+
+logger = logging.getLogger(__name__)
 
 
 class QuiltOps(ABC):
@@ -477,11 +480,11 @@ class QuiltOps(ABC):
         """
         pass
 
-    @abstractmethod
     def _backend_diff_packages(self, pkg1: Any, pkg2: Any) -> Dict[str, List[str]]:
-        """Compute differences between two packages (backend primitive).
+        """Compute differences between two packages (concrete method).
 
-        Compares the contents of two package objects.
+        Default implementation using _backend_get_package_entries().
+        Backends can override for optimization (e.g., quilt3 uses native pkg.diff()).
 
         Args:
             pkg1: First backend-specific package object
@@ -493,7 +496,30 @@ class QuiltOps(ABC):
         Raises:
             BackendError: If diff computation fails
         """
-        pass
+        # Get entries from both packages
+        entries1 = self._backend_get_package_entries(pkg1)
+        entries2 = self._backend_get_package_entries(pkg2)
+
+        keys1 = set(entries1.keys())
+        keys2 = set(entries2.keys())
+
+        # Compute differences
+        added = sorted(keys2 - keys1)
+        deleted = sorted(keys1 - keys2)
+
+        # Find modified files (same key, different hash)
+        modified = []
+        for key in sorted(keys1 & keys2):
+            hash1 = entries1[key].get("hash")
+            hash2 = entries2[key].get("hash")
+            if hash1 != hash2:
+                modified.append(key)
+
+        return {
+            "added": added,
+            "deleted": deleted,
+            "modified": modified,
+        }
 
     @abstractmethod
     def _backend_browse_package_content(self, package: Any, path: str) -> List[Dict[str, Any]]:
@@ -546,11 +572,10 @@ class QuiltOps(ABC):
         """
         pass
 
-    @abstractmethod
     def _backend_get_catalog_config(self, catalog_url: str) -> Dict[str, Any]:
-        """Fetch catalog configuration from a catalog URL (backend primitive).
+        """Fetch catalog configuration from a catalog URL (concrete method).
 
-        Fetches config.json from the catalog.
+        Standard HTTP GET implementation. Backends can override if needed.
 
         Args:
             catalog_url: Catalog URL (e.g., "https://example.quiltdata.com")
@@ -562,7 +587,30 @@ class QuiltOps(ABC):
             NotFoundError: If config not found
             BackendError: If fetch fails
         """
-        pass
+        from .exceptions import NotFoundError, BackendError
+        from quilt_mcp.utils.common import normalize_url
+        import requests
+
+        normalized_url = normalize_url(catalog_url)
+        config_url = f"{normalized_url}/config.json"
+
+        try:
+            response = requests.get(config_url, timeout=10)
+            response.raise_for_status()
+            result: Dict[str, Any] = response.json()
+            return result
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                from .exceptions import NotFoundError
+
+                raise NotFoundError(f"Catalog config not found at {config_url}") from e
+            from .exceptions import BackendError
+
+            raise BackendError(f"Failed to fetch catalog config: {str(e)}") from e
+        except Exception as e:
+            from .exceptions import BackendError
+
+            raise BackendError(f"Failed to fetch catalog config: {str(e)}") from e
 
     @abstractmethod
     def _backend_list_buckets(self) -> List[Dict[str, Any]]:
@@ -645,16 +693,60 @@ class QuiltOps(ABC):
         """
         pass
 
-    @abstractmethod
     def get_auth_status(self) -> Auth_Status:
-        """Get current authentication status.
+        """Get current authentication status with catalog config enrichment (Template Method).
 
-        Retrieves the current authentication state including whether the user is
-        authenticated, which catalog they're logged into, and the configured registry.
-        This provides a unified view of authentication across different backends.
+        This Template Method orchestrates authentication status retrieval and enrichment:
+        1. Get basic authentication status from backend primitive
+        2. If authenticated, enrich with catalog configuration (region, tabulator_data_catalog)
+        3. Return fully-populated Auth_Status or degraded basic auth on config fetch failure
+
+        This ensures Auth_Status includes all catalog metadata needed by MCP tools,
+        particularly tabulator tools that require region and tabulator_data_catalog fields.
 
         Returns:
-            Auth_Status object with authentication details
+            Auth_Status object with authentication details and catalog configuration
+
+        Raises:
+            BackendError: When the backend operation fails to retrieve auth status
+        """
+        # STEP 1: Get basic auth status from backend primitive
+        basic_auth = self._backend_get_auth_status()
+
+        # STEP 2: Enrich with catalog config if authenticated
+        if basic_auth.is_authenticated and basic_auth.logged_in_url:
+            try:
+                catalog_config = self.get_catalog_config(basic_auth.logged_in_url)
+
+                # Return enriched Auth_Status with catalog fields
+                return Auth_Status(
+                    is_authenticated=basic_auth.is_authenticated,
+                    logged_in_url=basic_auth.logged_in_url,
+                    catalog_name=basic_auth.catalog_name,
+                    registry_url=basic_auth.registry_url,
+                    region=catalog_config.region,
+                    tabulator_data_catalog=catalog_config.tabulator_data_catalog,
+                )
+            except Exception as e:
+                # Degraded mode: return basic auth without catalog config
+                logger.warning(f"Failed to fetch catalog config for enrichment: {e}")
+                return basic_auth
+
+        # STEP 3: Return basic auth (unauthenticated or no catalog URL)
+        return basic_auth
+
+    @abstractmethod
+    def _backend_get_auth_status(self) -> Auth_Status:
+        """Backend primitive: Get basic authentication status.
+
+        Returns Auth_Status with basic fields (is_authenticated, logged_in_url,
+        catalog_name, registry_url) without catalog config enrichment.
+
+        Backends implement this without catalog config logic - enrichment
+        is handled by the get_auth_status() Template Method in QuiltOps base class.
+
+        Returns:
+            Auth_Status object with basic authentication fields only
 
         Raises:
             BackendError: When the backend operation fails to retrieve auth status
