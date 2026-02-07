@@ -25,7 +25,7 @@ from .responses import (
     S3Object,
     UploadResult,
 )
-from ..utils import generate_signed_url, parse_s3_uri
+from ..utils.common import generate_signed_url, parse_s3_uri
 from .auth_helpers import AuthorizationContext, check_s3_authorization
 
 # Helpers

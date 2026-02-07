@@ -12,7 +12,7 @@ import time
 
 from ..context.exceptions import ContextNotAvailableError
 from ..context.propagation import get_current_context
-from ..utils import format_error_response
+from ..utils.common import format_error_response
 from .responses import HealthCheckSuccess
 
 logger = logging.getLogger(__name__)

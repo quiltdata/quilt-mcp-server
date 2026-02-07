@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, Annotated, Literal
 from pydantic import Field
 from ..services.athena_service import AthenaQueryService
-from quilt_mcp.utils import format_error_response
+from quilt_mcp.utils.common import format_error_response
 from quilt_mcp.tools.responses import (
     AthenaDatabasesListResponse,
     AthenaDatabasesListSuccess,

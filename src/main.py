@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pure FastMCP server for Quilt data access."""
 
-from quilt_mcp.utils import run_server
+from quilt_mcp.utils.common import run_server
 
 
 def main() -> None:

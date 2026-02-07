@@ -1,7 +1,7 @@
 """Integration tests for utils module (AWS-dependent tests)."""
 
 import pytest
-from quilt_mcp.utils import generate_signed_url
+from quilt_mcp.utils.common import generate_signed_url
 
 
 class TestUtilsAWSIntegration:

@@ -18,7 +18,7 @@ from ..context.exceptions import ContextNotAvailableError
 from ..context.propagation import get_current_context
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 
-from ..utils import format_error_response, generate_signed_url, get_s3_client, validate_package_name
+from ..utils.common import format_error_response, generate_signed_url, get_s3_client, validate_package_name
 from ..ops.factory import QuiltOpsFactory
 from ..domain import Package_Creation_Result
 from .auth_helpers import AuthorizationContext, check_package_authorization
@@ -637,7 +637,7 @@ def packages_list(
         # Normalize registry and use QuiltOps.search_packages() for listing
         normalized_registry = _normalize_registry(registry)
         # Suppress stdout during search_packages to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
         from ..ops.factory import QuiltOpsFactory
 
         quilt_ops = QuiltOpsFactory.create()
@@ -780,7 +780,7 @@ def package_browse(
     normalized_registry = _normalize_registry(registry)
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
         from ..ops.factory import QuiltOpsFactory
         from dataclasses import asdict
 
@@ -1015,7 +1015,7 @@ def package_diff(
     try:
         # Use QuiltOps.diff_packages() for business logic
         from ..ops.factory import QuiltOpsFactory
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
 
         quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
@@ -1399,7 +1399,7 @@ def package_update(
     try:
         # Use QuiltOps.update_package_revision() for business logic
         from ..ops.factory import QuiltOpsFactory
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
 
         quilt_ops = QuiltOpsFactory.create()
 
@@ -1533,7 +1533,7 @@ def package_delete(
             )
 
         # Suppress stdout during delete to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
         import quilt3
 
         with suppress_stdout():

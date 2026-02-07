@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
 from quilt_mcp.tools import buckets, catalog, packages
-from quilt_mcp.utils import (
+from quilt_mcp.utils.common import (
     create_configured_server,
     create_mcp_server,
     fix_url,
@@ -34,7 +34,7 @@ class TestUtils(unittest.TestCase):
         # Empty string
         self.assertIsNone(generate_signed_url(""))
 
-    @patch("quilt_mcp.utils.get_s3_client")
+    @patch("quilt_mcp.utils.common.get_s3_client")
     def test_generate_signed_url_mocked(self, mock_s3_client):
         """Test successful URL generation with mocks (unit test)."""
         mock_client = MagicMock()
@@ -51,7 +51,7 @@ class TestUtils(unittest.TestCase):
             ExpiresIn=1800,
         )
 
-    @patch("quilt_mcp.utils.get_s3_client")
+    @patch("quilt_mcp.utils.common.get_s3_client")
     def test_generate_signed_url_expiration_limits_mocked(self, mock_s3_client):
         """Test expiration time limits with mocks (unit test)."""
         mock_client = MagicMock()
@@ -72,7 +72,7 @@ class TestUtils(unittest.TestCase):
             ExpiresIn=604800,  # 7 days
         )
 
-    @patch("quilt_mcp.utils.get_s3_client")
+    @patch("quilt_mcp.utils.common.get_s3_client")
     def test_generate_signed_url_exception_mocked(self, mock_s3_client):
         """Test handling of exceptions during URL generation with mocks (unit test)."""
         mock_client = MagicMock()
@@ -85,7 +85,7 @@ class TestUtils(unittest.TestCase):
 
     def test_generate_signed_url_complex_key(self):
         """Test with complex S3 key containing slashes."""
-        with patch("quilt_mcp.utils.get_s3_client") as mock_s3_client:
+        with patch("quilt_mcp.utils.common.get_s3_client") as mock_s3_client:
             mock_client = MagicMock()
             mock_client.generate_presigned_url.return_value = "https://signed.url"
             mock_s3_client.return_value = mock_client

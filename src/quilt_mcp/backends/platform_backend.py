@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import os
 from contextlib import contextmanager
 from typing import List, Optional, Dict, Any, cast
@@ -30,7 +29,7 @@ from quilt_mcp.context.runtime_context import (
     get_runtime_claims,
 )
 from quilt_mcp.services.browsing_session_client import BrowsingSessionClient
-from quilt_mcp.utils import graphql_endpoint, normalize_url, get_dns_name_from_url
+from quilt_mcp.utils.common import graphql_endpoint, normalize_url, get_dns_name_from_url
 
 logger = logging.getLogger(__name__)
 
@@ -316,37 +315,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                 f"Platform backend browse_content failed: {exc}",
                 context={"package_name": package_name, "registry": registry, "path": path},
             ) from exc
-
-    def list_all_packages(self, registry: str) -> List[str]:
-        try:
-            bucket = self._extract_bucket_from_registry(registry)
-            per_page = 100
-            gql = """
-            query ListPackages($bucket: String!, $page: Int!, $perPage: Int!) {
-              packages(bucket: $bucket) {
-                total
-                page(number: $page, perPage: $perPage, order: NAME) {
-                  name
-                }
-              }
-            }
-            """
-            first = self.execute_graphql_query(gql, variables={"bucket": bucket, "page": 1, "perPage": per_page})
-            pkg_list = first.get("data", {}).get("packages")
-            if not pkg_list:
-                return []
-            total = pkg_list.get("total", 0)
-            pages = max(1, math.ceil(total / per_page))
-            names: List[str] = [item.get("name") for item in pkg_list.get("page", []) if item.get("name")]
-
-            for page in range(2, pages + 1):
-                data = self.execute_graphql_query(gql, variables={"bucket": bucket, "page": page, "perPage": per_page})
-                page_items = data.get("data", {}).get("packages", {}).get("page", [])
-                names.extend([item.get("name") for item in page_items if item.get("name")])
-
-            return names
-        except Exception as exc:
-            raise BackendError(f"Platform backend list_all_packages failed: {exc}") from exc
 
     def diff_packages(
         self,

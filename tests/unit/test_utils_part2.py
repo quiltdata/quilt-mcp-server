@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
 from quilt_mcp.tools import buckets, catalog, packages
-from quilt_mcp.utils import (
+from quilt_mcp.utils.common import (
     create_configured_server,
     create_mcp_server,
     fix_url,
@@ -67,7 +67,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
 
         # Mock inspect.getmembers to return our test functions
         # but also mock the predicate function to properly filter
-        with patch("quilt_mcp.utils.inspect.getmembers") as mock_getmembers:
+        with patch("quilt_mcp.utils.common.inspect.getmembers") as mock_getmembers:
             # The predicate should only return the public function
             def mock_predicate(obj):
                 return (
@@ -91,8 +91,8 @@ class TestMCPServerConfiguration(unittest.TestCase):
             # Note: register_tools wraps functions before registering, so we check call count
             mock_server.tool.assert_called_once()
 
-    @patch("quilt_mcp.utils.build_http_app")
-    @patch("quilt_mcp.utils.create_configured_server")
+    @patch("quilt_mcp.utils.common.build_http_app")
+    @patch("quilt_mcp.utils.common.create_configured_server")
     def test_run_server_sse_transport(self, mock_create_server, mock_build_app):
         """Test run_server with SSE transport."""
         mock_server = Mock(spec=FastMCP)
@@ -111,8 +111,8 @@ class TestMCPServerConfiguration(unittest.TestCase):
             mock_build_app.assert_called_once_with(mock_server, transport="sse")
             mock_uvicorn.run.assert_called_once()
 
-    @patch("quilt_mcp.utils.build_http_app")
-    @patch("quilt_mcp.utils.create_configured_server")
+    @patch("quilt_mcp.utils.common.build_http_app")
+    @patch("quilt_mcp.utils.common.create_configured_server")
     def test_run_server_custom_host_port(self, mock_create_server, mock_build_app):
         """Test run_server respects custom host and port env vars."""
         mock_server = Mock(spec=FastMCP)
@@ -133,7 +133,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
             self.assertEqual(call_args[1]["host"], "0.0.0.0")  # noqa: S104
             self.assertEqual(call_args[1]["port"], 9000)
 
-    @patch("quilt_mcp.utils.create_configured_server")
+    @patch("quilt_mcp.utils.common.create_configured_server")
     def test_run_server_default_transport(self, mock_create_server):
         """Test run_server with default transport."""
         mock_server = Mock(spec=FastMCP)
@@ -146,7 +146,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
         # Verify default transport is used with default show_banner=True
         mock_server.run.assert_called_once_with(transport="stdio", show_banner=True)
 
-    @patch("quilt_mcp.utils.create_configured_server")
+    @patch("quilt_mcp.utils.common.create_configured_server")
     def test_run_server_skip_banner(self, mock_create_server):
         """Test run_server with skip_banner=True."""
         mock_server = Mock(spec=FastMCP)
@@ -159,7 +159,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
         # Verify run was called with show_banner=False
         mock_server.run.assert_called_once_with(transport="stdio", show_banner=False)
 
-    @patch("quilt_mcp.utils.create_configured_server")
+    @patch("quilt_mcp.utils.common.create_configured_server")
     def test_run_server_error_handling(self, mock_create_server):
         """Test run_server error handling."""
         # Make create_configured_server raise an exception
@@ -170,7 +170,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
 
         self.assertIn("Test error", str(context.exception))
 
-    @patch("quilt_mcp.utils.create_configured_server")
+    @patch("quilt_mcp.utils.common.create_configured_server")
     def test_run_server_prints_error(self, mock_create_server):
         """Test that run_server prints errors."""
         mock_create_server.side_effect = Exception("Test error")

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 from urllib.parse import quote
 
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, NotFoundError
-from quilt_mcp.utils import normalize_url
+from quilt_mcp.utils.common import normalize_url
 
 if TYPE_CHECKING:
     import requests

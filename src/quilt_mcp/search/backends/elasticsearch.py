@@ -275,7 +275,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                     return []
 
                 # Get catalog config to find registry URL
-                from quilt_mcp.utils import normalize_url
+                from quilt_mcp.utils.common import normalize_url
 
                 normalized_catalog = normalize_url(logged_in_url)
 
@@ -288,7 +288,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 if not registry_url:
                     return []
 
-                from quilt_mcp.utils import graphql_endpoint
+                from quilt_mcp.utils.common import graphql_endpoint
 
                 resp = session.post(
                     graphql_endpoint(registry_url),

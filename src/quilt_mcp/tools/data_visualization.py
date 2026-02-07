@@ -17,7 +17,7 @@ from .responses import (
     VisualizationConfig,
     VisualizationFile,
 )
-from ..utils import get_s3_client
+from ..utils.common import get_s3_client
 
 
 COLOR_SCHEMES = {

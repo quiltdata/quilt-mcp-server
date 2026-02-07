@@ -28,7 +28,7 @@ else:
     AthenaClient = Any
     Quilt3_Backend = Any
 
-from ..utils import format_error_response, suppress_stdout
+from ..utils.common import format_error_response, suppress_stdout
 
 logger = logging.getLogger(__name__)
 

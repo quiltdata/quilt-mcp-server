@@ -351,7 +351,7 @@ class Quilt3_Backend(
         Raises:
             Exception: If config fetch fails
         """
-        from quilt_mcp.utils import normalize_url
+        from quilt_mcp.utils.common import normalize_url
 
         normalized_url = normalize_url(catalog_url)
         config_url = f"{normalized_url}/config.json"

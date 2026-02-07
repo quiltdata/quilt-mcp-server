@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional, Literal
 import logging
 
 from quilt_mcp.ops.factory import QuiltOpsFactory
-from quilt_mcp.utils import format_error_response
+from quilt_mcp.utils.common import format_error_response
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ async def tabulator_tables_list(bucket: str) -> Dict[str, Any]:
 
             enriched_tables.append(table_info)
 
-        from quilt_mcp.utils import format_tabulator_results_as_table
+        from quilt_mcp.utils.formatting import format_tabulator_results_as_table
 
         result = {
             "success": True,

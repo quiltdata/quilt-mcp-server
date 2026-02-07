@@ -56,7 +56,7 @@ class Quilt3_Backend_Session:
             # Extract catalog name from URL if authenticated
             catalog_name: Optional[str] = None
             if is_authenticated and logged_in_url:
-                from quilt_mcp.utils import get_dns_name_from_url
+                from quilt_mcp.utils.common import get_dns_name_from_url
 
                 catalog_name = get_dns_name_from_url(logged_in_url)
 
@@ -118,7 +118,7 @@ class Quilt3_Backend_Session:
                 raise AuthenticationError("No active quilt3 session - please run 'quilt3 login'")
 
             # Normalize URL and fetch config.json
-            from quilt_mcp.utils import normalize_url
+            from quilt_mcp.utils.common import normalize_url
 
             normalized_url = normalize_url(catalog_url)
             config_url = f"{normalized_url}/config.json"
@@ -311,7 +311,7 @@ class Quilt3_Backend_Session:
             catalog_config = self.get_catalog_config(logged_in_url)
 
             # Construct GraphQL endpoint from registry URL
-            from quilt_mcp.utils import graphql_endpoint
+            from quilt_mcp.utils.common import graphql_endpoint
 
             api_url = graphql_endpoint(catalog_config.registry_url)
             logger.debug(f"GraphQL endpoint: {api_url}")
@@ -429,7 +429,7 @@ class Quilt3_Backend_Session:
             # Construct GraphQL endpoint
             # This is a simplified implementation - in practice, this might need
             # to query the catalog config to get the actual API endpoint
-            from quilt_mcp.utils import graphql_endpoint
+            from quilt_mcp.utils.common import graphql_endpoint
 
             api_endpoint = graphql_endpoint(f"https://{bucket_name}.quiltdata.com")
 

@@ -93,7 +93,7 @@ class TestFormatAsTable:
     def test_format_error_handling(self):
         """Test error handling in table formatting."""
         # Mock pandas to raise an exception
-        with patch("quilt_mcp.formatting.pd.DataFrame") as mock_df:
+        with patch("quilt_mcp.utils.formatting.pd.DataFrame") as mock_df:
             mock_df.side_effect = Exception("Test error")
 
             result = format_as_table([{"test": "data"}])
@@ -252,7 +252,7 @@ class TestFormatAthenaResultsAsTable:
             "format": "csv",
         }
 
-        with patch("quilt_mcp.formatting.pd.read_csv") as mock_read_csv:
+        with patch("quilt_mcp.utils.formatting.pd.read_csv") as mock_read_csv:
             mock_read_csv.side_effect = Exception("Parse error")
 
             enhanced = format_athena_results_as_table(result)
@@ -312,7 +312,7 @@ class TestFormatTabulatorResultsAsTable:
 class TestIntegrationWithAthenaService:
     """Integration tests with AthenaQueryService."""
 
-    @patch("quilt_mcp.formatting.logger")
+    @patch("quilt_mcp.utils.formatting.logger")
     def test_athena_service_table_format_integration(self, mock_logger):
         """Test integration with AthenaQueryService format_results method."""
         from quilt_mcp.services.athena_service import AthenaQueryService

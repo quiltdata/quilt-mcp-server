@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from quilt_mcp.utils.validators import metadata_validator as mv
+from quilt_mcp.utils import metadata_validator as mv
 
 
 def test_validate_metadata_compliance_identifies_missing_fields():
