@@ -51,9 +51,7 @@ def test_http_transport_includes_transport_marker(monkeypatch: pytest.MonkeyPatc
             return DummyFuture()
 
     # Mock requests_futures
-    dummy_requests_futures = types.SimpleNamespace(
-        sessions=types.SimpleNamespace(FuturesSession=DummyFuturesSession)
-    )
+    dummy_requests_futures = types.SimpleNamespace(sessions=types.SimpleNamespace(FuturesSession=DummyFuturesSession))
     monkeypatch.setitem(sys.modules, "requests_futures.sessions", dummy_requests_futures.sessions)
 
     http = telemetry_transport.HTTPTransport("https://example.com/api")
