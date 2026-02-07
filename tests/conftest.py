@@ -48,6 +48,11 @@ if app_dir not in sys.path:
 
 QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
 
+# Test package configuration (can reference any package in any bucket)
+# These are used for basic connectivity checks only
+KNOWN_TEST_PACKAGE = os.getenv("QUILT_TEST_PACKAGE", "test/raw")
+KNOWN_TEST_ENTRY = os.getenv("QUILT_TEST_ENTRY", "README.md")
+
 
 def _is_truthy_env(value: str | None) -> bool:
     """Parse a permissive true/false environment variable value."""

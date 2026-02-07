@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from quilt_mcp.constants import KNOWN_TEST_PACKAGE
+from tests.conftest import KNOWN_TEST_PACKAGE
 from quilt_mcp.tools.packages import package_create_from_s3
 
 TEST_BUCKET = "test-bucket"

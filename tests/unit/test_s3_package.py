@@ -1,6 +1,6 @@
 """Tests for S3 package creation utilities and validators."""
 
-from quilt_mcp.constants import KNOWN_TEST_PACKAGE
+from tests.conftest import KNOWN_TEST_PACKAGE
 from quilt_mcp.tools.packages import (
     _should_include_object,
     _suggest_target_registry,
