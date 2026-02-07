@@ -10,6 +10,13 @@ Phase 2 Enhancement: Intelligent test discovery with validation
 - Records PASSED/FAILED/SKIPPED status for each tool
 - Captures actual response values for test expectations
 - Uses discovered data to inform later tool tests
+
+Phase 3 Enhancement (A18): 100% tool coverage with intelligent inference
+- Tool classification system (5 categories)
+- Argument inference from signatures and environment
+- Context parameter injection for permission tools
+- Coverage validation and reporting
+- Smart regeneration (only when sources change)
 """
 
 import asyncio
@@ -38,6 +45,7 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from quilt_mcp.utils import create_configured_server
+from quilt_mcp.context.request_context import RequestContext
 
 
 # ============================================================================
@@ -106,19 +114,21 @@ class DiscoveredDataRegistry:
 class DiscoveryOrchestrator:
     """Coordinates tool execution and data discovery."""
 
-    def __init__(self, server, timeout: float = 5.0, verbose: bool = True):
+    def __init__(self, server, timeout: float = 5.0, verbose: bool = True, env_vars: Dict[str, str | None] = None):
         self.server = server
         self.timeout = timeout
         self.verbose = verbose
         self.registry = DiscoveredDataRegistry()
         self.results: Dict[str, DiscoveryResult] = {}
+        self.env_vars = env_vars or {}
 
     async def discover_tool(
         self,
         tool_name: str,
         handler,
         arguments: Dict[str, Any],
-        effect: str
+        effect: str,
+        category: str = 'required-arg'
     ) -> DiscoveryResult:
         """
         Execute a tool and capture its behavior.
@@ -138,18 +148,24 @@ class DiscoveryOrchestrator:
             )
 
         try:
+            # Inject context if tool needs it (but don't modify original arguments dict)
+            sig = inspect.signature(handler.fn)
+            runtime_arguments = arguments.copy()
+            if 'context' in sig.parameters:
+                runtime_arguments['context'] = create_mock_context()
+
             # Execute tool with timeout
             # Check if function is async
             if inspect.iscoroutinefunction(handler.fn):
                 result = await asyncio.wait_for(
-                    handler.fn(**arguments),
+                    handler.fn(**runtime_arguments),
                     timeout=self.timeout
                 )
             else:
                 # Synchronous function - run in executor with timeout
                 loop = asyncio.get_event_loop()
                 result = await asyncio.wait_for(
-                    loop.run_in_executor(None, lambda: handler.fn(**arguments)),
+                    loop.run_in_executor(None, lambda: handler.fn(**runtime_arguments)),
                     timeout=self.timeout
                 )
 
@@ -338,6 +354,215 @@ class DiscoveryOrchestrator:
 
 
 # ============================================================================
+# Phase 3: Tool Classification & Argument Inference (A18)
+# ============================================================================
+
+def create_mock_context() -> RequestContext:
+    """Create a mock RequestContext for testing tools that require it."""
+    from unittest.mock import MagicMock
+
+    # Create mock services
+    mock_auth_service = MagicMock()
+    mock_auth_service.is_valid.return_value = True
+    mock_auth_service.get_boto3_session.return_value = None
+
+    mock_permission_service = MagicMock()
+    mock_permission_service.discover_permissions.return_value = {"buckets": []}
+    mock_permission_service.check_bucket_access.return_value = {"accessible": True}
+
+    return RequestContext(
+        request_id="test-request-mcp-test-setup",
+        user_id="test-user-mcp-test-setup",
+        auth_service=mock_auth_service,
+        permission_service=mock_permission_service,
+        workflow_service=None
+    )
+
+
+def classify_tool(tool_name: str, handler) -> tuple[str, str]:
+    """Classify tool by effect and category.
+
+    Returns:
+        (effect, category) where:
+            effect: none|create|update|remove|configure|none-context-required
+            category: zero-arg|required-arg|optional-arg|write-effect|context-required
+    """
+    sig = inspect.signature(handler.fn)
+
+    # Check if tool needs context
+    has_context_param = any(
+        param_name == 'context' and
+        (param.annotation == RequestContext or 'RequestContext' in str(param.annotation))
+        for param_name, param in sig.parameters.items()
+    )
+
+    # Classify effect
+    name_lower = tool_name.lower()
+    if any(kw in name_lower for kw in ['create', 'put', 'upload', 'set']):
+        effect = 'create'
+    elif any(kw in name_lower for kw in ['delete', 'remove', 'reset']):
+        effect = 'remove'
+    elif any(kw in name_lower for kw in ['update', 'add', 'rename']):
+        effect = 'update'
+    elif any(kw in name_lower for kw in ['configure', 'toggle', 'apply', 'execute', 'generate']):
+        effect = 'configure'
+    else:
+        effect = 'none-context-required' if has_context_param else 'none'
+
+    # Classify category
+    if effect in ['create', 'update', 'remove']:
+        category = 'write-effect'
+    elif has_context_param:
+        category = 'context-required'
+    else:
+        # Check required arguments (excluding context)
+        required_args = [
+            name for name, param in sig.parameters.items()
+            if param.default == inspect.Parameter.empty and name != 'context'
+        ]
+        if not required_args:
+            category = 'zero-arg'
+        elif len(required_args) > 0 and len(sig.parameters) > len(required_args):
+            category = 'optional-arg'
+        else:
+            category = 'required-arg'
+
+    return effect, category
+
+
+def infer_arguments(
+    tool_name: str,
+    handler,
+    env_vars: Dict[str, str | None],
+    discovered_data: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Infer test arguments from signature, environment, and discovered data.
+
+    Args:
+        tool_name: Name of the tool
+        handler: Tool handler with .fn attribute
+        env_vars: Environment variables from .env
+        discovered_data: Data discovered from prior tool runs
+
+    Returns:
+        Dictionary of inferred arguments
+    """
+    sig = inspect.signature(handler.fn)
+    args = {}
+    discovered_data = discovered_data or {}
+
+    # Extract common test values from environment
+    test_bucket = env_vars.get("QUILT_TEST_BUCKET", "s3://quilt-example")
+    catalog_url = env_vars.get("QUILT_CATALOG_URL", "https://open.quiltdata.com")
+    test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
+    test_entry = env_vars.get("QUILT_TEST_ENTRY", ".timestamp")
+    bucket_name = test_bucket.replace("s3://", "").split("/")[0]
+
+    for param_name, param in sig.parameters.items():
+        # Skip context parameter (injected separately)
+        if param_name == 'context':
+            continue
+
+        # Skip if has default
+        if param.default != inspect.Parameter.empty:
+            continue
+
+        # Infer by parameter name patterns
+        param_lower = param_name.lower()
+
+        # Bucket parameters
+        if 'bucket' in param_lower:
+            if param_lower == 'bucket' or param_lower == 'bucket_name':
+                args[param_name] = bucket_name
+            else:
+                args[param_name] = test_bucket
+
+        # Package parameters
+        elif 'package' in param_lower:
+            if 'name' in param_lower:
+                args[param_name] = test_package
+            else:
+                args[param_name] = test_package
+
+        # S3 URI parameters
+        elif param_lower in ['s3_uri', 'uri']:
+            # Use discovered S3 key if available
+            if discovered_data.get('s3_keys'):
+                args[param_name] = discovered_data['s3_keys'][0]
+            else:
+                args[param_name] = f"s3://{bucket_name}/{test_package}/{test_entry}"
+
+        # Path/key parameters
+        elif param_lower in ['path', 'logical_key', 'key']:
+            args[param_name] = test_entry
+
+        # Query parameters
+        elif param_lower == 'query':
+            if 'athena' in tool_name or 'tabulator' in tool_name:
+                args[param_name] = "SELECT 1 as test_value"
+            else:
+                args[param_name] = test_entry
+
+        # Database/table parameters
+        elif param_lower == 'database' or param_lower == 'database_name':
+            args[param_name] = "default"
+        elif param_lower == 'table' or param_lower == 'table_name':
+            args[param_name] = "test_table"
+
+        # Catalog/registry parameters
+        elif param_lower in ['catalog_url', 'registry']:
+            args[param_name] = test_bucket
+
+        # Limit/max parameters
+        elif 'limit' in param_lower or 'max' in param_lower:
+            args[param_name] = 10
+
+        # Visualization parameters (complex structures)
+        elif param_lower == 'organized_structure':
+            args[param_name] = {"files": [{"name": "test.txt", "size": 100}]}
+        elif param_lower == 'file_types':
+            args[param_name] = {"txt": 1}
+        elif param_lower == 'package_metadata':
+            args[param_name] = {"name": test_package}
+        elif param_lower == 'readme_content':
+            args[param_name] = "# Test Package"
+        elif param_lower == 'source_info':
+            args[param_name] = {"type": "test"}
+
+        # Data parameters for visualizations
+        elif param_lower == 'data':
+            args[param_name] = {"x": [1, 2, 3], "y": [4, 5, 6]}
+        elif param_lower in ['plot_type', 'chart_type']:
+            args[param_name] = "scatter"
+        elif param_lower == 'x_column':
+            args[param_name] = "x"
+        elif param_lower == 'y_column':
+            args[param_name] = "y"
+
+        # Boolean parameters
+        elif param.annotation == bool or 'bool' in str(param.annotation):
+            # Infer based on parameter name
+            if any(kw in param_lower for kw in ['include', 'recursive', 'force', 'use']):
+                args[param_name] = True
+            else:
+                args[param_name] = False
+
+        # String parameters (generic fallback)
+        elif param.annotation == str or 'str' in str(param.annotation):
+            # Try to infer from name
+            if 'name' in param_lower:
+                args[param_name] = "test_name"
+            else:
+                args[param_name] = "test_value"
+
+        # Integer parameters
+        elif param.annotation == int or 'int' in str(param.annotation):
+            args[param_name] = 10
+
+    return args
+
+
+# ============================================================================
 # Phase 1: Introspection (Existing)
 # ============================================================================
 
@@ -481,22 +706,36 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
 
 
 def _truncate_response(response: Any, max_size: int = 1000) -> Any:
-    """Truncate large responses to keep YAML config manageable."""
+    """Truncate large responses to keep YAML config manageable and ensure serializability."""
     if not isinstance(response, dict):
-        return response
+        # Handle non-dict responses
+        if isinstance(response, (str, int, float, bool, type(None))):
+            return response
+        else:
+            return str(response)  # Convert non-serializable to string
 
     result = {}
     for key, value in response.items():
-        if isinstance(value, list):
-            # Truncate arrays to first few items
-            if len(value) > 3:
-                result[key] = value[:3] + [{"_truncated": f"{len(value) - 3} more items"}]
-            else:
+        try:
+            if isinstance(value, list):
+                # Truncate arrays to first few items
+                if len(value) > 3:
+                    result[key] = value[:3] + [{"_truncated": f"{len(value) - 3} more items"}]
+                else:
+                    result[key] = value
+            elif isinstance(value, str) and len(value) > max_size:
+                result[key] = value[:max_size] + f"... (truncated, {len(value)} total chars)"
+            elif isinstance(value, dict):
+                # Recursively truncate nested dicts
+                result[key] = _truncate_response(value, max_size)
+            elif isinstance(value, (int, float, bool, type(None))):
                 result[key] = value
-        elif isinstance(value, str) and len(value) > max_size:
-            result[key] = value[:max_size] + f"... (truncated, {len(value)} total chars)"
-        else:
-            result[key] = value
+            else:
+                # Convert non-serializable objects to strings
+                result[key] = str(value)
+        except Exception:
+            # If anything fails, convert to string
+            result[key] = f"<non-serializable: {type(value).__name__}>"
 
     return result
 
@@ -533,7 +772,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     }
 
     # Initialize discovery orchestrator
-    orchestrator = DiscoveryOrchestrator(server, timeout=5.0, verbose=True)
+    orchestrator = DiscoveryOrchestrator(server, timeout=5.0, verbose=True, env_vars=env_vars)
 
     # Get all registered tools
     # Get all tools
@@ -638,25 +877,8 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         handler = server_tools[tool_name]
         doc = inspect.getdoc(handler.fn) or "No description available"
 
-        # Classify tool by effect type
-        def classify_effect(name: str) -> str:
-            """Classify tool effect based on operation keywords in name."""
-            name_lower = name.lower()
-
-            # Order matters: check more specific patterns first
-            if any(kw in name_lower for kw in ['create', 'put', 'upload', 'set']):
-                return 'create'
-            if any(kw in name_lower for kw in ['delete', 'remove', 'reset']):
-                return 'remove'
-            if any(kw in name_lower for kw in ['update', 'add', 'rename']):
-                return 'update'
-            if any(kw in name_lower for kw in ['configure', 'toggle', 'apply', 'execute', 'generate', 'rename']):
-                return 'configure'
-
-            # Default: read-only operation
-            return 'none'
-
-        effect = classify_effect(tool_name)
+        # Classify tool
+        effect, category = classify_tool(tool_name, handler)
 
         # Check if this tool has variants
         if tool_name in tool_variants:
@@ -787,10 +1009,18 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                         test_config["test_tools"][variant_key] = test_case
         else:
             # Single test case for tools without variants
+            # Use custom config if available, otherwise infer arguments
+            if tool_name in custom_configs:
+                arguments = custom_configs[tool_name]
+            else:
+                # Infer arguments from signature and environment
+                arguments = infer_arguments(tool_name, handler, env_vars, orchestrator.registry.to_dict())
+
             test_case = {
                 "description": doc.split('\n')[0],
                 "effect": effect,
-                "arguments": custom_configs.get(tool_name, {}),
+                "category": category,  # NEW: Track tool category
+                "arguments": arguments,
                 "response_schema": {
                     "type": "object",
                     "properties": {
@@ -826,13 +1056,15 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
             handler = server_tools[actual_tool_name]
             arguments = test_case.get("arguments", {})
             effect = test_case.get("effect", "none")
+            category = test_case.get("category", "required-arg")
 
             # Run discovery
             result = await orchestrator.discover_tool(
                 actual_tool_name,
                 handler,
                 arguments,
-                effect
+                effect,
+                category
             )
 
             # Store result
@@ -965,12 +1197,27 @@ async def main():
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
-        description="Generate MCP test configuration with intelligent discovery"
+        description="Generate MCP test configuration with intelligent discovery and 100% coverage"
     )
     parser.add_argument(
         "--skip-discovery",
         action="store_true",
         help="Skip tool discovery phase (generate config without validation)"
+    )
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Validate coverage without regenerating YAML (exit 0 if 100%%, 1 otherwise)"
+    )
+    parser.add_argument(
+        "--show-missing",
+        action="store_true",
+        help="List tools without test configurations and exit"
+    )
+    parser.add_argument(
+        "--show-categories",
+        action="store_true",
+        help="Show tool classification (category + effect) and exit"
     )
     parser.add_argument(
         "--quick",
@@ -1010,6 +1257,96 @@ async def main():
 
     # Create server instance to introspect tools
     server = create_configured_server(verbose=False)
+
+    # Handle --show-categories mode
+    if args.show_categories:
+        print("\n📊 Tool Classification:")
+        server_tools = await server.get_tools()
+        by_category = {}
+        for tool_name, handler in server_tools.items():
+            effect, category = classify_tool(tool_name, handler)
+            by_category.setdefault(category, []).append((tool_name, effect))
+
+        for category in ['zero-arg', 'required-arg', 'optional-arg', 'write-effect', 'context-required']:
+            if category in by_category:
+                print(f"\n{category.upper().replace('-', ' ')} ({len(by_category[category])} tools):")
+                for tool_name, effect in sorted(by_category[category]):
+                    print(f"  • {tool_name} (effect={effect})")
+        sys.exit(0)
+
+    # Handle --show-missing mode
+    if args.show_missing:
+        scripts_tests_dir = Path(__file__).parent / "tests"
+        yaml_path = scripts_tests_dir / "mcp-test.yaml"
+
+        if not yaml_path.exists():
+            print(f"❌ Test config not found: {yaml_path}")
+            print("   Run without --show-missing to generate it")
+            sys.exit(1)
+
+        # Load existing YAML
+        with open(yaml_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        # Get server tools
+        server_tools = await server.get_tools()
+        server_tool_names = set(server_tools.keys())
+
+        # Get config tools (handle variants)
+        config_tool_names = set()
+        for config_key, config_value in config.get('test_tools', {}).items():
+            if isinstance(config_value, dict) and 'tool' in config_value:
+                config_tool_names.add(config_value['tool'])
+            else:
+                config_tool_names.add(config_key)
+
+        # Find missing
+        missing = server_tool_names - config_tool_names
+
+        if missing:
+            print(f"\n❌ {len(missing)} tool(s) NOT covered by test config:")
+            for tool_name in sorted(missing):
+                handler = server_tools[tool_name]
+                effect, category = classify_tool(tool_name, handler)
+                print(f"  • {tool_name} (category={category}, effect={effect})")
+            print(f"\n📋 Coverage: {len(config_tool_names)}/{len(server_tool_names)} tools")
+            print(f"   Run without --show-missing to regenerate with 100% coverage")
+            sys.exit(1)
+        else:
+            print(f"✅ All {len(server_tool_names)} tools covered by test config")
+            sys.exit(0)
+
+    # Handle --validate-only mode
+    if args.validate_only:
+        scripts_tests_dir = Path(__file__).parent / "tests"
+        yaml_path = scripts_tests_dir / "mcp-test.yaml"
+
+        if not yaml_path.exists():
+            print(f"❌ Test config not found: {yaml_path}")
+            sys.exit(1)
+
+        with open(yaml_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        server_tools = await server.get_tools()
+        server_tool_names = set(server_tools.keys())
+
+        config_tool_names = set()
+        for config_key, config_value in config.get('test_tools', {}).items():
+            if isinstance(config_value, dict) and 'tool' in config_value:
+                config_tool_names.add(config_value['tool'])
+            else:
+                config_tool_names.add(config_key)
+
+        missing = server_tool_names - config_tool_names
+
+        if missing:
+            print(f"❌ Coverage validation FAILED: {len(missing)} tools missing")
+            sys.exit(1)
+        else:
+            print(f"✅ Coverage validation PASSED: {len(server_tool_names)} tools covered")
+            sys.exit(0)
+
     tools = await extract_tool_metadata(server)
 
     print(f"📊 Found {len(tools)} tools across {len(set(tool['module'] for tool in tools))} modules")
