@@ -34,6 +34,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 from dotenv import dotenv_values
+from quiltx import get_catalog_url
+from quiltx.stack import find_matching_stack, stack_outputs
 
 # Add src to path for imports
 script_dir = Path(__file__).parent
@@ -46,6 +48,43 @@ if str(src_dir) not in sys.path:
 
 from quilt_mcp.utils import create_configured_server
 from quilt_mcp.context.request_context import RequestContext
+
+
+# ============================================================================
+# Stack Configuration Helper
+# ============================================================================
+
+def get_user_athena_database(catalog_url: str) -> str:
+    """Get the UserAthenaDatabase from the CloudFormation stack.
+
+    Args:
+        catalog_url: The catalog URL (e.g., https://nightly.quilttest.com)
+
+    Returns:
+        The UserAthenaDatabase name, or 'default' if not found
+    """
+    try:
+        # Find the stack for this catalog
+        stack = find_matching_stack(catalog_url)
+
+        # Get the outputs
+        outputs = stack_outputs(stack)
+
+        # Find the UserAthenaDatabaseName output
+        for output in outputs:
+            if output.get('OutputKey') == 'UserAthenaDatabaseName':
+                db_name = output.get('OutputValue')
+                if db_name:
+                    print(f"   ✅ Found UserAthenaDatabaseName: {db_name}")
+                    return db_name
+
+        print(f"   ⚠️  UserAthenaDatabaseName not found in stack outputs, using 'default'")
+        return 'default'
+
+    except Exception as e:
+        print(f"   ⚠️  Failed to get UserAthenaDatabaseName from stack: {e}")
+        print(f"   Using 'default' database")
+        return 'default'
 
 
 # ============================================================================
@@ -434,7 +473,8 @@ def infer_arguments(
     tool_name: str,
     handler,
     env_vars: Dict[str, str | None],
-    discovered_data: Optional[Dict[str, Any]] = None
+    discovered_data: Optional[Dict[str, Any]] = None,
+    athena_database: Optional[str] = None
 ) -> Dict[str, Any]:
     """Infer test arguments from signature, environment, and discovered data.
 
@@ -443,6 +483,7 @@ def infer_arguments(
         handler: Tool handler with .fn attribute
         env_vars: Environment variables from .env
         discovered_data: Data discovered from prior tool runs
+        athena_database: The Athena database name from stack outputs
 
     Returns:
         Dictionary of inferred arguments
@@ -457,6 +498,7 @@ def infer_arguments(
     test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
     test_entry = env_vars.get("QUILT_TEST_ENTRY", ".timestamp")
     bucket_name = test_bucket.replace("s3://", "").split("/")[0]
+    db_name = athena_database or "default"
 
     for param_name, param in sig.parameters.items():
         # Skip context parameter (injected separately)
@@ -505,7 +547,7 @@ def infer_arguments(
 
         # Database/table parameters
         elif param_lower == 'database' or param_lower == 'database_name':
-            args[param_name] = "default"
+            args[param_name] = db_name
         elif param_lower == 'table' or param_lower == 'table_name':
             args[param_name] = "test_table"
 
@@ -785,6 +827,10 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     test_entry: str = env_vars.get("QUILT_TEST_ENTRY") or ".timestamp"
     bucket_name = test_bucket.replace("s3://", "").split("/")[0]
 
+    # Get UserAthenaDatabase from the CloudFormation stack
+    print(f"\n🔍 Looking up UserAthenaDatabase from stack for catalog: {catalog_url}")
+    athena_database = get_user_athena_database(catalog_url)
+
     # Auto-generate tool order from all discovered tools
     # Special case: bucket_objects_list runs FIRST to discover real objects
     all_tool_names = list(server_tools.keys())
@@ -843,8 +889,8 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         # Query operations
         "athena_query_validate": {"query": "SHOW TABLES"},
         "athena_query_execute": {"query": "SELECT 1 as test_value", "max_results": 10},
-        "athena_tables_list": {"database": "default"},
-        "athena_table_schema": {"database": "default", "table": "test_table"},
+        "athena_tables_list": {"database": athena_database},
+        "athena_table_schema": {"database": athena_database, "table": "test_table"},
         "tabulator_bucket_query": {"bucket_name": bucket_name, "query": "SELECT 1 as test_value", "max_results": 10},
         "tabulator_tables_list": {"bucket": bucket_name},
         "tabulator_open_query_status": {},
@@ -1014,7 +1060,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                 arguments = custom_configs[tool_name]
             else:
                 # Infer arguments from signature and environment
-                arguments = infer_arguments(tool_name, handler, env_vars, orchestrator.registry.to_dict())
+                arguments = infer_arguments(tool_name, handler, env_vars, orchestrator.registry.to_dict(), athena_database)
 
             test_case = {
                 "description": doc.split('\n')[0],
@@ -1071,16 +1117,19 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
             orchestrator.results[test_key] = result
 
             # Add discovery info to test case
+            # NOTE: Omit volatile data (precise timings, timestamps, presigned URLs)
+            # to avoid unnecessary git diffs on every run
             discovery_info = {
                 "status": result.status,
-                "duration_ms": round(result.duration_ms, 2),
-                "discovered_at": result.timestamp
+                # Round duration to nearest 100ms to reduce noise
+                "duration_ms": round(result.duration_ms / 100) * 100 if result.duration_ms else 0,
             }
 
             if result.status == 'PASSED':
                 # Add response example (truncate if too large)
                 if result.response:
-                    discovery_info["response_example"] = _truncate_response(result.response, max_size=1000)
+                    truncated = _truncate_response(result.response, max_size=1000)
+                    discovery_info["response_example"] = truncated
                 if result.discovered_data:
                     discovery_info["discovered_data"] = result.discovered_data
 
@@ -1160,8 +1209,8 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                 bucket_name_var = test_bucket.replace("s3://", "").split("/")[0] if test_bucket.startswith("s3://") else test_bucket
                 test_case["uri_variables"][var] = bucket_name_var
             elif var == "database":
-                # Use default test database
-                test_case["uri_variables"][var] = "default"
+                # Use UserAthenaDatabase from stack
+                test_case["uri_variables"][var] = athena_database
             elif var == "table":
                 # Use a test table name
                 test_case["uri_variables"][var] = "test_table"
