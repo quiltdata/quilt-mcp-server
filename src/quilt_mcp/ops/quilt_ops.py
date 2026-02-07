@@ -300,6 +300,40 @@ class QuiltOps(ABC):
 
         return True
 
+    def _transform_bucket_to_bucket_info(self, bucket_dict: Dict[str, Any]) -> "Bucket_Info":
+        """Transform backend bucket dict to Bucket_Info domain object.
+
+        Args:
+            bucket_dict: Backend-specific bucket dictionary
+                        Must include: name
+                        Optional: region, access_level, created, created_date
+
+        Returns:
+            Bucket_Info domain object with sensible defaults
+        """
+        name = bucket_dict.get("name", "")
+        region = bucket_dict.get("region", "unknown")
+        access_level = bucket_dict.get("access_level", "unknown")
+
+        # Handle various datetime field names
+        created_date = bucket_dict.get("created_date") or bucket_dict.get("created")
+        if created_date and hasattr(created_date, "isoformat"):
+            created_date_str = created_date.isoformat()
+        elif created_date:
+            created_date_str = str(created_date)
+        else:
+            created_date_str = None
+
+        # Import here to avoid circular dependency
+        from ..domain import Bucket_Info
+
+        return Bucket_Info(
+            name=name,
+            region=region if region else "unknown",
+            access_level=access_level if access_level else "unknown",
+            created_date=created_date_str,
+        )
+
     # =========================================================================
     # Backend Primitives (Abstract - Template Method Pattern)
     # =========================================================================
@@ -752,12 +786,16 @@ class QuiltOps(ABC):
                 context={"package_name": package_name, "registry": registry, "path": path},
             ) from e
 
-    @abstractmethod
     def list_buckets(self) -> List[Bucket_Info]:
-        """List accessible S3 buckets for Quilt operations.
+        """List accessible S3 buckets for Quilt operations (concrete method).
 
-        Returns information about S3 buckets that the current user can access
-        for Quilt package operations. Includes bucket metadata and access permissions.
+        This is a Template Method that orchestrates backend primitives to implement
+        the complete bucket listing workflow.
+
+        Workflow:
+            1. List buckets (backend primitive)
+            2. Transform results (transformation via backend primitive)
+            3. Return list
 
         Returns:
             List of Bucket_Info objects representing accessible buckets
@@ -766,15 +804,34 @@ class QuiltOps(ABC):
             AuthenticationError: When authentication credentials are invalid or missing
             BackendError: When the backend operation fails or AWS access is denied
         """
-        pass
+        from .exceptions import BackendError
 
-    @abstractmethod
+        try:
+            # STEP 1: LIST BUCKETS (backend primitive)
+            bucket_dicts = self._backend_list_buckets()
+
+            # STEP 2: TRANSFORM RESULTS (transformation via backend primitive)
+            buckets = []
+            for bucket_dict in bucket_dicts:
+                bucket_info = self._transform_bucket_to_bucket_info(bucket_dict)
+                buckets.append(bucket_info)
+
+            # STEP 3: RETURN
+            return buckets
+
+        except Exception as e:
+            raise BackendError(f"List buckets failed: {str(e)}") from e
+
     def get_content_url(self, package_name: str, registry: str, path: str) -> str:
-        """Get download URL for specific content within a package.
+        """Get download URL for specific content within a package (concrete method).
 
-        Generates a URL that can be used to download or access the specified file
-        within a package. The URL format may vary by backend but should provide
-        direct access to the content.
+        This is a Template Method that orchestrates backend primitives to implement
+        the complete URL generation workflow.
+
+        Workflow:
+            1. Validate inputs (validation in base class)
+            2. Generate URL (backend primitive)
+            3. Return URL
 
         Args:
             package_name: Full package name in "user/package" format
@@ -789,15 +846,40 @@ class QuiltOps(ABC):
             BackendError: When the backend operation fails or content is not found
             ValidationError: When parameters are invalid or path doesn't exist
         """
-        pass
+        from .exceptions import ValidationError, NotFoundError, BackendError
 
-    @abstractmethod
+        try:
+            # STEP 1: VALIDATION
+            self._validate_package_name(package_name)
+            self._validate_registry(registry)
+            if not path or not isinstance(path, str):
+                raise ValidationError("Path must be a non-empty string", {"field": "path"})
+
+            # STEP 2: GENERATE URL (backend primitive)
+            url = self._backend_get_file_url(package_name, registry, path)
+
+            # STEP 3: RETURN
+            return url
+
+        except (ValidationError, NotFoundError):
+            raise
+        except Exception as e:
+            raise BackendError(
+                f"Get content URL failed: {str(e)}",
+                context={"package_name": package_name, "registry": registry, "path": path},
+            ) from e
+
     def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
-        """Get catalog configuration from the specified catalog URL.
+        """Get catalog configuration from the specified catalog URL (concrete method).
 
-        Retrieves the catalog configuration including AWS infrastructure details,
-        API endpoints, and derived information like stack prefix and tabulator catalog name.
-        This provides backend-agnostic access to catalog configuration data.
+        This is a Template Method that orchestrates backend primitives to implement
+        the complete catalog config retrieval workflow.
+
+        Workflow:
+            1. Validate catalog URL (validation in base class)
+            2. Fetch config.json (backend primitive)
+            3. Transform config (transformation in base class)
+            4. Return Catalog_Config
 
         Args:
             catalog_url: URL of the catalog (e.g., 'https://example.quiltdata.com')
@@ -811,7 +893,86 @@ class QuiltOps(ABC):
             ValidationError: When catalog_url parameter is invalid
             NotFoundError: When catalog configuration is not found
         """
-        pass
+        from .exceptions import ValidationError, NotFoundError, BackendError
+
+        try:
+            # STEP 1: VALIDATION
+            if not catalog_url or not isinstance(catalog_url, str):
+                raise ValidationError("Invalid catalog URL: must be a non-empty string")
+
+            # STEP 2: FETCH CONFIG (backend primitive)
+            config_data = self._backend_get_catalog_config(catalog_url)
+
+            # STEP 3: TRANSFORM CONFIG (transformation in base class)
+            catalog_config = self._transform_catalog_config(config_data)
+
+            # STEP 4: RETURN
+            return catalog_config
+
+        except (ValidationError, NotFoundError):
+            raise
+        except Exception as e:
+            raise BackendError(f"Get catalog config failed: {str(e)}", context={"catalog_url": catalog_url}) from e
+
+    def _transform_catalog_config(self, config_data: Dict[str, Any]) -> Catalog_Config:
+        """Transform raw config dict to Catalog_Config domain object.
+
+        This method contains all the business logic for deriving fields like
+        stack_prefix and tabulator_data_catalog from the raw config.
+
+        Args:
+            config_data: Raw config dictionary from config.json
+
+        Returns:
+            Catalog_Config domain object
+
+        Raises:
+            BackendError: If required fields are missing or transformation fails
+        """
+        from .exceptions import BackendError
+        from ..domain import Catalog_Config
+
+        try:
+            region = config_data.get("region", "")
+            if not region:
+                raise BackendError("Missing required field 'region' in catalog configuration")
+
+            api_gateway_endpoint = config_data.get("apiGatewayEndpoint", "")
+            if not api_gateway_endpoint:
+                raise BackendError("Missing required field 'apiGatewayEndpoint' in catalog configuration")
+
+            registry_url = config_data.get("registryUrl", "")
+            if not registry_url:
+                raise BackendError("Missing required field 'registryUrl' in catalog configuration")
+
+            analytics_bucket = config_data.get("analyticsBucket", "")
+            if not analytics_bucket:
+                raise BackendError("Missing required field 'analyticsBucket' in catalog configuration")
+
+            # Derive stack_prefix from analytics_bucket
+            stack_prefix = ""
+            analytics_bucket_lower = analytics_bucket.lower()
+            if "-analyticsbucket" in analytics_bucket_lower:
+                analyticsbucket_pos = analytics_bucket_lower.find("-analyticsbucket")
+                stack_prefix = analytics_bucket[:analyticsbucket_pos]
+            else:
+                stack_prefix = analytics_bucket.split("-")[0] if "-" in analytics_bucket else analytics_bucket
+
+            # Derive tabulator catalog name from stack prefix
+            tabulator_data_catalog = f"quilt-{stack_prefix}-tabulator"
+
+            return Catalog_Config(
+                region=region,
+                api_gateway_endpoint=api_gateway_endpoint,
+                registry_url=registry_url,
+                analytics_bucket=analytics_bucket,
+                stack_prefix=stack_prefix,
+                tabulator_data_catalog=tabulator_data_catalog,
+            )
+        except BackendError:
+            raise
+        except Exception as exc:
+            raise BackendError(f"Catalog configuration transformation failed: {exc}") from exc
 
     @abstractmethod
     def configure_catalog(self, catalog_url: str) -> None:
@@ -1179,7 +1340,6 @@ class QuiltOps(ABC):
             }
             raise BackendError(f"Package creation failed: {str(e)}", context=error_context) from e
 
-    @abstractmethod
     def diff_packages(
         self,
         package1_name: str,
@@ -1188,11 +1348,17 @@ class QuiltOps(ABC):
         package1_hash: Optional[str] = None,
         package2_hash: Optional[str] = None,
     ) -> Dict[str, List[str]]:
-        """Compare two package versions and return differences.
+        """Compare two package versions and return differences (concrete method).
 
-        Compares the contents of two package versions and returns the differences
-        between them. This includes files that were added, deleted, or modified
-        between the two package versions.
+        This is a Template Method that orchestrates backend primitives to implement
+        the complete package diff workflow.
+
+        Workflow:
+            1. Validate inputs (validation in base class)
+            2. Get first package (backend primitive)
+            3. Get second package (backend primitive)
+            4. Compute diff (backend primitive)
+            5. Return result
 
         Args:
             package1_name: Full name of the first package in "user/package" format
@@ -1215,7 +1381,37 @@ class QuiltOps(ABC):
             ValidationError: When package names, registry, or hash parameters are invalid
             NotFoundError: When one or both packages don't exist in the registry
         """
-        pass
+        from .exceptions import ValidationError, NotFoundError, BackendError
+
+        try:
+            # STEP 1: VALIDATION
+            self._validate_package_name(package1_name)
+            self._validate_package_name(package2_name)
+            self._validate_registry(registry)
+
+            # STEP 2: GET FIRST PACKAGE (backend primitive)
+            pkg1 = self._backend_get_package(package1_name, registry, package1_hash)
+
+            # STEP 3: GET SECOND PACKAGE (backend primitive)
+            pkg2 = self._backend_get_package(package2_name, registry, package2_hash)
+
+            # STEP 4: COMPUTE DIFF (backend primitive)
+            diff_result = self._backend_diff_packages(pkg1, pkg2)
+
+            # STEP 5: RETURN
+            return diff_result
+
+        except (ValidationError, NotFoundError):
+            raise
+        except Exception as e:
+            raise BackendError(
+                f"Package diff failed: {str(e)}",
+                context={
+                    "package1_name": package1_name,
+                    "package2_name": package2_name,
+                    "registry": registry,
+                },
+            ) from e
 
     def update_package_revision(
         self,

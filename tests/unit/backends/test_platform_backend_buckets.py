@@ -184,19 +184,16 @@ def test_get_catalog_config_success(monkeypatch):
     """Fetch config.json from catalog."""
     backend = _make_backend(monkeypatch)
 
-    class DummyResponse:
-        def raise_for_status(self):
-            pass
+    # Mock the backend primitive instead of the session
+    def mock_get_config(catalog_url):
+        return {
+            "region": "us-west-2",
+            "apiGatewayEndpoint": "https://api.example.com",
+            "registryUrl": "https://registry.example.com",
+            "analyticsBucket": "quilt-prod-analyticsbucket-abc123",
+        }
 
-        def json(self):
-            return {
-                "region": "us-west-2",
-                "apiGatewayEndpoint": "https://api.example.com",
-                "registryUrl": "https://registry.example.com",
-                "analyticsBucket": "quilt-prod-analyticsbucket-abc123",
-            }
-
-    backend._session.get = lambda *args, **kwargs: DummyResponse()
+    backend._backend_get_catalog_config = mock_get_config
 
     config = backend.get_catalog_config("https://example.quiltdata.com")
     assert config.region == "us-west-2"
@@ -208,19 +205,16 @@ def test_get_catalog_config_parses_stack_prefix(monkeypatch):
     """Extract stack prefix from analyticsBucket."""
     backend = _make_backend(monkeypatch)
 
-    class DummyResponse:
-        def raise_for_status(self):
-            pass
+    # Mock the backend primitive instead of the session
+    def mock_get_config(catalog_url):
+        return {
+            "region": "us-east-1",
+            "apiGatewayEndpoint": "https://api.example.com",
+            "registryUrl": "https://registry.example.com",
+            "analyticsBucket": "quilt-demo-analyticsbucket-xyz789",
+        }
 
-        def json(self):
-            return {
-                "region": "us-east-1",
-                "apiGatewayEndpoint": "https://api.example.com",
-                "registryUrl": "https://registry.example.com",
-                "analyticsBucket": "quilt-demo-analyticsbucket-xyz789",
-            }
-
-    backend._session.get = lambda *args, **kwargs: DummyResponse()
+    backend._backend_get_catalog_config = mock_get_config
 
     config = backend.get_catalog_config("https://demo.quiltdata.com")
     assert config.stack_prefix == "quilt-demo"
@@ -232,19 +226,16 @@ def test_get_catalog_config_handles_missing_fields(monkeypatch):
     """Handle optional fields."""
     backend = _make_backend(monkeypatch)
 
-    class DummyResponse:
-        def raise_for_status(self):
-            pass
+    # Mock the backend primitive to return incomplete data
+    def mock_get_config(catalog_url):
+        # Missing required field 'region'
+        return {
+            "apiGatewayEndpoint": "https://api.example.com",
+            "registryUrl": "https://registry.example.com",
+            "analyticsBucket": "quilt-test-analyticsbucket-123",
+        }
 
-        def json(self):
-            # Missing required field 'region'
-            return {
-                "apiGatewayEndpoint": "https://api.example.com",
-                "registryUrl": "https://registry.example.com",
-                "analyticsBucket": "quilt-test-analyticsbucket-123",
-            }
-
-    backend._session.get = lambda *args, **kwargs: DummyResponse()
+    backend._backend_get_catalog_config = mock_get_config
 
     with pytest.raises(BackendError, match="Missing required field 'region'"):
         backend.get_catalog_config("https://test.quiltdata.com")

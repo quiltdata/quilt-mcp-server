@@ -272,19 +272,22 @@ def test_get_package_info_handles_null_fields(monkeypatch):
 def test_diff_packages_detects_added_files(monkeypatch):
     """Identify new files in package2."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "p1": {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}},
-            "p2": {
+
+    # Mock _backend_get_package to return package data structures
+    def mock_get_package(package_name, registry, top_hash=None):
+        if package_name == "team/pkg1":
+            return {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}}
+        else:  # team/pkg2
+            return {
                 "revision": {
                     "contentsFlatMap": {
                         "a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"},
                         "b.txt": {"size": 200, "hash": "h2", "physicalKey": "s3://b/b"},
                     }
                 }
-            },
-        }
-    }
+            }
+
+    backend._backend_get_package = mock_get_package
 
     diff = backend.diff_packages("team/pkg1", "team/pkg2", "s3://test-bucket")
     assert diff["added"] == ["b.txt"]
@@ -295,14 +298,16 @@ def test_diff_packages_detects_added_files(monkeypatch):
 def test_diff_packages_detects_modified_files(monkeypatch):
     """Detect size/hash changes."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "p1": {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}},
-            "p2": {
+
+    def mock_get_package(package_name, registry, top_hash=None):
+        if package_name == "team/pkg1":
+            return {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}}
+        else:  # team/pkg2
+            return {
                 "revision": {"contentsFlatMap": {"a.txt": {"size": 200, "hash": "h2", "physicalKey": "s3://b/a2"}}}
-            },
-        }
-    }
+            }
+
+    backend._backend_get_package = mock_get_package
 
     diff = backend.diff_packages("team/pkg1", "team/pkg2", "s3://test-bucket")
     assert diff["added"] == []
@@ -313,19 +318,21 @@ def test_diff_packages_detects_modified_files(monkeypatch):
 def test_diff_packages_detects_removed_files(monkeypatch):
     """Identify deleted files."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "p1": {
+
+    def mock_get_package(package_name, registry, top_hash=None):
+        if package_name == "team/pkg1":
+            return {
                 "revision": {
                     "contentsFlatMap": {
                         "a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"},
                         "b.txt": {"size": 200, "hash": "h2", "physicalKey": "s3://b/b"},
                     }
                 }
-            },
-            "p2": {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}},
-        }
-    }
+            }
+        else:  # team/pkg2
+            return {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}}
+
+    backend._backend_get_package = mock_get_package
 
     diff = backend.diff_packages("team/pkg1", "team/pkg2", "s3://test-bucket")
     assert diff["added"] == []
@@ -336,12 +343,11 @@ def test_diff_packages_detects_removed_files(monkeypatch):
 def test_diff_packages_identical_packages(monkeypatch):
     """Handle no changes."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "p1": {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}},
-            "p2": {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}},
-        }
-    }
+
+    def mock_get_package(package_name, registry, top_hash=None):
+        return {"revision": {"contentsFlatMap": {"a.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/a"}}}}
+
+    backend._backend_get_package = mock_get_package
 
     diff = backend.diff_packages("team/pkg1", "team/pkg1", "s3://test-bucket")
     assert diff["added"] == []
@@ -352,9 +358,10 @@ def test_diff_packages_identical_packages(monkeypatch):
 def test_diff_packages_complex_scenario(monkeypatch):
     """Mixed adds/modifies/removes."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "p1": {
+
+    def mock_get_package(package_name, registry, top_hash=None):
+        if package_name == "team/pkg1":
+            return {
                 "revision": {
                     "contentsFlatMap": {
                         "keep.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/k"},
@@ -362,8 +369,9 @@ def test_diff_packages_complex_scenario(monkeypatch):
                         "delete.txt": {"size": 300, "hash": "h3", "physicalKey": "s3://b/d"},
                     }
                 }
-            },
-            "p2": {
+            }
+        else:  # team/pkg2
+            return {
                 "revision": {
                     "contentsFlatMap": {
                         "keep.txt": {"size": 100, "hash": "h1", "physicalKey": "s3://b/k"},
@@ -371,9 +379,9 @@ def test_diff_packages_complex_scenario(monkeypatch):
                         "add.txt": {"size": 400, "hash": "h4", "physicalKey": "s3://b/a"},
                     }
                 }
-            },
-        }
-    }
+            }
+
+    backend._backend_get_package = mock_get_package
 
     diff = backend.diff_packages("team/pkg1", "team/pkg2", "s3://test-bucket")
     assert diff["added"] == ["add.txt"]

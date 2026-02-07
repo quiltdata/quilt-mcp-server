@@ -26,7 +26,6 @@ from quilt_mcp.domain import (
 )
 from quilt_mcp.context.runtime_context import (
     get_runtime_auth,
-    get_runtime_claims,
 )
 from quilt_mcp.services.browsing_session_client import BrowsingSessionClient
 from quilt_mcp.utils.common import graphql_endpoint, normalize_url, get_dns_name_from_url
@@ -164,27 +163,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         except Exception as exc:
             raise BackendError(f"Failed to get authentication status: {exc}") from exc
 
-    def get_catalog_config(self, catalog_url: str) -> Catalog_Config:
-        try:
-            if not catalog_url or not isinstance(catalog_url, str):
-                raise ValidationError("Invalid catalog URL: must be a non-empty string")
-
-            normalized_url = normalize_url(catalog_url)
-            config_url = f"{normalized_url}/config.json"
-            response = self._session.get(config_url, timeout=10)
-            response.raise_for_status()
-            config_data = response.json()
-            return self._transform_catalog_config(config_data)
-        except ValidationError:
-            raise
-        except self._requests.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == 404:
-                raise NotFoundError(f"Catalog configuration not found at {catalog_url}") from exc
-            if exc.response is not None and exc.response.status_code == 403:
-                raise AuthenticationError(f"Access denied to catalog configuration at {catalog_url}") from exc
-            raise BackendError(f"HTTP error fetching catalog config: {exc}") from exc
-        except Exception as exc:
-            raise BackendError(f"Platform backend get_catalog_config failed: {exc}") from exc
+    # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
+    # get_catalog_config() is now a concrete method in QuiltOps that calls:
+    # - _backend_get_catalog_config() primitive
+    # - _transform_catalog_config() transformation (in QuiltOps base)
 
     def configure_catalog(self, catalog_url: str) -> None:
         raise ValidationError(
@@ -199,33 +181,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # Read operations
     # ---------------------------------------------------------------------
 
-    def list_buckets(self) -> List[Bucket_Info]:
-        try:
-            query = """
-            query ListBuckets {
-              bucketConfigs {
-                name
-              }
-            }
-            """
-            result = self.execute_graphql_query(query)
-            configs = result.get("data", {}).get("bucketConfigs") or []
-            buckets: List[Bucket_Info] = []
-            for entry in configs:
-                name = entry.get("name")
-                if not name:
-                    continue
-                buckets.append(
-                    Bucket_Info(
-                        name=name,
-                        region="unknown",
-                        access_level="unknown",
-                        created_date=None,
-                    )
-                )
-            return buckets
-        except Exception as exc:
-            raise BackendError(f"Platform backend list_buckets failed: {exc}") from exc
+    # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
+    # list_buckets() is now a concrete method in QuiltOps that calls:
+    # - _backend_list_buckets() primitive
+    # - _transform_bucket_to_bucket_info() primitive
 
     # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
     # search_packages() is now a concrete method in QuiltOps that calls:
@@ -315,97 +274,18 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                 context={"package_name": package_name, "registry": registry, "path": path},
             ) from exc
 
-    def diff_packages(
-        self,
-        package1_name: str,
-        package2_name: str,
-        registry: str,
-        package1_hash: Optional[str] = None,
-        package2_hash: Optional[str] = None,
-    ) -> Dict[str, List[str]]:
-        try:
-            bucket = self._extract_bucket_from_registry(registry)
-            gql = """
-            query DiffPackages($bucket: String!, $name1: String!, $name2: String!, $hash1: String!, $hash2: String!, $max: Int!) {
-              p1: package(bucket: $bucket, name: $name1) {
-                revision(hashOrTag: $hash1) {
-                  contentsFlatMap(max: $max)
-                }
-              }
-              p2: package(bucket: $bucket, name: $name2) {
-                revision(hashOrTag: $hash2) {
-                  contentsFlatMap(max: $max)
-                }
-              }
-            }
-            """
-            variables = {
-                "bucket": bucket,
-                "name1": package1_name,
-                "name2": package2_name,
-                "hash1": package1_hash or "latest",
-                "hash2": package2_hash or "latest",
-                "max": 10000,
-            }
-            result = self.execute_graphql_query(gql, variables=variables)
-            map1 = result.get("data", {}).get("p1", {}).get("revision", {}).get("contentsFlatMap")
-            map2 = result.get("data", {}).get("p2", {}).get("revision", {}).get("contentsFlatMap")
-            if map1 is None or map2 is None:
-                raise BackendError("Package contents too large to diff (contentsFlatMap returned null)")
-
-            keys1 = set(map1.keys())
-            keys2 = set(map2.keys())
-            added = sorted(keys2 - keys1)
-            deleted = sorted(keys1 - keys2)
-            modified: List[str] = []
-            for key in sorted(keys1 & keys2):
-                if not self._entries_equal(map1.get(key), map2.get(key)):
-                    modified.append(key)
-
-            return {"added": added, "deleted": deleted, "modified": modified}
-        except Exception as exc:
-            raise BackendError(
-                f"Platform backend diff_packages failed: {exc}",
-                context={"package1_name": package1_name, "package2_name": package2_name},
-            ) from exc
+    # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
+    # diff_packages() is now a concrete method in QuiltOps that calls:
+    # - _backend_get_package() primitive (twice)
+    # - _backend_diff_packages() primitive
 
     # ---------------------------------------------------------------------
     # Content URLs
     # ---------------------------------------------------------------------
 
-    def get_content_url(self, package_name: str, registry: str, path: str) -> str:
-        try:
-            bucket = self._extract_bucket_from_registry(registry)
-            gql = """
-            query ContentUrl($bucket: String!, $name: String!, $path: String!) {
-              package(bucket: $bucket, name: $name) {
-                revision(hashOrTag: "latest") {
-                  hash
-                  file(path: $path) {
-                    path
-                  }
-                }
-              }
-            }
-            """
-            result = self.execute_graphql_query(gql, variables={"bucket": bucket, "name": package_name, "path": path})
-            file_info = result.get("data", {}).get("package", {}).get("revision", {}).get("file")
-            if not file_info:
-                raise NotFoundError(f"File not found: {path}")
-
-            revision_hash = result.get("data", {}).get("package", {}).get("revision", {}).get("hash")
-            if not revision_hash:
-                raise BackendError("Missing revision hash for browsing session")
-
-            scope = f"s3://{bucket}#package={package_name}&hash={revision_hash}"
-            return self._browse_client.get_presigned_url(scope=scope, path=path)
-        except NotFoundError:
-            raise
-        except Exception as exc:
-            raise BackendError(
-                f"Platform backend get_content_url failed: {exc}",
-                context={"package_name": package_name, "registry": registry, "path": path},
-            ) from exc
+    # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
+    # get_content_url() is now a concrete method in QuiltOps that calls:
+    # - _backend_get_file_url() primitive
 
     # ---------------------------------------------------------------------
     # Write operations (quilt3 Package)
@@ -1073,68 +953,14 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # Helpers
     # ---------------------------------------------------------------------
 
-    def _load_claims(self) -> Dict[str, Any]:
-        """
-        Load JWT claims from runtime context.
-
-        Note: This does NOT decode JWTs locally. Claims are populated by
-        the middleware or GraphQL response. If no claims are present,
-        returns empty dict (GraphQL will validate when accessed).
-
-        Returns:
-            JWT claims dict or empty dict if not present
-        """
-        claims = get_runtime_claims()
-        if claims:
-            return claims
-        return {}
-
     def _load_access_token(self) -> str:
         runtime_auth = get_runtime_auth()
         if runtime_auth and runtime_auth.access_token:
             return runtime_auth.access_token
         raise AuthenticationError("JWT access token is required for Platform backend.")
 
-    def _transform_catalog_config(self, config_data: Dict[str, Any]) -> Catalog_Config:
-        try:
-            region = config_data.get("region", "")
-            if not region:
-                raise BackendError("Missing required field 'region' in catalog configuration")
-
-            api_gateway_endpoint = config_data.get("apiGatewayEndpoint", "")
-            if not api_gateway_endpoint:
-                raise BackendError("Missing required field 'apiGatewayEndpoint' in catalog configuration")
-
-            registry_url = config_data.get("registryUrl", "")
-            if not registry_url:
-                raise BackendError("Missing required field 'registryUrl' in catalog configuration")
-
-            analytics_bucket = config_data.get("analyticsBucket", "")
-            if not analytics_bucket:
-                raise BackendError("Missing required field 'analyticsBucket' in catalog configuration")
-
-            stack_prefix = ""
-            analytics_bucket_lower = analytics_bucket.lower()
-            if "-analyticsbucket" in analytics_bucket_lower:
-                analyticsbucket_pos = analytics_bucket_lower.find("-analyticsbucket")
-                stack_prefix = analytics_bucket[:analyticsbucket_pos]
-            else:
-                stack_prefix = analytics_bucket.split("-")[0] if "-" in analytics_bucket else analytics_bucket
-
-            tabulator_data_catalog = f"quilt-{stack_prefix}-tabulator"
-
-            return Catalog_Config(
-                region=region,
-                api_gateway_endpoint=api_gateway_endpoint,
-                registry_url=registry_url,
-                analytics_bucket=analytics_bucket,
-                stack_prefix=stack_prefix,
-                tabulator_data_catalog=tabulator_data_catalog,
-            )
-        except BackendError:
-            raise
-        except Exception as exc:
-            raise BackendError(f"Catalog configuration transformation failed: {exc}") from exc
+    # TRANSFORMATION METHOD REMOVED - Now in QuiltOps base class
+    # _transform_catalog_config() is now a concrete method in QuiltOps base class
 
     def _transform_search_hit(self, hit: Dict[str, Any], registry: str) -> Package_Info:
         name = hit.get("name") or ""

@@ -265,32 +265,41 @@ def test_get_content_url_presigned_s3(monkeypatch):
 
 
 def test_get_content_url_resolves_physical_key(monkeypatch):
-    """Verify GraphQL query for revision hash."""
+    """Verify backend primitive is called correctly."""
     backend = _make_backend(monkeypatch)
 
-    query_calls = []
+    call_args = []
 
-    def mock_query(query, variables=None, **kwargs):
-        query_calls.append({"query": query, "variables": variables})
-        return {"data": {"package": {"revision": {"hash": "hash123", "file": {"path": "data/key.csv"}}}}}
+    def mock_get_file_url(package_name, registry, path, top_hash=None):
+        call_args.append(
+            {
+                "package_name": package_name,
+                "registry": registry,
+                "path": path,
+                "top_hash": top_hash,
+            }
+        )
+        return "https://presigned-url.com"
 
-    backend.execute_graphql_query = mock_query
-
-    backend._browse_client.get_presigned_url = lambda **kwargs: "https://presigned-url.com"
+    backend._backend_get_file_url = mock_get_file_url
 
     url = backend.get_content_url("team/dataset", "s3://my-bucket", "data/key.csv")
 
-    assert len(query_calls) == 1
-    assert query_calls[0]["variables"]["bucket"] == "my-bucket"
-    assert query_calls[0]["variables"]["name"] == "team/dataset"
-    assert query_calls[0]["variables"]["path"] == "data/key.csv"
+    assert len(call_args) == 1
+    assert call_args[0]["package_name"] == "team/dataset"
+    assert call_args[0]["registry"] == "s3://my-bucket"
+    assert call_args[0]["path"] == "data/key.csv"
     assert url == "https://presigned-url.com"
 
 
 def test_get_content_url_missing_file(monkeypatch):
     """Handle file not found in package."""
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {"data": {"package": {"revision": {"file": None}}}}
+
+    def mock_get_file_url(package_name, registry, path, top_hash=None):
+        raise NotFoundError("File not found: nonexistent.txt")
+
+    backend._backend_get_file_url = mock_get_file_url
 
     with pytest.raises(NotFoundError, match="File not found"):
         backend.get_content_url("user/pkg", "s3://bucket", "nonexistent.txt")

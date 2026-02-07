@@ -137,19 +137,16 @@ def test_list_buckets(monkeypatch):
 def test_get_catalog_config(monkeypatch):
     backend = _make_backend(monkeypatch)
 
-    class DummyResponse:
-        def raise_for_status(self):
-            return None
+    # Mock the backend primitive
+    def mock_get_config(catalog_url):
+        return {
+            "region": "us-east-1",
+            "apiGatewayEndpoint": "https://api.example.com",
+            "registryUrl": "https://registry.example.com",
+            "analyticsBucket": "quilt-demo-analyticsbucket-123",
+        }
 
-        def json(self):
-            return {
-                "region": "us-east-1",
-                "apiGatewayEndpoint": "https://api.example.com",
-                "registryUrl": "https://registry.example.com",
-                "analyticsBucket": "quilt-demo-analyticsbucket-123",
-            }
-
-    backend._session.get = lambda *args, **kwargs: DummyResponse()
+    backend._backend_get_catalog_config = mock_get_config
     config = backend.get_catalog_config("https://example.quiltdata.com")
     assert config.registry_url == "https://registry.example.com"
     assert config.stack_prefix == "quilt-demo"
@@ -173,19 +170,22 @@ def test_configure_catalog_rejects_dynamic_config(monkeypatch):
 
 def test_diff_packages_detects_changes(monkeypatch):
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "p1": {"revision": {"contentsFlatMap": {"a.txt": {"size": 1, "hash": "h1", "physicalKey": "s3://b/a"}}}},
-            "p2": {
+
+    def mock_get_package(package_name, registry, top_hash=None):
+        if package_name == "team/a":
+            return {"revision": {"contentsFlatMap": {"a.txt": {"size": 1, "hash": "h1", "physicalKey": "s3://b/a"}}}}
+        else:  # team/b
+            return {
                 "revision": {
                     "contentsFlatMap": {
                         "a.txt": {"size": 2, "hash": "h2", "physicalKey": "s3://b/a"},
                         "b.txt": {"size": 1, "hash": "h3", "physicalKey": "s3://b/b"},
                     }
                 }
-            },
-        }
-    }
+            }
+
+    backend._backend_get_package = mock_get_package
+
     diff = backend.diff_packages("team/a", "team/b", "s3://bucket")
     assert diff["added"] == ["b.txt"]
     assert diff["modified"] == ["a.txt"]
