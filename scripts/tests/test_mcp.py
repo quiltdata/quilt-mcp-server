@@ -107,6 +107,21 @@ class DockerMCPServer:
                 "-e", "FASTMCP_TRANSPORT=stdio",  # Use stdio instead of HTTP
             ])
 
+            # Pass Quilt configuration to Docker container
+            quilt_env_vars = [
+                "QUILT_CATALOG_URL",
+                "QUILT_REGISTRY_URL",
+                "QUILT_TEST_BUCKET",
+                "QUILT_TEST_PACKAGE",
+                "QUILT_TEST_ENTRY",
+                "QUILT_DISABLE_CACHE",
+                "TABULATOR_DATA_CATALOG",
+            ]
+            for env_var in quilt_env_vars:
+                value = os.getenv(env_var)
+                if value:
+                    docker_cmd.extend(["-e", f"{env_var}={value}"])
+
             docker_cmd.extend([
                 self.image,
                 "quilt-mcp", "--skip-banner"  # Run with stdio transport

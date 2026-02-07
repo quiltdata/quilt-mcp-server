@@ -244,7 +244,7 @@ class TestTableFormatErrorHandling:
             }
 
             # Mock table formatting to fail
-            with patch("quilt_mcp.formatting.enhance_result_with_table_format") as mock_enhance:
+            with patch("quilt_mcp.utils.formatting.enhance_result_with_table_format") as mock_enhance:
                 mock_enhance.side_effect = Exception("Table formatting error")
 
                 result = athena_workgroups_list()

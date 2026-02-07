@@ -339,11 +339,7 @@ class AthenaQueryService:
 
             # Create PyAthena connection
             # Note: We rely on workgroup configuration for S3 output location
-            cursor = connect(
-                region_name=region,
-                schema_name=database_name,
-                work_group=workgroup
-            ).cursor()
+            cursor = connect(region_name=region, schema_name=database_name, work_group=workgroup).cursor()
 
             # Execute DESCRIBE - use backticks for table names with special characters
             query = f'DESCRIBE `{table_name}`'
@@ -372,12 +368,14 @@ class AthenaQueryService:
                     if any(keyword in col_name.lower() for keyword in ["partition", "date", "year", "month"]):
                         partitions.append({"name": col_name, "type": col_type, "comment": col_comment})
                     else:
-                        columns.append({
-                            "name": col_name,
-                            "type": col_type,
-                            "comment": col_comment,
-                            "parameters": {},
-                        })
+                        columns.append(
+                            {
+                                "name": col_name,
+                                "type": col_type,
+                                "comment": col_comment,
+                                "parameters": {},
+                            }
+                        )
 
             return {
                 "success": True,

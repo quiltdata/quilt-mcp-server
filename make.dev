@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multiuser test-multiuser-fake test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -147,90 +147,59 @@ test-scripts: coverage docker-check docker-build scripts/tests/test_*.py | $(RES
 	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test
 	@echo "\n===✅ Finished all script tests"
 
-# Default - uses local server (fast) with verbose output
-# Smart regeneration via Make dependencies (only if sources changed)
-test-mcp: scripts/tests/mcp-test.yaml
-	@echo "===🧪 Running MCP server tests (local mode)..."
-	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py --no-generate
+# MCP Server Testing Targets
+# Refactored per spec/a18-mcp-test/10-mcp-refactor-phase1.md
+# 10+ targets → 3 targets (one per deployment mode)
 
-# Generate test config only when dependencies change
+# Generate test config only when dependencies change (using platform backend)
 TOOL_SOURCES := $(shell find src/quilt_mcp/tools -name "*.py" -type f 2>/dev/null)
 scripts/tests/mcp-test.yaml: scripts/mcp-test-setup.py $(TOOL_SOURCES) src/quilt_mcp/main.py
 	@echo "🔧 Regenerating test configuration (sources changed)..."
 	@uv sync --group test
 	@uv run python scripts/mcp-test-setup.py
 
-# Explicit local mode with verbose output
-test-mcp-local:
-	@echo "===🧪 Running MCP server tests (local mode, verbose)..."
+# Default - Platform backend, stdio transport
+test-mcp: scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running MCP server tests (platform backend, stdio)..."
 	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py --local -v
+	@export TEST_BACKEND_MODE=platform && \
+		export FASTMCP_TRANSPORT=stdio && \
+		uv run python scripts/tests/test_mcp.py --no-generate
 
-# Docker mode (requires docker-build)
-test-mcp-docker: docker-build
-	@echo "===🧪 Running MCP server tests (Docker mode, verbose)..."
+# Legacy - Quilt3 backend, stdio transport
+test-mcp-legacy: scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running MCP server tests (quilt3 backend, stdio - LEGACY)..."
 	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
+	@export TEST_BACKEND_MODE=quilt3 && \
+		export FASTMCP_TRANSPORT=stdio && \
+		uv run python scripts/tests/test_mcp.py --no-generate
 
-# Test orchestrator - compare stdio vs HTTP+JWT modes
-test-orchestrator: docker-build
-	@echo "===🔬 Running test orchestrator (stdio vs HTTP+JWT)..."
-	@uv sync --group test
-	@uv run python spec/a11-client-testing/18-test-orchestrator.py
-
-# Stateless Deployment Testing (convenience target - included in test-all)
-test-stateless: docker-build
-	@echo "Running stateless deployment tests only..."
-	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		export QUILT_DISABLE_CACHE=true && \
-		export PYTHONPATH="src" && \
-		uv run --group test python -m pytest tests/stateless/ -v --tb=short --color=yes
-
-# Stateless MCP Testing with JWT Authentication (using Python docker_manager)
-test-mcp-stateless: docker-build
-	@echo "🔐 Testing stateless MCP with JWT authentication..."
+# Production validation - Platform backend, HTTP+JWT, Docker
+test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running MCP server tests (platform backend, HTTP+JWT, Docker)..."
 	@uv sync --group test
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+		export TEST_BACKEND_MODE=platform && \
 		uv run python scripts/docker_manager.py start \
 			--mode stateless \
 			--image $$TEST_DOCKER_IMAGE \
-			--name mcp-stateless-test \
+			--name mcp-docker-test \
 			--port 8002 \
 			--jwt-secret "test-secret" && \
 		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
 			--jwt \
-			--tools-test --resources-test \
-			--idempotent-only \
 			--config scripts/tests/mcp-test.yaml && \
-		uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
-		(uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
-	@echo "✅ Stateless JWT testing with catalog authentication completed"
+		uv run python scripts/docker_manager.py stop --name mcp-docker-test) || \
+		(uv run python scripts/docker_manager.py stop --name mcp-docker-test && exit 1)
+	@echo "✅ Docker testing completed"
 
-# Multiuser platform tests (Platform backend expectations)
+# Multiuser platform tests (pytest-based, unchanged)
 test-multiuser:
 	@echo "Running multiuser platform tests..."
 	@uv sync --group test
 	@export QUILT_MULTIUSER_MODE=true && \
 		export PYTHONPATH="src" && \
 		uv run python -m pytest tests/func/test_multiuser.py -v
-
-# Multiuser Testing with Fake Roles (for local development)
-test-multiuser-fake: docker-build
-	@echo "👥 Testing multiuser MCP with sample catalog JWTs (local dev only)..."
-	@uv sync --group test
-	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		uv run python scripts/docker_manager.py start \
-			--mode multiuser-fake \
-			--image $$TEST_DOCKER_IMAGE \
-			--name mcp-multiuser-fake-test \
-			--port 8003 \
-			--jwt-secret "test-secret" && \
-		(uv run python scripts/test-multiuser.py http://localhost:8003/mcp \
-			--verbose && \
-		uv run python scripts/docker_manager.py stop --name mcp-multiuser-fake-test) || \
-		(uv run python scripts/docker_manager.py stop --name mcp-multiuser-fake-test && exit 1)
-	@echo "✅ Multiuser fake role testing completed"
 
 # Code Quality Targets
 lint:
