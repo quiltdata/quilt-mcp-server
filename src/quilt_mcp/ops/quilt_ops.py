@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config, Package_Creation_Result
+from ..domain.package_builder import PackageBuilder, PackageEntry
 from .admin_ops import AdminOps
 
 logger = logging.getLogger(__name__)
@@ -345,14 +346,14 @@ class QuiltOps(ABC):
     # these primitives to implement high-level workflows.
 
     @abstractmethod
-    def _backend_create_empty_package(self) -> Any:
-        """Create a new empty package object (backend primitive).
+    def _backend_create_empty_package(self) -> PackageBuilder:
+        """Create a new empty package representation (backend primitive).
 
-        Returns a backend-specific package object that can be populated with files
+        Returns an internal PackageBuilder structure that can be populated with files
         and metadata. This is a lightweight operation that doesn't perform I/O.
 
         Returns:
-            Backend-specific package object (quilt3.Package or internal representation)
+            PackageBuilder dict with empty entries list
 
         Raises:
             BackendError: If package creation fails
@@ -360,14 +361,14 @@ class QuiltOps(ABC):
         pass
 
     @abstractmethod
-    def _backend_add_file_to_package(self, package: Any, logical_key: str, s3_uri: str) -> None:
+    def _backend_add_file_to_package(self, package: PackageBuilder, logical_key: str, s3_uri: str) -> None:
         """Add a file reference to a package (backend primitive).
 
         Adds the file at s3_uri with the given logical_key to the package.
         Does not copy the file - just adds a reference.
 
         Args:
-            package: Backend-specific package object
+            package: PackageBuilder being constructed
             logical_key: Logical path within the package (e.g., "data/file.csv")
             s3_uri: S3 URI of the file to add (e.g., "s3://bucket/path/file.csv")
 
@@ -377,13 +378,13 @@ class QuiltOps(ABC):
         pass
 
     @abstractmethod
-    def _backend_set_package_metadata(self, package: Any, metadata: Dict[str, Any]) -> None:
+    def _backend_set_package_metadata(self, package: PackageBuilder, metadata: Dict[str, Any]) -> None:
         """Set package-level metadata (backend primitive).
 
         Sets or replaces all package metadata with the provided dictionary.
 
         Args:
-            package: Backend-specific package object
+            package: PackageBuilder being constructed
             metadata: Metadata dictionary to attach to package
 
         Raises:
@@ -392,13 +393,13 @@ class QuiltOps(ABC):
         pass
 
     @abstractmethod
-    def _backend_push_package(self, package: Any, package_name: str, registry: str, message: str, copy: bool) -> str:
+    def _backend_push_package(self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool) -> str:
         """Push a package to the registry (backend primitive).
 
-        Pushes the package to the specified registry with the given commit message.
+        Converts the PackageBuilder to backend-specific format and pushes to the registry.
 
         Args:
-            package: Backend-specific package object to push
+            package: PackageBuilder to push
             package_name: Full package name in "user/package" format
             registry: Registry S3 URL
             message: Commit message for this revision

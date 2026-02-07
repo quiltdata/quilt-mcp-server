@@ -24,6 +24,7 @@ from quilt_mcp.domain import (
     Catalog_Config,
     Package_Creation_Result,
 )
+from quilt_mcp.domain.package_builder import PackageBuilder
 from quilt_mcp.context.runtime_context import (
     get_runtime_auth,
 )
@@ -498,19 +499,19 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # These methods implement the abstract backend primitives defined in QuiltOps.
     # They wrap GraphQL operations without adding validation or transformation logic.
 
-    def _backend_create_empty_package(self) -> Any:
+    def _backend_create_empty_package(self) -> PackageBuilder:
         """Create a new empty package representation (backend primitive).
 
         Returns:
-            Internal package representation (entries list)
+            PackageBuilder with empty entries list
         """
         return {"entries": []}
 
-    def _backend_add_file_to_package(self, package: Any, logical_key: str, s3_uri: str) -> None:
+    def _backend_add_file_to_package(self, package: PackageBuilder, logical_key: str, s3_uri: str) -> None:
         """Add a file reference to package representation (backend primitive).
 
         Args:
-            package: Internal package representation
+            package: PackageBuilder being constructed
             logical_key: Logical path within package
             s3_uri: S3 URI of file to add
         """
@@ -518,26 +519,23 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             {
                 "logicalKey": logical_key,
                 "physicalKey": s3_uri,
-                "hash": None,
-                "size": None,
-                "meta": None,
             }
         )
 
-    def _backend_set_package_metadata(self, package: Any, metadata: Dict[str, Any]) -> None:
+    def _backend_set_package_metadata(self, package: PackageBuilder, metadata: Dict[str, Any]) -> None:
         """Set metadata on package representation (backend primitive).
 
         Args:
-            package: Internal package representation
+            package: PackageBuilder being constructed
             metadata: Metadata dictionary
         """
         package["metadata"] = metadata
 
-    def _backend_push_package(self, package: Any, package_name: str, registry: str, message: str, copy: bool) -> str:
+    def _backend_push_package(self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool) -> str:
         """Push package via GraphQL packageConstruct mutation (backend primitive).
 
         Args:
-            package: Internal package representation
+            package: PackageBuilder to push
             package_name: Full package name
             registry: Registry S3 URL
             message: Commit message
@@ -976,6 +974,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         typename = entry.get("__typename") or "PackageFile"
         path = entry.get("path") or ""
         size = self._normalize_size(entry.get("size"))
+        meta = entry.get("meta")
         if typename == "PackageDir":
             content_type = "directory"
         else:
@@ -987,6 +986,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             type=content_type,
             modified_date=None,
             download_url=None,
+            meta=meta,  # Entry-level metadata
         )
 
     def _normalize_package_datetime(self, datetime_value: Any) -> str:

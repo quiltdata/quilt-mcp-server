@@ -20,6 +20,7 @@ from quilt_mcp.ops.exceptions import NotFoundError
 from quilt_mcp.domain.package_info import Package_Info
 from quilt_mcp.domain.content_info import Content_Info
 from quilt_mcp.domain.bucket_info import Bucket_Info
+from quilt_mcp.domain.package_builder import PackageBuilder, PackageEntry
 from quilt_mcp.backends.quilt3_backend_base import Quilt3_Backend_Base, quilt3, requests, boto3
 from quilt_mcp.backends.quilt3_backend_packages import Quilt3_Backend_Packages
 from quilt_mcp.backends.quilt3_backend_content import Quilt3_Backend_Content
@@ -81,38 +82,41 @@ class Quilt3_Backend(
     # These methods implement the abstract backend primitives defined in QuiltOps.
     # They wrap quilt3 library calls without adding validation or transformation logic.
 
-    def _backend_create_empty_package(self) -> Any:
-        """Create a new empty quilt3 package (backend primitive).
+    def _backend_create_empty_package(self) -> PackageBuilder:
+        """Create a new empty package representation (backend primitive).
 
         Returns:
-            quilt3.Package object
+            PackageBuilder with empty entries
         """
-        return self.quilt3.Package()
+        return {"entries": [], "metadata": {}}
 
-    def _backend_add_file_to_package(self, package: Any, logical_key: str, s3_uri: str) -> None:
-        """Add a file reference to quilt3 package (backend primitive).
+    def _backend_add_file_to_package(self, package: PackageBuilder, logical_key: str, s3_uri: str) -> None:
+        """Add a file reference to package representation (backend primitive).
 
         Args:
-            package: quilt3.Package object
+            package: PackageBuilder being constructed
             logical_key: Logical path within package
             s3_uri: S3 URI of file to add
         """
-        package.set(logical_key, s3_uri)
+        package["entries"].append({
+            "logicalKey": logical_key,
+            "physicalKey": s3_uri,
+        })
 
-    def _backend_set_package_metadata(self, package: Any, metadata: Dict[str, Any]) -> None:
-        """Set metadata on quilt3 package (backend primitive).
+    def _backend_set_package_metadata(self, package: PackageBuilder, metadata: Dict[str, Any]) -> None:
+        """Set metadata on package representation (backend primitive).
 
         Args:
-            package: quilt3.Package object
+            package: PackageBuilder being constructed
             metadata: Metadata dictionary
         """
-        package.set_meta(metadata)
+        package["metadata"] = metadata
 
-    def _backend_push_package(self, package: Any, package_name: str, registry: str, message: str, copy: bool) -> str:
-        """Push quilt3 package to registry (backend primitive).
+    def _backend_push_package(self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool) -> str:
+        """Convert PackageBuilder to quilt3.Package and push to registry (backend primitive).
 
         Args:
-            package: quilt3.Package object
+            package: PackageBuilder to push
             package_name: Full package name
             registry: Registry S3 URL
             message: Commit message
@@ -121,12 +125,24 @@ class Quilt3_Backend(
         Returns:
             Top hash of pushed package (empty string if push fails)
         """
+        # Convert PackageBuilder to quilt3.Package
+        quilt3_pkg = self.quilt3.Package()
+
+        # Add all entries to the quilt3 package
+        for entry in package["entries"]:
+            quilt3_pkg.set(entry["logicalKey"], entry["physicalKey"])
+
+        # Set package-level metadata if present
+        if "metadata" in package and package["metadata"]:
+            quilt3_pkg.set_meta(package["metadata"])
+
+        # Push the package
         if copy:
             # Deep copy objects to registry bucket
-            top_hash = package.push(package_name, registry=registry, message=message)
+            top_hash = quilt3_pkg.push(package_name, registry=registry, message=message)
         else:
             # Shallow references only (no copy)
-            top_hash = package.push(
+            top_hash = quilt3_pkg.push(
                 package_name, registry=registry, message=message, selector_fn=lambda logical_key, entry: False
             )
 
@@ -167,6 +183,7 @@ class Quilt3_Backend(
                     "physicalKey": entry.physical_key,
                     "size": entry.size,
                     "hash": entry.hash,
+                    "meta": getattr(entry, 'meta', None),  # Entry-level metadata
                 }
         return entries
 
@@ -419,6 +436,7 @@ class Quilt3_Backend(
             type=entry.get("type", "file"),
             modified_date=None,  # quilt3 doesn't provide this in walk()
             download_url=None,  # Not available in browse results
+            meta=entry.get("meta"),  # Entry-level metadata
         )
 
     def _escape_elasticsearch_query(self, query: str) -> str:

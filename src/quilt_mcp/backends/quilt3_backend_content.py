@@ -111,6 +111,7 @@ class Quilt3_Backend_Content:
             # Handle optional fields with normalization
             size = self._normalize_size(getattr(quilt3_entry, 'size', None))
             modified_date = self._normalize_datetime(getattr(quilt3_entry, 'modified', None))
+            meta = getattr(quilt3_entry, 'meta', None)
 
             content_info = Content_Info(
                 path=key,
@@ -118,6 +119,7 @@ class Quilt3_Backend_Content:
                 type=content_type,
                 modified_date=modified_date,
                 download_url=None,  # URL not provided in transformation, use get_content_url
+                meta=meta,  # Entry-level metadata
             )
 
             logger.debug(f"Successfully transformed content: {content_info.path} ({content_info.type})")
