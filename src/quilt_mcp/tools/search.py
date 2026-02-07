@@ -8,7 +8,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from ..models.responses import (
+from .responses import (
     SearchCatalogError,
     SearchCatalogSuccess,
     SearchExplainError,

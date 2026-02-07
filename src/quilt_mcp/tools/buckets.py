@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
-from ..models import (
+from .responses import (
     BucketObjectFetchError,
     BucketObjectFetchResponse,
     BucketObjectFetchSuccess,

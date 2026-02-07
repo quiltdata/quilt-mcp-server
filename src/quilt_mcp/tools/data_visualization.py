@@ -11,7 +11,7 @@ from typing import Annotated, Any, Dict, Iterable, List, Literal, Optional, Sequ
 
 from pydantic import Field
 
-from ..models import (
+from .responses import (
     DataVisualizationSuccess,
     DataVisualizationError,
     VisualizationConfig,

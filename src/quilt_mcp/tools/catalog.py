@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from pydantic import Field
 
-from quilt_mcp.models import (
+from quilt_mcp.tools.responses import (
     CatalogUriError,
     CatalogUriSuccess,
     CatalogUrlError,

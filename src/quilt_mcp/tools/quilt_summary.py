@@ -16,7 +16,7 @@ import matplotlib
 import numpy as np
 from collections import defaultdict
 
-from ..models.responses import (
+from .responses import (
     QuiltSummarizeJson,
     QuiltSummarizeJsonError,
     PackageVisualizationsSuccess,

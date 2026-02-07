@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone
-from quilt_mcp.models.responses import (
+from quilt_mcp.tools.responses import (
     GetResourceSuccess,
     GetResourceError,
     ResourceMetadata,
