@@ -723,7 +723,7 @@ class QuiltOps(ABC):
                     is_authenticated=basic_auth.is_authenticated,
                     logged_in_url=basic_auth.logged_in_url,
                     catalog_name=basic_auth.catalog_name,
-                    registry_url=basic_auth.registry_url,
+                    registry_url=catalog_config.registry_url,  # Use catalog config, not basic_auth
                     region=catalog_config.region,
                     tabulator_data_catalog=catalog_config.tabulator_data_catalog,
                 )

@@ -782,7 +782,7 @@ def _truncate_response(response: Any, max_size: int = 1000) -> Any:
     return result
 
 
-async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None], skip_discovery: bool = False):
+async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None], skip_discovery: bool = False, discovery_timeout: float = 15.0):
     """Generate mcp-test.yaml configuration with all available tools and resources.
 
     This creates test configurations for mcp-test.py to validate the MCP server.
@@ -791,6 +791,13 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     Environment configuration from .env is embedded for self-contained testing.
 
     Phase 2 Enhancement: Runs discovery to validate tools and capture real data.
+
+    Args:
+        server: MCP server instance
+        output_file: Path to output YAML file
+        env_vars: Environment variables from .env
+        skip_discovery: Skip tool discovery phase
+        discovery_timeout: Timeout in seconds for each tool discovery
     """
     # Extract test-relevant configuration from environment
     test_config = {
@@ -814,7 +821,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     }
 
     # Initialize discovery orchestrator
-    orchestrator = DiscoveryOrchestrator(server, timeout=5.0, verbose=True, env_vars=env_vars)
+    orchestrator = DiscoveryOrchestrator(server, timeout=discovery_timeout, verbose=True, env_vars=env_vars)
 
     # Get all registered tools
     # Get all tools
@@ -890,7 +897,8 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         "athena_query_validate": {"query": "SHOW TABLES"},
         "athena_query_execute": {"query": "SELECT 1 as test_value", "max_results": 10},
         "athena_tables_list": {"database": athena_database},
-        "athena_table_schema": {"database": athena_database, "table": "test_table"},
+        # Use a known table that exists in the UserAthenaDatabase
+        "athena_table_schema": {"database": athena_database, "table": "ai2-semanticscholar-cord-19_manifests"},
         "tabulator_bucket_query": {"bucket_name": bucket_name, "query": "SELECT 1 as test_value", "max_results": 10},
         "tabulator_tables_list": {"bucket": bucket_name},
         "tabulator_open_query_status": {},
@@ -1281,8 +1289,8 @@ async def main():
     parser.add_argument(
         "--discovery-timeout",
         type=float,
-        default=5.0,
-        help="Timeout in seconds for each tool discovery (default: 5.0)"
+        default=15.0,
+        help="Timeout in seconds for each tool discovery (default: 15.0)"
     )
     args = parser.parse_args()
 
@@ -1425,7 +1433,8 @@ async def main():
         server,
         str(scripts_tests_dir / "mcp-test.yaml"),
         env_vars,
-        skip_discovery=args.skip_discovery
+        skip_discovery=args.skip_discovery,
+        discovery_timeout=args.discovery_timeout
     )
 
     print("\n✅ Canonical tool and resource listings generated!")

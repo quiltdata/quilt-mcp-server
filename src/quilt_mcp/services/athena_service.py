@@ -323,44 +323,61 @@ class AthenaQueryService:
     def get_table_metadata(
         self, database_name: str, table_name: str, data_catalog_name: str = "AwsDataCatalog"
     ) -> Dict[str, Any]:
-        """Get comprehensive table metadata using Athena DESCRIBE."""
+        """Get comprehensive table metadata using Athena DESCRIBE with PyAthena cursor.
+
+        Note: We use PyAthena cursor directly instead of pandas because DESCRIBE returns
+        tab-separated values in a single column which pandas cannot parse correctly.
+        """
         try:
-            # Use Athena SQL to describe table instead of direct Glue API
-            query = f"DESCRIBE {database_name}.{table_name}"
+            from pyathena import connect
+            from urllib.parse import quote_plus
 
-            # Reuse execute_query for consistent query execution
-            result = self.execute_query(query, database_name=None)
+            # Determine S3 staging location
+            # PyAthena will use the workgroup's output location if we don't specify s3_staging_dir
+            region = "us-east-1" if self.use_quilt_auth else os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            workgroup = self.workgroup_name or os.environ.get("ATHENA_WORKGROUP", "primary")
 
-            if not result.get("success"):
-                return result
+            # Create PyAthena connection
+            # Note: We rely on workgroup configuration for S3 output location
+            cursor = connect(
+                region_name=region,
+                schema_name=database_name,
+                work_group=workgroup
+            ).cursor()
 
-            df = result["data"]
+            # Execute DESCRIBE - use backticks for table names with special characters
+            query = f'DESCRIBE `{table_name}`'
+            cursor.execute(query)
 
+            # Parse tab-separated results
+            # DESCRIBE returns: col_name \t data_type \t comment (all in one string per row)
             columns = []
             partitions = []
 
-            for _, row in df.iterrows():
-                col_name = row.iloc[0]
-                col_type = row.iloc[1] if len(row) > 1 else "string"
-                col_comment = row.iloc[2] if len(row) > 2 else ""
+            for row in cursor.fetchall():
+                # Each row is a tuple with a single tab-separated string
+                line = row[0] if row else ""
+                parts = line.split('\t')
 
-                # Check if this is a partition column
-                # Partition columns often appear after a separator or with special formatting
-                if col_name.startswith("#") or "partition" in str(col_comment).lower():
-                    continue  # Skip header/separator rows
-                elif any(keyword in str(col_name).lower() for keyword in ["partition", "date", "year", "month"]):
-                    # This is likely a partition column
-                    partitions.append({"name": col_name, "type": col_type, "comment": col_comment})
-                else:
-                    # Regular column
-                    columns.append(
-                        {
+                if len(parts) >= 2:
+                    col_name = parts[0].strip()
+                    col_type = parts[1].strip()
+                    col_comment = parts[2].strip() if len(parts) > 2 else ""
+
+                    # Skip empty or header rows
+                    if not col_name or col_name.startswith("#"):
+                        continue
+
+                    # Check if this is a partition column
+                    if any(keyword in col_name.lower() for keyword in ["partition", "date", "year", "month"]):
+                        partitions.append({"name": col_name, "type": col_type, "comment": col_comment})
+                    else:
+                        columns.append({
                             "name": col_name,
                             "type": col_type,
                             "comment": col_comment,
                             "parameters": {},
-                        }
-                    )
+                        })
 
             return {
                 "success": True,
