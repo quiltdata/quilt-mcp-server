@@ -20,12 +20,17 @@ class Auth_Status:
         logged_in_url: URL of the catalog the user is logged into (if authenticated)
         catalog_name: Name of the catalog the user is logged into (if authenticated)
         registry_url: Registry API URL (HTTPS) for GraphQL queries (e.g., https://example-registry.quiltdata.com)
+        region: AWS region of the catalog (e.g., 'us-east-1'). Populated when authenticated and catalog config is available.
+        tabulator_data_catalog: Athena data catalog name for tabulator queries (e.g., 'AwsDataCatalog').
+            Populated when authenticated to a Tabulator-enabled catalog. None for non-tabulator catalogs.
     """
 
     is_authenticated: bool
     logged_in_url: Optional[str]
     catalog_name: Optional[str]
     registry_url: Optional[str]
+    region: Optional[str] = None
+    tabulator_data_catalog: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Validate authentication status consistency after initialization."""
@@ -37,4 +42,13 @@ class Auth_Status:
 
     def __hash__(self) -> int:
         """Custom hash implementation for the frozen dataclass."""
-        return hash((self.is_authenticated, self.logged_in_url, self.catalog_name, self.registry_url))
+        return hash(
+            (
+                self.is_authenticated,
+                self.logged_in_url,
+                self.catalog_name,
+                self.registry_url,
+                self.region,
+                self.tabulator_data_catalog,
+            )
+        )

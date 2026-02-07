@@ -14,7 +14,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from quilt_mcp.ops.quilt_ops import QuiltOps
 from quilt_mcp.ops.exceptions import ValidationError, BackendError, NotFoundError
-from quilt_mcp.domain import Package_Info, Content_Info, Package_Creation_Result
+from quilt_mcp.domain import Package_Info, Content_Info, Package_Creation_Result, Auth_Status, Catalog_Config
 
 
 # =========================================================================
@@ -43,9 +43,26 @@ class MockQuiltOps(QuiltOps):
         self._mock_browse_package_content = Mock(return_value=[])
         self._mock_get_file_url = Mock(return_value="https://example.com/file.txt")
         self._mock_get_session_info = Mock(return_value={"is_authenticated": True, "catalog_url": None})
-        self._mock_get_catalog_config = Mock(return_value={})
+        self._mock_get_catalog_config = Mock(
+            return_value=Catalog_Config(
+                region="us-east-1",
+                api_gateway_endpoint="https://test-api.execute-api.us-east-1.amazonaws.com",
+                registry_url="s3://test-registry",
+                analytics_bucket="test-analytics-bucket",
+                stack_prefix="test-stack",
+                tabulator_data_catalog="AwsDataCatalog",
+            )
+        )
         self._mock_list_buckets = Mock(return_value=[])
         self._mock_get_boto3_session = Mock(return_value=Mock())
+        self._mock_backend_get_auth_status = Mock(
+            return_value=Auth_Status(
+                is_authenticated=True,
+                logged_in_url="https://test-catalog.quiltdata.com",
+                catalog_name="test-catalog",
+                registry_url=None,  # Will be enriched by Template Method
+            )
+        )
 
     # Implement backend primitive abstract methods by delegating to mocks
     def _backend_create_empty_package(self):
@@ -93,6 +110,9 @@ class MockQuiltOps(QuiltOps):
     def _backend_get_boto3_session(self):
         return self._mock_get_boto3_session()
 
+    def _backend_get_auth_status(self):
+        return self._mock_backend_get_auth_status()
+
     # Transformation abstract methods
     def _transform_search_result_to_package_info(self, result, registry):
         from quilt_mcp.domain import Package_Info
@@ -125,8 +145,8 @@ class MockQuiltOps(QuiltOps):
         return Mock()
 
     # High-level abstract methods (not tested here - just stub them)
-    def get_auth_status(self):
-        return Mock()
+    # Note: get_auth_status() is now a concrete Template Method in QuiltOps base class
+    # We implement the _backend_get_auth_status() primitive instead
 
     def get_package_info(self, package_name, registry):
         return Mock()
@@ -138,7 +158,8 @@ class MockQuiltOps(QuiltOps):
         return "http://example.com"
 
     def get_catalog_config(self, catalog_url):
-        return Mock()
+        # Return the mocked catalog config
+        return self._mock_get_catalog_config(catalog_url)
 
     def configure_catalog(self, catalog_url):
         pass

@@ -29,17 +29,21 @@ class Quilt3_Backend_Session:
         requests: "ModuleType"
         boto3: "ModuleType"
 
-    def get_auth_status(self) -> Auth_Status:
-        """Get current authentication status.
+    def _backend_get_auth_status(self) -> Auth_Status:
+        """Backend primitive: Get basic authentication status.
+
+        Returns Auth_Status with basic fields only (is_authenticated, logged_in_url,
+        catalog_name, registry_url=None). Catalog config enrichment (region,
+        tabulator_data_catalog) is handled by QuiltOps Template Method.
 
         Returns:
-            Auth_Status object with authentication details
+            Auth_Status object with basic authentication fields only
 
         Raises:
             BackendError: If auth status retrieval fails
         """
         try:
-            logger.debug("Getting authentication status")
+            logger.debug("Getting basic authentication status")
 
             # Get logged-in URL from quilt3
             logged_in_url: Optional[str] = None
@@ -60,24 +64,16 @@ class Quilt3_Backend_Session:
 
                 catalog_name = get_dns_name_from_url(logged_in_url)
 
-            # Get registry URL if authenticated
-            registry_url: Optional[str] = None
-            if is_authenticated and logged_in_url:
-                try:
-                    catalog_config = self.get_catalog_config(logged_in_url)
-                    registry_url = catalog_config.registry_url
-                except Exception as e:
-                    logger.debug(f"Failed to get registry URL: {e}")
-                    registry_url = None
-
+            # Return basic Auth_Status (no catalog config enrichment)
+            # QuiltOps Template Method will enrich with region, tabulator_data_catalog, and registry_url
             auth_status = Auth_Status(
                 is_authenticated=is_authenticated,
                 logged_in_url=logged_in_url,
                 catalog_name=catalog_name,
-                registry_url=registry_url,
+                registry_url=None,  # Will be enriched by Template Method
             )
 
-            logger.debug(f"Auth status: authenticated={is_authenticated}, catalog={catalog_name}")
+            logger.debug(f"Basic auth status: authenticated={is_authenticated}, catalog={catalog_name}")
             return auth_status
 
         except Exception as e:
