@@ -161,7 +161,7 @@ class HTTPTransport(TelemetryTransport):
     """HTTP-based telemetry transport using async requests (quilt3-compatible)."""
 
     def __init__(self, endpoint: Optional[str] = None, api_key: Optional[str] = None, timeout: int = 30):
-        from quilt_mcp.utils import normalize_url
+        from quilt_mcp.utils.common import normalize_url
 
         # Default to quilt3 telemetry endpoint
         self.endpoint = normalize_url(endpoint) if endpoint else TELEMETRY_URL
@@ -172,7 +172,7 @@ class HTTPTransport(TelemetryTransport):
 
         # Initialize HTTP session with async support (like quilt3)
         try:
-            from requests_futures.sessions import FuturesSession
+            from requests_futures.sessions import FuturesSession  # type: ignore[import-untyped]
 
             # Use ThreadPoolExecutor with max 2 workers (same as quilt3)
             self.session = FuturesSession(executor=ThreadPoolExecutor(max_workers=2))
@@ -291,15 +291,9 @@ class HTTPTransport(TelemetryTransport):
 
     def is_available(self) -> bool:
         """Check if HTTP transport is available."""
-        if not self.session:
-            return False
-
-        try:
-            # Test connectivity with a simple ping
-            response = self.session.get(f"{self.endpoint}/health", timeout=5)
-            return response.status_code == 200
-        except Exception:
-            return False
+        # For async transport, just check if session is configured
+        # (quilt3-compatible: they don't check connectivity in has_connectivity either)
+        return self.session is not None
 
 
 class CloudWatchTransport(TelemetryTransport):

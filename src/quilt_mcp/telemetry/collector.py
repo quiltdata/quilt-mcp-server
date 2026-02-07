@@ -44,12 +44,8 @@ class TelemetryConfig:
     @classmethod
     def from_env(cls) -> "TelemetryConfig":
         """Create config from environment variables (quilt3-compatible)."""
-        # Check both MCP and quilt3 environment variables
-        mcp_enabled = os.getenv("MCP_TELEMETRY_ENABLED", "true").lower() == "true"
-        quilt_disabled = cls._check_quilt_disable_envvar()
-
-        # Quilt3 compatibility: QUILT_DISABLE_USAGE_METRICS takes precedence
-        enabled = mcp_enabled and not quilt_disabled
+        # Use QUILT_DISABLE_USAGE_METRICS exclusively (quilt3 compatibility)
+        enabled = not cls._check_quilt_disable_envvar()
 
         return cls(
             enabled=enabled,

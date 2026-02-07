@@ -28,31 +28,42 @@ def test_local_file_transport_embeds_transport_marker(tmp_path: pathlib.Path):
 
 
 def test_http_transport_includes_transport_marker(monkeypatch: pytest.MonkeyPatch):
-    """HTTP transport payloads should identify their transport type."""
+    """HTTP transport payloads should use quilt3-compatible schema."""
 
     calls = {}
+
+    class DummyFuture:
+        def done(self):
+            return True
 
     class DummyResponse:
         status_code = 200
         text = "ok"
 
-    class DummySession:
-        def __init__(self):
+    class DummyFuturesSession:
+        def __init__(self, executor=None):
             self.headers = {}
 
         def post(self, url, *, json, timeout):  # type: ignore[override]
             calls["url"] = url
             calls["payload"] = json
             calls["timeout"] = timeout
-            return DummyResponse()
+            return DummyFuture()
 
-    dummy_requests = types.SimpleNamespace(Session=DummySession)
-    monkeypatch.setitem(sys.modules, "requests", dummy_requests)
+    # Mock requests_futures
+    dummy_requests_futures = types.SimpleNamespace(
+        sessions=types.SimpleNamespace(FuturesSession=DummyFuturesSession)
+    )
+    monkeypatch.setitem(sys.modules, "requests_futures.sessions", dummy_requests_futures.sessions)
 
     http = telemetry_transport.HTTPTransport("https://example.com/api")
 
-    assert http.send_session({"session": "demo"}) is True
-    assert calls["payload"]["transport"] == "http"
+    assert http.send_session({"session": "demo", "tool_name": "test_tool"}) is True
+    # Verify quilt3-compatible schema
+    assert calls["payload"]["telemetry_schema_version"] == telemetry_transport.TELEMETRY_SCHEMA_VERSION
+    assert calls["payload"]["client_type"] == telemetry_transport.TELEMETRY_CLIENT_TYPE
+    assert calls["payload"]["api_name"] == "test_tool"
+    assert "mcp_data" in calls["payload"]
 
 
 def test_cloudwatch_transport_marks_transport(monkeypatch: pytest.MonkeyPatch):
