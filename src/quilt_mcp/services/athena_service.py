@@ -347,12 +347,12 @@ class AthenaQueryService:
 
             # Parse tab-separated results
             # DESCRIBE returns: col_name \t data_type \t comment (all in one string per row)
-            columns = []
+            columns: list[dict[str, str]] = []
             partitions = []
 
             for row in cursor.fetchall():
                 # Each row is a tuple with a single tab-separated string
-                line = row[0] if row else ""
+                line = str(row[0]) if row else ""
                 parts = line.split('\t')
 
                 if len(parts) >= 2:
@@ -373,7 +373,6 @@ class AthenaQueryService:
                                 "name": col_name,
                                 "type": col_type,
                                 "comment": col_comment,
-                                "parameters": {},
                             }
                         )
 

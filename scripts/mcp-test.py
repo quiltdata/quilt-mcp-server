@@ -2114,6 +2114,100 @@ def print_detailed_summary(
             print()
 
 
+def parse_selector(selector: Optional[str], category: str) -> tuple[str, Optional[List[str]]]:
+    """Parse selector string into selection type and list of names.
+
+    Args:
+        selector: Selector string ('all', 'none', or 'name1,name2,...')
+        category: Category name for error messages ('tools', 'resources', 'loops')
+
+    Returns:
+        Tuple of (selection_type, names_list) where:
+        - selection_type: 'all', 'none', or 'specific'
+        - names_list: None for 'all'/'none', list of names for 'specific'
+
+    Raises:
+        ValueError: If selector is invalid
+    """
+    if selector is None:
+        return 'all', None
+
+    selector = selector.strip()
+
+    if selector == 'all':
+        return 'all', None
+    elif selector == 'none':
+        return 'none', None
+    elif selector == '':
+        raise ValueError(f"Empty selector for {category} - use 'all', 'none', or comma-separated names")
+    else:
+        # Parse comma-separated list
+        names = [name.strip() for name in selector.split(',')]
+        # Validate no empty names
+        empty_names = [i for i, name in enumerate(names) if not name]
+        if empty_names:
+            raise ValueError(
+                f"Invalid {category} selector '{selector}': contains empty names at positions {empty_names}. "
+                f"Use format: 'name1,name2,name3' (no spaces around commas)"
+            )
+        return 'specific', names
+
+
+def validate_selector_names(
+    selection_type: str,
+    names: Optional[List[str]],
+    available_items: Dict[str, Any],
+    category: str
+) -> None:
+    """Validate that selector names exist in available items.
+
+    Args:
+        selection_type: 'all', 'none', or 'specific'
+        names: List of names to validate (only used if selection_type='specific')
+        available_items: Dict of available items keyed by name
+        category: Category name for error messages ('tools', 'resources', 'loops')
+
+    Raises:
+        ValueError: If any selector names are not found in available items
+    """
+    if selection_type != 'specific' or names is None:
+        return
+
+    invalid_names = [name for name in names if name not in available_items]
+    if invalid_names:
+        available_names = sorted(available_items.keys())
+        raise ValueError(
+            f"Invalid {category} names: {invalid_names}\n"
+            f"Available {category} ({len(available_names)}): {', '.join(available_names[:10])}"
+            + (f", ... ({len(available_names) - 10} more)" if len(available_names) > 10 else "")
+        )
+
+
+def filter_by_selector(
+    items: Dict[str, Any],
+    selection_type: str,
+    names: Optional[List[str]]
+) -> Dict[str, Any]:
+    """Filter items dictionary based on selector.
+
+    Args:
+        items: Dictionary of items to filter
+        selection_type: 'all', 'none', or 'specific'
+        names: List of names to select (only used if selection_type='specific')
+
+    Returns:
+        Filtered dictionary of items
+    """
+    if selection_type == 'all':
+        return items
+    elif selection_type == 'none':
+        return {}
+    elif selection_type == 'specific' and names is not None:
+        return {name: items[name] for name in names if name in items}
+    else:
+        return items
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -2122,37 +2216,44 @@ def main():
         epilog="""
 Transport modes:
   HTTP (default):
-    mcp-test.py http://localhost:8000/mcp --tools-test
+    mcp-test.py http://localhost:8000/mcp
 
   stdio (for integration testing):
-    mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4 --tools-test
+    mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4
 
 Examples:
-  # Test HTTP endpoint with all tests
-  mcp-test.py http://localhost:8000/mcp --tools-test --resources-test
+  # Run all tests (default behavior when no selectors provided)
+  mcp-test.py http://localhost:8000/mcp
 
-  # Test specific tool via HTTP
-  mcp-test.py http://localhost:8000/mcp --test-tool bucket_objects_list
+  # Run specific tools only (resources and loops still run)
+  mcp-test.py http://localhost:8000/mcp --tools bucket_list,bucket_search
 
-  # Test specific loop
-  mcp-test.py http://localhost:8000/mcp --loop admin_user_basic
+  # Run idempotent operations only (tools only, no resources or loops)
+  mcp-test.py http://localhost:8000/mcp --resources none --loops none
+
+  # Run specific tools and resources, skip loops
+  mcp-test.py http://localhost:8000/mcp -t package_browse,package_install \\
+    -r quilt+s3://bucket#package=pkg -l none
+
+  # Run all tools and resources, specific loop only
+  mcp-test.py http://localhost:8000/mcp --loops crud_workflow
+
+  # Run specific tools only, suppress everything else
+  mcp-test.py http://localhost:8000/mcp -t bucket_list,package_browse -r none -l none
 
   # List available tools
   mcp-test.py http://localhost:8000/mcp --list-tools
 
-  # stdio mode (typically called by test orchestrator)
-  mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4 --tools-test
-
 JWT Authentication:
   # Use bundled sample catalog JWT token
-  mcp-test.py http://localhost:8000/mcp --jwt --tools-test
+  mcp-test.py http://localhost:8000/mcp --jwt
 
   # Using environment variable
   export MCP_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  mcp-test.py http://localhost:8000/mcp --tools-test
+  mcp-test.py http://localhost:8000/mcp
 
   # Using command-line argument
-  mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..." --tools-test
+  mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..."
 
   # Or provide your own catalog JWT token via env/CLI
 
@@ -2203,27 +2304,19 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                             "⚠️  Prefer env var for production use to avoid token exposure in logs.")
     jwt_group.add_argument("--jwt", action="store_true",
                        help="Use bundled sample catalog JWT token (HTTP transport only).")
-    parser.add_argument("-t", "--tools-test", action="store_true",
-                       help="Run tools test with test configurations")
-    parser.add_argument("-T", "--test-tool", metavar="TOOL_NAME",
-                       help="Test specific tool by name")
+    parser.add_argument("-t", "--tools", metavar="SELECTOR",
+                       help="Select tools to test: 'all' (default), 'none', or 'name1,name2,...'")
+    parser.add_argument("-r", "--resources", metavar="SELECTOR",
+                       help="Select resources to test: 'all' (default), 'none', or 'uri1,uri2,...'")
+    parser.add_argument("-l", "--loops", metavar="SELECTOR",
+                       help="Select loops to run: 'all' (default), 'none', or 'loop1,loop2,...'")
     parser.add_argument("--list-tools", action="store_true",
                        help="List available tools from MCP server")
     parser.add_argument("--list-resources", action="store_true",
                        help="List available resources from MCP server")
-    parser.add_argument("-r", "--resources-test", action="store_true",
-                       help="Run resources test with test configurations")
-    parser.add_argument("-R", "--test-resource", metavar="RESOURCE_URI",
-                       help="Test specific resource by URI")
-    parser.add_argument("--loop", metavar="LOOP_NAME",
-                       help="Run specific tool loop by name")
-    parser.add_argument("--loops-test", action="store_true",
-                       help="Run all tool loops")
     parser.add_argument("--config", type=Path,
                        default=Path(__file__).parent / "tests" / "mcp-test.yaml",
                        help="Path to test configuration file (auto-generated by mcp-test-setup.py)")
-    parser.add_argument("--idempotent-only", action="store_true",
-                       help="Run only idempotent (read-only) tools with effect='none' (matches test-mcp behavior)")
     parser.add_argument("--validate-coverage", action="store_true",
                        help="Validate that all tools have test coverage (standalone or in loops)")
 
@@ -2343,26 +2436,69 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                 print(f"\n💡 Add these tools to tool_loops or test_tools in mcp-test.yaml")
                 sys.exit(1)
 
-        # Determine which tests to run
-        run_tools = args.tools_test or args.test_tool
-        run_resources = args.resources_test or args.test_resource
-        run_loops = args.loops_test or args.loop
+        # Parse selectors (default to 'all' for each category)
+        try:
+            tools_type, tools_names = parse_selector(args.tools, 'tools')
+            resources_type, resources_names = parse_selector(args.resources, 'resources')
+            loops_type, loops_names = parse_selector(args.loops, 'loops')
+        except ValueError as e:
+            print(f"❌ Invalid selector: {e}")
+            sys.exit(1)
 
-        if run_tools or run_resources or run_loops:
+        # Determine if we should run tests (any selector specified OR no flags at all means run everything)
+        any_selector_specified = args.tools or args.resources or args.loops
+        should_run_tests = any_selector_specified or not (args.list_tools or args.list_resources or args.validate_coverage)
+
+        if should_run_tests:
             # Load test configuration
             config = load_test_config(args.config)
 
-            # Apply idempotence filtering if requested
-            selection_stats = None
-            if args.idempotent_only:
-                print("🔓 Filtering to idempotent-only tests (read-only, effect='none')...")
-                config, selection_stats = filter_tests_by_idempotence(config, idempotent_only=True)
-                print(f"📋 Selected {selection_stats['selected_tools']}/{selection_stats['total_tools']} tools for testing")
-                filtered_out = selection_stats['total_tools'] - selection_stats['selected_tools']
-                if filtered_out > 0:
-                    non_none_effects = {k: v for k, v in selection_stats['effect_counts'].items() if k != 'none'}
-                    skipped_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(non_none_effects.items()))
-                    print(f"   Skipped {filtered_out} non-idempotent tools ({skipped_summary})")
+            # Validate selector names
+            try:
+                validate_selector_names(tools_type, tools_names, config.get('test_tools', {}), 'tools')
+                validate_selector_names(resources_type, resources_names, config.get('test_resources', {}), 'resources')
+                validate_selector_names(loops_type, loops_names, config.get('tool_loops', {}), 'loops')
+            except ValueError as e:
+                print(f"❌ {e}")
+                sys.exit(1)
+
+            # Filter config based on selectors
+            filtered_config = config.copy()
+            filtered_config['test_tools'] = filter_by_selector(
+                config.get('test_tools', {}), tools_type, tools_names
+            )
+            filtered_config['test_resources'] = filter_by_selector(
+                config.get('test_resources', {}), resources_type, resources_names
+            )
+            filtered_config['tool_loops'] = filter_by_selector(
+                config.get('tool_loops', {}), loops_type, loops_names
+            )
+
+            # Compute selection stats for reporting
+            selection_stats = {
+                'total_tools': len(config.get('test_tools', {})),
+                'selected_tools': len(filtered_config['test_tools']),
+                'total_resources': len(config.get('test_resources', {})),
+                'selected_resources': len(filtered_config['test_resources']),
+                'total_loops': len(config.get('tool_loops', {})),
+                'selected_loops': len(filtered_config['tool_loops']),
+            }
+
+            # Determine which categories to run (based on filtered config)
+            run_tools = len(filtered_config['test_tools']) > 0
+            run_resources = len(filtered_config['test_resources']) > 0
+            run_loops = len(filtered_config['tool_loops']) > 0
+
+            # Print selection summary if filtering was applied
+            if any_selector_specified:
+                print("📋 Test Selection:")
+                if args.tools:
+                    print(f"   Tools: {args.tools} → {selection_stats['selected_tools']}/{selection_stats['total_tools']} selected")
+                if args.resources:
+                    print(f"   Resources: {args.resources} → {selection_stats['selected_resources']}/{selection_stats['total_resources']} selected")
+                if args.loops:
+                    print(f"   Loops: {args.loops} → {selection_stats['selected_loops']}/{selection_stats['total_loops']} selected")
+                print()
 
             # Run test suite (prints summary internally and returns boolean success)
             if transport == "http":
@@ -2370,13 +2506,13 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                     endpoint=args.endpoint,
                     transport="http",
                     verbose=args.verbose,
-                    config=config,
+                    config=filtered_config,
                     run_tools=run_tools,
                     run_resources=run_resources,
                     run_loops=run_loops,
-                    specific_tool=args.test_tool if args.test_tool else None,
-                    specific_resource=args.test_resource if args.test_resource else None,
-                    specific_loop=args.loop if args.loop else None,
+                    specific_tool=None,  # No longer used - use selector filtering instead
+                    specific_resource=None,  # No longer used - use selector filtering instead
+                    specific_loop=None,  # No longer used - use selector filtering instead
                     jwt_token=jwt_token,
                     selection_stats=selection_stats
                 )
@@ -2386,27 +2522,17 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                     stdout_fd=args.stdout_fd,
                     transport="stdio",
                     verbose=args.verbose,
-                    config=config,
+                    config=filtered_config,
                     run_tools=run_tools,
                     run_resources=run_resources,
                     run_loops=run_loops,
-                    specific_tool=args.test_tool if args.test_tool else None,
-                    specific_resource=args.test_resource if args.test_resource else None,
-                    specific_loop=args.loop if args.loop else None,
+                    specific_tool=None,  # No longer used - use selector filtering instead
+                    specific_resource=None,  # No longer used - use selector filtering instead
+                    specific_loop=None,  # No longer used - use selector filtering instead
                     selection_stats=selection_stats
                 )
 
             sys.exit(0 if success else 1)
-
-        # Default: basic connectivity test
-        if not (args.list_tools or args.list_resources or args.tools_test or args.test_tool or args.resources_test or args.test_resource or args.loop or args.loops_test):
-            tools = tester.list_tools()
-            result = tester.list_resources()
-            resources = result.get("resources", [])
-            templates = result.get("resourceTemplates", [])
-            print(f"✅ Successfully connected to MCP endpoint")
-            print(f"📋 Server has {len(tools)} available tools")
-            print(f"🗂️  Server has {len(resources)} static resources and {len(templates)} templates")
 
     except Exception as e:
         print(f"❌ Test failed: {e}")
