@@ -472,10 +472,27 @@ def _should_include_object(
     include_patterns: list[str] | None,
     exclude_patterns: list[str] | None,
 ) -> bool:
-    """Determine if an object should be included based on patterns."""
+    """Determine if an object should be included based on patterns.
+
+    Always excludes objects with invalid S3 characters per AWS best practices.
+    https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
+    """
     import fnmatch
 
-    # Check exclude patterns first
+    # Always exclude objects with invalid S3 characters
+    # These characters cause significant issues across applications
+    invalid_chars = r'\{}^%`]">[~<#|'
+    if any(char in key for char in invalid_chars):
+        found_chars = [char for char in invalid_chars if char in key]
+        logger.warning(f"Skipping object with invalid S3 characters {found_chars}: {key}")
+        return False
+
+    # Check for non-printable characters (allows UTF-8, blocks control characters)
+    if not key.isprintable():
+        logger.warning(f"Skipping object with non-printable characters: {key}")
+        return False
+
+    # Check exclude patterns
     if exclude_patterns:
         for pattern in exclude_patterns:
             if fnmatch.fnmatch(key, pattern):
@@ -508,7 +525,7 @@ def _create_enhanced_package(
     try:
         # Collect all S3 URIs from organized structure
         s3_uris = []
-        for folder, objects in organized_structure.items():
+        for objects in organized_structure.values():
             for obj in objects:
                 source_key = obj["Key"]
                 s3_uri = f"s3://{source_bucket}/{source_key}"
