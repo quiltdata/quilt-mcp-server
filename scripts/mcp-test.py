@@ -1250,7 +1250,8 @@ class MCPTester:
             resources_results=resources_results,
             selection_stats=selection_stats,
             verbose=verbose,
-            loops_results=loops_results  # NEW: Pass loops results
+            loops_results=loops_results,  # Pass loops results
+            config=config  # Pass config to analyze tools in loops vs truly skipped
         )
 
         # Calculate and return success status
@@ -1879,7 +1880,8 @@ def print_detailed_summary(
     loops_results: Optional[Dict[str, Any]] = None,
     selection_stats: Optional[Dict[str, Any]] = None,
     server_info: Optional[Dict[str, Any]] = None,
-    verbose: bool = False
+    verbose: bool = False,
+    config: Optional[Dict[str, Any]] = None
 ) -> None:
     """Print intelligent test summary with context and pattern analysis.
 
@@ -1894,6 +1896,7 @@ def print_detailed_summary(
             - effect_counts: dict of effect type -> count
         server_info: Server capabilities from initialize() (optional)
         verbose: Include detailed configuration and analysis (optional)
+        config: Test configuration (needed to determine tools in loops)
     """
     print("\n" + "=" * 80)
     print("📊 TEST SUITE SUMMARY")
@@ -1903,12 +1906,59 @@ def print_detailed_summary(
     if tools_results:
         total_tools = selection_stats.get('total_tools', tools_results['total']) if selection_stats else tools_results['total']
         selected_tools = tools_results['total']
-        skipped_tools = total_tools - selected_tools
+        non_selected = total_tools - selected_tools
 
         # Header with selection context
-        if skipped_tools > 0:
-            print(f"\n🔧 TOOLS (Tested {selected_tools}/{total_tools} tested, {skipped_tools} skipped)")
-            # Show reason for skipping
+        if non_selected > 0 and selection_stats and config:
+            # Analyze which non-selected tools are in loops vs truly skipped
+            test_tools = config.get('test_tools', {})
+            tool_loops = config.get('tool_loops', {})
+
+            # Get tools used in loops
+            tools_in_loops = set()
+            for loop_name, loop_config in tool_loops.items():
+                for step in loop_config.get('steps', []):
+                    tool = step.get('tool')
+                    if tool:
+                        tools_in_loops.add(tool)
+
+            # Categorize non-selected tools by effect and whether they're in loops
+            effect_counts = selection_stats.get('effect_counts', {})
+            non_none_effects = {k: v for k, v in effect_counts.items() if k not in {'none', 'none-context-required'}}
+
+            # Count tools in loops vs truly skipped
+            in_loops_by_effect = {}
+            skipped_by_effect = {}
+            for tool_name, tool_config in test_tools.items():
+                effect = tool_config.get('effect', 'none')
+                if effect in non_none_effects:
+                    if tool_name in tools_in_loops:
+                        in_loops_by_effect[effect] = in_loops_by_effect.get(effect, 0) + 1
+                    else:
+                        skipped_by_effect[effect] = skipped_by_effect.get(effect, 0) + 1
+
+            tools_in_loops_count = sum(in_loops_by_effect.values())
+            truly_skipped_count = sum(skipped_by_effect.values())
+
+            # Print header with accurate counts
+            header_parts = [f"{selected_tools}/{total_tools} tested"]
+            if tools_in_loops_count > 0:
+                header_parts.append(f"{tools_in_loops_count} in loops")
+            if truly_skipped_count > 0:
+                header_parts.append(f"{truly_skipped_count} skipped")
+            print(f"\n🔧 TOOLS ({', '.join(header_parts)})")
+
+            # Show details
+            print(f"   Selection: Idempotent only")
+            if tools_in_loops_count > 0:
+                loops_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(in_loops_by_effect.items()))
+                print(f"   DEFERRED TO LOOPS: {loops_summary}")
+            if truly_skipped_count > 0:
+                skipped_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(skipped_by_effect.items()))
+                print(f"   SKIPPED: {skipped_summary}")
+        elif non_selected > 0:
+            # Fallback if config not available (preserve old behavior)
+            print(f"\n🔧 TOOLS (Tested {selected_tools}/{total_tools} tested, {non_selected} skipped)")
             if selection_stats:
                 effect_counts = selection_stats.get('effect_counts', {})
                 non_none_effects = {k: v for k, v in effect_counts.items() if k != 'none'}
@@ -1951,21 +2001,43 @@ def print_detailed_summary(
 
     # Tool Loops summary
     if loops_results:
+        # Count unique loops that passed/failed (not individual steps)
+        # A loop passes if ALL its steps passed; fails if ANY step failed
+        unique_failed_loops = set(test.get('loop') for test in loops_results.get('failed_tests', []))
+        unique_passed_loops = set(test.get('loop') for test in loops_results.get('passed_tests', []))
+        # Remove loops from passed set if they're also in failed set (partial failures)
+        unique_passed_loops = unique_passed_loops - unique_failed_loops
+
+        loops_passed_count = len(unique_passed_loops)
+        loops_failed_count = len(unique_failed_loops)
+        total_step_failures = len(loops_results.get('failed_tests', []))
+
         print(f"\n🔄 TOOL LOOPS")
-        print(format_results_line(loops_results['passed'], loops_results['failed']))
+        print(format_results_line(loops_passed_count, loops_failed_count))
 
         # Show failures if any
-        if loops_results['failed'] > 0 and loops_results['failed_tests']:
-            print(f"\n   ❌ Failed Loops ({len(loops_results['failed_tests'])}):")
+        if loops_failed_count > 0:
+            # Group failures by loop for cleaner display
+            failures_by_loop = {}
             for test in loops_results['failed_tests']:
                 loop_name = test.get('loop', 'unknown')
-                step_num = test.get('step', '?')
-                tool_name = test.get('tool', 'unknown')
-                error = test.get('error', 'Unknown error')
-                is_cleanup = test.get('is_cleanup', False)
+                if loop_name not in failures_by_loop:
+                    failures_by_loop[loop_name] = []
+                failures_by_loop[loop_name].append(test)
+
+            print(f"\n   ❌ Failed Loops ({loops_failed_count} loops, {total_step_failures} step failures):")
+            for loop_name, failures in sorted(failures_by_loop.items()):
+                # Show first failure for this loop (most relevant)
+                first_failure = failures[0]
+                step_num = first_failure.get('step', '?')
+                tool_name = first_failure.get('tool', 'unknown')
+                error = first_failure.get('error', 'Unknown error')
+                is_cleanup = first_failure.get('is_cleanup', False)
 
                 print(f"\n      • Loop: {loop_name}")
-                print(f"        Failed at step {step_num}: {tool_name}")
+                if len(failures) > 1:
+                    print(f"        {len(failures)} step failures in this loop")
+                print(f"        First failure at step {step_num}: {tool_name}")
                 if is_cleanup:
                     print(f"        (cleanup step failure)")
                 print(f"        Error: {error}")
