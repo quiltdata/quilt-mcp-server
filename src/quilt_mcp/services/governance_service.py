@@ -198,7 +198,7 @@ class GovernanceService:
 # User Management Functions
 
 
-async def admin_users_list(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_users_list(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
     """List all users in the registry with detailed information - Quilt governance and administrative operations
 
     Args:
@@ -970,7 +970,7 @@ async def admin_user_remove_roles(
 # Role Management Functions
 
 
-async def admin_roles_list(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_roles_list(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
     """List all available roles in the registry - Quilt governance and administrative operations
 
     Args:
@@ -1026,7 +1026,7 @@ async def admin_roles_list(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, An
 # SSO Configuration Functions
 
 
-async def admin_sso_config_get(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_sso_config_get(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
     """Get the current SSO configuration - Quilt governance and administrative operations
 
     Args:
@@ -1086,7 +1086,9 @@ async def admin_sso_config_set(
             ],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the SSO configuration - Quilt governance and administrative operations
 
@@ -1135,7 +1137,7 @@ async def admin_sso_config_set(
         return service._handle_admin_error(e, "set SSO configuration")
 
 
-async def admin_sso_config_remove(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_sso_config_remove(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
     """Remove the SSO configuration - Quilt governance and administrative operations
 
     Args:
@@ -1175,7 +1177,9 @@ async def admin_sso_config_remove(quilt_ops: Optional[QuiltOps] = None) -> Dict[
 # Enhanced Tabulator Administration Functions
 
 
-async def admin_tabulator_open_query_get(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_tabulator_open_query_get(
+    *, quilt_ops: Optional[QuiltOps] = None, context: RequestContext
+) -> Dict[str, Any]:
     """Get the current tabulator open query status - Quilt governance and administrative operations
 
     Args:
@@ -1226,6 +1230,8 @@ async def admin_tabulator_open_query_set(
             examples=[True, False],
         ),
     ],
+    *,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the tabulator open query status - Quilt governance and administrative operations
 

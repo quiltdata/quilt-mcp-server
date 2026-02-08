@@ -882,7 +882,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
     # _backend_get_catalog_config inherited from base class (standard HTTP GET)
 
-    def _backend_list_buckets(self) -> List["Bucket_Info"]:
+    def _backend_list_buckets(self) -> List[Bucket_Info]:
         """List S3 buckets via GraphQL (backend primitive).
 
         Returns:

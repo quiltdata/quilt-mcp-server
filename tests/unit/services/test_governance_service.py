@@ -162,7 +162,9 @@ class TestUserManagement:
     async def test_admin_user_create_validation_errors(self, mock_admin_available, mock_quilt_ops, mock_context):
         """Test user creation with validation errors."""
         # Empty name
-        result = await governance.admin_user_create("", "email@example.com", "user", quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_create(
+            "", "email@example.com", "user", quilt_ops=mock_quilt_ops, context=mock_context
+        )
         assert result["success"] is False
         assert "Username cannot be empty" in result["error"]
 
@@ -172,12 +174,16 @@ class TestUserManagement:
         assert "Email cannot be empty" in result["error"]
 
         # Invalid email
-        result = await governance.admin_user_create("user", "invalid-email", "user", quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_create(
+            "user", "invalid-email", "user", quilt_ops=mock_quilt_ops, context=mock_context
+        )
         assert result["success"] is False
         assert "Invalid email format" in result["error"]
 
         # Empty role
-        result = await governance.admin_user_create("user", "email@example.com", "", quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_create(
+            "user", "email@example.com", "", quilt_ops=mock_quilt_ops, context=mock_context
+        )
         assert result["success"] is False
         assert "Role cannot be empty" in result["error"]
 
@@ -199,7 +205,7 @@ class TestUserManagement:
         """Test successful user listing."""
         mock_quilt_ops.admin.list_users.return_value = sample_users
 
-        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert len(result["users"]) == 3
@@ -219,12 +225,16 @@ class TestUserManagement:
         mock_quilt_ops.admin.delete_user.assert_called_once_with("test_user")
 
     @pytest.mark.asyncio
-    async def test_admin_user_set_email_success(self, mock_admin_available, sample_users, mock_quilt_ops, mock_context):
+    async def test_admin_user_set_email_success(
+        self, mock_admin_available, sample_users, mock_quilt_ops, mock_context
+    ):
         """Test successful email update."""
         updated_user = sample_users[0]
         mock_quilt_ops.admin.set_user_email.return_value = updated_user
 
-        result = await governance.admin_user_set_email("test_user", "updated@example.com", quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_set_email(
+            "test_user", "updated@example.com", quilt_ops=mock_quilt_ops, context=mock_context
+        )
 
         assert result["success"] is True
         assert result["user"]["name"] == "admin_user"
@@ -232,12 +242,16 @@ class TestUserManagement:
         mock_quilt_ops.admin.set_user_email.assert_called_once_with("test_user", "updated@example.com")
 
     @pytest.mark.asyncio
-    async def test_admin_user_set_admin_success(self, mock_admin_available, sample_users, mock_quilt_ops, mock_context):
+    async def test_admin_user_set_admin_success(
+        self, mock_admin_available, sample_users, mock_quilt_ops, mock_context
+    ):
         """Test successful admin status update."""
         updated_user = sample_users[0]
         mock_quilt_ops.admin.set_user_admin.return_value = updated_user
 
-        result = await governance.admin_user_set_admin("test_user", True, quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_set_admin(
+            "test_user", True, quilt_ops=mock_quilt_ops, context=mock_context
+        )
 
         assert result["success"] is True
         assert result["user"]["name"] == "admin_user"
@@ -245,12 +259,16 @@ class TestUserManagement:
         mock_quilt_ops.admin.set_user_admin.assert_called_once_with("test_user", True)
 
     @pytest.mark.asyncio
-    async def test_admin_user_set_active_success(self, mock_admin_available, sample_users, mock_quilt_ops, mock_context):
+    async def test_admin_user_set_active_success(
+        self, mock_admin_available, sample_users, mock_quilt_ops, mock_context
+    ):
         """Test successful active status update."""
         updated_user = sample_users[0]
         mock_quilt_ops.admin.set_user_active.return_value = updated_user
 
-        result = await governance.admin_user_set_active("test_user", True, quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_set_active(
+            "test_user", True, quilt_ops=mock_quilt_ops, context=mock_context
+        )
 
         assert result["success"] is True
         assert result["user"]["name"] == "admin_user"
@@ -262,7 +280,9 @@ class TestUserManagement:
         """Test successful password reset."""
         mock_quilt_ops.admin.reset_user_password.return_value = None
 
-        result = await governance.admin_user_reset_password("test_user", quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_reset_password(
+            "test_user", quilt_ops=mock_quilt_ops, context=mock_context
+        )
 
         assert result["success"] is True
         assert "Successfully reset password" in result["message"]
@@ -286,12 +306,16 @@ class TestUserManagement:
         )
 
     @pytest.mark.asyncio
-    async def test_admin_user_add_roles_success(self, mock_admin_available, sample_users, mock_quilt_ops, mock_context):
+    async def test_admin_user_add_roles_success(
+        self, mock_admin_available, sample_users, mock_quilt_ops, mock_context
+    ):
         """Test successful role addition."""
         updated_user = sample_users[0]
         mock_quilt_ops.admin.add_user_roles.return_value = updated_user
 
-        result = await governance.admin_user_add_roles("test_user", ["new_role"], quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_add_roles(
+            "test_user", ["new_role"], quilt_ops=mock_quilt_ops, context=mock_context
+        )
 
         assert result["success"] is True
         assert result["user"]["name"] == "admin_user"
@@ -299,12 +323,16 @@ class TestUserManagement:
         mock_quilt_ops.admin.add_user_roles.assert_called_once_with("test_user", ["new_role"])
 
     @pytest.mark.asyncio
-    async def test_admin_user_remove_roles_success(self, mock_admin_available, sample_users, mock_quilt_ops, mock_context):
+    async def test_admin_user_remove_roles_success(
+        self, mock_admin_available, sample_users, mock_quilt_ops, mock_context
+    ):
         """Test successful role removal."""
         updated_user = sample_users[0]
         mock_quilt_ops.admin.remove_user_roles.return_value = updated_user
 
-        result = await governance.admin_user_remove_roles("test_user", ["old_role"], quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_remove_roles(
+            "test_user", ["old_role"], quilt_ops=mock_quilt_ops, context=mock_context
+        )
 
         assert result["success"] is True
         assert result["user"]["name"] == "admin_user"
@@ -320,7 +348,7 @@ class TestRoleManagement:
         """Test successful role listing."""
         mock_quilt_ops.admin.list_roles.return_value = sample_roles
 
-        result = await governance.admin_roles_list(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_roles_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert len(result["roles"]) == 3
@@ -333,13 +361,15 @@ class TestSSOConfiguration:
     """Test SSO configuration functions."""
 
     @pytest.mark.asyncio
-    async def test_admin_sso_config_get_success(self, mock_admin_available, sample_users, mock_quilt_ops, mock_context):
+    async def test_admin_sso_config_get_success(
+        self, mock_admin_available, sample_users, mock_quilt_ops, mock_context
+    ):
         """Test successful SSO config retrieval."""
         uploader = sample_users[0]
         sso_config = SSOConfig("test config", "2023-01-01T00:00:00Z", uploader)
         mock_quilt_ops.admin.get_sso_config.return_value = sso_config
 
-        result = await governance.admin_sso_config_get(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_sso_config_get(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert result["sso_config"]["text"] == "test config"
@@ -351,14 +381,16 @@ class TestSSOConfiguration:
         """Test SSO config retrieval when none exists."""
         mock_quilt_ops.admin.get_sso_config.return_value = None
 
-        result = await governance.admin_sso_config_get(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_sso_config_get(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert result["sso_config"] is None
         assert "No SSO configuration found" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_admin_sso_config_set_success(self, mock_admin_available, sample_users, mock_quilt_ops, mock_context):
+    async def test_admin_sso_config_set_success(
+        self, mock_admin_available, sample_users, mock_quilt_ops, mock_context
+    ):
         """Test successful SSO config setting."""
         uploader = sample_users[0]
         sso_config = SSOConfig("new config", "2023-01-01T00:00:00Z", uploader)
@@ -366,7 +398,7 @@ class TestSSOConfiguration:
 
         # Pass dict instead of string (new behavior)
         result = await governance.admin_sso_config_set(
-            {"provider": "saml", "config": "new config"}, quilt_ops=mock_quilt_ops
+            {"provider": "saml", "config": "new config"}, quilt_ops=mock_quilt_ops, context=mock_context
         )
 
         assert result["success"] is True
@@ -376,9 +408,9 @@ class TestSSOConfiguration:
         mock_quilt_ops.admin.set_sso_config.assert_called_once_with({"provider": "saml", "config": "new config"})
 
     @pytest.mark.asyncio
-    async def test_admin_sso_config_set_empty(self, mock_admin_available, mock_quilt_ops):
+    async def test_admin_sso_config_set_empty(self, mock_admin_available, mock_quilt_ops, mock_context):
         """Test SSO config setting with empty config."""
-        result = await governance.admin_sso_config_set({}, quilt_ops=mock_quilt_ops)
+        result = await governance.admin_sso_config_set({}, quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is False
         assert "SSO configuration cannot be empty" in result["error"]
@@ -389,7 +421,7 @@ class TestSSOConfiguration:
         # Now uses set_sso_config(None) instead of remove_sso_config()
         mock_quilt_ops.admin.set_sso_config.return_value = None
 
-        result = await governance.admin_sso_config_remove(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_sso_config_remove(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert "Successfully removed SSO configuration" in result["message"]
@@ -414,7 +446,7 @@ class TestErrorHandling:
         """Test handling of generic admin errors."""
         mock_quilt_ops.admin.list_users.side_effect = BackendError("Admin operation failed")
 
-        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is False
         assert "Admin operation failed" in result["error"]
@@ -424,7 +456,9 @@ class TestErrorHandling:
         """Test handling of validation errors from QuiltOps."""
         mock_quilt_ops.admin.create_user.side_effect = ValidationError("Invalid role name")
 
-        result = await governance.admin_user_create("user", "valid@email.com", "role", quilt_ops=mock_quilt_ops, context=mock_context)
+        result = await governance.admin_user_create(
+            "user", "valid@email.com", "role", quilt_ops=mock_quilt_ops, context=mock_context
+        )
 
         assert result["success"] is False
         assert "Validation error" in result["error"]
@@ -434,7 +468,7 @@ class TestErrorHandling:
         """Test handling of generic exceptions."""
         mock_quilt_ops.admin.list_users.side_effect = Exception("Unexpected error")
 
-        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is False
         assert "Failed to list users" in result["error"]
@@ -442,7 +476,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_admin_unavailable_error(self, mock_admin_unavailable, mock_quilt_ops, mock_context):
         """Test handling when admin functionality is unavailable."""
-        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is False
         assert "Admin functionality not available" in result["error"]

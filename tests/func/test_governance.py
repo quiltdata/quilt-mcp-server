@@ -1,8 +1,9 @@
 """Functional tests for governance workflows using mocked admin backends."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
+from quilt_mcp.context.request_context import RequestContext
 from quilt_mcp.domain.role import Role
 from quilt_mcp.domain.sso_config import SSOConfig
 from quilt_mcp.domain.user import User
@@ -13,6 +14,12 @@ from quilt_mcp.services import governance_service as governance
 @pytest.fixture
 def admin_available(monkeypatch):
     monkeypatch.setattr(governance, "ADMIN_AVAILABLE", True)
+
+
+@pytest.fixture
+def mock_context():
+    """Mock RequestContext for testing."""
+    return Mock(spec=RequestContext)
 
 
 @pytest.fixture
@@ -53,17 +60,17 @@ class TestGovernanceIntegration:
         assert error_check is None
 
     @pytest.mark.asyncio
-    async def test_sso_config_get_integration(self, admin_available, mock_quilt_ops):
-        result = await governance.admin_sso_config_get(quilt_ops=mock_quilt_ops)
+    async def test_sso_config_get_integration(self, admin_available, mock_quilt_ops, mock_context):
+        result = await governance.admin_sso_config_get(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert "sso_config" in result
         assert result["sso_config"]["text"] == "config"
 
     @pytest.mark.asyncio
-    async def test_tabulator_open_query_get_integration(self, admin_available, mock_quilt_ops):
+    async def test_tabulator_open_query_get_integration(self, admin_available, mock_quilt_ops, mock_context):
         with patch("quilt_mcp.services.governance_service.quilt3.admin.tabulator.get_open_query", return_value=True):
-            result = await governance.admin_tabulator_open_query_get(quilt_ops=mock_quilt_ops)
+            result = await governance.admin_tabulator_open_query_get(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert result["open_query_enabled"] is True
@@ -73,16 +80,18 @@ class TestGovernanceWorkflows:
     """Test complete governance workflows."""
 
     @pytest.mark.asyncio
-    async def test_user_management_workflow(self, admin_available, mock_quilt_ops):
-        users_result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+    async def test_user_management_workflow(self, admin_available, mock_quilt_ops, mock_context):
+        users_result = await governance.admin_users_list(quilt_ops=mock_quilt_ops, context=mock_context)
         assert users_result["success"] is True
 
         mock_quilt_ops.admin.get_user.side_effect = NotFoundError("User not found", {"error_type": "user_not_found"})
-        user_result = await governance.admin_user_get("nonexistent_test_user_12345", quilt_ops=mock_quilt_ops)
+        user_result = await governance.admin_user_get(
+            "nonexistent_test_user_12345", quilt_ops=mock_quilt_ops, context=mock_context
+        )
         assert user_result["success"] is False
         assert "User not found" in user_result["error"]
 
-        create_result = await governance.admin_user_create("", "", "", quilt_ops=mock_quilt_ops)
+        create_result = await governance.admin_user_create("", "", "", quilt_ops=mock_quilt_ops, context=mock_context)
         assert create_result["success"] is False
         assert "Username cannot be empty" in create_result["error"]
 
@@ -91,34 +100,36 @@ class TestGovernanceErrorHandling:
     """Test error handling in integration scenarios."""
 
     @pytest.mark.asyncio
-    async def test_insufficient_privileges_handling(self, mock_quilt_ops):
+    async def test_insufficient_privileges_handling(self, mock_quilt_ops, mock_context):
         with patch.object(governance, "ADMIN_AVAILABLE", False):
-            result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+            result = await governance.admin_users_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
             assert result["success"] is False
             assert "Admin functionality not available" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_network_error_handling(self, admin_available):
+    async def test_network_error_handling(self, admin_available, mock_context):
         mock_quilt_ops = MagicMock()
         mock_quilt_ops.admin.list_users.side_effect = Exception("Network error")
 
-        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is False
         assert "Failed to list users" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_invalid_input_handling(self, admin_available, mock_quilt_ops):
-        result = await governance.admin_user_get("", quilt_ops=mock_quilt_ops)
+    async def test_invalid_input_handling(self, admin_available, mock_quilt_ops, mock_context):
+        result = await governance.admin_user_get("", quilt_ops=mock_quilt_ops, context=mock_context)
         assert result["success"] is False
         assert "Username cannot be empty" in result["error"]
 
-        result = await governance.admin_user_create("test", "invalid-email", "role", quilt_ops=mock_quilt_ops)
+        result = await governance.admin_user_create(
+            "test", "invalid-email", "role", quilt_ops=mock_quilt_ops, context=mock_context
+        )
         assert result["success"] is False
         assert "Invalid email format" in result["error"]
 
-        result = await governance.admin_sso_config_set("", quilt_ops=mock_quilt_ops)
+        result = await governance.admin_sso_config_set("", quilt_ops=mock_quilt_ops, context=mock_context)
         assert result["success"] is False
         assert "SSO configuration cannot be empty" in result["error"]
 
@@ -127,8 +138,8 @@ class TestGovernanceTableFormatting:
     """Test table formatting in integration scenarios."""
 
     @pytest.mark.asyncio
-    async def test_users_table_formatting(self, admin_available, mock_quilt_ops):
-        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops)
+    async def test_users_table_formatting(self, admin_available, mock_quilt_ops, mock_context):
+        result = await governance.admin_users_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert "formatted_table" in result or "display_hint" in result
@@ -140,8 +151,8 @@ class TestGovernanceTableFormatting:
             assert "is_admin" in user
 
     @pytest.mark.asyncio
-    async def test_roles_table_formatting(self, admin_available, mock_quilt_ops):
-        result = await governance.admin_roles_list(quilt_ops=mock_quilt_ops)
+    async def test_roles_table_formatting(self, admin_available, mock_quilt_ops, mock_context):
+        result = await governance.admin_roles_list(quilt_ops=mock_quilt_ops, context=mock_context)
 
         assert result["success"] is True
         assert "formatted_table" in result or "display_hint" in result

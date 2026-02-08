@@ -122,7 +122,7 @@ class Quilt3_Backend(
         Args:
             package: PackageBuilder to push
             package_name: Full package name
-            registry: Registry S3 URL
+            registry: Registry S3 URL (will be normalized to s3:// prefix)
             message: Commit message
             copy: If True, copy objects. If False, create shallow references.
 
@@ -140,26 +140,21 @@ class Quilt3_Backend(
         if "metadata" in package and package["metadata"]:
             quilt3_pkg.set_meta(package["metadata"])
 
-        # Determine if registry is S3 or local
-        # push() requires S3 registry, build() for local file paths
-        is_s3_registry = registry.startswith("s3://")
+        # Normalize registry to ensure s3:// prefix (all registries are S3)
+        if not registry.startswith("s3://"):
+            registry = f"s3://{registry}"
 
-        if is_s3_registry:
-            # Push to remote S3 registry
-            if copy:
-                # Deep copy objects to registry bucket
-                top_hash = quilt3_pkg.push(package_name, registry=registry, message=message)
-            else:
-                # Shallow references only (no copy)
-                # selector_fn returns False to preserve original physical keys without copying
-                # NOTE: selector_fn_copy_local only copies LOCAL files - S3 objects retain their physical keys
-                top_hash = quilt3_pkg.push(
-                    package_name, registry=registry, message=message, selector_fn=lambda logical_key, entry: False
-                )
+        # Push to S3 registry
+        if copy:
+            # Deep copy objects to registry bucket
+            top_hash = quilt3_pkg.push(package_name, registry=registry, message=message, force=True)
         else:
-            # Build to local file registry
-            # build() stores package locally without pushing to S3
-            top_hash = quilt3_pkg.build(package_name, registry=registry, message=message)
+            # Shallow references only (no copy)
+            # selector_fn returns False to preserve original physical keys without copying
+            # NOTE: selector_fn_copy_local only uploads LOCAL files - S3 objects retain their physical keys
+            top_hash = quilt3_pkg.push(
+                package_name, registry=registry, message=message, selector_fn=lambda *_: False, force=True
+            )
 
         return top_hash or ""
 
