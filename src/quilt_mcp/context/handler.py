@@ -31,6 +31,12 @@ def wrap_tool_with_context(func: Callable[..., Any], factory: RequestContextFact
     The wrapper injects context as a keyword argument, allowing tools to receive
     explicit context parameters without exposing them in the MCP schema.
     """
+    # Create modified signature that excludes 'context' parameter
+    # This prevents Pydantic/MCP from seeing context as a required param
+    original_sig = inspect.signature(func)
+    new_params = [p for p in original_sig.parameters.values() if p.name != "context"]
+    modified_sig = original_sig.replace(parameters=new_params)
+
     if inspect.iscoroutinefunction(func):
 
         @wraps(func)
@@ -38,7 +44,7 @@ def wrap_tool_with_context(func: Callable[..., Any], factory: RequestContextFact
             context = factory.create_context()
             return await func(*args, context=context, **kwargs)
 
-        _async_wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
+        _async_wrapper.__signature__ = modified_sig  # type: ignore[attr-defined]
         return _async_wrapper
 
     @wraps(func)
@@ -46,5 +52,5 @@ def wrap_tool_with_context(func: Callable[..., Any], factory: RequestContextFact
         context = factory.create_context()
         return func(*args, context=context, **kwargs)
 
-    _wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
+    _wrapper.__signature__ = modified_sig  # type: ignore[attr-defined]
     return _wrapper

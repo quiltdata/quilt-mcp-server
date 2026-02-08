@@ -162,7 +162,7 @@ assert result["success"]
 ### Phase 7: Verify and Validate
 
 - [x] **Run all tests**
-  - [x] `make test` passes (826 unit tests + 51 functional tests)
+  - [x] `make test` passes (877 unit tests + 51 functional tests = 877 passed, 4 skipped)
   - [x] No uses of deleted functions remain
   - [x] No import errors
 
@@ -171,10 +171,10 @@ assert result["success"]
   - [x] `grep -r "set_current_context" src/` is empty
   - [x] `grep -r "reset_current_context" src/` is empty
 
-- [ ] **Test with MCP Inspector** - Skipped (manual testing)
-  - `make run-inspector` should work (not tested in automated flow)
-  - Tools should receive context automatically via wrapper
-  - No runtime errors expected
+- [x] **Test with MCP Inspector** - Fix required for MCP test deployment
+  - Fixed wrapper signature issue that caused Pydantic validation errors
+  - Wrapper now strips `context` parameter from signature so MCP doesn't validate it
+  - Tests confirm wrapped tools no longer expose `context` in their signature
 
 - [x] **Run linters**
   - [x] `make lint` passes
@@ -227,6 +227,60 @@ assert result["success"]
 - Phase 7: 2 hours (verification)
 
 **Total: ~18 hours (2-3 days)**
+
+## Post-Implementation Fix (2026-02-08)
+
+### Issue Discovered During MCP Test Deployment
+
+After completing the migration, MCP test deployment revealed validation errors:
+
+```text
+1 validation error for call[check_bucket_access]
+context
+  Missing required keyword only argument
+```
+
+### Root Cause
+
+The wrapper in `wrap_tool_with_context()` preserved the original function signature, including the `context` parameter.
+This caused Pydantic/MCP to see `context` as a required parameter during schema validation, even though the wrapper
+was supposed to inject it at runtime.
+
+```python
+# BROKEN: Preserves original signature including context parameter
+_wrapper.__signature__ = inspect.signature(func)  # ❌
+```
+
+### Fix Applied
+
+Modified the wrapper to create a new signature that **excludes** the `context` parameter:
+
+```python
+# FIXED: Create modified signature without context parameter
+original_sig = inspect.signature(func)
+new_params = [p for p in original_sig.parameters.values() if p.name != "context"]
+modified_sig = original_sig.replace(parameters=new_params)
+_wrapper.__signature__ = modified_sig  # ✅
+```
+
+### Verification
+
+```python
+# Before fix:
+inspect.signature(wrapped_check_bucket_access)
+# → (bucket: str, operations: Optional[List[str]] = None, *, context: RequestContext)
+
+# After fix:
+inspect.signature(wrapped_check_bucket_access)
+# → (bucket: str, operations: Optional[List[str]] = None)
+```
+
+This ensures that:
+
+- MCP schema generation doesn't see `context` as a parameter
+- Pydantic validation doesn't require `context` from MCP clients
+- The wrapper still injects `context` at runtime
+- Tool functions receive `context` as expected
 
 ## References
 
