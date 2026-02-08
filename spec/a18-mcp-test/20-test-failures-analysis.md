@@ -8,7 +8,9 @@ Analyzed four remaining test failures in `make test-mcp-legacy`. All failures ar
 - Quilt3 Python library APIs
 - GraphQL backend expectations
 
-## Failure #1: admin_sso_config_set - String vs Dict Type Mismatch
+**Status**: ✅ **ALL ISSUES RESOLVED** - All four failures have been fixed and tests are passing.
+
+## Failure #1: admin_sso_config_set - String vs Dict Type Mismatch ✅ FIXED
 
 ### Error Message
 
@@ -83,9 +85,19 @@ quilt_ops_instance.admin.set_sso_config(config_str)
 
 This matches the backend expectation and provides better user experience (users send dict, not JSON string).
 
+### Fix Implementation
+
+**Status**: ✅ Implemented and tested
+
+- Tool signature updated to `config: Annotated[Dict[str, Any], Field(...)]` ([governance_service.py:1058-1067](../../src/quilt_mcp/services/governance_service.py#L1058-L1067))
+- Backend implementations serialize dict to JSON before sending:
+  - [quilt3_backend_admin.py:578-583](../../src/quilt_mcp/backends/quilt3_backend_admin.py#L578-L583)
+  - [platform_admin_ops.py:1066-1071](../../src/quilt_mcp/backends/platform_admin_ops.py#L1066-L1071)
+- Tests passing: `tests/unit/services/test_governance_service.py::TestSSOConfiguration::test_admin_sso_config_set_success`
+
 ---
 
-## Failure #2: admin_sso_config_remove - Missing API Method
+## Failure #2: admin_sso_config_remove - Missing API Method ✅ FIXED
 
 ### Error Message
 
@@ -134,9 +146,17 @@ quilt_ops_instance.admin.set_sso_config(None)
 
 **Note**: This is also reflected in the GraphQL mutation - there is NO separate `removeSsoConfig` mutation, only `setSsoConfig` which accepts optional string.
 
+### Fix Implementation
+
+**Status**: ✅ Implemented and tested
+
+- Implementation updated to call `set_sso_config(None)` instead of non-existent `remove_sso_config()` ([governance_service.py:1146](../../src/quilt_mcp/services/governance_service.py#L1146))
+- Comment added explaining: "Note: quilt3 uses set_sso_config(None) to remove config, there is no separate remove method"
+- Tests passing: `tests/unit/services/test_governance_service.py::TestSSOConfiguration::test_admin_sso_config_remove_success`
+
 ---
 
-## Failure #3: package_update - PackageEntry Missing is_dir Attribute
+## Failure #3: package_update - PackageEntry Missing is_dir Attribute ✅ FIXED
 
 ### Error Message
 
@@ -215,6 +235,14 @@ for key, entry in package.walk():
 ```
 
 **Alternative**: If directories ARE needed, iterate `_children` directly and check `isinstance(child, PackageEntry)`.
+
+### Fix Implementation
+
+**Status**: ✅ Implemented and tested
+
+- Code updated to hardcode `"type": "file"` since `walk()` only yields files ([quilt3_backend.py:323](../../src/quilt_mcp/backends/quilt3_backend.py#L323))
+- Comment added: "walk() only yields files, directories are not yielded"
+- Defensive `getattr()` pattern already in use elsewhere for backward compatibility
 
 ---
 
