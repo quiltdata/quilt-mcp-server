@@ -441,8 +441,8 @@ test_tools:
       - content
   check_bucket_access:
     description: Check the caller's access to ``bucket``.
-    effect: none-context-required
-    category: context-required
+    effect: none
+    category: optional-arg
     arguments:
       bucket: quilt-ernest-staging
     response_schema:
@@ -506,8 +506,8 @@ test_tools:
       - content
   discover_permissions:
     description: Discover AWS permissions for the current principal.
-    effect: none-context-required
-    category: context-required
+    effect: none
+    category: zero-arg
     arguments:
       check_buckets:
       - quilt-ernest-staging
@@ -956,7 +956,7 @@ test_tools:
     description: Apply a pre-defined workflow template - Workflow tracking and orchestration
       tasks
     effect: configure
-    category: context-required
+    category: required-arg
     arguments:
       template_name: cross-package-aggregation
       workflow_id: test-wf-001
@@ -1196,7 +1196,7 @@ tool_loops:
       args:
         name: tlu{uuid}
         email: tlu{uuid}@example.com
-        role: viewer
+        role: T4BucketReadRole
       expect_success: true
     - tool: admin_user_get
       args:
@@ -1215,13 +1215,13 @@ tool_loops:
       args:
         name: tlu{uuid}
         email: tlu{uuid}@example.com
-        role: viewer
+        role: T4BucketReadRole
       expect_success: true
     - tool: admin_user_add_roles
       args:
         name: tlu{uuid}
         roles:
-        - data-scientist
+        - T4BucketWriteRole
       expect_success: true
     - tool: admin_user_get
       args:
@@ -1231,7 +1231,7 @@ tool_loops:
       args:
         name: tlu{uuid}
         roles:
-        - data-scientist
+        - T4BucketWriteRole
       expect_success: true
     - tool: admin_user_delete
       args:
@@ -1247,7 +1247,7 @@ tool_loops:
       args:
         name: tlu{uuid}
         email: tlu{uuid}@example.com
-        role: viewer
+        role: T4BucketReadRole
       expect_success: true
     - tool: admin_user_set_email
       args:
@@ -1257,7 +1257,7 @@ tool_loops:
     - tool: admin_user_set_role
       args:
         name: tlu{uuid}
-        role: data-scientist
+        role: T4BucketWriteRole
       expect_success: true
     - tool: admin_user_set_admin
       args:

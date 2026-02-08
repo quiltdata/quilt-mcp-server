@@ -16,6 +16,7 @@ from ..utils.common import format_error_response
 from quilt_mcp.utils.formatting import format_users_as_table, format_roles_as_table
 from ..ops.quilt_ops import QuiltOps
 from ..ops.exceptions import NotFoundError, BackendError, ValidationError, AuthenticationError, PermissionError
+from ..context.request_context import RequestContext
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +259,9 @@ async def admin_user_get(
             examples=["john-doe", "admin-user"],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Get detailed information about a specific user - Quilt governance and administrative operations
 
@@ -337,7 +340,9 @@ async def admin_user_create(
             examples=[["data-scientist", "analyst"], []],
         ),
     ] = None,
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Create a new user in the registry - Quilt governance and administrative operations
 
@@ -410,7 +415,9 @@ async def admin_user_delete(
             examples=["user-to-remove", "inactive-user"],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Delete a user from the registry - Quilt governance and administrative operations
 
@@ -468,7 +475,9 @@ async def admin_user_set_email(
             examples=["newemail@example.com", "updated@company.org"],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Update a user's email address - Quilt governance and administrative operations
 
@@ -538,7 +547,9 @@ async def admin_user_set_admin(
             examples=[True, False],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the admin status for a user - Quilt governance and administrative operations
 
@@ -602,7 +613,9 @@ async def admin_user_set_active(
             examples=[True, False],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the active status for a user - Quilt governance and administrative operations
 
@@ -659,7 +672,9 @@ async def admin_user_reset_password(
             examples=["john-doe", "user123"],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Reset a user's password - Quilt governance and administrative operations
 
@@ -735,7 +750,9 @@ async def admin_user_set_role(
             description="Whether to append extra roles to existing ones (True) or replace them (False)",
         ),
     ] = False,
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the primary and extra roles for a user - Quilt governance and administrative operations
 
@@ -809,7 +826,9 @@ async def admin_user_add_roles(
             examples=[["data-scientist", "analyst"], ["viewer"]],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Add roles to a user - Quilt governance and administrative operations
 
@@ -890,7 +909,9 @@ async def admin_user_remove_roles(
             examples=["viewer", "editor"],
         ),
     ] = None,
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Remove roles from a user - Quilt governance and administrative operations
 
