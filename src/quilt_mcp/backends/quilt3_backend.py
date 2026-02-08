@@ -98,10 +98,12 @@ class Quilt3_Backend(
             logical_key: Logical path within package
             s3_uri: S3 URI of file to add
         """
-        package["entries"].append({
-            "logicalKey": logical_key,
-            "physicalKey": s3_uri,
-        })
+        package["entries"].append(
+            {
+                "logicalKey": logical_key,
+                "physicalKey": s3_uri,
+            }
+        )
 
     def _backend_set_package_metadata(self, package: PackageBuilder, metadata: Dict[str, Any]) -> None:
         """Set metadata on package representation (backend primitive).
@@ -112,7 +114,9 @@ class Quilt3_Backend(
         """
         package["metadata"] = metadata
 
-    def _backend_push_package(self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool) -> str:
+    def _backend_push_package(
+        self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool
+    ) -> str:
         """Convert PackageBuilder to quilt3.Package and push to registry (backend primitive).
 
         Args:
@@ -142,6 +146,7 @@ class Quilt3_Backend(
             top_hash = quilt3_pkg.push(package_name, registry=registry, message=message)
         else:
             # Shallow references only (no copy)
+            # selector_fn returns False to preserve original physical keys without copying
             top_hash = quilt3_pkg.push(
                 package_name, registry=registry, message=message, selector_fn=lambda logical_key, entry: False
             )
@@ -178,13 +183,13 @@ class Quilt3_Backend(
         """
         entries = {}
         for logical_key, entry in package.walk():
-            if not entry.is_dir:
-                entries[logical_key] = {
-                    "physicalKey": entry.physical_key,
-                    "size": entry.size,
-                    "hash": entry.hash,
-                    "meta": getattr(entry, 'meta', None),  # Entry-level metadata
-                }
+            # package.walk() only yields files (PackageEntry), never directories
+            entries[logical_key] = {
+                "physicalKey": entry.physical_key,
+                "size": entry.size,
+                "hash": entry.hash,
+                "meta": getattr(entry, 'meta', None),  # Entry-level metadata
+            }
         return entries
 
     def _backend_get_package_metadata(self, package: Any) -> Dict[str, Any]:
@@ -308,13 +313,14 @@ class Quilt3_Backend(
             package = package[path]
 
         # Walk the package and return entries
+        # Note: package.walk() only yields files (PackageEntry objects), never directories
         entries = []
         for key, entry in package.walk():
             entries.append(
                 {
                     "path": key,
                     "size": entry.size if hasattr(entry, 'size') else None,
-                    "type": "directory" if entry.is_dir else "file",
+                    "type": "file",  # walk() only yields files, directories are not yielded
                 }
             )
 

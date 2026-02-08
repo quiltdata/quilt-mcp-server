@@ -136,6 +136,7 @@ def test_permission_wrappers_use_context_service():
     service = _StubService()
     context = _StubContext(service)
 
+    # Call with explicit context parameter (new behavior)
     discover_permissions(context=context)
     check_bucket_access("bucket", context=context)
     bucket_recommendations_get(context=context)

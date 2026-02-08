@@ -1045,14 +1045,14 @@ class Platform_Admin_Ops(AdminOps):
             self._handle_graphql_error(e, "get SSO configuration")
             return None  # pragma: no cover
 
-    def set_sso_config(self, config: str) -> SSOConfig:
-        """Set the SSO configuration.
+    def set_sso_config(self, config: Optional[Dict[str, Any]]) -> Optional[SSOConfig]:
+        """Set or remove the SSO configuration.
 
         Args:
-            config: SSO configuration text to set
+            config: SSO configuration as a dictionary, or None to remove configuration
 
         Returns:
-            SSOConfig object representing the updated configuration
+            SSOConfig object representing the updated configuration, or None if removed
 
         Raises:
             AuthenticationError: When authentication credentials are invalid or missing
@@ -1060,14 +1060,20 @@ class Platform_Admin_Ops(AdminOps):
             ValidationError: When config parameter is invalid
             PermissionError: When user lacks admin privileges to modify SSO configuration
         """
+        import json
+
         try:
-            if not config or not config.strip():
-                raise ValidationError("SSO configuration cannot be empty")
+            # Serialize config to JSON string (backend expects string)
+            config_str: Optional[str] = None
+            if config is not None:
+                if not config:
+                    raise ValidationError("SSO configuration cannot be empty")
+                config_str = json.dumps(config)
 
             logger.debug("Setting SSO configuration via Platform GraphQL")
 
             mutation = """
-                mutation SetSSOConfig($config: String!) {
+                mutation SetSSOConfig($config: String) {
                     admin {
                         setSsoConfig(config: $config) {
                             ... on SsoConfigSuccess {
@@ -1088,7 +1094,7 @@ class Platform_Admin_Ops(AdminOps):
                 }
             """
 
-            result = self._backend.execute_graphql_query(mutation, variables={"config": config})
+            result = self._backend.execute_graphql_query(mutation, variables={"config": config_str})
             set_sso_result = result.get("data", {}).get("admin", {}).get("setSsoConfig", {})
 
             # Check for errors
@@ -1097,6 +1103,11 @@ class Platform_Admin_Ops(AdminOps):
                 raise ValidationError(f"Failed to set SSO config: {error_message}")
 
             sso_config_data = set_sso_result.get("ssoConfig")
+            # If config was None (removal), ssoConfig will be None/null
+            if config is None:
+                logger.debug("Successfully removed SSO configuration")
+                return None
+
             if not sso_config_data:
                 raise BackendError("Failed to set SSO config: No config data returned")
 
@@ -1111,44 +1122,6 @@ class Platform_Admin_Ops(AdminOps):
             logger.error(f"Failed to set SSO configuration: {e}")
             self._handle_graphql_error(e, "set SSO configuration")
             raise  # pragma: no cover
-
-    def remove_sso_config(self) -> None:
-        """Remove the SSO configuration.
-
-        Raises:
-            AuthenticationError: When authentication credentials are invalid or missing
-            BackendError: When the backend operation fails
-            PermissionError: When user lacks admin privileges to modify SSO configuration
-        """
-        try:
-            logger.debug("Removing SSO configuration via Platform GraphQL")
-
-            mutation = """
-                mutation RemoveSSOConfig {
-                    admin {
-                        removeSsoConfig {
-                            ... on OperationSuccess {
-                                message
-                            }
-                        }
-                    }
-                }
-            """
-
-            result = self._backend.execute_graphql_query(mutation)
-            remove_result = result.get("data", {}).get("admin", {}).get("removeSsoConfig", {})
-
-            # Check if the mutation was successful
-            if not remove_result:
-                raise BackendError("Failed to remove SSO configuration")
-
-            logger.debug("Successfully removed SSO configuration")
-
-        except BackendError:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to remove SSO configuration: {e}")
-            self._handle_graphql_error(e, "remove SSO configuration")
 
     # ========================================================================
     # Transformation Methods

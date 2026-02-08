@@ -13,9 +13,11 @@ import argparse
 import enum
 import json
 import os
+import re
 import subprocess
 import sys
 import time
+import uuid as uuid_module
 from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -26,7 +28,6 @@ from jsonschema import validate
 
 # JWT generation for testing
 import jwt as pyjwt
-import uuid as uuid_module
 
 
 def generate_test_jwt(secret: str = "test-secret", expires_in: int = 3600) -> str:
@@ -458,6 +459,328 @@ def validate_test_coverage(server_tools: List[Dict[str, Any]], config_tools: Dic
         )
 
 
+# ============================================================================
+# Tool Loops: Template Substitution & Execution (A18)
+# ============================================================================
+
+def substitute_templates(value: Any, env_vars: Dict[str, str], loop_uuid: str) -> Any:
+    """Recursively substitute template variables in configuration values.
+
+    Template variables:
+    - {uuid}: Replaced with loop-specific UUID
+    - {env.VAR_NAME}: Replaced with environment variable value
+
+    Args:
+        value: Value to substitute (can be str, dict, list, or other)
+        env_vars: Environment variables from config
+        loop_uuid: UUID for this loop execution
+
+    Returns:
+        Value with templates substituted
+
+    Raises:
+        ValueError: If template variable cannot be resolved
+    """
+    if isinstance(value, str):
+        # Replace {uuid}
+        result = value.replace("{uuid}", loop_uuid)
+
+        # Replace {env.VAR_NAME}
+        env_pattern = r'\{env\.(\w+)\}'
+        matches = re.findall(env_pattern, result)
+        for var_name in matches:
+            env_value = env_vars.get(var_name)
+            if env_value is None:
+                raise ValueError(f"Environment variable '{var_name}' not found in config")
+            result = result.replace(f"{{env.{var_name}}}", env_value)
+
+        return result
+
+    elif isinstance(value, dict):
+        return {k: substitute_templates(v, env_vars, loop_uuid) for k, v in value.items()}
+
+    elif isinstance(value, list):
+        return [substitute_templates(item, env_vars, loop_uuid) for item in value]
+
+    else:
+        # Return as-is for other types (int, bool, None, etc.)
+        return value
+
+
+class ToolLoopExecutor:
+    """Executes tool loops with create → modify → verify → cleanup cycles."""
+
+    def __init__(self, tester: 'MCPTester', env_vars: Dict[str, str], verbose: bool = False):
+        """Initialize loop executor.
+
+        Args:
+            tester: MCPTester instance for calling tools
+            env_vars: Environment variables for template substitution
+            verbose: Enable verbose output
+        """
+        self.tester = tester
+        self.env_vars = env_vars
+        self.verbose = verbose
+        self.results = TestResults()
+
+    def execute_loop(self, loop_name: str, loop_config: Dict[str, Any]) -> bool:
+        """Execute a single tool loop.
+
+        Args:
+            loop_name: Name of the loop
+            loop_config: Loop configuration with steps
+
+        Returns:
+            True if loop succeeded, False otherwise
+        """
+        print(f"\n{'='*80}")
+        print(f"🔄 Executing Tool Loop: {loop_name}")
+        print(f"{'='*80}")
+        print(f"Description: {loop_config.get('description', 'No description')}")
+
+        steps = loop_config.get('steps', [])
+        cleanup_on_failure = loop_config.get('cleanup_on_failure', True)
+
+        # Generate UUID for this loop
+        loop_uuid = str(uuid_module.uuid4())[:8]  # Use first 8 chars for readability
+        print(f"Loop UUID: {loop_uuid}")
+        print(f"Total steps: {len(steps)}")
+
+        # Track which step we're on
+        failed_step_index = None
+        failed_step_name = None
+        failed_error = None
+
+        # Execute steps in sequence
+        for step_index, step in enumerate(steps):
+            tool_name = step.get('tool')
+            raw_args = step.get('args', {})
+            expect_success = step.get('expect_success', True)
+            is_cleanup = step.get('is_cleanup', False)
+
+            # If we already failed and this isn't a cleanup step, skip it
+            if failed_step_index is not None and not is_cleanup:
+                print(f"\n⏭️  Step {step_index + 1}: {tool_name} (SKIPPED - previous failure)")
+                continue
+
+            print(f"\n--- Step {step_index + 1}/{len(steps)}: {tool_name} ---")
+            if is_cleanup:
+                print("   (cleanup step)")
+
+            try:
+                # Substitute templates
+                substituted_args = substitute_templates(raw_args, self.env_vars, loop_uuid)
+
+                if self.verbose:
+                    print(f"   Arguments: {json.dumps(substituted_args, indent=2)}")
+
+                # Call the tool
+                result = self.tester.call_tool(tool_name, substituted_args)
+
+                # Check for error response
+                if self._is_error_response(result):
+                    error_msg = self._extract_error_message(result)
+                    if expect_success:
+                        print(f"   ❌ FAILED: Tool returned error")
+                        print(f"   Error: {error_msg}")
+                        failed_step_index = step_index
+                        failed_step_name = tool_name
+                        failed_error = error_msg
+
+                        # If this is a cleanup step, record failure but continue
+                        if is_cleanup:
+                            self.results.record_failure({
+                                "loop": loop_name,
+                                "step": step_index + 1,
+                                "tool": tool_name,
+                                "args": substituted_args,
+                                "error": error_msg,
+                                "is_cleanup": True
+                            })
+                        else:
+                            # Non-cleanup failure - will trigger cleanup
+                            self.results.record_failure({
+                                "loop": loop_name,
+                                "step": step_index + 1,
+                                "tool": tool_name,
+                                "args": substituted_args,
+                                "error": error_msg
+                            })
+
+                        # If not cleanup and cleanup_on_failure, continue to run cleanup steps
+                        if not is_cleanup and cleanup_on_failure:
+                            print(f"   ⚠️  Will attempt cleanup steps...")
+                            continue
+                        elif not cleanup_on_failure:
+                            # Stop immediately
+                            break
+                    else:
+                        # Error was expected
+                        print(f"   ✅ Expected error occurred: {error_msg}")
+                        self.results.record_pass({
+                            "loop": loop_name,
+                            "step": step_index + 1,
+                            "tool": tool_name,
+                            "args": substituted_args,
+                            "expected_error": True
+                        })
+                else:
+                    # Success
+                    print(f"   ✅ SUCCESS")
+                    self.results.record_pass({
+                        "loop": loop_name,
+                        "step": step_index + 1,
+                        "tool": tool_name,
+                        "args": substituted_args
+                    })
+
+            except Exception as e:
+                print(f"   ❌ FAILED: {e}")
+                failed_step_index = step_index
+                failed_step_name = tool_name
+                failed_error = str(e)
+
+                self.results.record_failure({
+                    "loop": loop_name,
+                    "step": step_index + 1,
+                    "tool": tool_name,
+                    "args": raw_args,  # Use raw args in error report
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "is_cleanup": is_cleanup
+                })
+
+                # If not cleanup and cleanup_on_failure, continue to run cleanup steps
+                if not is_cleanup and cleanup_on_failure:
+                    print(f"   ⚠️  Will attempt cleanup steps...")
+                    continue
+                elif not cleanup_on_failure:
+                    # Stop immediately
+                    break
+
+        # Print loop summary
+        print(f"\n{'='*80}")
+        if failed_step_index is None:
+            print(f"✅ Loop '{loop_name}' PASSED ({len(steps)} steps)")
+            return True
+        else:
+            print(f"❌ Loop '{loop_name}' FAILED at step {failed_step_index + 1}: {failed_step_name}")
+            print(f"   Error: {failed_error}")
+            if cleanup_on_failure:
+                cleanup_steps = [s for s in steps if s.get('is_cleanup', False)]
+                print(f"   Cleanup: Attempted {len(cleanup_steps)} cleanup step(s)")
+            return False
+
+    def _is_error_response(self, result: Dict[str, Any]) -> bool:
+        """Check if the MCP response indicates an error."""
+        try:
+            content = result.get("content", [])
+            if content and isinstance(content[0], dict) and "text" in content[0]:
+                text_content = content[0]["text"]
+
+                # Check for validation errors
+                if "validation error" in text_content.lower():
+                    return True
+
+                # Try to parse as JSON and check for error field
+                try:
+                    data = json.loads(text_content)
+                    return "error" in data and isinstance(data["error"], str)
+                except json.JSONDecodeError:
+                    return False
+
+            return False
+        except Exception:
+            return False
+
+    def _extract_error_message(self, result: Dict[str, Any]) -> str:
+        """Extract the error message from an error response."""
+        try:
+            content = result.get("content", [])
+            if content and isinstance(content[0], dict) and "text" in content[0]:
+                text_content = content[0]["text"]
+
+                # Check for validation errors
+                if "validation error" in text_content.lower():
+                    return text_content.strip()
+
+                # Try to parse as JSON
+                try:
+                    data = json.loads(text_content)
+                    return data.get("error", "Unknown error")
+                except json.JSONDecodeError:
+                    return text_content[:200] if len(text_content) > 200 else text_content
+
+            return "Could not parse error message"
+        except Exception:
+            return "Could not parse error message"
+
+    def execute_all_loops(self, tool_loops: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+        """Execute all tool loops.
+
+        Args:
+            tool_loops: Dictionary of loop configurations
+
+        Returns:
+            Results dictionary
+        """
+        print(f"\n🔄 Executing {len(tool_loops)} Tool Loops...")
+
+        for loop_name, loop_config in tool_loops.items():
+            success = self.execute_loop(loop_name, loop_config)
+            # Results already tracked in execute_loop
+
+        return self.results.to_dict()
+
+
+def validate_loop_coverage(
+    server_tools: List[Dict[str, Any]],
+    tool_loops: Dict[str, Any],
+    standalone_tools: Dict[str, Any]
+) -> tuple[bool, List[str]]:
+    """Validate that all write-effect tools are covered by loops or standalone tests.
+
+    Args:
+        server_tools: List of tool dicts from server
+        tool_loops: Tool loops configuration
+        standalone_tools: Standalone test configurations
+
+    Returns:
+        (is_complete, uncovered_tools) where:
+        - is_complete: True if 100% coverage
+        - uncovered_tools: List of tool names not covered
+    """
+    # Find all write-effect tools (would need effect classification from server)
+    # For now, we'll extract tools from loops and standalone tests
+
+    # Find tools covered by loops
+    loop_covered = set()
+    for loop_name, loop_config in tool_loops.items():
+        for step in loop_config.get('steps', []):
+            tool_name = step.get('tool')
+            if tool_name:
+                loop_covered.add(tool_name)
+
+    # Find tools covered by standalone tests
+    standalone_covered = set()
+    for tool_key, tool_config in standalone_tools.items():
+        if isinstance(tool_config, dict) and 'tool' in tool_config:
+            # Variant - use actual tool name
+            standalone_covered.add(tool_config['tool'])
+        else:
+            # Regular tool - use key
+            standalone_covered.add(tool_key)
+
+    # All server tools
+    server_tool_names = {tool['name'] for tool in server_tools}
+
+    # Check coverage
+    total_covered = loop_covered | standalone_covered
+    uncovered = server_tool_names - total_covered
+
+    return len(uncovered) == 0, sorted(uncovered)
+
+
 class MCPTester:
     """MCP endpoint testing client supporting both stdio and HTTP transports."""
 
@@ -783,16 +1106,18 @@ class MCPTester:
         config: dict = None,
         run_tools: bool = False,
         run_resources: bool = False,
+        run_loops: bool = False,
         specific_tool: str = None,
         specific_resource: str = None,
+        specific_loop: str = None,
         process: Optional[subprocess.Popen] = None,
         selection_stats: Optional[Dict[str, Any]] = None,
         jwt_token: Optional[str] = None
     ) -> bool:
-        """Run test suite with tools and/or resources tests, print summary, return success.
+        """Run test suite with tools, resources, and/or loops tests, print summary, return success.
 
         This method is the single entry point for running tests. It:
-        1. Executes the requested tests (tools and/or resources)
+        1. Executes the requested tests (tools, resources, and/or loops)
         2. Prints detailed summary with failure information
         3. Returns boolean success status
 
@@ -808,8 +1133,10 @@ class MCPTester:
             config: Test configuration dictionary
             run_tools: Run tools tests
             run_resources: Run resources tests
+            run_loops: Run tool loops tests
             specific_tool: Test specific tool only
             specific_resource: Test specific resource only
+            specific_loop: Test specific loop only
             process: Running subprocess with stdio pipes (alternative to stdin_fd/stdout_fd)
             selection_stats: Stats from filter_tests_by_idempotence() (optional)
             jwt_token: JWT token for authentication (HTTP transport only)
@@ -823,6 +1150,7 @@ class MCPTester:
         # session state between ToolsTester and ResourcesTester instances.
         tools_results = None
         resources_results = None
+        loops_results = None
 
         if run_tools:
             # Create ToolsTester instance
@@ -863,18 +1191,59 @@ class MCPTester:
             tester.run_all_tests(specific_resource=specific_resource)
             resources_results = tester.to_dict()
 
+        if run_loops:
+            # Create MCPTester instance for loops
+            if transport == "http":
+                tester = MCPTester(endpoint=endpoint, verbose=verbose, transport="http", jwt_token=jwt_token)
+            elif process:
+                tester = MCPTester(process=process, verbose=verbose, transport="stdio")
+            else:
+                tester = MCPTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport="stdio")
+
+            # Initialize session
+            tester.initialize()
+
+            # Create loop executor
+            env_vars = config.get("environment", {}) if config else {}
+            executor = ToolLoopExecutor(tester, env_vars, verbose=verbose)
+
+            # Run loops
+            tool_loops = config.get('tool_loops', {}) if config else {}
+            if specific_loop:
+                if specific_loop not in tool_loops:
+                    print(f"❌ Loop '{specific_loop}' not found in config")
+                    loops_results = {
+                        "total": 0,
+                        "passed": 0,
+                        "failed": 1,
+                        "skipped": 0,
+                        "passed_tests": [],
+                        "failed_tests": [{
+                            "loop": specific_loop,
+                            "error": "Loop not found in configuration"
+                        }],
+                        "skipped_tests": []
+                    }
+                else:
+                    executor.execute_loop(specific_loop, tool_loops[specific_loop])
+                    loops_results = executor.results.to_dict()
+            else:
+                loops_results = executor.execute_all_loops(tool_loops)
+
         # ALWAYS print detailed summary when tests run
         print_detailed_summary(
             tools_results=tools_results,
             resources_results=resources_results,
             selection_stats=selection_stats,
-            verbose=verbose
+            verbose=verbose,
+            loops_results=loops_results  # NEW: Pass loops results
         )
 
         # Calculate and return success status
         tools_ok = not tools_results or tools_results['failed'] == 0
         resources_ok = not resources_results or resources_results['failed'] == 0
-        return tools_ok and resources_ok
+        loops_ok = not loops_results or loops_results['failed'] == 0
+        return tools_ok and resources_ok and loops_ok
 
 
 class ToolsTester(MCPTester):
@@ -1493,6 +1862,7 @@ def filter_tests_by_idempotence(config: Dict[str, Any], idempotent_only: bool) -
 def print_detailed_summary(
     tools_results: Optional[Dict[str, Any]] = None,
     resources_results: Optional[Dict[str, Any]] = None,
+    loops_results: Optional[Dict[str, Any]] = None,
     selection_stats: Optional[Dict[str, Any]] = None,
     server_info: Optional[Dict[str, Any]] = None,
     verbose: bool = False
@@ -1502,6 +1872,7 @@ def print_detailed_summary(
     Args:
         tools_results: Tool test results from ToolsTester.to_dict()
         resources_results: Resource test results from ResourcesTester.to_dict()
+        loops_results: Tool loops results from ToolLoopExecutor
         selection_stats: Stats from filter_tests_by_idempotence() including:
             - total_tools: total number of tools in config
             - total_resources: total number of resources in config
@@ -1563,6 +1934,27 @@ def print_detailed_summary(
             print(f"\n   ⚠️  Untested Tools with Side Effects ({len(tools_results['untested_side_effects'])}):")
             for tool in tools_results['untested_side_effects']:
                 print(f"      • {tool}")
+
+    # Tool Loops summary
+    if loops_results:
+        print(f"\n🔄 TOOL LOOPS")
+        print(format_results_line(loops_results['passed'], loops_results['failed']))
+
+        # Show failures if any
+        if loops_results['failed'] > 0 and loops_results['failed_tests']:
+            print(f"\n   ❌ Failed Loops ({len(loops_results['failed_tests'])}):")
+            for test in loops_results['failed_tests']:
+                loop_name = test.get('loop', 'unknown')
+                step_num = test.get('step', '?')
+                tool_name = test.get('tool', 'unknown')
+                error = test.get('error', 'Unknown error')
+                is_cleanup = test.get('is_cleanup', False)
+
+                print(f"\n      • Loop: {loop_name}")
+                print(f"        Failed at step {step_num}: {tool_name}")
+                if is_cleanup:
+                    print(f"        (cleanup step failure)")
+                print(f"        Error: {error}")
 
     # Resources summary
     if resources_results:
@@ -1656,6 +2048,7 @@ def print_detailed_summary(
     print("\n" + "=" * 80)
     tools_ok = not tools_results or tools_results['failed'] == 0
     resources_ok = not resources_results or resources_results['failed'] == 0
+    loops_ok = not loops_results or loops_results['failed'] == 0
 
     # Analyze severity for nuanced status
     severity = 'info'
@@ -1664,25 +2057,31 @@ def print_detailed_summary(
         severity = analysis.get('severity', 'warning')
 
     # Determine overall status
-    if tools_ok and resources_ok:
+    if tools_ok and resources_ok and loops_ok:
         overall_status = "✅ ALL TESTS PASSED"
         detail_lines = []
         if tools_results:
             detail_lines.append(f"- {tools_results['passed']} idempotent tools verified")
+        if loops_results:
+            detail_lines.append(f"- {loops_results['passed']} tool loops executed successfully")
         if resources_results:
             detail_lines.append(f"- {resources_results['passed']} resources verified")
         detail_lines.append("- No failures detected")
-    elif not tools_ok:
+    elif not tools_ok or not loops_ok:
         overall_status = "❌ CRITICAL FAILURE"
-        detail_lines = [
-            f"- {tools_results['failed']}/{tools_results['total']} core tools failing",
-            "- Immediate action required"
-        ]
+        detail_lines = []
+        if tools_results and not tools_ok:
+            detail_lines.append(f"- {tools_results['failed']}/{tools_results['total']} core tools failing")
+        if loops_results and not loops_ok:
+            detail_lines.append(f"- {loops_results['failed']} tool loops failing")
+        detail_lines.append("- Immediate action required")
     elif severity == 'warning':
         overall_status = "⚠️  PARTIAL PASS"
         detail_lines = []
         if tools_results:
             detail_lines.append(f"- Core functionality verified ({tools_results['passed']}/{tools_results['total']} tools)")
+        if loops_results:
+            detail_lines.append(f"- Write operations verified ({loops_results['passed']} loops)")
         if resources_results:
             passed_static = sum(1 for t in resources_results.get('passed_tests', []) if not t.get('uri_variables'))
             if passed_static > 0:
@@ -1734,6 +2133,9 @@ Examples:
 
   # Test specific tool via HTTP
   mcp-test.py http://localhost:8000/mcp --test-tool bucket_objects_list
+
+  # Test specific loop
+  mcp-test.py http://localhost:8000/mcp --loop admin_user_basic
 
   # List available tools
   mcp-test.py http://localhost:8000/mcp --list-tools
@@ -1813,11 +2215,17 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                        help="Run resources test with test configurations")
     parser.add_argument("-R", "--test-resource", metavar="RESOURCE_URI",
                        help="Test specific resource by URI")
+    parser.add_argument("--loop", metavar="LOOP_NAME",
+                       help="Run specific tool loop by name")
+    parser.add_argument("--loops-test", action="store_true",
+                       help="Run all tool loops")
     parser.add_argument("--config", type=Path,
                        default=Path(__file__).parent / "tests" / "mcp-test.yaml",
                        help="Path to test configuration file (auto-generated by mcp-test-setup.py)")
     parser.add_argument("--idempotent-only", action="store_true",
                        help="Run only idempotent (read-only) tools with effect='none' (matches test-mcp behavior)")
+    parser.add_argument("--validate-coverage", action="store_true",
+                       help="Validate that all tools have test coverage (standalone or in loops)")
 
     args = parser.parse_args()
 
@@ -1915,11 +2323,32 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                     print(f"  • {template.get('uriTemplate', 'Unknown')}: {template.get('name', 'No name')}")
             return
 
+        # Handle coverage validation
+        if args.validate_coverage:
+            config = load_test_config(args.config)
+            server_tools = tester.list_tools()
+            tool_loops = config.get('tool_loops', {})
+            standalone_tools = config.get('test_tools', {})
+
+            is_complete, uncovered = validate_loop_coverage(server_tools, tool_loops, standalone_tools)
+
+            if is_complete:
+                print(f"✅ Coverage validation PASSED: All {len(server_tools)} tools covered")
+                sys.exit(0)
+            else:
+                print(f"❌ Coverage validation FAILED: {len(uncovered)} tools not covered")
+                print(f"\nUncovered tools:")
+                for tool in uncovered:
+                    print(f"  • {tool}")
+                print(f"\n💡 Add these tools to tool_loops or test_tools in mcp-test.yaml")
+                sys.exit(1)
+
         # Determine which tests to run
         run_tools = args.tools_test or args.test_tool
         run_resources = args.resources_test or args.test_resource
+        run_loops = args.loops_test or args.loop
 
-        if run_tools or run_resources:
+        if run_tools or run_resources or run_loops:
             # Load test configuration
             config = load_test_config(args.config)
 
@@ -1944,8 +2373,10 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                     config=config,
                     run_tools=run_tools,
                     run_resources=run_resources,
+                    run_loops=run_loops,
                     specific_tool=args.test_tool if args.test_tool else None,
                     specific_resource=args.test_resource if args.test_resource else None,
+                    specific_loop=args.loop if args.loop else None,
                     jwt_token=jwt_token,
                     selection_stats=selection_stats
                 )
@@ -1958,15 +2389,17 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                     config=config,
                     run_tools=run_tools,
                     run_resources=run_resources,
+                    run_loops=run_loops,
                     specific_tool=args.test_tool if args.test_tool else None,
                     specific_resource=args.test_resource if args.test_resource else None,
+                    specific_loop=args.loop if args.loop else None,
                     selection_stats=selection_stats
                 )
 
             sys.exit(0 if success else 1)
 
         # Default: basic connectivity test
-        if not (args.list_tools or args.list_resources or args.tools_test or args.test_tool or args.resources_test or args.test_resource):
+        if not (args.list_tools or args.list_resources or args.tools_test or args.test_tool or args.resources_test or args.test_resource or args.loop or args.loops_test):
             tools = tester.list_tools()
             result = tester.list_resources()
             resources = result.get("resources", [])

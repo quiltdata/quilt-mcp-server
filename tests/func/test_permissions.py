@@ -113,7 +113,9 @@ class TestAWSPermissionsDiscover:
 
         from quilt_mcp.services.permissions_service import discover_permissions
 
-        result = discover_permissions(context=_StubContext())
+        # Pass context explicitly
+        context = _StubContext()
+        result = discover_permissions(context=context)
 
         assert result["success"] is False
         assert "Failed to discover AWS permissions" in result["error"]

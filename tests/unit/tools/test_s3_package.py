@@ -1,32 +1,48 @@
 """Functional tests for S3-to-package workflows (mocked)."""
 
 from unittest.mock import Mock, patch
+import pytest
 
 from tests.conftest import KNOWN_TEST_PACKAGE
 from quilt_mcp.tools.packages import package_create_from_s3
+from quilt_mcp.context.request_context import RequestContext
 
 TEST_BUCKET = "test-bucket"
 TEST_REGISTRY = "s3://test-bucket"
 
 
+@pytest.fixture
+def mock_context():
+    """Provide a mock RequestContext for tests."""
+    return RequestContext(
+        request_id="test-req",
+        user_id="test-user",
+        auth_service=Mock(),
+        permission_service=Mock(),
+        workflow_service=None,
+    )
+
+
 class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""
 
-    def test_invalid_package_name(self):
+    def test_invalid_package_name(self, mock_context):
         """Test that invalid package names are rejected - validation happens inside function."""
         result = package_create_from_s3(
             source_bucket=TEST_BUCKET,
             package_name="invalid-name",
+            context=mock_context,
         )
 
         assert result.success is False
         assert "Invalid package name format" in result.error
 
-    def test_missing_required_params(self):
+    def test_missing_required_params(self, mock_context):
         """Test that missing required parameters are handled."""
         result = package_create_from_s3(
             source_bucket="",
             package_name=KNOWN_TEST_PACKAGE,
+            context=mock_context,
         )
 
         assert result.success is False
@@ -46,6 +62,7 @@ class TestPackageCreateFromS3:
         mock_discover,
         mock_validate,
         mock_s3_client,
+        mock_context,
     ):
         """Test handling when no objects are found in source bucket."""
         mock_s3_client.return_value = Mock()
@@ -65,6 +82,7 @@ class TestPackageCreateFromS3:
             source_bucket=TEST_BUCKET,
             package_name=KNOWN_TEST_PACKAGE,
             target_registry=TEST_REGISTRY,
+            context=mock_context,
         )
 
         assert result.success is False
@@ -91,6 +109,7 @@ class TestValidation:
         mock_recommendations,
         mock_discover,
         mock_s3_client,
+        mock_context,
     ):
         """Test dry_run=True doesn't call package creation."""
         mock_s3_client.return_value = Mock()
@@ -108,6 +127,7 @@ class TestValidation:
             source_bucket="test-bucket",
             package_name="test/pkg",
             dry_run=True,
+            context=mock_context,
         )
 
         assert mock_create.call_count == 0
@@ -129,6 +149,7 @@ class TestREADMEContentExtraction:
         mock_recommendations,
         mock_discover,
         mock_s3_client,
+        mock_context,
     ):
         """Test that metadata fields are handled correctly."""
         mock_s3_client.return_value = Mock()
@@ -146,6 +167,7 @@ class TestREADMEContentExtraction:
             source_bucket="test-bucket",
             package_name=KNOWN_TEST_PACKAGE,
             metadata=test_metadata,
+            context=mock_context,
         )
 
         result_dict = result.model_dump() if hasattr(result, "model_dump") else result

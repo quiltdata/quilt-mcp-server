@@ -378,8 +378,10 @@ def filter_tests_by_idempotence(config_path: Path, idempotent_only: bool) -> tup
         # Count by effect type
         effect_counts[effect] = effect_counts.get(effect, 0) + 1
 
-        # Filter: idempotent_only means only 'none' effect
-        if idempotent_only and effect == 'none':
+        # Filter: idempotent_only means safe/read-only operations
+        # Includes: 'none', 'none-context-required' (not 'configure' which modifies settings)
+        idempotent_effects = {'none', 'none-context-required'}
+        if idempotent_only and effect in idempotent_effects:
             filtered.append(tool_name)
         elif not idempotent_only:
             filtered.append(tool_name)
@@ -421,21 +423,23 @@ def run_unified_tests(
     config_path: Path,
     tools: Optional[list[str]] = None,
     resources: Optional[list[str]] = None,
+    loop: Optional[str] = None,
     run_tools: bool = True,
     run_resources: bool = True,
     verbose: bool = False,
     selection_stats: Optional[dict] = None
 ) -> bool:
-    """Run BOTH tool and resource tests with ONE call to mcp-test.py.
+    """Run tool, resource, AND loop tests with ONE call to mcp-test.py.
 
-    This function calls MCPTester.run_test_suite() ONCE with both run_tools and
-    run_resources flags, which prints ONE unified summary covering both test types.
+    This function calls MCPTester.run_test_suite() ONCE with run_tools, run_resources,
+    and run_loops flags, which prints ONE unified summary covering all test types.
 
     Args:
         server: Running Docker/Local MCP server instance
         config_path: Path to test configuration YAML
         tools: Optional list of tool names to test (None = all tools in config)
         resources: Optional list of resource URIs to test (None = all resources)
+        loop: Optional specific loop name to test
         run_tools: Whether to run tool tests
         run_resources: Whether to run resource tests
         verbose: Enable verbose test output
@@ -450,6 +454,8 @@ def run_unified_tests(
         print(f"   Testing {len(tools)} specific tools")
     if run_resources and resources:
         print(f"   Testing {len(resources)} specific resources")
+    if loop:
+        print(f"   Testing specific loop: {loop}")
 
     if not server.process or server.process.poll() is not None:
         print("❌ Server process not running")
@@ -494,7 +500,7 @@ def run_unified_tests(
                 test_resources = config.get("test_resources", {})
                 config["test_resources"] = {k: v for k, v in test_resources.items() if k in resources}
 
-        # ONE call runs BOTH tools and resources, prints ONE unified summary
+        # ONE call runs tools, resources, AND loops, prints ONE unified summary
         success = MCPTester.run_test_suite(
             process=server.process,
             transport="stdio",
@@ -502,8 +508,10 @@ def run_unified_tests(
             config=config,
             run_tools=run_tools,
             run_resources=run_resources,
+            run_loops=True,  # Always run full suite including loops by default
             specific_tool=specific_tool,
             specific_resource=specific_resource,
+            specific_loop=loop,
             selection_stats=selection_stats
         )
 
@@ -559,6 +567,9 @@ Examples:
 
   # Run all tests including write operations
   python scripts/tests/test_mcp.py --all
+
+  # Test specific loop
+  python scripts/tests/test_mcp.py --all --loop admin_sso_config
 
   # Use custom Docker image
   python scripts/tests/test_mcp.py --image quiltdata/quilt-mcp-server:dev
@@ -645,6 +656,11 @@ Examples:
         metavar="URI",
         help="Test specific resource by URI"
     )
+    parser.add_argument(
+        "--loop",
+        metavar="LOOP_NAME",
+        help="Test specific tool loop by name"
+    )
 
     args = parser.parse_args()
 
@@ -660,8 +676,15 @@ Examples:
         print("   Run without --no-generate to generate it")
         sys.exit(1)
 
-    # Filter tests based on idempotence
-    if args.all:
+    # Filter tests based on idempotence (skip if testing specific loop)
+    if args.loop:
+        # When testing a specific loop, skip tool/resource filtering
+        mode_desc = "local" if mode == "local" else "Docker"
+        print(f"🧪 Running MCP server integration tests ({mode_desc} mode, loop only)...")
+        print(f"📋 Testing specific loop: {args.loop}")
+        tools = None
+        stats = None
+    elif args.all:
         print("🔓 Running ALL tests (including write operations)")
         tools, stats = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=False)
     else:
@@ -670,19 +693,20 @@ Examples:
         tools, stats = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=True)
 
     # Display detailed selection statistics
-    print(f"📋 Selected {stats['selected_tools']}/{stats['total_tools']} tools for testing")
-    if args.all:
-        # Show breakdown by effect type when running all tests
-        effect_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(stats['effect_counts'].items()))
-        print(f"   Effect breakdown: {effect_summary}")
-    else:
-        # Show what was filtered out when running idempotent only
-        filtered_out = stats['total_tools'] - stats['selected_tools']
-        if filtered_out > 0:
-            non_none_effects = {k: v for k, v in stats['effect_counts'].items() if k != 'none'}
-            skipped_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(non_none_effects.items()))
-            print(f"   Skipped {filtered_out} non-idempotent tools ({skipped_summary})")
-    print(f"   Resources: {stats['total_resources']} configured for testing")
+    if stats:
+        print(f"📋 Selected {stats['selected_tools']}/{stats['total_tools']} tools for testing")
+        if args.all:
+            # Show breakdown by effect type when running all tests
+            effect_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(stats['effect_counts'].items()))
+            print(f"   Effect breakdown: {effect_summary}")
+        else:
+            # Show what was filtered out when running idempotent only
+            filtered_out = stats['total_tools'] - stats['selected_tools']
+            if filtered_out > 0:
+                non_none_effects = {k: v for k, v in stats['effect_counts'].items() if k != 'none'}
+                skipped_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(non_none_effects.items()))
+                print(f"   Skipped {filtered_out} non-idempotent tools ({skipped_summary})")
+        print(f"   Resources: {stats['total_resources']} configured for testing")
 
     # Start server based on mode
     server = None
@@ -696,19 +720,21 @@ Examples:
             sys.exit(1)
 
     try:
-        # Run BOTH tool and resource tests with ONE call to run_test_suite
+        # Run tool, resource, AND loop tests with ONE call to run_test_suite
         if not server:
             print("❌ No server available for testing")
             sys.exit(1)
 
-        # Single call runs BOTH tools and resources, prints ONE unified summary
+        # Single call runs tools, resources, AND loops, prints ONE unified summary
+        # When testing a specific loop, skip tools and resources
         success = run_unified_tests(
             server=server,
             config_path=TEST_CONFIG_PATH,
-            tools=tools if not args.resources_only else None,
+            tools=tools if not args.resources_only and not args.loop else None,
             resources=[args.resource] if args.resource else None,
-            run_tools=not args.resources_only,
-            run_resources=not args.skip_resources,
+            loop=args.loop,
+            run_tools=not args.resources_only and not args.loop,
+            run_resources=not args.skip_resources and not args.loop,
             verbose=args.verbose,
             selection_stats=stats  # Pass selection stats for intelligent summary
         )

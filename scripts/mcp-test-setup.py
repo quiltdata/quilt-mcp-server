@@ -17,6 +17,12 @@ Phase 3 Enhancement (A18): 100% tool coverage with intelligent inference
 - Context parameter injection for permission tools
 - Coverage validation and reporting
 - Smart regeneration (only when sources change)
+
+Phase 4 Enhancement (A18): Tool loops for write-operation testing
+- Define tool loops that create → modify → verify → cleanup resources
+- Generate tool_loops section in YAML with template placeholders
+- Support template substitution ({uuid}, {env.VAR})
+- Enable 100% coverage including write operations
 """
 
 import asyncio
@@ -33,9 +39,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import yaml
+from enum import Enum
 from dotenv import dotenv_values
 from quiltx import get_catalog_url
 from quiltx.stack import find_matching_stack, stack_outputs
+
+# Add custom YAML representer for Enum objects
+# This allows enums to be serialized as their string values instead of Python objects
+def enum_representer(dumper, data):
+    return dumper.represent_scalar('tag:yaml.org,2002:str', data.value)
+
+yaml.add_multi_representer(Enum, enum_representer)
 
 # Add src to path for imports
 script_dir = Path(__file__).parent
@@ -172,18 +186,22 @@ class DiscoveryOrchestrator:
         """
         Execute a tool and capture its behavior.
 
+        NOTE: Write operations are NOT skipped - they will be tested via tool loops.
+        This method only tests read-only tools during discovery phase.
+
         Returns:
             DiscoveryResult with status, response, error, and discovered data.
         """
         start_time = time.time()
 
-        # Safety guard: Skip write operations
+        # Safety guard: Skip write operations during discovery
+        # Write operations will be tested via tool loops in mcp-test.py
         if effect in ['create', 'update', 'remove']:
             return DiscoveryResult(
                 tool_name=tool_name,
                 status='SKIPPED',
                 duration_ms=0,
-                error=f"Skipped: write operation (effect={effect})"
+                error=f"Skipped during discovery: write operation (effect={effect}). Will be tested via tool loops."
             )
 
         try:
@@ -372,7 +390,7 @@ class DiscoveryOrchestrator:
         print(f"\n📊 Test Results Summary:")
         print(f"  ✓ {passed} PASSED")
         print(f"  ✗ {failed} FAILED")
-        print(f"  ⊘ {skipped} SKIPPED (write-effect tools)")
+        print(f"  ⊘ {skipped} SKIPPED (write-effect tools - will be tested via tool loops)")
 
         if failed > 0:
             print(f"\n❌ Failed Tools:")
@@ -605,6 +623,449 @@ def infer_arguments(
 
 
 # ============================================================================
+# Phase 4: Tool Loops Generation (A18)
+# ============================================================================
+
+def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
+    """Generate tool loops configuration for write-operation testing.
+
+    Tool loops test write operations through create → modify → verify → cleanup cycles.
+    Each loop uses template variables ({uuid}, {env.VAR}) that are substituted at runtime.
+
+    Args:
+        env_vars: Environment variables for template substitution
+
+    Returns:
+        Dictionary with tool_loops configuration
+    """
+    test_bucket = env_vars.get("QUILT_TEST_BUCKET", "s3://quilt-example")
+
+    return {
+        "admin_user_basic": {
+            "description": "Test admin user create/get/delete cycle",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "admin_user_create",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "email": "tlu{uuid}@example.com",
+                        "role": "viewer"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_get",
+                    "args": {
+                        "name": "tlu{uuid}"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_delete",
+                    "args": {
+                        "name": "tlu{uuid}"
+                    },
+                    "expect_success": True,
+                    "is_cleanup": True
+                }
+            ]
+        },
+        "admin_user_with_roles": {
+            "description": "Test admin user add/remove roles",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "admin_user_create",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "email": "tlu{uuid}@example.com",
+                        "role": "viewer"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_add_roles",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "roles": ["data-scientist"]
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_get",
+                    "args": {
+                        "name": "tlu{uuid}"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_remove_roles",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "roles": ["data-scientist"]
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_delete",
+                    "args": {
+                        "name": "tlu{uuid}"
+                    },
+                    "expect_success": True,
+                    "is_cleanup": True
+                }
+            ]
+        },
+        "admin_user_modifications": {
+            "description": "Test admin user set operations (email, role, admin, active, reset password)",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "admin_user_create",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "email": "tlu{uuid}@example.com",
+                        "role": "viewer"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_set_email",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "email": "tlu{uuid}x@example.com"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_set_role",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "role": "data-scientist"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_set_admin",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "is_admin": True
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_set_active",
+                    "args": {
+                        "name": "tlu{uuid}",
+                        "is_active": False
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_reset_password",
+                    "args": {
+                        "name": "tlu{uuid}"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_user_delete",
+                    "args": {
+                        "name": "tlu{uuid}"
+                    },
+                    "expect_success": True,
+                    "is_cleanup": True
+                }
+            ]
+        },
+        "admin_sso_config": {
+            "description": "Test SSO configuration set/remove cycle",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "admin_sso_config_set",
+                    "args": {
+                        "config": {
+                            "provider": "test-{uuid}",
+                            "saml_config": "<test_sso_config>test config</test_sso_config>"
+                        }
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_sso_config_remove",
+                    "args": {},
+                    "expect_success": True,
+                    "is_cleanup": True
+                }
+            ]
+        },
+        "admin_tabulator_query": {
+            "description": "Test tabulator open query set/toggle cycle",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "admin_tabulator_open_query_set",
+                    "args": {
+                        "enabled": True
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "admin_tabulator_open_query_set",
+                    "args": {
+                        "enabled": False
+                    },
+                    "expect_success": True,
+                    "is_cleanup": True
+                }
+            ]
+        },
+        "package_lifecycle": {
+            "description": "Test package create/update/delete cycle",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "package_create",
+                    "args": {
+                        "package_name": "testuser/loop-pkg-{uuid}",
+                        "registry": "{env.QUILT_TEST_BUCKET}",
+                        "s3_uris": ["{env.QUILT_TEST_BUCKET}/test-data/sample.csv"],
+                        "message": "Test package created by tool loop"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "package_browse",
+                    "args": {
+                        "package_name": "testuser/loop-pkg-{uuid}",
+                        "registry": "{env.QUILT_TEST_BUCKET}"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "package_update",
+                    "args": {
+                        "package_name": "testuser/loop-pkg-{uuid}",
+                        "registry": "{env.QUILT_TEST_BUCKET}",
+                        "s3_uris": ["{env.QUILT_TEST_BUCKET}/test-data/sample2.csv"],
+                        "message": "Updated by tool loop"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "package_delete",
+                    "args": {
+                        "package_name": "testuser/loop-pkg-{uuid}",
+                        "registry": "{env.QUILT_TEST_BUCKET}"
+                    },
+                    "expect_success": True,
+                    "is_cleanup": True
+                }
+            ]
+        },
+        "package_create_from_s3_loop": {
+            "description": "Test package_create_from_s3 tool",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "package_create_from_s3",
+                    "args": {
+                        "source_bucket": "{env.QUILT_TEST_BUCKET}",
+                        "package_name": "testuser/s3pkg-{uuid}",
+                        "source_prefix": "test-data/",
+                        "confirm_structure": False,
+                        "force": True
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "package_delete",
+                    "args": {
+                        "package_name": "testuser/s3pkg-{uuid}",
+                        "registry": "{env.QUILT_TEST_BUCKET}"
+                    },
+                    "expect_success": True,
+                    "is_cleanup": True
+                }
+            ]
+        },
+        "bucket_objects_write": {
+            "description": "Test bucket object put/fetch cycle",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "bucket_objects_put",
+                    "args": {
+                        "bucket": "{env.QUILT_TEST_BUCKET}",
+                        "items": [
+                            {
+                                "key": "test-loop-{uuid}.txt",
+                                "text": "Test content from tool loop"
+                            }
+                        ]
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "bucket_object_fetch",
+                    "args": {
+                        "s3_uri": "{env.QUILT_TEST_BUCKET}/test-loop-{uuid}.txt",
+                        "max_bytes": 1000
+                    },
+                    "expect_success": True
+                }
+                # Note: No explicit delete - test files can be cleaned up manually
+            ]
+        },
+        "workflow_basic": {
+            "description": "Test workflow create/add step/update step cycle",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "workflow_create",
+                    "args": {
+                        "workflow_id": "test-wf-{uuid}",
+                        "name": "Test Workflow {uuid}"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "workflow_add_step",
+                    "args": {
+                        "workflow_id": "test-wf-{uuid}",
+                        "step_id": "step1",
+                        "description": "Test Step 1"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "workflow_update_step",
+                    "args": {
+                        "workflow_id": "test-wf-{uuid}",
+                        "step_id": "step1",
+                        "status": "completed"
+                    },
+                    "expect_success": True
+                }
+                # Note: No explicit workflow delete - workflows can be cleaned up manually
+            ]
+        },
+        "visualization_create": {
+            "description": "Test visualization creation",
+            "cleanup_on_failure": False,
+            "steps": [
+                {
+                    "tool": "create_data_visualization",
+                    "args": {
+                        "data": {"x": [1, 2, 3], "y": [4, 5, 6]},
+                        "plot_type": "scatter",
+                        "x_column": "x",
+                        "y_column": "y"
+                    },
+                    "expect_success": True
+                }
+                # Note: Visualization is read-only (creates file but doesn't persist state)
+            ]
+        },
+        "tabulator_table_lifecycle": {
+            "description": "Test tabulator table create/rename/delete cycle",
+            "cleanup_on_failure": True,
+            "steps": [
+                {
+                    "tool": "tabulator_table_create",
+                    "args": {
+                        "bucket_name": "{env.QUILT_TEST_BUCKET}",
+                        "table_name": "test_table_{uuid}",
+                        "schema": [{"name": "col1", "type": "string"}],
+                        "package_pattern": "*/pkg",
+                        "logical_key_pattern": "*.csv"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "tabulator_table_rename",
+                    "args": {
+                        "bucket_name": "{env.QUILT_TEST_BUCKET}",
+                        "old_name": "test_table_{uuid}",
+                        "new_name": "test_table_{uuid}_renamed"
+                    },
+                    "expect_success": True
+                },
+                {
+                    "tool": "tabulator_table_delete",
+                    "args": {
+                        "bucket_name": "{env.QUILT_TEST_BUCKET}",
+                        "table_name": "test_table_{uuid}_renamed"
+                    },
+                    "expect_success": True,
+                    "is_cleanup": True
+                }
+            ]
+        },
+        "quilt_summary_create": {
+            "description": "Test create_quilt_summary_files tool",
+            "cleanup_on_failure": False,
+            "steps": [
+                {
+                    "tool": "create_quilt_summary_files",
+                    "args": {
+                        "package_name": "testuser/test-pkg",
+                        "package_metadata": {"description": "test"},
+                        "organized_structure": {"root": []},
+                        "readme_content": "# Test Package",
+                        "source_info": {"source": "test"},
+                        "metadata_template": "standard"
+                    },
+                    "expect_success": True
+                }
+            ]
+        }
+    }
+
+
+def validate_tool_loops_coverage(server_tools: Dict[str, Any], tool_loops: Dict[str, Any], standalone_tools: Dict[str, Any]) -> None:
+    """Validate that tool loops + standalone tests cover all write-effect tools.
+
+    Args:
+        server_tools: All tools from server
+        tool_loops: Tool loops configuration
+        standalone_tools: Standalone test configurations
+
+    Raises:
+        ValueError: If coverage is incomplete
+    """
+    # Find all write-effect tools
+    write_tools = set()
+    for tool_name, handler in server_tools.items():
+        effect, _ = classify_tool(tool_name, handler)
+        if effect in ['create', 'update', 'remove']:
+            write_tools.add(tool_name)
+
+    # Find tools covered by loops
+    loop_covered = set()
+    for loop_name, loop_config in tool_loops.items():
+        for step in loop_config.get('steps', []):
+            tool_name = step.get('tool')
+            if tool_name:
+                loop_covered.add(tool_name)
+
+    # Find tools covered by standalone tests
+    standalone_covered = set(standalone_tools.keys())
+
+    # Check coverage
+    total_covered = loop_covered | standalone_covered
+    uncovered = write_tools - total_covered
+
+    if uncovered:
+        print(f"\n⚠️  WARNING: {len(uncovered)} write-effect tool(s) not covered by loops or standalone tests:")
+        for tool in sorted(uncovered):
+            print(f"  • {tool}")
+        print(f"\n💡 Add these tools to tool loops or standalone tests to achieve 100% coverage")
+
+
+# ============================================================================
 # Phase 1: Introspection (Existing)
 # ============================================================================
 
@@ -792,6 +1253,8 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
     Phase 2 Enhancement: Runs discovery to validate tools and capture real data.
 
+    Phase 4 Enhancement (A18): Generates tool_loops section for write-operation testing.
+
     Args:
         server: MCP server instance
         output_file: Path to output YAML file
@@ -801,8 +1264,8 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     """
     # Extract test-relevant configuration from environment
     test_config = {
-        "_generated_by": "scripts/mcp-test-setup.py - Auto-generated test configuration with discovery",
-        "_note": "Edit test cases below to customize arguments and validation",
+        "_generated_by": "scripts/mcp-test-setup.py - Auto-generated test configuration with discovery and tool loops",
+        "_note": "Edit test cases below to customize arguments and validation. Tool loops test write operations.",
         "environment": {
             "AWS_PROFILE": env_vars.get("AWS_PROFILE", "default"),
             "AWS_DEFAULT_REGION": env_vars.get("AWS_DEFAULT_REGION", "us-east-1"),
@@ -813,6 +1276,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         },
         "test_tools": {},
         "test_resources": {},
+        "tool_loops": {},  # NEW: Tool loops for write-operation testing
         "test_config": {
             "timeout": 30,
             "retry_attempts": 2,
@@ -881,13 +1345,12 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         "bucket_object_link": {"s3_uri": f"s3://{test_bucket}/{test_package}/.timestamp"},
         "bucket_object_text": {"s3_uri": f"s3://{test_bucket}/{test_package}/.timestamp", "max_bytes": 200},
         "bucket_object_fetch": {"s3_uri": f"s3://{test_bucket}/{test_package}/.timestamp", "max_bytes": 200},
-        # bucket_objects_put: Intentionally omitted - will be skipped as 'create' effect
+        # bucket_objects_put: Omitted - will be tested via tool loops
 
         # Package operations (read-only)
         "package_browse": {"package_name": test_package, "registry": test_bucket, "recursive": False, "include_signed_urls": False, "top": 5},
         "package_diff": {"package1_name": test_package, "package2_name": test_package, "registry": test_bucket},
-        # package_create, package_update, package_delete: Omitted - 'create'/'update'/'remove' effects
-        # package_create_from_s3: Omitted - 'create' effect
+        # package_create, package_update, package_delete: Omitted - will be tested via tool loops
 
         # Search operations (search_catalog variants auto-generated, see tool_variants)
         "search_explain": {"query": "CSV files"},
@@ -902,16 +1365,14 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         "tabulator_bucket_query": {"bucket_name": bucket_name, "query": "SELECT 1 as test_value", "max_results": 10},
         "tabulator_tables_list": {"bucket": bucket_name},
         "tabulator_open_query_status": {},
-        # tabulator_open_query_toggle: Omitted - 'configure' effect
-        # tabulator_table_create, tabulator_table_delete, tabulator_table_rename: Omitted - write effects
+        # tabulator_open_query_toggle: Omitted - will be tested via tool loops
 
         # Workflow operations
         "workflow_template_apply": {"template_name": "cross-package-aggregation", "workflow_id": "test-wf-001", "params": {"source_packages": [test_package], "target_package": f"{test_package}-agg"}},
-        # workflow_create, workflow_add_step, workflow_update_step: Omitted - write effects
+        # workflow_create, workflow_add_step, workflow_update_step: Omitted - will be tested via tool loops
 
         # Visualization operations
-        # create_data_visualization: Omitted - 'create' effect
-        # create_quilt_summary_files, generate_package_visualizations, generate_quilt_summarize_json: Omitted - 'create'/'generate' effects
+        # create_data_visualization: Omitted - will be tested via tool loops
 
         # Permissions operations - limit to test bucket for faster execution
         "discover_permissions": {"check_buckets": [bucket_name]},
@@ -919,8 +1380,8 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
         # Admin/Governance operations (read-only ones included for testing)
         "admin_user_get": {"name": "admin"},
-        # admin_user_create, admin_user_delete, etc.: Omitted - write effects
-        # admin_sso_*, admin_tabulator_*: Omitted - write effects
+        # admin_user_create, admin_user_delete, etc.: Omitted - will be tested via tool loops
+        # admin_sso_*, admin_tabulator_*: Omitted - will be tested via tool loops
     }
 
     # Process tools in defined order
@@ -1073,7 +1534,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
             test_case = {
                 "description": doc.split('\n')[0],
                 "effect": effect,
-                "category": category,  # NEW: Track tool category
+                "category": category,  # Track tool category
                 "arguments": arguments,
                 "response_schema": {
                     "type": "object",
@@ -1161,6 +1622,18 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
         # Add discovered data registry to config
         test_config["discovered_data"] = orchestrator.registry.to_dict()
+
+    # ========================================================================
+    # Phase 4: Generate Tool Loops
+    # ========================================================================
+    print(f"\n🔄 Phase 4: Generating Tool Loops for Write Operations...")
+    tool_loops = generate_tool_loops(env_vars)
+    test_config["tool_loops"] = tool_loops
+    print(f"   Generated {len(tool_loops)} tool loops")
+
+    # Validate coverage
+    print(f"\n📊 Validating Tool Coverage...")
+    validate_tool_loops_coverage(server_tools, tool_loops, test_config["test_tools"])
 
     # Generate resource test configuration
     print(f"\n🗂️  Generating resource test configuration...")
@@ -1441,7 +1914,7 @@ async def main():
     print("📂 Files created:")
     print("   - tests/fixtures/mcp-list.csv")
     print("   - build/tools_metadata.json")
-    print("   - scripts/tests/mcp-test.yaml (with discovery results)")
+    print("   - scripts/tests/mcp-test.yaml (with discovery results and tool loops)")
     print(f"\n📈 Summary:")
     print(f"   - {len(tools)} tools")
     print(f"   - {len(resources)} resources")
@@ -1449,9 +1922,9 @@ async def main():
 
     if not args.skip_discovery:
         print(f"\n💡 Next steps:")
-        print(f"   1. Review failed tools (if any) and fix environment issues")
-        print(f"   2. Commit updated mcp-test.yaml: git add scripts/tests/mcp-test.yaml")
-        print(f"   3. Run tests: uv run python scripts/mcp-test.py")
+        print(f"   1. Review tool loops section in mcp-test.yaml")
+        print(f"   2. Run tests: uv run python scripts/mcp-test.py --tools-test")
+        print(f"   3. Test specific loop: uv run python scripts/mcp-test.py --loop admin_user_basic")
 
 if __name__ == "__main__":
     import asyncio

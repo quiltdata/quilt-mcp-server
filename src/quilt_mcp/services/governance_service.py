@@ -1056,10 +1056,13 @@ async def admin_sso_config_get(quilt_ops: Optional[QuiltOps] = None) -> Dict[str
 
 async def admin_sso_config_set(
     config: Annotated[
-        str,
+        Dict[str, Any],
         Field(
-            description="SSO configuration text",
-            examples=["<saml_config>...</saml_config>", "provider_config_string"],
+            description="SSO configuration as a dictionary object",
+            examples=[
+                {"provider": "okta", "saml_config": "<saml_config>...</saml_config>"},
+                {"provider": "saml", "entity_id": "https://example.com"},
+            ],
         ),
     ],
     quilt_ops: Optional[QuiltOps] = None,
@@ -1067,7 +1070,7 @@ async def admin_sso_config_set(
     """Set the SSO configuration - Quilt governance and administrative operations
 
     Args:
-        config: SSO configuration text
+        config: SSO configuration as a dictionary (will be JSON-serialized before sending to backend)
         quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
@@ -1081,7 +1084,7 @@ async def admin_sso_config_set(
         from quilt_mcp.tools import governance
 
         result = governance.admin_sso_config_set(
-            config="<saml_config>...</saml_config>",
+            config={"provider": "okta", "saml_config": "<saml_config>...</saml_config>"},
         )
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
@@ -1095,7 +1098,7 @@ async def admin_sso_config_set(
         if not config:
             return format_error_response("SSO configuration cannot be empty")
 
-        # Use QuiltOps.admin interface
+        # Use QuiltOps.admin interface (backend handles JSON serialization)
         quilt_ops_instance = service._get_quilt_ops()
         domain_sso_config = quilt_ops_instance.admin.set_sso_config(config)
 
@@ -1138,8 +1141,9 @@ async def admin_sso_config_remove(quilt_ops: Optional[QuiltOps] = None) -> Dict[
             return error_check
 
         # Use QuiltOps.admin interface
+        # Note: quilt3 uses set_sso_config(None) to remove config, there is no separate remove method
         quilt_ops_instance = service._get_quilt_ops()
-        quilt_ops_instance.admin.remove_sso_config()
+        quilt_ops_instance.admin.set_sso_config(None)
 
         return {"success": True, "message": "Successfully removed SSO configuration"}
 

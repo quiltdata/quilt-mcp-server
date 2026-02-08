@@ -4,39 +4,59 @@ from __future__ import annotations
 
 import pytest
 
-from quilt_mcp.context.exceptions import ContextNotAvailableError
 from quilt_mcp.context.factory import RequestContextFactory
 from quilt_mcp.context.handler import extract_auth_info, wrap_tool_with_context
-from quilt_mcp.context.propagation import get_current_context
+from quilt_mcp.context.request_context import RequestContext
 
 
-def test_tool_handler_creates_and_clears_context():
+def test_tool_handler_injects_context():
+    """Test that wrapper injects context as a keyword argument."""
     factory = RequestContextFactory(mode="single-user")
 
-    def tool() -> str:
-        return get_current_context().request_id
+    def tool(*, context: RequestContext) -> str:
+        return context.request_id
 
     wrapped = wrap_tool_with_context(tool, factory)
     request_id = wrapped()
     assert request_id
 
-    with pytest.raises(ContextNotAvailableError):
-        get_current_context()
 
-
-def test_tool_handler_cleans_up_on_error():
+def test_tool_handler_injects_context_with_args():
+    """Test that wrapper injects context alongside other arguments."""
     factory = RequestContextFactory(mode="single-user")
 
-    def tool() -> None:
-        _ = get_current_context().request_id
+    def tool(bucket: str, *, context: RequestContext) -> str:
+        return f"{bucket}:{context.request_id}"
+
+    wrapped = wrap_tool_with_context(tool, factory)
+    result = wrapped("my-bucket")
+    assert result.startswith("my-bucket:")
+
+
+def test_tool_handler_propagates_errors():
+    """Test that wrapper propagates exceptions from the tool."""
+    factory = RequestContextFactory(mode="single-user")
+
+    def tool(*, context: RequestContext) -> None:
+        _ = context.request_id
         raise RuntimeError("boom")
 
     wrapped = wrap_tool_with_context(tool, factory)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="boom"):
         wrapped()
 
-    with pytest.raises(ContextNotAvailableError):
-        get_current_context()
+
+@pytest.mark.asyncio
+async def test_tool_handler_injects_context_async():
+    """Test that wrapper injects context for async functions."""
+    factory = RequestContextFactory(mode="single-user")
+
+    async def tool(*, context: RequestContext) -> str:
+        return context.request_id
+
+    wrapped = wrap_tool_with_context(tool, factory)
+    request_id = await wrapped()
+    assert request_id
 
 
 def test_extract_auth_info_from_headers():

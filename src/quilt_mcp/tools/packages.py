@@ -14,8 +14,7 @@ from pydantic import Field
 # Rationale: MCP server should not manage default bucket state
 # LLM clients provide explicit bucket parameters based on conversation context
 from .quilt_summary import create_quilt_summary_files
-from ..context.exceptions import ContextNotAvailableError
-from ..context.propagation import get_current_context
+from ..context.request_context import RequestContext
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 
 from ..utils.common import format_error_response, generate_signed_url, get_s3_client, validate_package_name
@@ -42,13 +41,6 @@ from .responses import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _current_permission_service():
-    try:
-        return get_current_context().permission_service
-    except ContextNotAvailableError:
-        return None
 
 
 # Helpers
@@ -1669,6 +1661,8 @@ def package_create_from_s3(
             description="Additional user-provided metadata",
         ),
     ] = None,
+    *,
+    context: RequestContext,
 ) -> PackageCreateFromS3Success | PackageCreateFromS3Error:
     """Create a well-organized Quilt package from S3 bucket contents with smart organization - Bulk S3-to-package ingestion workflows
 
@@ -1755,7 +1749,7 @@ def package_create_from_s3(
                 recommendations = bucket_recommendations_get(
                     source_bucket=source_bucket,
                     operation_type="package_creation",
-                    context=get_current_context(),
+                    context=context,
                 )
 
                 if recommendations.get("success") and recommendations.get("recommendations", {}).get(
@@ -1780,7 +1774,7 @@ def package_create_from_s3(
         try:
             access_check = check_bucket_access(
                 target_bucket_name,
-                context=get_current_context(),
+                context=context,
             )
             if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
                 return PackageCreateFromS3Error(

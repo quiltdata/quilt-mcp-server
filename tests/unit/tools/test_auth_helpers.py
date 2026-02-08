@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from quilt_mcp.tools import auth_helpers
-from quilt_mcp.context.propagation import reset_current_context, set_current_context
 from quilt_mcp.context.request_context import RequestContext
 
 
@@ -59,15 +58,11 @@ def test_check_package_authorization_uses_context_auth_service(monkeypatch):
     )
 
     def _unexpected_factory():
-        raise AssertionError("create_auth_service should not be called when context is set")
+        raise AssertionError("create_auth_service should not be called when context is passed")
 
     monkeypatch.setattr(auth_helpers, "create_auth_service", _unexpected_factory)
 
-    token = set_current_context(request_context)
-    try:
-        context = auth_helpers.check_package_authorization("tool", {})
-    finally:
-        reset_current_context(token)
+    context = auth_helpers.check_package_authorization("tool", {}, context=request_context)
 
     assert context.authorized is True
     assert context.auth_type == "iam"

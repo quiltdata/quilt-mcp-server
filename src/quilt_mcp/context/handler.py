@@ -7,7 +7,6 @@ from functools import wraps
 from typing import Any, Callable, Mapping, Optional
 
 from quilt_mcp.context.factory import RequestContextFactory
-from quilt_mcp.context.propagation import reset_current_context, set_current_context
 from quilt_mcp.context.runtime_context import RuntimeAuthState
 
 
@@ -27,17 +26,17 @@ def extract_auth_info(headers: Optional[Mapping[str, str]]) -> Optional[RuntimeA
 
 
 def wrap_tool_with_context(func: Callable[..., Any], factory: RequestContextFactory) -> Callable[..., Any]:
-    """Wrap a tool function so it runs with a RequestContext."""
+    """Wrap a tool function so it runs with a RequestContext.
+
+    The wrapper injects context as a keyword argument, allowing tools to receive
+    explicit context parameters without exposing them in the MCP schema.
+    """
     if inspect.iscoroutinefunction(func):
 
         @wraps(func)
         async def _async_wrapper(*args: Any, **kwargs: Any) -> Any:
             context = factory.create_context()
-            token = set_current_context(context)
-            try:
-                return await func(*args, **kwargs)
-            finally:
-                reset_current_context(token)
+            return await func(*args, context=context, **kwargs)
 
         _async_wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
         return _async_wrapper
@@ -45,11 +44,7 @@ def wrap_tool_with_context(func: Callable[..., Any], factory: RequestContextFact
     @wraps(func)
     def _wrapper(*args: Any, **kwargs: Any) -> Any:
         context = factory.create_context()
-        token = set_current_context(context)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            reset_current_context(token)
+        return func(*args, context=context, **kwargs)
 
     _wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
     return _wrapper

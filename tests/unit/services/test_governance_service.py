@@ -357,17 +357,21 @@ class TestSSOConfiguration:
         sso_config = SSOConfig("new config", "2023-01-01T00:00:00Z", uploader)
         mock_quilt_ops.admin.set_sso_config.return_value = sso_config
 
-        result = await governance.admin_sso_config_set("new config", quilt_ops=mock_quilt_ops)
+        # Pass dict instead of string (new behavior)
+        result = await governance.admin_sso_config_set(
+            {"provider": "saml", "config": "new config"}, quilt_ops=mock_quilt_ops
+        )
 
         assert result["success"] is True
         assert result["sso_config"]["text"] == "new config"
         assert "Successfully updated SSO configuration" in result["message"]
-        mock_quilt_ops.admin.set_sso_config.assert_called_once_with("new config")
+        # Backend now receives dict (serialization happens in backend)
+        mock_quilt_ops.admin.set_sso_config.assert_called_once_with({"provider": "saml", "config": "new config"})
 
     @pytest.mark.asyncio
     async def test_admin_sso_config_set_empty(self, mock_admin_available, mock_quilt_ops):
         """Test SSO config setting with empty config."""
-        result = await governance.admin_sso_config_set("", quilt_ops=mock_quilt_ops)
+        result = await governance.admin_sso_config_set({}, quilt_ops=mock_quilt_ops)
 
         assert result["success"] is False
         assert "SSO configuration cannot be empty" in result["error"]
@@ -375,13 +379,14 @@ class TestSSOConfiguration:
     @pytest.mark.asyncio
     async def test_admin_sso_config_remove_success(self, mock_admin_available, mock_quilt_ops):
         """Test successful SSO config removal."""
-        mock_quilt_ops.admin.remove_sso_config.return_value = None
+        # Now uses set_sso_config(None) instead of remove_sso_config()
+        mock_quilt_ops.admin.set_sso_config.return_value = None
 
         result = await governance.admin_sso_config_remove(quilt_ops=mock_quilt_ops)
 
         assert result["success"] is True
         assert "Successfully removed SSO configuration" in result["message"]
-        mock_quilt_ops.admin.remove_sso_config.assert_called_once()
+        mock_quilt_ops.admin.set_sso_config.assert_called_once_with(None)
 
 
 class TestErrorHandling:

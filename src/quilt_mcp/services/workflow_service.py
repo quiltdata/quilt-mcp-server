@@ -12,8 +12,8 @@ from enum import Enum
 from pydantic import Field
 
 from quilt_mcp.config import get_mode_config
-from quilt_mcp.context.propagation import get_current_context
 from quilt_mcp.context.exceptions import OperationNotSupportedError
+from quilt_mcp.context.request_context import RequestContext
 from quilt_mcp.storage.file_storage import FileBasedWorkflowStorage
 from quilt_mcp.storage.workflow_storage import WorkflowStorage
 from quilt_mcp.utils.common import format_error_response
@@ -448,8 +448,8 @@ class WorkflowService:
             return ErrorResponse(error=f"Failed to apply template: {str(e)}")
 
 
-def _current_workflow_service() -> WorkflowService:
-    service = get_current_context().workflow_service
+def _current_workflow_service(context: RequestContext) -> WorkflowService:
+    service = context.workflow_service
     if service is None:
         mode = "multiuser" if get_mode_config().is_multiuser else "local-dev"
         raise OperationNotSupportedError(
@@ -488,6 +488,8 @@ def workflow_create(
             description="Optional metadata dictionary for the workflow",
         ),
     ] = None,
+    *,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Create a new workflow for tracking multi-step operations - Workflow tracking and orchestration tasks
 
@@ -514,7 +516,7 @@ def workflow_create(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    return _current_workflow_service().create_workflow(
+    return _current_workflow_service(context).create_workflow(
         workflow_id=workflow_id,
         name=name,
         description=description,
@@ -565,6 +567,8 @@ def workflow_add_step(
             description="Optional step-specific metadata",
         ),
     ] = None,
+    *,
+    context: RequestContext,
 ) -> WorkflowAddStepResponse:
     """Add a step to an existing workflow - Workflow tracking and orchestration tasks
 
@@ -594,7 +598,7 @@ def workflow_add_step(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    return _current_workflow_service().add_step(
+    return _current_workflow_service(context).add_step(
         workflow_id=workflow_id,
         step_id=step_id,
         description=description,
@@ -637,6 +641,8 @@ def workflow_update_step(
             description="Optional error message if step failed",
         ),
     ] = None,
+    *,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Update the status of a workflow step - Workflow tracking and orchestration tasks
 
@@ -665,7 +671,7 @@ def workflow_update_step(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    return _current_workflow_service().update_step(
+    return _current_workflow_service(context).update_step(
         workflow_id=workflow_id,
         step_id=step_id,
         status=status,
@@ -682,6 +688,8 @@ def workflow_get_status(
             examples=["wf-123", "analysis-workflow-456"],
         ),
     ],
+    *,
+    context: RequestContext,
 ) -> WorkflowGetStatusResponse:
     """Get the current status of a workflow - Workflow tracking and orchestration tasks
 
@@ -704,10 +712,10 @@ def workflow_get_status(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    return _current_workflow_service().get_status(id)
+    return _current_workflow_service(context).get_status(id)
 
 
-def workflow_list_all() -> WorkflowListAllResponse:
+def workflow_list_all(*, context: RequestContext) -> WorkflowListAllResponse:
     """List all workflows with their current status - Workflow tracking and orchestration tasks
 
     Returns:
@@ -724,7 +732,7 @@ def workflow_list_all() -> WorkflowListAllResponse:
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    return _current_workflow_service().list_all()
+    return _current_workflow_service(context).list_all()
 
 
 def workflow_template_apply(
@@ -758,6 +766,8 @@ def workflow_template_apply(
             ],
         ),
     ],
+    *,
+    context: RequestContext,
 ) -> WorkflowTemplateApplyResponse:
     """Apply a pre-defined workflow template - Workflow tracking and orchestration tasks
 
@@ -784,7 +794,7 @@ def workflow_template_apply(
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
-    return _current_workflow_service().template_apply(template_name, workflow_id, params)
+    return _current_workflow_service(context).template_apply(template_name, workflow_id, params)
 
 
 def _get_workflow_recommendations(workflow: Dict[str, Any]) -> List[str]:

@@ -393,7 +393,9 @@ class QuiltOps(ABC):
         pass
 
     @abstractmethod
-    def _backend_push_package(self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool) -> str:
+    def _backend_push_package(
+        self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool
+    ) -> str:
         """Push a package to the registry (backend primitive).
 
         Converts the PackageBuilder to backend-specific format and pushes to the registry.

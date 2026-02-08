@@ -150,16 +150,13 @@ class Quilt3_Backend_Content:
             raise BackendError("Quilt3 backend content transformation failed: invalid content entry: empty key")
 
     def _determine_content_type(self, quilt3_entry) -> str:
-        """Determine content type (file or directory) from quilt3 entry.
+        """Determine content type from quilt3 entry.
 
         Args:
-            quilt3_entry: Content entry object
+            quilt3_entry: Content entry object (PackageEntry)
 
         Returns:
-            "file" or "directory"
+            Always "file" - packages only contain files, not directories
         """
-        try:
-            return "directory" if getattr(quilt3_entry, 'is_dir', False) else "file"
-        except (AttributeError, Exception):
-            # If we can't access is_dir property, default to file
-            return "file"
+        # Packages only contain files (PackageEntry objects), never directories
+        return "file"

@@ -531,7 +531,9 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         """
         package["metadata"] = metadata
 
-    def _backend_push_package(self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool) -> str:
+    def _backend_push_package(
+        self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool
+    ) -> str:
         """Push package via GraphQL packageConstruct mutation (backend primitive).
 
         Args:
