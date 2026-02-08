@@ -32,7 +32,7 @@ jobs:
     - name: Run comprehensive tests
       uses: ./.github/actions/run-tests
       with:
-        test-target: ${{ matrix.python-version == '3.11' && 'coverage' || 'test-ci' }}
+        test-target: ${{ startsWith(github.ref, 'refs/tags/') && 'test-ci' || (matrix.python-version == '3.11' && 'coverage' || 'test-ci') }}
         artifact-name: test-results
         python-version: ${{ matrix.python-version }}
       env:
