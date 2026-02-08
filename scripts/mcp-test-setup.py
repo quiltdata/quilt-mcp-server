@@ -626,7 +626,21 @@ def infer_arguments(
 # Phase 4: Tool Loops Generation (A18)
 # ============================================================================
 
-def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
+def get_test_roles() -> tuple[str, str]:
+    """Get the standard test roles for user management tests.
+
+    Returns:
+        (base_role, secondary_role) tuple with two distinct role names
+        Uses T4BucketReadRole and T4BucketWriteRole as test roles
+    """
+    base_role = "T4BucketReadRole"
+    secondary_role = "T4BucketWriteRole"
+
+    print(f"   ✅ Using test roles: base='{base_role}', secondary='{secondary_role}'")
+    return base_role, secondary_role
+
+
+def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, secondary_role: str) -> Dict[str, Any]:
     """Generate tool loops configuration for write-operation testing.
 
     Tool loops test write operations through create → modify → verify → cleanup cycles.
@@ -634,6 +648,8 @@ def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
 
     Args:
         env_vars: Environment variables for template substitution
+        base_role: Primary role name to use for user creation
+        secondary_role: Secondary role name for role modification tests
 
     Returns:
         Dictionary with tool_loops configuration
@@ -650,7 +666,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
                     "args": {
                         "name": "tlu{uuid}",
                         "email": "tlu{uuid}@example.com",
-                        "role": "viewer"
+                        "role": base_role
                     },
                     "expect_success": True
                 },
@@ -680,7 +696,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
                     "args": {
                         "name": "tlu{uuid}",
                         "email": "tlu{uuid}@example.com",
-                        "role": "viewer"
+                        "role": base_role
                     },
                     "expect_success": True
                 },
@@ -688,7 +704,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
                     "tool": "admin_user_add_roles",
                     "args": {
                         "name": "tlu{uuid}",
-                        "roles": ["data-scientist"]
+                        "roles": [secondary_role]
                     },
                     "expect_success": True
                 },
@@ -703,7 +719,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
                     "tool": "admin_user_remove_roles",
                     "args": {
                         "name": "tlu{uuid}",
-                        "roles": ["data-scientist"]
+                        "roles": [secondary_role]
                     },
                     "expect_success": True
                 },
@@ -726,7 +742,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
                     "args": {
                         "name": "tlu{uuid}",
                         "email": "tlu{uuid}@example.com",
-                        "role": "viewer"
+                        "role": base_role
                     },
                     "expect_success": True
                 },
@@ -742,7 +758,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None]) -> Dict[str, Any]:
                     "tool": "admin_user_set_role",
                     "args": {
                         "name": "tlu{uuid}",
-                        "role": "data-scientist"
+                        "role": secondary_role
                     },
                     "expect_success": True
                 },
@@ -1627,7 +1643,9 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     # Phase 4: Generate Tool Loops
     # ========================================================================
     print(f"\n🔄 Phase 4: Generating Tool Loops for Write Operations...")
-    tool_loops = generate_tool_loops(env_vars)
+    # Get standard test roles for tool loops
+    base_role, secondary_role = get_test_roles()
+    tool_loops = generate_tool_loops(env_vars, base_role, secondary_role)
     test_config["tool_loops"] = tool_loops
     print(f"   Generated {len(tool_loops)} tool loops")
 
@@ -1923,8 +1941,8 @@ async def main():
     if not args.skip_discovery:
         print(f"\n💡 Next steps:")
         print(f"   1. Review tool loops section in mcp-test.yaml")
-        print(f"   2. Run tests: uv run python scripts/mcp-test.py --tools-test")
-        print(f"   3. Test specific loop: uv run python scripts/mcp-test.py --loop admin_user_basic")
+        print(f"   2. Run all tests: uv run python scripts/mcp-test.py")
+        print(f"   3. Test specific loop: uv run python scripts/mcp-test.py --loops admin_user_basic")
 
 if __name__ == "__main__":
     import asyncio
