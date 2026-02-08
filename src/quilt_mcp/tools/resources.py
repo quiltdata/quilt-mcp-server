@@ -106,9 +106,16 @@ def register_resources(mcp: "FastMCP") -> None:
     async def admin_users() -> str:
         """List all users (requires admin privileges)."""
         from quilt_mcp.services.governance_service import admin_users_list
+        from quilt_mcp.context.factory import RequestContextFactory
 
         try:
-            result = await admin_users_list()
+
+            def _call_with_context():
+                factory = RequestContextFactory(mode="auto")
+                context = factory.create_context()
+                return admin_users_list(context=context)
+
+            result = await asyncio.to_thread(_call_with_context)
             return _serialize_result(result)
         except Exception as e:
             # Provide helpful error message for authorization failures
@@ -132,9 +139,16 @@ def register_resources(mcp: "FastMCP") -> None:
     async def admin_roles() -> str:
         """List all roles (requires admin privileges)."""
         from quilt_mcp.services.governance_service import admin_roles_list
+        from quilt_mcp.context.factory import RequestContextFactory
 
         try:
-            result = await admin_roles_list()
+
+            def _call_with_context():
+                factory = RequestContextFactory(mode="auto")
+                context = factory.create_context()
+                return admin_roles_list(context=context)
+
+            result = await asyncio.to_thread(_call_with_context)
             return _serialize_result(result)
         except Exception as e:
             # Provide helpful error message for authorization failures
@@ -158,8 +172,14 @@ def register_resources(mcp: "FastMCP") -> None:
     async def admin_sso_config() -> str:
         """Get SSO configuration."""
         from quilt_mcp.services.governance_service import admin_sso_config_get
+        from quilt_mcp.context.factory import RequestContextFactory
 
-        result = await admin_sso_config_get()
+        def _call_with_context():
+            factory = RequestContextFactory(mode="auto")
+            context = factory.create_context()
+            return admin_sso_config_get(context=context)
+
+        result = await asyncio.to_thread(_call_with_context)
         return _serialize_result(result)
 
     @mcp.resource(
@@ -171,8 +191,14 @@ def register_resources(mcp: "FastMCP") -> None:
     async def admin_tabulator_config() -> str:
         """Get tabulator configuration."""
         from quilt_mcp.services.governance_service import admin_tabulator_open_query_get
+        from quilt_mcp.context.factory import RequestContextFactory
 
-        result = await admin_tabulator_open_query_get()
+        def _call_with_context():
+            factory = RequestContextFactory(mode="auto")
+            context = factory.create_context()
+            return admin_tabulator_open_query_get(context=context)
+
+        result = await asyncio.to_thread(_call_with_context)
         return _serialize_result(result)
 
     # ====================
