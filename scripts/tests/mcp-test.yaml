@@ -28,6 +28,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 1000
+      error: bucket_objects_list() got an unexpected keyword argument 'context'
+      error_category: unknown
   admin_sso_config_remove:
     description: Remove the SSO configuration - Quilt governance and administrative
       operations
@@ -43,6 +48,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_sso_config_set:
     description: Set the SSO configuration - Quilt governance and administrative operations
     effect: create
@@ -58,6 +66,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_tabulator_open_query_set:
     description: Set the tabulator open query status - Quilt governance and administrative
       operations
@@ -74,6 +85,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_add_roles:
     description: Add roles to a user - Quilt governance and administrative operations
     effect: update
@@ -90,6 +104,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_create:
     description: Create a new user in the registry - Quilt governance and administrative
       operations
@@ -108,6 +125,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_delete:
     description: Delete a user from the registry - Quilt governance and administrative
       operations
@@ -124,6 +144,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_get:
     description: Get detailed information about a specific user - Quilt governance
       and administrative operations
@@ -140,6 +163,27 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: PASSED
+      duration_ms: 900
+      response_example:
+        success: true
+        user:
+          name: admin
+          email: contact@quiltdata.io
+          is_active: true
+          is_admin: true
+          is_sso_only: false
+          is_service: false
+          date_joined: '2019-04-09T03:04:24.459877+00:00'
+          last_login: '2020-08-25T20:22:06.180150+00:00'
+          role:
+            name: ReadWriteQuiltBucket
+            id: 9e18131e-0337-4a33-a531-583ca4aed31c
+            arn: arn:aws:iam::712023778557:role/ReadWriteQuiltV2-quilt-staging
+            type: ''
+          extra_roles: []
+        message: Retrieved user information for 'admin'
   admin_user_remove_roles:
     description: Remove roles from a user - Quilt governance and administrative operations
     effect: remove
@@ -156,6 +200,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_reset_password:
     description: Reset a user's password - Quilt governance and administrative operations
     effect: create
@@ -171,6 +218,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_set_active:
     description: Set the active status for a user - Quilt governance and administrative
       operations
@@ -188,6 +238,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_set_admin:
     description: Set the admin status for a user - Quilt governance and administrative
       operations
@@ -205,6 +258,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_set_email:
     description: Update a user's email address - Quilt governance and administrative
       operations
@@ -222,6 +278,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   admin_user_set_role:
     description: Set the primary and extra roles for a user - Quilt governance and
       administrative operations
@@ -239,6 +298,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   athena_query_execute:
     description: Execute SQL query against Athena using SQLAlchemy/PyAthena - Athena
       querying and Glue catalog inspection workflows
@@ -256,6 +318,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: athena_query_execute() got an unexpected keyword argument 'context'
+      error_category: unknown
   athena_query_validate:
     description: Validate SQL query syntax without executing it - Athena querying
       and Glue catalog inspection workflows
@@ -272,6 +339,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: athena_query_validate() got an unexpected keyword argument 'context'
+      error_category: unknown
   athena_table_schema:
     description: Get detailed schema information for a specific table - Athena querying
       and Glue catalog inspection workflows
@@ -289,6 +361,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 700
+      error: athena_table_schema() got an unexpected keyword argument 'context'
+      error_category: validation_error
   athena_tables_list:
     description: List tables in a specific database - Athena querying and Glue catalog
       inspection workflows
@@ -305,6 +382,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: athena_tables_list() got an unexpected keyword argument 'context'
+      error_category: unknown
   bucket_object_fetch:
     description: Fetch binary or text data from an S3 object - S3 bucket exploration
       and object retrieval tasks
@@ -322,6 +404,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: bucket_object_fetch() got an unexpected keyword argument 'context'
+      error_category: unknown
   bucket_object_info:
     description: Get metadata information for a specific S3 object - S3 bucket exploration
       and object retrieval tasks
@@ -338,6 +425,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: bucket_object_info() got an unexpected keyword argument 'context'
+      error_category: unknown
   bucket_object_link:
     description: Generate a presigned URL for downloading an S3 object - S3 bucket
       exploration and object retrieval tasks
@@ -354,6 +446,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: bucket_object_link() got an unexpected keyword argument 'context'
+      error_category: unknown
   bucket_object_text:
     description: Read text content from an S3 object - S3 bucket exploration and object
       retrieval tasks
@@ -371,6 +468,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: bucket_object_text() got an unexpected keyword argument 'context'
+      error_category: unknown
   bucket_objects_put:
     description: Upload multiple objects to an S3 bucket - S3 bucket exploration and
       object retrieval tasks
@@ -388,6 +490,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   catalog_configure:
     description: Configure Quilt catalog URL - Quilt authentication and catalog navigation
       workflows
@@ -404,6 +509,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: catalog_configure() got an unexpected keyword argument 'context'
+      error_category: unknown
   catalog_uri:
     description: Build Quilt+ URI - Quilt authentication and catalog navigation workflows
     effect: none
@@ -421,6 +531,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: catalog_uri() got an unexpected keyword argument 'context'
+      error_category: unknown
   catalog_url:
     description: Generate Quilt catalog URL - Quilt authentication and catalog navigation
       workflows
@@ -439,6 +554,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 600
+      error: catalog_url() got an unexpected keyword argument 'context'
+      error_category: unknown
   check_bucket_access:
     description: Check the caller's access to ``bucket``.
     effect: none
@@ -454,6 +574,28 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: PASSED
+      duration_ms: 1500
+      response_example:
+        success: true
+        bucket_name: quilt-ernest-staging
+        permission_level: full_access
+        access_summary:
+          can_read: true
+          can_write: true
+          can_list: true
+        operation_tests:
+          read: false
+          write: false
+          list: true
+        bucket_region: unknown
+        last_checked: '2026-02-08T16:43:22.477799+00:00'
+        error_message: null
+        guidance:
+        - ✅ This bucket can be used for Quilt package creation.
+        quilt_compatible: true
+        recommended_for_packages: true
   create_data_visualization:
     description: Create interactive data visualization for Quilt packages - Generate
       ECharts configurations from tabular data.
@@ -480,6 +622,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   create_quilt_summary_files:
     description: Create all Quilt summary files for a package - Quilt summary file
       generation tasks
@@ -504,6 +649,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   discover_permissions:
     description: Discover AWS permissions for the current principal.
     effect: none
@@ -520,6 +668,45 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: PASSED
+      duration_ms: 1500
+      response_example:
+        success: true
+        user_identity:
+          user_id: AROA2LR7MUT65NSCJAJXD:ernie
+          arn: arn:aws:sts::712023778557:assumed-role/ReadWriteQuiltV2-quilt-staging/ernie
+          account_id: '712023778557'
+          user_type: unknown
+          user_name: null
+        bucket_permissions:
+        - &id001
+          name: quilt-ernest-staging
+          region: unknown
+          permission_level: full_access
+          can_read: true
+          can_write: true
+          can_list: true
+          last_checked: 2026-02-08 16:43:24.110253+00:00
+          error_message: null
+        categorized_buckets:
+          full_access:
+          - *id001
+          read_write: []
+          read_only: []
+          list_only: []
+          no_access: []
+        recommendations:
+          package_creation: []
+          data_storage: []
+          temporary_storage: []
+        cache_stats:
+          permission_cache_size: 1
+          identity_cache_size: 1
+          bucket_list_cache_size: 0
+          cache_ttl: 3600
+        discovery_timestamp: '2026-02-08T16:43:24.110332+00:00'
+        total_buckets_checked: 1
   generate_package_visualizations:
     description: Generate comprehensive visualizations for the package - Quilt summary
       file generation tasks
@@ -542,6 +729,12 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: generate_package_visualizations() got an unexpected keyword argument
+        'context'
+      error_category: unknown
   generate_quilt_summarize_json:
     description: Generate a comprehensive quilt_summarize.json file following Quilt
       standards - Quilt summary file generation tasks
@@ -566,6 +759,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: generate_quilt_summarize_json() got an unexpected keyword argument 'context'
+      error_category: unknown
   get_resource:
     description: Access MCP resources via tool interface for backward compatibility.
     effect: none
@@ -580,6 +778,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 600
+      error: get_resource() got an unexpected keyword argument 'context'
+      error_category: unknown
   package_browse:
     description: Browse the contents of a Quilt package with enhanced file information
       - Quilt package discovery and comparison tasks
@@ -600,6 +803,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: package_browse() got an unexpected keyword argument 'context'
+      error_category: unknown
   package_create:
     description: Create a new Quilt package from S3 objects - Core package creation,
       update, and deletion workflows
@@ -618,6 +826,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   package_create_from_s3:
     description: Create a well-organized Quilt package from S3 bucket contents with
       smart organization - Bulk S3-to-package ingestion workflows
@@ -635,6 +846,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   package_delete:
     description: Delete a Quilt package from the registry - Core package creation,
       update, and deletion workflows
@@ -652,6 +866,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   package_diff:
     description: Compare two package versions and show differences - Quilt package
       discovery and comparison tasks
@@ -670,6 +887,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 600
+      error: package_diff() got an unexpected keyword argument 'context'
+      error_category: unknown
   package_update:
     description: Update an existing Quilt package by adding new S3 objects - Core
       package creation, update, and deletion workflows
@@ -688,6 +910,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   search_catalog.global.no_bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
@@ -712,6 +937,11 @@ test_tools:
       must_contain: []
       description: Global search across all buckets (may return 0 if bucket enumeration
         unavailable)
+    discovery:
+      status: FAILED
+      duration_ms: 600
+      error: search_catalog() got an unexpected keyword argument 'context'
+      error_category: unknown
   search_catalog.file.no_bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
@@ -742,6 +972,11 @@ test_tools:
         - type
         - title
         - score
+    discovery:
+      status: FAILED
+      duration_ms: 600
+      error: search_catalog() got an unexpected keyword argument 'context'
+      error_category: unknown
   search_catalog.package.no_bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
@@ -771,6 +1006,11 @@ test_tools:
         - id
         - type
         - score
+    discovery:
+      status: FAILED
+      duration_ms: 600
+      error: search_catalog() got an unexpected keyword argument 'context'
+      error_category: unknown
   search_explain:
     description: Explain how a search query would be processed and executed - Catalog
       and package search experiences
@@ -787,6 +1027,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 700
+      error: search_explain() got an unexpected keyword argument 'context'
+      error_category: unknown
   search_suggest:
     description: Get intelligent search suggestions based on partial queries and context
       - Catalog and package search experiences
@@ -804,6 +1049,20 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: PASSED
+      duration_ms: 600
+      response_example:
+        success: false
+        error: 'Search suggestions failed: argument of type ''RequestContext'' is
+          not iterable'
+        partial_query: raw/t
+        context: RequestContext(request_id='1859dbd9-0fc7-4219-8122-90af3369fdbb',
+          user_id='arn:aws:sts::712023778557:assumed-role/ReadWriteQuiltV2-quilt-staging/ernie',
+          auth_service=<quilt_mcp.services.iam_auth_service.IAMAuthService object
+          at 0x11e0f6720>, permission_service=<quilt_mcp.services.permissions_service.PermissionDiscoveryService
+          object at 0x11e8a6b40>, workflow_service=<quilt_mcp.services.workflow_service.WorkflowService
+          object at 0x11e8a6540>)
   tabulator_bucket_query:
     description: Execute a bucket-scoped tabulator query.
     effect: none
@@ -821,6 +1080,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: tabulator_bucket_query() got an unexpected keyword argument 'context'
+      error_category: unknown
   tabulator_list_buckets:
     description: List all buckets (databases) in the Tabulator catalog.
     effect: none
@@ -835,6 +1099,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 500
+      error: tabulator_list_buckets() got an unexpected keyword argument 'context'
+      error_category: unknown
   tabulator_query_execute:
     description: Execute a query against the Tabulator catalog.
     effect: configure
@@ -850,6 +1119,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 600
+      error: tabulator_query_execute() got an unexpected keyword argument 'context'
+      error_category: unknown
   tabulator_table_create:
     description: Create or update a tabulator table.
     effect: create
@@ -869,6 +1143,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   tabulator_table_delete:
     description: Delete a tabulator table.
     effect: remove
@@ -885,6 +1162,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   tabulator_table_rename:
     description: Rename a tabulator table.
     effect: update
@@ -902,6 +1182,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   tabulator_tables_list:
     description: List all tabulator tables in a bucket.
     effect: none
@@ -917,6 +1200,11 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: FAILED
+      duration_ms: 600
+      error: tabulator_tables_list() got an unexpected keyword argument 'context'
+      error_category: unknown
   workflow_add_step:
     description: Add a step to an existing workflow - Workflow tracking and orchestration
       tasks
@@ -935,6 +1223,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   workflow_create:
     description: Create a new workflow for tracking multi-step operations - Workflow
       tracking and orchestration tasks
@@ -952,6 +1243,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
   workflow_template_apply:
     description: Apply a pre-defined workflow template - Workflow tracking and orchestration
       tasks
@@ -973,6 +1267,15 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: PASSED
+      duration_ms: 600
+      response_example:
+        success: false
+        error: Workflow 'test-wf-001' already exists
+        cause: null
+        possible_fixes: null
+        suggested_actions: null
   workflow_update_step:
     description: Update the status of a workflow step - Workflow tracking and orchestration
       tasks
@@ -990,6 +1293,9 @@ test_tools:
             type: object
       required:
       - content
+    discovery:
+      status: SKIPPED
+      duration_ms: 0
 test_resources:
   auth://status:
     description: Check authentication status and catalog configuration
@@ -1196,7 +1502,7 @@ tool_loops:
       args:
         name: tlu{uuid}
         email: tlu{uuid}@example.com
-        role: T4BucketReadRole
+        role: ReadQuiltBucket
       expect_success: true
     - tool: admin_user_get
       args:
@@ -1215,13 +1521,13 @@ tool_loops:
       args:
         name: tlu{uuid}
         email: tlu{uuid}@example.com
-        role: T4BucketReadRole
+        role: ReadQuiltBucket
       expect_success: true
     - tool: admin_user_add_roles
       args:
         name: tlu{uuid}
         roles:
-        - T4BucketWriteRole
+        - ReadWriteQuiltBucket
       expect_success: true
     - tool: admin_user_get
       args:
@@ -1231,7 +1537,7 @@ tool_loops:
       args:
         name: tlu{uuid}
         roles:
-        - T4BucketWriteRole
+        - ReadWriteQuiltBucket
       expect_success: true
     - tool: admin_user_delete
       args:
@@ -1247,7 +1553,7 @@ tool_loops:
       args:
         name: tlu{uuid}
         email: tlu{uuid}@example.com
-        role: T4BucketReadRole
+        role: ReadQuiltBucket
       expect_success: true
     - tool: admin_user_set_email
       args:
@@ -1257,7 +1563,7 @@ tool_loops:
     - tool: admin_user_set_role
       args:
         name: tlu{uuid}
-        role: T4BucketWriteRole
+        role: ReadWriteQuiltBucket
       expect_success: true
     - tool: admin_user_set_admin
       args:
@@ -1456,3 +1762,8 @@ test_config:
   timeout: 30
   retry_attempts: 2
   fail_fast: false
+discovered_data:
+  s3_keys: []
+  package_names: []
+  tables: []
+  catalog_resources: []
