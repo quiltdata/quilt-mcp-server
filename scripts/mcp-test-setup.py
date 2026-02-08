@@ -766,7 +766,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "admin_user_set_admin",
                     "args": {
                         "name": "tlu{uuid}",
-                        "is_admin": True
+                        "admin": True
                     },
                     "expect_success": True
                 },
@@ -774,7 +774,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "admin_user_set_active",
                     "args": {
                         "name": "tlu{uuid}",
-                        "is_active": False
+                        "active": False
                     },
                     "expect_success": True
                 },
@@ -803,8 +803,11 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "admin_sso_config_set",
                     "args": {
                         "config": {
+                            "version": "1.0",
                             "provider": "test-{uuid}",
-                            "saml_config": "<test_sso_config>test config</test_sso_config>"
+                            "saml_config": "<test_sso_config>test config</test_sso_config>",
+                            "mappings": [],
+                            "default_role": "ReadQuiltBucket"
                         }
                     },
                     "expect_success": True
@@ -847,7 +850,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "args": {
                         "package_name": "testuser/loop-pkg-{uuid}",
                         "registry": "{env.QUILT_TEST_BUCKET}",
-                        "s3_uris": ["{env.QUILT_TEST_BUCKET}/test-data/sample.csv"],
+                        "s3_uris": ["s3://{env.QUILT_TEST_BUCKET}/test-data/sample.csv"],
                         "message": "Test package created by tool loop"
                     },
                     "expect_success": True
@@ -865,7 +868,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "args": {
                         "package_name": "testuser/loop-pkg-{uuid}",
                         "registry": "{env.QUILT_TEST_BUCKET}",
-                        "s3_uris": ["{env.QUILT_TEST_BUCKET}/test-data/sample2.csv"],
+                        "s3_uris": ["s3://{env.QUILT_TEST_BUCKET}/test-data/sample2.csv"],
                         "message": "Updated by tool loop"
                     },
                     "expect_success": True
@@ -890,6 +893,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "args": {
                         "source_bucket": "{env.QUILT_TEST_BUCKET}",
                         "package_name": "testuser/s3pkg-{uuid}",
+                        "target_registry": "{env.QUILT_TEST_BUCKET}",
                         "source_prefix": "test-data/",
                         "confirm_structure": False,
                         "force": True
@@ -927,7 +931,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                 {
                     "tool": "bucket_object_fetch",
                     "args": {
-                        "s3_uri": "{env.QUILT_TEST_BUCKET}/test-loop-{uuid}.txt",
+                        "s3_uri": "s3://{env.QUILT_TEST_BUCKET}/test-loop-{uuid}.txt",
                         "max_bytes": 1000
                     },
                     "expect_success": True
@@ -994,7 +998,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "args": {
                         "bucket_name": "{env.QUILT_TEST_BUCKET}",
                         "table_name": "test_table_{uuid}",
-                        "schema": [{"name": "col1", "type": "string"}],
+                        "schema": [{"name": "col1", "type": "STRING"}],
                         "package_pattern": "*/pkg",
                         "logical_key_pattern": "*.csv"
                     },
@@ -1004,8 +1008,8 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "tabulator_table_rename",
                     "args": {
                         "bucket_name": "{env.QUILT_TEST_BUCKET}",
-                        "old_name": "test_table_{uuid}",
-                        "new_name": "test_table_{uuid}_renamed"
+                        "table_name": "test_table_{uuid}",
+                        "new_table_name": "test_table_{uuid}_renamed"
                     },
                     "expect_success": True
                 },
