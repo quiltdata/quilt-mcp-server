@@ -281,22 +281,36 @@ class SearchValidator:
     def _validate_search(self, result: Dict[str, Any]) -> tuple[bool, Optional[str]]:
         """Validate search-specific results."""
 
-        # Extract results array from response
-        # MCP tools return {"content": [...]} format
+        # Handle both MCP-wrapped and direct dict responses
+        # MCP protocol may wrap as {"content": [{"text": "<json>"}]}
+        # Or return direct dict: {"success": true, "results": [...]}
+
+        search_results = None
+
+        # Try MCP-wrapped format first
         content = result.get("content", [])
-        if not content:
-            return False, "Empty response content"
+        if content:
+            try:
+                if isinstance(content[0], dict) and "text" in content[0]:
+                    search_results = json.loads(content[0]["text"])
+                else:
+                    search_results = content[0]
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                # Fall through to try direct format
+                pass
 
-        # Parse the actual results (usually JSON string in content[0]["text"])
-        try:
-            if isinstance(content[0], dict) and "text" in content[0]:
-                search_results = json.loads(content[0]["text"])
+        # Try direct dict format (actual stdio transport format)
+        if search_results is None:
+            if "results" in result:
+                search_results = result
             else:
-                search_results = content[0]
+                return False, "No search results found in response (neither MCP-wrapped nor direct dict format)"
 
+        # Extract results list
+        try:
             results_list = search_results.get("results", [])
-        except (json.JSONDecodeError, KeyError, IndexError) as e:
-            return False, f"Failed to parse search results: {e}"
+        except (KeyError, AttributeError) as e:
+            return False, f"Failed to extract results array: {e}"
 
         # Check minimum results
         min_results = self.config.get("min_results", 0)

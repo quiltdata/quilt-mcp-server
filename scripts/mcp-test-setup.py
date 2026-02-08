@@ -631,10 +631,10 @@ def get_test_roles() -> tuple[str, str]:
 
     Returns:
         (base_role, secondary_role) tuple with two distinct role names
-        Uses T4BucketReadRole and T4BucketWriteRole as test roles
+        Uses ReadQuiltBucket and ReadWriteQuiltBucket as test roles
     """
-    base_role = "T4BucketReadRole"
-    secondary_role = "T4BucketWriteRole"
+    base_role = "ReadQuiltBucket"
+    secondary_role = "ReadWriteQuiltBucket"
 
     print(f"   ✅ Using test roles: base='{base_role}', secondary='{secondary_role}'")
     return base_role, secondary_role
