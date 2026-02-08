@@ -31,8 +31,7 @@ class Quilt3_Backend_Buckets:
 
     # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
     # list_buckets() is now a concrete method in QuiltOps that calls:
-    # - _backend_list_buckets() primitive
-    # - _transform_bucket_to_bucket_info() transformation (in QuiltOps base)
+    # - _backend_list_buckets() primitive (which returns Bucket_Info objects directly)
 
     def _transform_bucket(self, bucket_name: str, bucket_data: Dict[str, Any]) -> Bucket_Info:
         """Transform quilt3 bucket data to domain Bucket_Info.

@@ -15,6 +15,7 @@ from unittest.mock import Mock, patch, MagicMock
 from quilt_mcp.ops.quilt_ops import QuiltOps
 from quilt_mcp.ops.exceptions import ValidationError, BackendError, NotFoundError
 from quilt_mcp.domain import Package_Info, Content_Info, Package_Creation_Result, Auth_Status, Catalog_Config
+from quilt_mcp.domain.package_builder import PackageEntry
 
 
 # =========================================================================
@@ -611,7 +612,12 @@ class TestUpdatePackageRevision:
         """Test successful package update workflow."""
         # Mock existing package with entries
         ops._mock_get_package_entries.return_value = {
-            "existing.txt": {"physicalKey": "s3://bucket/existing.txt", "size": 100, "hash": "abc123"}
+            "existing.txt": PackageEntry(
+                logicalKey="existing.txt",
+                physicalKey="s3://bucket/existing.txt",
+                size=100,
+                hash="abc123",
+            )
         }
         ops._mock_get_package_metadata.return_value = {"description": "Original"}
 
@@ -651,8 +657,14 @@ class TestUpdatePackageRevision:
     def test_preserves_existing_files(self, ops):
         """Test update preserves existing package files."""
         ops._mock_get_package_entries.return_value = {
-            "file1.txt": {"physicalKey": "s3://bucket/file1.txt"},
-            "file2.txt": {"physicalKey": "s3://bucket/file2.txt"},
+            "file1.txt": PackageEntry(
+                logicalKey="file1.txt",
+                physicalKey="s3://bucket/file1.txt",
+            ),
+            "file2.txt": PackageEntry(
+                logicalKey="file2.txt",
+                physicalKey="s3://bucket/file2.txt",
+            ),
         }
         ops._mock_get_package_metadata.return_value = {}
 

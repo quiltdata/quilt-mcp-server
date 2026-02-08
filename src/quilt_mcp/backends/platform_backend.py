@@ -24,7 +24,7 @@ from quilt_mcp.domain import (
     Catalog_Config,
     Package_Creation_Result,
 )
-from quilt_mcp.domain.package_builder import PackageBuilder
+from quilt_mcp.domain.package_builder import PackageBuilder, PackageEntry
 from quilt_mcp.context.runtime_context import (
     get_runtime_auth,
 )
@@ -199,8 +199,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
     # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
     # list_buckets() is now a concrete method in QuiltOps that calls:
-    # - _backend_list_buckets() primitive
-    # - _transform_bucket_to_bucket_info() primitive
+    # - _backend_list_buckets() primitive (which returns Bucket_Info objects directly)
 
     # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
     # search_packages() is now a concrete method in QuiltOps that calls:
@@ -645,17 +644,29 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
         return package_data
 
-    def _backend_get_package_entries(self, package: Any) -> Dict[str, Dict[str, Any]]:
+    def _backend_get_package_entries(self, package: Any) -> Dict[str, PackageEntry]:
         """Get all entries from package data (backend primitive).
 
         Args:
             package: Package data structure from GraphQL
 
         Returns:
-            Dict mapping logical_key to entry metadata
+            Dict mapping logical_key to PackageEntry with normalized types
         """
-        result: Dict[str, Dict[str, Any]] = package.get("revision", {}).get("contentsFlatMap", {})
-        return result
+        contents_flat_map = package.get("revision", {}).get("contentsFlatMap", {})
+        entries: Dict[str, PackageEntry] = {}
+
+        for logical_key, entry_data in contents_flat_map.items():
+            if isinstance(entry_data, dict):
+                entries[logical_key] = PackageEntry(
+                    logicalKey=logical_key,
+                    physicalKey=entry_data.get("physicalKey", ""),
+                    size=entry_data.get("size"),
+                    hash=entry_data.get("hash"),
+                    meta=entry_data.get("meta"),
+                )
+
+        return entries
 
     def _backend_get_package_metadata(self, package: Any) -> Dict[str, Any]:
         """Get metadata from package data (backend primitive).
@@ -871,12 +882,14 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
     # _backend_get_catalog_config inherited from base class (standard HTTP GET)
 
-    def _backend_list_buckets(self) -> List[Dict[str, Any]]:
+    def _backend_list_buckets(self) -> List["Bucket_Info"]:
         """List S3 buckets via GraphQL (backend primitive).
 
         Returns:
-            List of bucket information dictionaries
+            List of Bucket_Info domain objects
         """
+        from quilt_mcp.domain import Bucket_Info
+
         gql = """
         query ListBuckets {
           bucketConfigs {
@@ -886,9 +899,20 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         """
 
         result = self.execute_graphql_query(gql)
-        buckets = result.get("data", {}).get("bucketConfigs", [])
+        bucket_configs = result.get("data", {}).get("bucketConfigs", [])
 
-        return [{"name": bucket["name"]} for bucket in buckets if bucket.get("name")]
+        buckets = []
+        for bucket in bucket_configs:
+            if bucket.get("name"):
+                bucket_info = Bucket_Info(
+                    name=bucket["name"],
+                    region="unknown",  # GraphQL doesn't return region in bucketConfigs
+                    access_level="unknown",  # Would require additional queries
+                    created_date=None,  # Not available in GraphQL bucketConfigs
+                )
+                buckets.append(bucket_info)
+
+        return buckets
 
     def _backend_get_boto3_session(self) -> Any:
         """Get boto3 session (backend primitive).

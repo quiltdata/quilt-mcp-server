@@ -150,14 +150,14 @@ test-mcp: scripts/tests/mcp-test.yaml
 	@echo "===🧪 Running MCP server tests (platform backend, stdio)..."
 	@export TEST_BACKEND_MODE=platform && \
 		export FASTMCP_TRANSPORT=stdio && \
-		uv run --group test python scripts/tests/test_mcp.py --no-generate
+		uv run --group test python scripts/tests/test_mcp.py
 
 # Legacy - Quilt3 backend, stdio transport
 test-mcp-legacy: scripts/tests/mcp-test.yaml
 	@echo "===🧪 Running MCP server tests (quilt3 backend, stdio - LEGACY)..."
 	@export TEST_BACKEND_MODE=quilt3 && \
 		export FASTMCP_TRANSPORT=stdio && \
-		uv run --group test python scripts/tests/test_mcp.py --no-generate
+		uv run --group test python scripts/tests/test_mcp.py
 
 # Production validation - Platform backend, HTTP+JWT, Docker
 test-mcp-docker: docker-build scripts/tests/mcp-test.yaml

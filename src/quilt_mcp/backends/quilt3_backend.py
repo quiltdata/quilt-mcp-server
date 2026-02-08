@@ -140,16 +140,26 @@ class Quilt3_Backend(
         if "metadata" in package and package["metadata"]:
             quilt3_pkg.set_meta(package["metadata"])
 
-        # Push the package
-        if copy:
-            # Deep copy objects to registry bucket
-            top_hash = quilt3_pkg.push(package_name, registry=registry, message=message)
+        # Determine if registry is S3 or local
+        # push() requires S3 registry, build() for local file paths
+        is_s3_registry = registry.startswith("s3://")
+
+        if is_s3_registry:
+            # Push to remote S3 registry
+            if copy:
+                # Deep copy objects to registry bucket
+                top_hash = quilt3_pkg.push(package_name, registry=registry, message=message)
+            else:
+                # Shallow references only (no copy)
+                # selector_fn returns False to preserve original physical keys without copying
+                # NOTE: selector_fn_copy_local only copies LOCAL files - S3 objects retain their physical keys
+                top_hash = quilt3_pkg.push(
+                    package_name, registry=registry, message=message, selector_fn=lambda logical_key, entry: False
+                )
         else:
-            # Shallow references only (no copy)
-            # selector_fn returns False to preserve original physical keys without copying
-            top_hash = quilt3_pkg.push(
-                package_name, registry=registry, message=message, selector_fn=lambda logical_key, entry: False
-            )
+            # Build to local file registry
+            # build() stores package locally without pushing to S3
+            top_hash = quilt3_pkg.build(package_name, registry=registry, message=message)
 
         return top_hash or ""
 
@@ -172,24 +182,26 @@ class Quilt3_Backend(
         else:
             return self.quilt3.Package.browse(package_name, registry=registry)
 
-    def _backend_get_package_entries(self, package: Any) -> Dict[str, Dict[str, Any]]:
+    def _backend_get_package_entries(self, package: Any) -> Dict[str, PackageEntry]:
         """Get all entries from quilt3 package (backend primitive).
 
         Args:
             package: quilt3.Package object
 
         Returns:
-            Dict mapping logical_key to entry metadata
+            Dict mapping logical_key to PackageEntry with normalized types
         """
         entries = {}
         for logical_key, entry in package.walk():
             # package.walk() only yields files (PackageEntry), never directories
-            entries[logical_key] = {
-                "physicalKey": entry.physical_key,
-                "size": entry.size,
-                "hash": entry.hash,
-                "meta": getattr(entry, 'meta', None),  # Entry-level metadata
-            }
+            # Normalize quilt3-specific types to domain types
+            entries[logical_key] = PackageEntry(
+                logicalKey=logical_key,
+                physicalKey=str(entry.physical_key),  # Convert PhysicalKey object to string
+                size=entry.size,
+                hash=entry.hash,
+                meta=getattr(entry, 'meta', None),  # Entry-level metadata
+            )
         return entries
 
     def _backend_get_package_metadata(self, package: Any) -> Dict[str, Any]:
@@ -364,23 +376,31 @@ class Quilt3_Backend(
 
     # _backend_get_catalog_config inherited from base class (standard HTTP GET)
 
-    def _backend_list_buckets(self) -> List[Dict[str, Any]]:
+    def _backend_list_buckets(self) -> List["Bucket_Info"]:
         """List S3 buckets via boto3 (backend primitive).
 
         Returns:
-            List of bucket information dictionaries
+            List of Bucket_Info domain objects
         """
+        from quilt_mcp.domain import Bucket_Info
+
         s3_client = self.get_boto3_client('s3')
         response = s3_client.list_buckets()
 
         buckets = []
         for bucket in response.get('Buckets', []):
-            buckets.append(
-                {
-                    "name": bucket['Name'],
-                    "created": bucket.get('CreationDate'),
-                }
+            # Convert creation date to ISO string if present
+            created_date = bucket.get('CreationDate')
+            created_date_str = created_date.isoformat() if created_date else None
+
+            # Construct Bucket_Info domain object
+            bucket_info = Bucket_Info(
+                name=bucket['Name'],
+                region="unknown",  # boto3 list_buckets doesn't return region
+                access_level="unknown",  # Would require additional API calls to determine
+                created_date=created_date_str,
             )
+            buckets.append(bucket_info)
 
         return buckets
 

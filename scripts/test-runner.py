@@ -615,7 +615,7 @@ def main() -> int:
                 'export PYTHONPATH="src" && '
                 'uv run python -m pytest scripts/tests/ -v && '
                 'echo "\\n===🧪 Running MCP server tests (idempotent only)..." && '
-                'uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test --no-generate && '
+                'uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test && '
                 'echo "\\n===🧪 Running MCP stateless tests..." && '
                 'make -s test-mcp-stateless',
             ],

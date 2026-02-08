@@ -455,6 +455,9 @@ def _discover_s3_objects(
         for page in pages:
             if "Contents" in page:
                 for obj in page["Contents"]:
+                    # Skip S3 directory markers (zero-byte objects with keys ending in '/')
+                    if obj["Key"].endswith('/'):
+                        continue
                     if _should_include_object(obj["Key"], include_patterns, exclude_patterns):
                         objects.append(obj)
     except ClientError as e:

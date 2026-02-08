@@ -849,8 +849,8 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "package_create",
                     "args": {
                         "package_name": "testuser/loop-pkg-{uuid}",
-                        "registry": "{env.QUILT_TEST_BUCKET}",
-                        "s3_uris": ["s3://{env.QUILT_TEST_BUCKET}/test-data/sample.csv"],
+                        "registry": "s3://{env.QUILT_TEST_BUCKET}",
+                        "s3_uris": ["s3://{env.QUILT_TEST_BUCKET}/{env.QUILT_TEST_PACKAGE}/{env.QUILT_TEST_ENTRY}"],
                         "message": "Test package created by tool loop"
                     },
                     "expect_success": True
@@ -859,7 +859,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "package_browse",
                     "args": {
                         "package_name": "testuser/loop-pkg-{uuid}",
-                        "registry": "{env.QUILT_TEST_BUCKET}"
+                        "registry": "s3://{env.QUILT_TEST_BUCKET}"
                     },
                     "expect_success": True
                 },
@@ -867,8 +867,8 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "package_update",
                     "args": {
                         "package_name": "testuser/loop-pkg-{uuid}",
-                        "registry": "{env.QUILT_TEST_BUCKET}",
-                        "s3_uris": ["s3://{env.QUILT_TEST_BUCKET}/test-data/sample2.csv"],
+                        "registry": "s3://{env.QUILT_TEST_BUCKET}",
+                        "s3_uris": ["s3://{env.QUILT_TEST_BUCKET}/{env.QUILT_TEST_PACKAGE}/.timestamp"],
                         "message": "Updated by tool loop"
                     },
                     "expect_success": True
@@ -877,7 +877,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "package_delete",
                     "args": {
                         "package_name": "testuser/loop-pkg-{uuid}",
-                        "registry": "{env.QUILT_TEST_BUCKET}"
+                        "registry": "s3://{env.QUILT_TEST_BUCKET}"
                     },
                     "expect_success": True,
                     "is_cleanup": True
@@ -893,8 +893,8 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "args": {
                         "source_bucket": "{env.QUILT_TEST_BUCKET}",
                         "package_name": "testuser/s3pkg-{uuid}",
-                        "target_registry": "{env.QUILT_TEST_BUCKET}",
-                        "source_prefix": "test-data/",
+                        "target_registry": "s3://{env.QUILT_TEST_BUCKET}",
+                        "source_prefix": "{env.QUILT_TEST_PACKAGE}/",
                         "confirm_structure": False,
                         "force": True
                     },
@@ -904,7 +904,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "tool": "package_delete",
                     "args": {
                         "package_name": "testuser/s3pkg-{uuid}",
-                        "registry": "{env.QUILT_TEST_BUCKET}"
+                        "registry": "s3://{env.QUILT_TEST_BUCKET}"
                     },
                     "expect_success": True,
                     "is_cleanup": True

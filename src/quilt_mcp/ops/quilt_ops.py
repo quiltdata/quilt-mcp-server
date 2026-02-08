@@ -304,40 +304,6 @@ class QuiltOps(ABC):
 
         return True
 
-    def _transform_bucket_to_bucket_info(self, bucket_dict: Dict[str, Any]) -> "Bucket_Info":
-        """Transform backend bucket dict to Bucket_Info domain object.
-
-        Args:
-            bucket_dict: Backend-specific bucket dictionary
-                        Must include: name
-                        Optional: region, access_level, created, created_date
-
-        Returns:
-            Bucket_Info domain object with sensible defaults
-        """
-        name = bucket_dict.get("name", "")
-        region = bucket_dict.get("region", "unknown")
-        access_level = bucket_dict.get("access_level", "unknown")
-
-        # Handle various datetime field names
-        created_date = bucket_dict.get("created_date") or bucket_dict.get("created")
-        if created_date and hasattr(created_date, "isoformat"):
-            created_date_str = created_date.isoformat()
-        elif created_date:
-            created_date_str = str(created_date)
-        else:
-            created_date_str = None
-
-        # Import here to avoid circular dependency
-        from ..domain import Bucket_Info
-
-        return Bucket_Info(
-            name=name,
-            region=region if region else "unknown",
-            access_level=access_level if access_level else "unknown",
-            created_date=created_date_str,
-        )
-
     # =========================================================================
     # Backend Primitives (Abstract - Template Method Pattern)
     # =========================================================================
@@ -436,16 +402,18 @@ class QuiltOps(ABC):
         pass
 
     @abstractmethod
-    def _backend_get_package_entries(self, package: Any) -> Dict[str, Dict[str, Any]]:
+    def _backend_get_package_entries(self, package: Any) -> Dict[str, PackageEntry]:
         """Get all entries (files) from a package (backend primitive).
 
-        Returns a dictionary mapping logical_key to entry metadata.
+        Returns a dictionary mapping logical_key to PackageEntry.
+        Backend implementations must normalize backend-specific types to domain types.
 
         Args:
             package: Backend-specific package object
 
         Returns:
-            Dict mapping logical_key to entry metadata (physicalKey, size, hash)
+            Dict mapping logical_key to PackageEntry with normalized types
+            (physicalKey must be string, not backend-specific object)
 
         Raises:
             BackendError: If extraction fails
@@ -616,12 +584,14 @@ class QuiltOps(ABC):
             raise BackendError(f"Failed to fetch catalog config: {str(e)}") from e
 
     @abstractmethod
-    def _backend_list_buckets(self) -> List[Dict[str, Any]]:
+    def _backend_list_buckets(self) -> List[Bucket_Info]:
         """List accessible S3 buckets (backend primitive).
 
+        Backend implementations must construct Bucket_Info domain objects directly.
+        This ensures type safety and allows backends to provide full bucket information.
+
         Returns:
-            List of bucket information dictionaries (not domain objects).
-            Each dict must include: name
+            List of Bucket_Info domain objects
 
         Raises:
             BackendError: If listing fails
@@ -888,9 +858,8 @@ class QuiltOps(ABC):
         the complete bucket listing workflow.
 
         Workflow:
-            1. List buckets (backend primitive)
-            2. Transform results (transformation via backend primitive)
-            3. Return list
+            1. List buckets (backend primitive - returns domain objects)
+            2. Return list
 
         Returns:
             List of Bucket_Info objects representing accessible buckets
@@ -902,16 +871,10 @@ class QuiltOps(ABC):
         from .exceptions import BackendError
 
         try:
-            # STEP 1: LIST BUCKETS (backend primitive)
-            bucket_dicts = self._backend_list_buckets()
+            # STEP 1: LIST BUCKETS (backend primitive - returns Bucket_Info objects)
+            buckets = self._backend_list_buckets()
 
-            # STEP 2: TRANSFORM RESULTS (transformation via backend primitive)
-            buckets = []
-            for bucket_dict in bucket_dicts:
-                bucket_info = self._transform_bucket_to_bucket_info(bucket_dict)
-                buckets.append(bucket_info)
-
-            # STEP 3: RETURN
+            # STEP 2: RETURN
             return buckets
 
         except Exception as e:
@@ -1576,9 +1539,9 @@ class QuiltOps(ABC):
             updated_package = self._backend_create_empty_package()
 
             # STEP 6: ADD EXISTING FILES (backend primitive loop)
-            for logical_key, entry_data in existing_entries.items():
-                # Extract physical key (different backends may use different field names)
-                physical_key = entry_data.get("physicalKey") or entry_data.get("physical_key")
+            for logical_key, entry in existing_entries.items():
+                # Extract physical key from PackageEntry (normalized by backend primitive)
+                physical_key = entry["physicalKey"]
                 if physical_key:
                     self._backend_add_file_to_package(updated_package, logical_key, physical_key)
 
