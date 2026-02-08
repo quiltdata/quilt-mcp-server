@@ -8,6 +8,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-02-08
+
+### Changed
+
+- **JWT Authentication Simplified**: JWT validation now uses pure pass-through to GraphQL
+  - Removed local JWT validation logic and decoder service
+  - GraphQL backend handles all JWT validation and user authentication
+  - Reduced complexity and improved reliability of JWT auth flow
+  - Eliminates duplicate validation logic between MCP server and GraphQL API
+
+- **Domain Types Migration**: Enhanced type safety with domain objects
+  - Backend primitives now use typed domain objects instead of `Any`
+  - `PackageBuilder` type replaces generic dict types in package operations
+  - `Auth_Status`, `Content_Info`, and other domain types provide better IDE support
+  - Improved error handling and validation through structured types
+
+- **Context Parameter Handling**: Migrated to explicit context parameters
+  - Removed implicit context propagation infrastructure
+  - Context now passed explicitly where needed instead of injected globally
+  - Clearer function signatures and easier testing
+  - Context wrapper excludes context param from MCP tool signatures
+
+- **MCP Testing Infrastructure**: Intelligent test discovery and unified CLI
+  - Automatic discovery of available tools and capabilities
+  - Simplified to 3 deployment-mode targets (local, backend, platform)
+  - Unified CLI options for configuring test runs
+  - Phase 3 tool classification with argument inference
+  - Improved validation for filtered test runs
+
+### Fixed
+
+- **Athena Database Queries**: Fixed table schema queries for database names with hyphens
+  - Now correctly handles database names like `quilt-example-tabulator`
+  - Uses proper CloudFormation stack parameter for database names
+  - Improved query reliability for non-standard database naming
+
+- **Telemetry Configuration**: Aligned MCP telemetry with quilt3 library behavior
+  - Consistent telemetry reporting across quilt3 and MCP server
+  - Better tracking of usage patterns and errors
+
+### Removed
+
+- **Obsolete Test Infrastructure**: Cleaned up fake and invalid tests
+  - Removed JWT validation tests that used fake fixtures
+  - Removed 22 fake E2E tests that didn't test MCP protocol
+  - Removed obsolete optimization test framework
+  - Test harness now properly fails on error responses
+
+### Internal
+
+- **Code Organization**: Reorganized src/quilt_mcp top-level files into subfolders
+  - Better module structure with clear separation of concerns
+  - Moved backend methods to QuiltOps base class
+  - Template Method pattern reduces duplication across backends
+  - Removed redundant backward compatibility layers
+
 ## [0.14.1] - 2026-02-04
 
 ### Added
