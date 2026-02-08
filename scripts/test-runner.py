@@ -296,8 +296,8 @@ def init_phases() -> list[PhaseStats]:
         ),
         PhaseStats(
             name="Script Tests",
-            subtasks=["pytest scripts", "MCP server tests", "MCP stateless"],
-            subtask_test_counts=[scripts_count, 0, 0],  # Only pytest scripts reports test counts
+            subtasks=["pytest scripts", "MCP server tests (legacy)"],
+            subtask_test_counts=[scripts_count, 0],  # Only pytest scripts reports test counts
             tests_total=scripts_count,  # Just pytest scripts count (MCP tests reported differently)
         ),
         PhaseStats(
@@ -395,10 +395,8 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
     elif phase.name == "Script Tests":
         if "pytest scripts" in line.lower():
             phase.current_subtask_idx = 0
-        elif "mcp" in line.lower() and "server" in line.lower():
+        elif "mcp" in line.lower() and ("server" in line.lower() or "legacy" in line.lower()):
             phase.current_subtask_idx = 1
-        elif "stateless" in line.lower():
-            phase.current_subtask_idx = 2
 
     # MCPB Validate phase
     elif phase.name == "MCPB Validate":
@@ -606,7 +604,7 @@ def main() -> int:
         (0, base_make + ["lint"]),
         (1, base_make + ["coverage"]),  # Runs unit + functional + e2e + analysis + validation
         (2, base_make + ["docker-build"]),  # Includes docker-check as dependency
-        # Phase 4: Run test-scripts components - pytest scripts + MCP tests + stateless
+        # Phase 4: Run test-scripts components - pytest scripts + MCP tests
         (
             3,
             [
@@ -614,10 +612,7 @@ def main() -> int:
                 "-c",
                 'export PYTHONPATH="src" && '
                 'uv run python -m pytest scripts/tests/ -v && '
-                'echo "\\n===🧪 Running MCP server tests (idempotent only)..." && '
-                'uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test && '
-                'echo "\\n===🧪 Running MCP stateless tests..." && '
-                'make -s test-mcp-stateless',
+                'make -s test-mcp-legacy',
             ],
         ),
         (4, base_make + ["mcpb-validate"]),
