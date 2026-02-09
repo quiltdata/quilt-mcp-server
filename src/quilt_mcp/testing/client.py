@@ -7,7 +7,7 @@ communication over HTTP and stdio transports.
 import json
 import subprocess
 import time
-from typing import Any, Dict, List, Optional
+from typing import IO, Any, Dict, List, Optional, cast
 
 import requests
 
@@ -40,6 +40,13 @@ class MCPTester:
         self.verbose = verbose
         self.request_id = 1
         self.jwt_token = jwt_token  # Store for error handling
+
+        # Type declarations for attributes that vary by transport
+        self.endpoint: Optional[str]
+        self.session: Optional[requests.Session]
+        self.process: Optional[subprocess.Popen]
+        self.stdin_file: Optional[IO[Any]]
+        self.stdout_file: Optional[IO[Any]]
 
         if transport == "http":
             if not endpoint:
@@ -106,6 +113,9 @@ class MCPTester:
 
     def _make_http_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make JSON-RPC request via HTTP transport."""
+        if self.session is None or self.endpoint is None:
+            raise RuntimeError("HTTP transport not initialized")
+
         request_data = {"jsonrpc": "2.0", "id": self.request_id, "method": method}
         if params:
             request_data["params"] = params
@@ -149,6 +159,7 @@ class MCPTester:
 
             # Handle SSE (Server-Sent Events) response format
             content_type = response.headers.get('content-type', '')
+            result: Dict[str, Any]
             if 'text/event-stream' in content_type:
                 # Parse SSE format: "event: message\ndata: {...}"
                 text = response.text.strip()
@@ -173,15 +184,20 @@ class MCPTester:
             if "error" in result:
                 raise Exception(f"JSON-RPC error: {result['error']}")
 
-            return result.get("result", {})
+            return cast(Dict[str, Any], result.get("result", {}))
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"HTTP request failed: {e}")
         except json.JSONDecodeError as e:
-            raise Exception(f"Invalid JSON response: {e}")
+            # Include the actual response content in error for debugging
+            response_preview = text[:200] if text else "(no response)"
+            raise Exception(f"Invalid JSON response: {e}\nReceived: {response_preview}")
 
     def _make_stdio_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make JSON-RPC request via stdio transport."""
+        if self.stdin_file is None or self.stdout_file is None:
+            raise RuntimeError("stdio transport not initialized")
+
         request_data = {"jsonrpc": "2.0", "id": self.request_id, "method": method}
         if params:
             request_data["params"] = params
@@ -192,6 +208,7 @@ class MCPTester:
         if self.verbose and params:
             self._log(f"Params: {json.dumps(params, indent=2)}", "DEBUG")
 
+        response_line = None
         try:
             # Write request to stdin
             request_json = json.dumps(request_data) + "\n"
@@ -203,17 +220,19 @@ class MCPTester:
             if not response_line:
                 raise Exception("No response from server (EOF)")
 
-            result = json.loads(response_line)
+            result: Dict[str, Any] = json.loads(response_line)
 
             self._log(f"Response: {json.dumps(result, indent=2)}", "DEBUG")
 
             if "error" in result:
                 raise Exception(f"JSON-RPC error: {result['error']}")
 
-            return result.get("result", {})
+            return cast(Dict[str, Any], result.get("result", {}))
 
         except json.JSONDecodeError as e:
-            raise Exception(f"Invalid JSON response: {e}")
+            # Include the actual response content in error for debugging
+            response_preview = response_line[:200] if response_line else "(no response)"
+            raise Exception(f"Invalid JSON response: {e}\nReceived: {response_preview}")
         except Exception as e:
             # Re-raise with more context
             raise Exception(f"stdio request failed: {e}")
@@ -228,7 +247,10 @@ class MCPTester:
             # HTTP transport doesn't use notifications
             return
 
-        notification = {"jsonrpc": "2.0", "method": method}
+        if self.stdin_file is None:
+            raise RuntimeError("stdio transport not initialized")
+
+        notification: Dict[str, Any] = {"jsonrpc": "2.0", "method": method}
         if params:
             notification["params"] = params
 
@@ -269,7 +291,7 @@ class MCPTester:
         self._log("Querying available tools...")
 
         result = self._make_request("tools/list")
-        tools = result.get("tools", [])
+        tools: List[Dict[str, Any]] = cast(List[Dict[str, Any]], result.get("tools", []))
 
         self._log(f"✅ Found {len(tools)} tools")
         return tools
@@ -286,8 +308,11 @@ class MCPTester:
         self._log(f"✅ Tool {name} executed successfully")
         return result
 
-    def list_resources(self) -> List[Dict[str, Any]]:
-        """List available resources from MCP server."""
+    def list_resources(self) -> Dict[str, Any]:
+        """List available resources from MCP server.
+
+        Returns the full result dict to preserve resourceTemplates.
+        """
         self._log("Querying available resources...")
 
         result = self._make_request("resources/list")

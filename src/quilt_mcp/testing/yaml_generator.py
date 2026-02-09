@@ -376,7 +376,7 @@ async def generate_test_yaml(
         discovery_timeout: Timeout in seconds for each tool discovery
     """
     # Extract test-relevant configuration from environment
-    test_config = {
+    test_config: Dict[str, Any] = {
         "_generated_by": "scripts/mcp-test-setup.py - Auto-generated test configuration with discovery and tool loops",
         "_note": "Edit test cases below to customize arguments and validation. Tool loops test write operations.",
         "environment": {
@@ -548,7 +548,7 @@ async def generate_test_yaml(
                         # For "no_bucket" mode, allow 0 results since elasticsearch may not be
                         # available in test environments (Docker containers).
                         # For "with_bucket" mode, require at least 1 result to verify search works.
-                        validation = {
+                        validation: Dict[str, Any] = {
                             "type": "search",
                             "min_results": 0 if bucket_mode == "no_bucket" else 1,
                             "must_contain": [],
@@ -631,7 +631,7 @@ async def generate_test_yaml(
             # Single test case for tools without variants
             # Use custom config if available, otherwise infer arguments
             if tool_name in custom_configs:
-                arguments = custom_configs[tool_name]
+                arguments = custom_configs[tool_name]  # type: ignore[assignment]
             else:
                 # Infer arguments from signature and environment
                 arguments = infer_arguments(
@@ -682,7 +682,7 @@ async def generate_test_yaml(
             # Add discovery info to test case
             # NOTE: Omit volatile data (precise timings, timestamps, presigned URLs)
             # to avoid unnecessary git diffs on every run
-            discovery_info = {
+            discovery_info: Dict[str, Any] = {
                 "status": result.status,
                 # Round duration to nearest 100ms to reduce noise
                 "duration_ms": round(result.duration_ms / 100) * 100 if result.duration_ms else 0,

@@ -459,7 +459,7 @@ class ToolLoopExecutor:
         try:
             content = result.get("content", [])
             if content and isinstance(content[0], dict) and "text" in content[0]:
-                text_content = content[0]["text"]
+                text_content: str = str(content[0]["text"])
 
                 # Check for validation errors
                 if "validation error" in text_content.lower():
@@ -468,7 +468,7 @@ class ToolLoopExecutor:
                 # Try to parse as JSON
                 try:
                     data = json.loads(text_content)
-                    return data.get("error", "Unknown error")
+                    return str(data.get("error", "Unknown error"))
                 except json.JSONDecodeError:
                     return text_content[:200] if len(text_content) > 200 else text_content
 
@@ -725,7 +725,7 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
             ],
         },
         "workflow_basic": {
-            "description": "Test workflow create/add step/update step cycle",
+            "description": "Test workflow create/add step/update step/delete cycle",
             "cleanup_on_failure": True,
             "steps": [
                 {
@@ -743,7 +743,12 @@ def generate_tool_loops(env_vars: Dict[str, str | None], base_role: str, seconda
                     "args": {"workflow_id": "test-wf-{uuid}", "step_id": "step1", "status": "completed"},
                     "expect_success": True,
                 },
-                # Note: No explicit workflow delete - workflows can be cleaned up manually
+                {
+                    "tool": "workflow_delete",
+                    "args": {"id": "test-wf-{uuid}"},
+                    "expect_success": True,
+                    "is_cleanup": True,
+                },
             ],
         },
         "visualization_create": {

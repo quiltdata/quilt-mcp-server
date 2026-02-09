@@ -300,8 +300,8 @@ def print_detailed_summary(
             non_none_effects = {k: v for k, v in effect_counts.items() if k not in {'none', 'none-context-required'}}
 
             # Count tools in loops vs truly skipped
-            in_loops_by_effect = {}
-            skipped_by_effect = {}
+            in_loops_by_effect: Dict[str, int] = {}
+            skipped_by_effect: Dict[str, int] = {}
             for tool_name, tool_config in test_tools.items():
                 effect = tool_config.get('effect', 'none')
                 if effect in non_none_effects:
@@ -395,7 +395,7 @@ def print_detailed_summary(
         # Show failures if any
         if loops_failed_count > 0:
             # Group failures by loop for cleaner display
-            failures_by_loop = {}
+            failures_by_loop: Dict[str, list] = {}
             for test in loops_results['failed_tests']:
                 loop_name = test.get('loop', 'unknown')
                 if loop_name not in failures_by_loop:
@@ -559,8 +559,9 @@ def print_detailed_summary(
         detail_lines.append("- No critical failures detected")
     else:
         overall_status = "❌ FAILURE"
+        failed_count = resources_results['failed'] if resources_results else 0
         detail_lines = [
-            f"- {resources_results['failed']} resource tests failed",
+            f"- {failed_count} resource tests failed",
             "- Review failures and address issues",
         ]
 

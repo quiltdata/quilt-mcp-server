@@ -186,7 +186,7 @@ Extracted From
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import yaml
 
@@ -195,7 +195,7 @@ def load_test_config(config_path: Path) -> Dict[str, Any]:
     """Load test configuration from YAML file."""
     try:
         with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+            config: Dict[str, Any] = cast(Dict[str, Any], yaml.safe_load(f))
 
         # Validate required environment variables
         env_vars = config.get("environment", {})
@@ -239,7 +239,7 @@ def filter_tests_by_idempotence(config: Dict[str, Any], idempotent_only: bool) -
     test_tools = config.get('test_tools', {})
     test_resources = config.get('test_resources', {})
     filtered_tools = {}
-    effect_counts = {}
+    effect_counts: Dict[str, int] = {}
 
     for tool_name, tool_config in test_tools.items():
         effect = tool_config.get('effect', 'none')
@@ -364,7 +364,7 @@ def truncate_response(response: Any, max_size: int = 1000) -> Any:
         else:
             return str(response)  # Convert non-serializable to string
 
-    result = {}
+    result: Dict[str, Any] = {}
     for key, value in response.items():
         try:
             if isinstance(value, list):

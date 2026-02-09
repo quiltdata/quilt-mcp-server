@@ -114,10 +114,11 @@ Extracted From
 """
 
 import inspect
+import uuid
 from typing import Any, Dict, Optional, Tuple
 
 from quilt_mcp.context.request_context import RequestContext
-from quiltx.stack import find_matching_stack, stack_outputs
+from quiltx.stack import find_matching_stack, stack_outputs  # type: ignore[import-untyped]
 
 
 def create_mock_context() -> RequestContext:
@@ -268,11 +269,14 @@ def infer_arguments(
         >>> assert args["s3_uri"] == "s3://test-bucket/data/file.json"
     """
     sig = inspect.signature(handler.fn)
-    args = {}
+    args: Dict[str, Any] = {}
     discovered_data = discovered_data or {}
 
     # Extract common test values from environment
-    test_bucket = env_vars.get("QUILT_TEST_BUCKET", "s3://quilt-example")
+    test_bucket: str = env_vars.get("QUILT_TEST_BUCKET", "s3://quilt-example") or "s3://quilt-example"
+    # Ensure s3:// prefix is present
+    if not test_bucket.startswith("s3://"):
+        test_bucket = f"s3://{test_bucket}"
     catalog_url = env_vars.get("QUILT_CATALOG_URL", "https://open.quiltdata.com")
     test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
     test_entry = env_vars.get("QUILT_TEST_ENTRY", ".timestamp")
@@ -297,6 +301,10 @@ def infer_arguments(
                 args[param_name] = bucket_name
             else:
                 args[param_name] = test_bucket
+
+        # Package metadata (must come before generic package check)
+        elif param_lower == 'package_metadata':
+            args[param_name] = {"name": test_package, "description": "Test package for MCP testing"}
 
         # Package parameters
         elif 'package' in param_lower:
@@ -343,8 +351,6 @@ def infer_arguments(
             args[param_name] = {"files": [{"name": "test.txt", "size": 100}]}
         elif param_lower == 'file_types':
             args[param_name] = {"txt": 1}
-        elif param_lower == 'package_metadata':
-            args[param_name] = {"name": test_package}
         elif param_lower == 'readme_content':
             args[param_name] = "# Test Package"
         elif param_lower == 'source_info':
@@ -360,6 +366,39 @@ def infer_arguments(
         elif param_lower == 'y_column':
             args[param_name] = "y"
 
+        # Schema parameters (list of dicts for tabulator tables)
+        elif param_lower == 'schema' and 'list' in str(param.annotation).lower():
+            args[param_name] = [{"name": "col1", "type": "STRING"}]
+
+        # Config parameters (dict for SSO config)
+        elif param_lower == 'config' and 'dict' in str(param.annotation).lower():
+            # Check if this is an SSO configuration tool
+            if 'sso' in tool_name.lower():
+                args[param_name] = {
+                    "version": "1.0",
+                    "provider": "test-provider",
+                    "saml_config": "<test>config</test>",
+                    "mappings": [],
+                    "default_role": "ReadQuiltBucket",
+                }
+            else:
+                args[param_name] = {"provider": "okta", "domain": "example.okta.com"}
+
+        # List parameters - detect list[str], list[dict], etc.
+        elif 'list' in str(param.annotation).lower():
+            if 's3' in param_lower or 'uri' in param_lower:
+                # S3 URI lists
+                args[param_name] = [f"s3://{bucket_name}/{test_package}/{test_entry}"]
+            elif 'role' in param_lower:
+                # Role lists
+                args[param_name] = ["ReadQuiltBucket"]
+            elif 'item' in param_lower:
+                # Item/object lists (for bucket_objects_put)
+                args[param_name] = [{"key": "test.txt", "text": "test content"}]
+            else:
+                # Generic list fallback
+                args[param_name] = ["test_value"]
+
         # Boolean parameters
         elif param.annotation is bool or 'bool' in str(param.annotation):
             # Infer based on parameter name
@@ -367,6 +406,28 @@ def infer_arguments(
                 args[param_name] = True
             else:
                 args[param_name] = False
+
+        # Email parameters (must come before generic string fallback)
+        elif 'email' in param_lower and (param.annotation is str or 'str' in str(param.annotation)):
+            args[param_name] = f"test{uuid.uuid4().hex[:8]}@example.com"
+
+        # Workflow ID parameters (must come before generic string fallback)
+        elif 'workflow_id' in param_lower and (param.annotation is str or 'str' in str(param.annotation)):
+            args[param_name] = f"test-wf-{uuid.uuid4().hex[:8]}"
+
+        # Step ID parameters (must come before generic string fallback)
+        elif 'step_id' in param_lower and (param.annotation is str or 'str' in str(param.annotation)):
+            args[param_name] = f"test-step-{uuid.uuid4().hex[:8]}"
+
+        # Role parameter (singular) - must come before generic string fallback
+        elif param_lower == 'role' and (param.annotation is str or 'str' in str(param.annotation)):
+            args[param_name] = "ReadQuiltBucket"  # Valid default role
+
+        # Status parameter (for workflow steps) - must come before generic string fallback
+        elif param_lower == 'status' and (
+            param.annotation is str or 'str' in str(param.annotation) or 'Literal' in str(param.annotation)
+        ):
+            args[param_name] = "completed"  # Valid workflow step status
 
         # String parameters (generic fallback)
         elif param.annotation is str or 'str' in str(param.annotation):
@@ -417,7 +478,7 @@ def get_user_athena_database(catalog_url: str) -> str:
                 db_name = output.get('OutputValue')
                 if db_name:
                     print(f"   ✅ Found UserAthenaDatabaseName: {db_name}")
-                    return db_name
+                    return str(db_name)
 
         print("   ⚠️  UserAthenaDatabaseName not found in stack outputs, using 'default'")
         return 'default'
