@@ -950,15 +950,17 @@ Examples:
   # Test against HTTP endpoint
   mcp-test.py http://localhost:8000/mcp
 
-  # Run specific tools only
-  mcp-test.py --tools bucket_list,bucket_search
+  # Run specific tools only (auto-skips resources and loops)
+  mcp-test.py -t bucket_list,bucket_search
 
-  # Run idempotent operations only (tools only, no resources or loops)
-  mcp-test.py --resources none --loops none
+  # Run single tool only
+  mcp-test.py -t package_browse
 
-  # Run specific tools and resources, skip loops
-  mcp-test.py -t package_browse,package_install \\
-    -r quilt+s3://bucket#package=pkg -l none
+  # Run specific resource only (auto-skips tools and loops)
+  mcp-test.py -r auth://status
+
+  # Run specific tools and resources (auto-skips loops)
+  mcp-test.py -t package_browse,package_install -r auth://status
 
   # List available tools
   mcp-test.py --list-tools
@@ -1011,16 +1013,16 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
         "--jwt", action="store_true", help="Use bundled sample catalog JWT token (HTTP transport only)."
     )
     parser.add_argument(
-        "-t", "--tools", metavar="SELECTOR", help="Select tools to test: 'all' (default), 'none', or 'name1,name2,...'"
+        "-t", "--tools", metavar="SELECTOR", help="Select tools to test: 'all', 'none', or 'name1,name2,...' (default: 'all' if no selectors specified, 'none' if other selectors specified)"
     )
     parser.add_argument(
         "-r",
         "--resources",
         metavar="SELECTOR",
-        help="Select resources to test: 'all' (default), 'none', or 'uri1,uri2,...'",
+        help="Select resources to test: 'all', 'none', or 'uri1,uri2,...' (default: 'all' if no selectors specified, 'none' if other selectors specified)",
     )
     parser.add_argument(
-        "-l", "--loops", metavar="SELECTOR", help="Select loops to run: 'all' (default), 'none', or 'loop1,loop2,...'"
+        "-l", "--loops", metavar="SELECTOR", help="Select loops to run: 'all', 'none', or 'loop1,loop2,...' (default: 'all' if no selectors specified, 'none' if other selectors specified)"
     )
     parser.add_argument("--list-tools", action="store_true", help="List available tools from MCP server")
     parser.add_argument("--list-resources", action="store_true", help="List available resources from MCP server")
@@ -1159,11 +1161,25 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                 print(f"\n💡 Add these tools to tool_loops or test_tools in mcp-test.yaml")
                 sys.exit(1)
 
-        # Parse selectors (default to 'all' for each category)
+        # Parse selectors - default behavior depends on what's specified
         try:
             tools_type, tools_names = parse_selector(args.tools, 'tools')
             resources_type, resources_names = parse_selector(args.resources, 'resources')
             loops_type, loops_names = parse_selector(args.loops, 'loops')
+
+            # If any category is explicitly specified, default others to 'none'
+            # This allows focused testing: -t foo runs only that tool, skips resources/loops
+            any_explicit_selector = args.tools or args.resources or args.loops
+
+            if any_explicit_selector:
+                # Default unspecified categories to 'none' instead of 'all'
+                if not args.tools:
+                    tools_type, tools_names = 'none', set()
+                if not args.resources:
+                    resources_type, resources_names = 'none', set()
+                if not args.loops:
+                    loops_type, loops_names = 'none', set()
+
         except ValueError as e:
             print(f"❌ Invalid selector: {e}")
             sys.exit(1)
