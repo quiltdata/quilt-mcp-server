@@ -2,10 +2,9 @@
 """
 Modern MCP endpoint testing tool with unified transport support.
 
-Supports both HTTP and stdio transports for flexible testing scenarios:
+Supports both HTTP and local transports for flexible testing scenarios:
+- spawn-local (default): Spawn local MCP server for testing
 - HTTP: For testing deployed endpoints and manual testing
-- stdio: For integration testing with local/Docker servers via pipes
-- spawn-local: Spawn local MCP server for testing
 
 This tool is the single source of truth for MCP test execution logic.
 """
@@ -106,11 +105,7 @@ class LocalMCPServer:
             # (already present in env if user is configured)
 
             # Start server process using uv
-            cmd = [
-                "uv", "run",
-                "python", "src/main.py",
-                "--skip-banner"
-            ]
+            cmd = ["uv", "run", "python", "src/main.py", "--skip-banner"]
 
             self.process = subprocess.Popen(
                 cmd,
@@ -120,7 +115,7 @@ class LocalMCPServer:
                 text=True,
                 bufsize=1,  # Line buffered
                 cwd=REPO_ROOT,  # Run from repo root
-                env=env
+                env=env,
             )
 
             # Brief wait for startup
@@ -190,16 +185,14 @@ class LocalMCPServer:
 # - parse_selector, validate_selector_names, filter_by_selector
 #
 # Only script-specific code remains below:
-# - LocalMCPServer (stdio process management)
-# - MCPTester, ToolsTester, ResourcesTester (test execution)
+# - LocalMCPServer (local server process management)
+# - ToolsTester, ResourcesTester (test execution with MCPTester base)
 # - main() (CLI and orchestration)
 # ============================================================================
 
 
 def run_test_suite(
     endpoint: str = None,
-    stdin_fd: int = None,
-    stdout_fd: int = None,
     transport: str = "http",
     verbose: bool = False,
     config: dict = None,
@@ -212,7 +205,7 @@ def run_test_suite(
     specific_loop: str = None,
     process: Optional[subprocess.Popen] = None,
     selection_stats: Optional[Dict[str, Any]] = None,
-    jwt_token: Optional[str] = None
+    jwt_token: Optional[str] = None,
 ) -> bool:
     """Run test suite with tools, resources, and/or loops tests, print summary, return success.
 
@@ -226,8 +219,6 @@ def run_test_suite(
 
     Args:
         endpoint: HTTP endpoint URL (for HTTP transport)
-        stdin_fd: File descriptor for stdin (for stdio transport)
-        stdout_fd: File descriptor for stdout (for stdio transport)
         transport: "http" or "stdio"
         verbose: Enable verbose output
         config: Test configuration dictionary
@@ -237,7 +228,7 @@ def run_test_suite(
         specific_tool: Test specific tool only
         specific_resource: Test specific resource only
         specific_loop: Test specific loop only
-        process: Running subprocess with stdio pipes (alternative to stdin_fd/stdout_fd)
+        process: Running subprocess with stdio pipes (for spawn-local transport)
         selection_stats: Stats from filter_tests_by_idempotence() (optional)
         jwt_token: JWT token for authentication (HTTP transport only)
 
@@ -255,11 +246,11 @@ def run_test_suite(
     if run_tools:
         # Create ToolsTester instance
         if transport == "http":
-            tester = ToolsTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config, jwt_token=jwt_token)
-        elif process:
+            tester = ToolsTester(
+                endpoint=endpoint, verbose=verbose, transport=transport, config=config, jwt_token=jwt_token
+            )
+        else:  # spawn-local with process
             tester = ToolsTester(process=process, verbose=verbose, transport=transport, config=config)
-        else:
-            tester = ToolsTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport=transport, config=config)
 
         # Initialize session
         tester.initialize()
@@ -268,7 +259,9 @@ def run_test_suite(
         # This check ensures mcp-test-setup.py was run after any tool additions
         # IMPORTANT: Skip validation when running with --idempotent-only filter
         # because the filtered config won't have write-effect tools
-        if not specific_tool and selection_stats is None:  # Skip validation when testing specific tool or using filters
+        if (
+            not specific_tool and selection_stats is None
+        ):  # Skip validation when testing specific tool or using filters
             server_tools = tester.list_tools()
             config_tools = config.get('test_tools', {}) if config else {}
             validate_test_coverage(server_tools, config_tools)
@@ -280,11 +273,11 @@ def run_test_suite(
     if run_resources:
         # Create ResourcesTester instance
         if transport == "http":
-            tester = ResourcesTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config, jwt_token=jwt_token)
-        elif process:
+            tester = ResourcesTester(
+                endpoint=endpoint, verbose=verbose, transport=transport, config=config, jwt_token=jwt_token
+            )
+        else:  # spawn-local with process
             tester = ResourcesTester(process=process, verbose=verbose, transport=transport, config=config)
-        else:
-            tester = ResourcesTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport=transport, config=config)
 
         # Initialize and run tests
         tester.initialize()
@@ -295,10 +288,8 @@ def run_test_suite(
         # Create MCPTester instance for loops
         if transport == "http":
             tester = MCPTester(endpoint=endpoint, verbose=verbose, transport="http", jwt_token=jwt_token)
-        elif process:
+        else:  # spawn-local with process
             tester = MCPTester(process=process, verbose=verbose, transport="stdio")
-        else:
-            tester = MCPTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport="stdio")
 
         # Initialize session
         tester.initialize()
@@ -318,11 +309,8 @@ def run_test_suite(
                     "failed": 1,
                     "skipped": 0,
                     "passed_tests": [],
-                    "failed_tests": [{
-                        "loop": specific_loop,
-                        "error": "Loop not found in configuration"
-                    }],
-                    "skipped_tests": []
+                    "failed_tests": [{"loop": specific_loop, "error": "Loop not found in configuration"}],
+                    "skipped_tests": [],
                 }
             else:
                 executor.execute_loop(specific_loop, tool_loops[specific_loop])
@@ -337,7 +325,7 @@ def run_test_suite(
         selection_stats=selection_stats,
         verbose=verbose,
         loops_results=loops_results,  # Pass loops results
-        config=config  # Pass config to analyze tools in loops vs truly skipped
+        config=config,  # Pass config to analyze tools in loops vs truly skipped
     )
 
     # Calculate and return success status
@@ -487,14 +475,16 @@ class ToolsTester(MCPTester):
                 print(f"❌ {tool_name}: FAILED - Tool returned error response")
                 print(f"   Error: {error_msg}")
 
-                self.results.record_failure({
-                    "name": tool_name,
-                    "actual_tool": actual_tool_name,
-                    "arguments": test_args,
-                    "error": f"Tool returned error response: {error_msg}",
-                    "error_type": "ErrorResponse",
-                    "result_summary": self._summarize_result(result)
-                })
+                self.results.record_failure(
+                    {
+                        "name": tool_name,
+                        "actual_tool": actual_tool_name,
+                        "arguments": test_args,
+                        "error": f"Tool returned error response: {error_msg}",
+                        "error_type": "ErrorResponse",
+                        "result_summary": self._summarize_result(result),
+                    }
+                )
                 return
 
             # Schema validation (existing)
@@ -504,10 +494,7 @@ class ToolsTester(MCPTester):
 
             # NEW: Smart validation for search tools
             if "validation" in test_config:
-                validator = SearchValidator(
-                    test_config["validation"],
-                    self.env_vars
-                )
+                validator = SearchValidator(test_config["validation"], self.env_vars)
                 is_valid, error_msg = validator.validate(result)
 
                 if not is_valid:
@@ -515,14 +502,16 @@ class ToolsTester(MCPTester):
                     print(f"❌ {tool_name}: VALIDATION FAILED")
                     print(f"   {error_msg}")
 
-                    self.results.record_failure({
-                        "name": tool_name,
-                        "actual_tool": actual_tool_name,
-                        "arguments": test_args,
-                        "error": f"Smart validation failed: {error_msg}",
-                        "error_type": "ValidationError",
-                        "result_summary": self._summarize_result(result)
-                    })
+                    self.results.record_failure(
+                        {
+                            "name": tool_name,
+                            "actual_tool": actual_tool_name,
+                            "arguments": test_args,
+                            "error": f"Smart validation failed: {error_msg}",
+                            "error_type": "ValidationError",
+                            "result_summary": self._summarize_result(result),
+                        }
+                    )
                     return
                 else:
                     self._log(f"✅ Smart validation passed: {test_config['validation'].get('description', 'OK')}")
@@ -530,13 +519,15 @@ class ToolsTester(MCPTester):
             print(f"✅ {tool_name}: PASSED")
 
             # Record success
-            self.results.record_pass({
-                "name": tool_name,
-                "actual_tool": actual_tool_name,
-                "arguments": test_args,
-                "result": result,
-                "validation": "passed" if "validation" in test_config else "schema_only"
-            })
+            self.results.record_pass(
+                {
+                    "name": tool_name,
+                    "actual_tool": actual_tool_name,
+                    "arguments": test_args,
+                    "result": result,
+                    "validation": "passed" if "validation" in test_config else "schema_only",
+                }
+            )
 
             # Track if tool with side effects was tested
             effect = test_config.get("effect", "none")
@@ -547,13 +538,15 @@ class ToolsTester(MCPTester):
             print(f"❌ {tool_name}: FAILED - {e}")
 
             # Record failure
-            self.results.record_failure({
-                "name": tool_name,
-                "actual_tool": test_config.get("tool", tool_name),
-                "arguments": test_config.get("arguments", {}),
-                "error": str(e),
-                "error_type": type(e).__name__
-            })
+            self.results.record_failure(
+                {
+                    "name": tool_name,
+                    "actual_tool": test_config.get("tool", tool_name),
+                    "arguments": test_config.get("arguments", {}),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                }
+            )
 
     def run_all_tests(self, specific_tool: str = None) -> None:
         """Run all configured tool tests.
@@ -567,20 +560,61 @@ class ToolsTester(MCPTester):
             if specific_tool not in test_tools:
                 print(f"❌ Tool '{specific_tool}' not found in test config")
                 # Record as failure
-                self.results.record_failure({
-                    "name": specific_tool,
-                    "actual_tool": specific_tool,
-                    "arguments": {},
-                    "error": "Tool not found in test config",
-                    "error_type": "ConfigurationError"
-                })
+                self.results.record_failure(
+                    {
+                        "name": specific_tool,
+                        "actual_tool": specific_tool,
+                        "arguments": {},
+                        "error": "Tool not found in test config",
+                        "error_type": "ConfigurationError",
+                    }
+                )
                 return
-            test_tools = {specific_tool: test_tools[specific_tool]}
 
-        total_count = len(test_tools)
-        print(f"\n🧪 Running tools test ({total_count} tools)...")
+            test_config = test_tools[specific_tool]
+            # Warn if testing write-effect tool in isolation
+            effect = test_config.get("effect", "none")
+            if effect in ["create", "update", "remove"]:
+                print(f"⚠️  Testing write-effect tool in isolation (may fail without prerequisites)")
+
+            test_tools = {specific_tool: test_config}
+
+        # Filter out write-effect tools (they're tested via loops)
+        filtered_tools = {}
+        skipped_write_effect = []
 
         for tool_name, test_config in test_tools.items():
+            # Skip if specific tool was requested (already handled above)
+            if specific_tool:
+                filtered_tools[tool_name] = test_config
+                continue
+
+            effect = test_config.get("effect", "none")
+            category = test_config.get("category", "unknown")
+
+            # Skip write-effect tools (create/update/remove effects)
+            if effect in ["create", "update", "remove"] or category == "write-effect":
+                skipped_write_effect.append(tool_name)
+                self.results.record_skip(
+                    {
+                        "name": tool_name,
+                        "reason": f"Write-effect tool (effect={effect}) - tested via tool loops",
+                        "effect": effect,
+                        "category": category,
+                    }
+                )
+                continue
+
+            filtered_tools[tool_name] = test_config
+
+        total_count = len(filtered_tools)
+        skipped_count = len(skipped_write_effect)
+
+        print(f"\n🧪 Running tools test ({total_count} tools)...")
+        if skipped_count > 0:
+            print(f"   ⊘ Skipping {skipped_count} write-effect tools (tested via loops)")
+
+        for tool_name, test_config in filtered_tools.items():
             self.run_test(tool_name, test_config)
 
         # Report results
@@ -644,7 +678,9 @@ class ResourcesTester(MCPTester):
             self.available_uris = {r["uri"] for r in available_resources}
             self.available_templates = {t["uriTemplate"] for t in available_templates}
 
-            print(f"📋 Server provides {len(available_resources)} static resources, {len(available_templates)} templates")
+            print(
+                f"📋 Server provides {len(available_resources)} static resources, {len(available_templates)} templates"
+            )
             return True
 
         except Exception as e:
@@ -710,15 +746,13 @@ class ResourcesTester(MCPTester):
             if uri_pattern not in self.available_uris:
                 # Check if it's a template match
                 is_template_match = any(
-                    uri_pattern.replace("{", "").replace("}", "") in template
-                    for template in self.available_templates
+                    uri_pattern.replace("{", "").replace("}", "") in template for template in self.available_templates
                 )
                 if not is_template_match:
                     print(f"  ⏭️  Skipped (not available from server)")
-                    self.results.record_skip({
-                        "uri": uri_pattern,
-                        "reason": "Resource not available from server (may be mode-restricted)"
-                    })
+                    self.results.record_skip(
+                        {"uri": uri_pattern, "reason": "Resource not available from server (may be mode-restricted)"}
+                    )
                     return
 
             # Substitute URI variables if needed
@@ -729,11 +763,9 @@ class ResourcesTester(MCPTester):
                 if var_value.startswith("CONFIGURE_"):
                     # Skip resource that needs configuration
                     print(f"  ⏭️  Skipped (needs configuration: {var_name})")
-                    self.results.record_skip({
-                        "uri": uri_pattern,
-                        "reason": f"Needs configuration: {var_name}",
-                        "config_needed": var_name
-                    })
+                    self.results.record_skip(
+                        {"uri": uri_pattern, "reason": f"Needs configuration: {var_name}", "config_needed": var_name}
+                    )
                     return
                 uri = uri.replace(f"{{{var_name}}}", var_value)
 
@@ -743,25 +775,29 @@ class ResourcesTester(MCPTester):
                 if uri_pattern not in self.available_templates:
                     print(f"  ❌ Template '{uri_pattern}' not found in server resourceTemplates")
                     print(f"     This may indicate the resource template is disabled in the current mode")
-                    self.results.record_failure({
-                        "uri": uri_pattern,
-                        "resolved_uri": uri,
-                        "error": f"Template '{uri_pattern}' not found in server resourceTemplates (may be mode-restricted)",
-                        "uri_variables": uri_vars,
-                        "available_templates_count": len(self.available_templates)
-                    })
+                    self.results.record_failure(
+                        {
+                            "uri": uri_pattern,
+                            "resolved_uri": uri,
+                            "error": f"Template '{uri_pattern}' not found in server resourceTemplates (may be mode-restricted)",
+                            "uri_variables": uri_vars,
+                            "available_templates_count": len(self.available_templates),
+                        }
+                    )
                     return
             else:
                 if uri not in self.available_uris:
                     print(f"  ❌ Resource '{uri}' not found in server resources")
                     print(f"     This may indicate the resource is disabled in the current mode")
-                    self.results.record_failure({
-                        "uri": uri_pattern,
-                        "resolved_uri": uri,
-                        "error": f"Resource '{uri}' not found in server resources (may be mode-restricted)",
-                        "uri_variables": uri_vars,
-                        "available_count": len(self.available_uris)
-                    })
+                    self.results.record_failure(
+                        {
+                            "uri": uri_pattern,
+                            "resolved_uri": uri,
+                            "error": f"Resource '{uri}' not found in server resources (may be mode-restricted)",
+                            "uri_variables": uri_vars,
+                            "available_count": len(self.available_uris),
+                        }
+                    )
                     return
 
             # Read the resource
@@ -771,12 +807,9 @@ class ResourcesTester(MCPTester):
             contents = result.get("contents", [])
             if not contents:
                 print(f"  ❌ Empty contents")
-                self.results.record_failure({
-                    "uri": uri_pattern,
-                    "resolved_uri": uri,
-                    "error": "Empty contents",
-                    "result": result
-                })
+                self.results.record_failure(
+                    {"uri": uri_pattern, "resolved_uri": uri, "error": "Empty contents", "result": result}
+                )
                 return
 
             content = contents[0]
@@ -796,35 +829,41 @@ class ResourcesTester(MCPTester):
 
             if validation_error:
                 print(f"  ❌ {validation_error}")
-                self.results.record_failure({
-                    "uri": uri_pattern,
-                    "resolved_uri": uri,
-                    "error": validation_error,
-                    "content_length": len(content.get("text", "")),
-                    "expected_min": validation.get("min_length"),
-                    "expected_max": validation.get("max_length")
-                })
+                self.results.record_failure(
+                    {
+                        "uri": uri_pattern,
+                        "resolved_uri": uri,
+                        "error": validation_error,
+                        "content_length": len(content.get("text", "")),
+                        "expected_min": validation.get("min_length"),
+                        "expected_max": validation.get("max_length"),
+                    }
+                )
                 return
 
             # Success!
             print(f"✅ {uri}: PASSED")
-            self.results.record_pass({
-                "uri": uri_pattern,
-                "resolved_uri": uri,
-                "mime_type": actual_mime,
-                "mime_mismatch": mime_mismatch,
-                "content_type": validation.get("type", "text"),
-                "uri_variables": uri_vars if uri_vars else None
-            })
+            self.results.record_pass(
+                {
+                    "uri": uri_pattern,
+                    "resolved_uri": uri,
+                    "mime_type": actual_mime,
+                    "mime_mismatch": mime_mismatch,
+                    "content_type": validation.get("type", "text"),
+                    "uri_variables": uri_vars if uri_vars else None,
+                }
+            )
 
         except Exception as e:
             print(f"❌ {uri_pattern}: FAILED - {e}")
-            self.results.record_failure({
-                "uri": uri_pattern,
-                "resolved_uri": uri if 'uri' in locals() else uri_pattern,
-                "error": str(e),
-                "error_type": type(e).__name__
-            })
+            self.results.record_failure(
+                {
+                    "uri": uri_pattern,
+                    "resolved_uri": uri if 'uri' in locals() else uri_pattern,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                }
+            )
 
     def run_all_tests(self, specific_resource: str = None) -> None:
         """Run all configured resource tests.
@@ -837,12 +876,14 @@ class ResourcesTester(MCPTester):
         if specific_resource:
             if specific_resource not in test_resources:
                 print(f"❌ Resource '{specific_resource}' not found in test config")
-                self.results.record_failure({
-                    "uri": specific_resource,
-                    "resolved_uri": specific_resource,
-                    "error": "Resource not found in test config",
-                    "error_type": "ConfigurationError"
-                })
+                self.results.record_failure(
+                    {
+                        "uri": specific_resource,
+                        "resolved_uri": specific_resource,
+                        "error": "Resource not found in test config",
+                        "error_type": "ConfigurationError",
+                    }
+                )
                 return
             test_resources = {specific_resource: test_resources[specific_resource]}
 
@@ -857,12 +898,14 @@ class ResourcesTester(MCPTester):
         if not self._initialize_resources():
             # Failed to list resources - record failure for all tests
             for uri_pattern in test_resources.keys():
-                self.results.record_failure({
-                    "uri": uri_pattern,
-                    "resolved_uri": uri_pattern,
-                    "error": "Failed to list resources from server",
-                    "error_type": "InitializationError"
-                })
+                self.results.record_failure(
+                    {
+                        "uri": uri_pattern,
+                        "resolved_uri": uri_pattern,
+                        "error": "Failed to list resources from server",
+                        "error_type": "InitializationError",
+                    }
+                )
             return
 
         # Test each resource
@@ -870,7 +913,9 @@ class ResourcesTester(MCPTester):
             self.run_test(uri_pattern, test_config)
 
         # Report results
-        print(f"\n📊 Resource Test Results: {self.results.passed} passed, {self.results.failed} failed, {self.results.skipped} skipped (out of {self.results.total} total)")
+        print(
+            f"\n📊 Resource Test Results: {self.results.passed} passed, {self.results.failed} failed, {self.results.skipped} skipped (out of {self.results.total} total)"
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert test results to dictionary.
@@ -881,8 +926,6 @@ class ResourcesTester(MCPTester):
         return self.results.to_dict()
 
 
-
-
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -890,37 +933,35 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Transport modes:
+  Local (default - spawn local server for testing):
+    mcp-test.py                           # Uses spawn-local by default
+    mcp-test.py --python /usr/bin/python3.12
+
   HTTP (for testing deployed endpoints):
     mcp-test.py http://localhost:8000/mcp
 
-  Local stdio (spawn local server for testing):
-    mcp-test.py --spawn-local [--python /path/to/python]
-
-  External stdio (deprecated - use --spawn-local instead):
-    mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4
-
 Examples:
+  # Test local server (default - no flags needed)
+  mcp-test.py
+
+  # Test with custom Python interpreter
+  mcp-test.py --python /usr/bin/python3.12
+
   # Test against HTTP endpoint
   mcp-test.py http://localhost:8000/mcp
 
-  # Test against local stdio server (recommended for local testing)
-  mcp-test.py --spawn-local
-
-  # Test with custom Python interpreter
-  mcp-test.py --spawn-local --python /usr/bin/python3.12
-
   # Run specific tools only
-  mcp-test.py --spawn-local --tools bucket_list,bucket_search
+  mcp-test.py --tools bucket_list,bucket_search
 
   # Run idempotent operations only (tools only, no resources or loops)
-  mcp-test.py --spawn-local --resources none --loops none
+  mcp-test.py --resources none --loops none
 
   # Run specific tools and resources, skip loops
-  mcp-test.py --spawn-local -t package_browse,package_install \\
+  mcp-test.py -t package_browse,package_install \\
     -r quilt+s3://bucket#package=pkg -l none
 
   # List available tools
-  mcp-test.py --spawn-local --list-tools
+  mcp-test.py --list-tools
 
 JWT Authentication (HTTP only):
   # Use bundled sample catalog JWT token
@@ -934,51 +975,24 @@ JWT Authentication (HTTP only):
   mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..."
 
 For detailed JWT testing documentation, see: docs/JWT_TESTING.md
-        """
+        """,
     )
 
-    # Endpoint argument (optional for stdio mode)
+    # Endpoint argument (optional - spawn-local is default)
     parser.add_argument(
-        "endpoint",
-        nargs="?",
-        help="MCP endpoint URL (required for HTTP transport, ignored for stdio)"
+        "endpoint", nargs="?", help="MCP endpoint URL (if provided, uses HTTP transport; otherwise uses spawn-local)"
     )
 
     # Transport selection
     transport_group = parser.add_mutually_exclusive_group()
+    transport_group.add_argument("--http", action="store_true", help="Force HTTP transport (requires endpoint URL)")
     transport_group.add_argument(
-        "--http",
-        action="store_true",
-        help="Use HTTP transport (default)"
-    )
-    transport_group.add_argument(
-        "--spawn-local",
-        action="store_true",
-        help="Spawn local MCP server via stdio (recommended for local testing)"
-    )
-    transport_group.add_argument(
-        "--stdio",
-        action="store_true",
-        help="Use stdio transport with external file descriptors (deprecated - use --spawn-local)"
+        "--spawn-local", action="store_true", help="Explicitly use spawn-local mode (default if no endpoint provided)"
     )
 
-    # Local server options (for --spawn-local)
+    # Local server options
     parser.add_argument(
-        "--python",
-        type=str,
-        help="Python executable path for --spawn-local mode (default: uv's Python)"
-    )
-
-    # stdio-specific options (deprecated - for backwards compatibility)
-    parser.add_argument(
-        "--stdin-fd",
-        type=int,
-        help="File descriptor for stdin (deprecated - use --spawn-local)"
-    )
-    parser.add_argument(
-        "--stdout-fd",
-        type=int,
-        help="File descriptor for stdout (deprecated - use --spawn-local)"
+        "--python", type=str, help="Python executable path for spawn-local mode (default: uv's Python)"
     )
 
     # Test options
@@ -986,48 +1000,57 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
 
     # JWT Authentication (mutually exclusive options)
     jwt_group = parser.add_mutually_exclusive_group()
-    jwt_group.add_argument("--jwt-token", type=str,
-                       help="JWT token for authentication (HTTP transport only). "
-                            "Alternatively, set MCP_JWT_TOKEN environment variable. "
-                            "⚠️  Prefer env var for production use to avoid token exposure in logs.")
-    jwt_group.add_argument("--jwt", action="store_true",
-                       help="Use bundled sample catalog JWT token (HTTP transport only).")
-    parser.add_argument("-t", "--tools", metavar="SELECTOR",
-                       help="Select tools to test: 'all' (default), 'none', or 'name1,name2,...'")
-    parser.add_argument("-r", "--resources", metavar="SELECTOR",
-                       help="Select resources to test: 'all' (default), 'none', or 'uri1,uri2,...'")
-    parser.add_argument("-l", "--loops", metavar="SELECTOR",
-                       help="Select loops to run: 'all' (default), 'none', or 'loop1,loop2,...'")
-    parser.add_argument("--list-tools", action="store_true",
-                       help="List available tools from MCP server")
-    parser.add_argument("--list-resources", action="store_true",
-                       help="List available resources from MCP server")
-    parser.add_argument("--config", type=Path,
-                       default=Path(__file__).parent / "tests" / "mcp-test.yaml",
-                       help="Path to test configuration file (auto-generated by mcp-test-setup.py)")
-    parser.add_argument("--validate-coverage", action="store_true",
-                       help="Validate that all tools have test coverage (standalone or in loops)")
+    jwt_group.add_argument(
+        "--jwt-token",
+        type=str,
+        help="JWT token for authentication (HTTP transport only). "
+        "Alternatively, set MCP_JWT_TOKEN environment variable. "
+        "⚠️  Prefer env var for production use to avoid token exposure in logs.",
+    )
+    jwt_group.add_argument(
+        "--jwt", action="store_true", help="Use bundled sample catalog JWT token (HTTP transport only)."
+    )
+    parser.add_argument(
+        "-t", "--tools", metavar="SELECTOR", help="Select tools to test: 'all' (default), 'none', or 'name1,name2,...'"
+    )
+    parser.add_argument(
+        "-r",
+        "--resources",
+        metavar="SELECTOR",
+        help="Select resources to test: 'all' (default), 'none', or 'uri1,uri2,...'",
+    )
+    parser.add_argument(
+        "-l", "--loops", metavar="SELECTOR", help="Select loops to run: 'all' (default), 'none', or 'loop1,loop2,...'"
+    )
+    parser.add_argument("--list-tools", action="store_true", help="List available tools from MCP server")
+    parser.add_argument("--list-resources", action="store_true", help="List available resources from MCP server")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path(__file__).parent / "tests" / "mcp-test.yaml",
+        help="Path to test configuration file (auto-generated by mcp-test-setup.py)",
+    )
+    parser.add_argument(
+        "--validate-coverage",
+        action="store_true",
+        help="Validate that all tools have test coverage (standalone or in loops)",
+    )
 
     args = parser.parse_args()
 
     # Determine transport mode
     local_server = None  # Track local server for cleanup
 
-    if args.spawn_local:
-        transport = "spawn-local"
-        # We'll spawn the server after loading config
-    elif args.stdio:
-        transport = "stdio"
-        print("⚠️  Warning: --stdio with external FDs is deprecated. Use --spawn-local instead.")
-        if args.stdin_fd is None or args.stdout_fd is None:
-            print("❌ --stdin-fd and --stdout-fd required for stdio transport")
-            sys.exit(1)
-    else:
+    # Default to spawn-local unless endpoint is provided or --http is specified
+    if args.endpoint or args.http:
         transport = "http"
         if not args.endpoint:
             print("❌ endpoint URL required for HTTP transport")
             parser.print_help()
             sys.exit(1)
+    else:
+        transport = "spawn-local"
+        # We'll spawn the server after loading config
 
     # Resolve JWT token
     jwt_token = None
@@ -1065,13 +1088,8 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
     # Create tester instance
     try:
         if transport == "http":
-            tester = MCPTester(
-                endpoint=args.endpoint,
-                verbose=args.verbose,
-                transport="http",
-                jwt_token=jwt_token
-            )
-        elif transport == "spawn-local":
+            tester = MCPTester(endpoint=args.endpoint, verbose=args.verbose, transport="http", jwt_token=jwt_token)
+        else:  # spawn-local (default)
             # Spawn local server
             local_server = LocalMCPServer(python_path=args.python)
             if not local_server.start():
@@ -1079,18 +1097,7 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                 sys.exit(1)
 
             # Create tester with spawned process
-            tester = MCPTester(
-                process=local_server.get_process(),
-                verbose=args.verbose,
-                transport="stdio"
-            )
-        else:  # stdio (deprecated)
-            tester = MCPTester(
-                stdin_fd=args.stdin_fd,
-                stdout_fd=args.stdout_fd,
-                verbose=args.verbose,
-                transport="stdio"
-            )
+            tester = MCPTester(process=local_server.get_process(), verbose=args.verbose, transport="stdio")
     except Exception as e:
         print(f"❌ Failed to create tester: {e}")
         if local_server:
@@ -1163,7 +1170,9 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
 
         # Determine if we should run tests (any selector specified OR no flags at all means run everything)
         any_selector_specified = args.tools or args.resources or args.loops
-        should_run_tests = any_selector_specified or not (args.list_tools or args.list_resources or args.validate_coverage)
+        should_run_tests = any_selector_specified or not (
+            args.list_tools or args.list_resources or args.validate_coverage
+        )
 
         if should_run_tests:
             # Load test configuration
@@ -1180,15 +1189,11 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
 
             # Filter config based on selectors
             filtered_config = config.copy()
-            filtered_config['test_tools'] = filter_by_selector(
-                config.get('test_tools', {}), tools_type, tools_names
-            )
+            filtered_config['test_tools'] = filter_by_selector(config.get('test_tools', {}), tools_type, tools_names)
             filtered_config['test_resources'] = filter_by_selector(
                 config.get('test_resources', {}), resources_type, resources_names
             )
-            filtered_config['tool_loops'] = filter_by_selector(
-                config.get('tool_loops', {}), loops_type, loops_names
-            )
+            filtered_config['tool_loops'] = filter_by_selector(config.get('tool_loops', {}), loops_type, loops_names)
 
             # Compute selection stats for reporting
             selection_stats = {
@@ -1209,11 +1214,17 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
             if any_selector_specified:
                 print("📋 Test Selection:")
                 if args.tools:
-                    print(f"   Tools: {args.tools} → {selection_stats['selected_tools']}/{selection_stats['total_tools']} selected")
+                    print(
+                        f"   Tools: {args.tools} → {selection_stats['selected_tools']}/{selection_stats['total_tools']} selected"
+                    )
                 if args.resources:
-                    print(f"   Resources: {args.resources} → {selection_stats['selected_resources']}/{selection_stats['total_resources']} selected")
+                    print(
+                        f"   Resources: {args.resources} → {selection_stats['selected_resources']}/{selection_stats['total_resources']} selected"
+                    )
                 if args.loops:
-                    print(f"   Loops: {args.loops} → {selection_stats['selected_loops']}/{selection_stats['total_loops']} selected")
+                    print(
+                        f"   Loops: {args.loops} → {selection_stats['selected_loops']}/{selection_stats['total_loops']} selected"
+                    )
                 print()
 
             # Run test suite (prints summary internally and returns boolean success)
@@ -1231,9 +1242,9 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                         specific_resource=None,  # No longer used - use selector filtering instead
                         specific_loop=None,  # No longer used - use selector filtering instead
                         jwt_token=jwt_token,
-                        selection_stats=selection_stats
+                        selection_stats=selection_stats,
                     )
-                elif transport == "spawn-local":  # stdio with spawned local server
+                else:  # spawn-local (default)
                     success = run_test_suite(
                         process=local_server.get_process(),
                         transport="stdio",
@@ -1245,22 +1256,7 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
                         specific_tool=None,  # No longer used - use selector filtering instead
                         specific_resource=None,  # No longer used - use selector filtering instead
                         specific_loop=None,  # No longer used - use selector filtering instead
-                        selection_stats=selection_stats
-                    )
-                else:  # stdio (deprecated - external FDs)
-                    success = run_test_suite(
-                        stdin_fd=args.stdin_fd,
-                        stdout_fd=args.stdout_fd,
-                        transport="stdio",
-                        verbose=args.verbose,
-                        config=filtered_config,
-                        run_tools=run_tools,
-                        run_resources=run_resources,
-                        run_loops=run_loops,
-                        specific_tool=None,  # No longer used - use selector filtering instead
-                        specific_resource=None,  # No longer used - use selector filtering instead
-                        specific_loop=None,  # No longer used - use selector filtering instead
-                        selection_stats=selection_stats
+                        selection_stats=selection_stats,
                     )
             finally:
                 # Always cleanup local server if spawned
@@ -1273,6 +1269,7 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
         print(f"❌ Test failed: {e}")
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         # Cleanup on error
         if local_server:

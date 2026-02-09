@@ -44,10 +44,12 @@ from dotenv import dotenv_values
 from quiltx import get_catalog_url
 from quiltx.stack import find_matching_stack, stack_outputs
 
+
 # Add custom YAML representer for Enum objects
 # This allows enums to be serialized as their string values instead of Python objects
 def enum_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:str', data.value)
+
 
 yaml.add_multi_representer(Enum, enum_representer)
 
@@ -92,6 +94,7 @@ from quilt_mcp.testing import (
 # Only script-specific code remains: enum_representer and main()
 # ============================================================================
 
+
 async def main():
     """Generate all canonical tool and resource listings."""
     import argparse
@@ -101,40 +104,28 @@ async def main():
         description="Generate MCP test configuration with intelligent discovery and 100% coverage"
     )
     parser.add_argument(
-        "--skip-discovery",
-        action="store_true",
-        help="Skip tool discovery phase (generate config without validation)"
+        "--skip-discovery", action="store_true", help="Skip tool discovery phase (generate config without validation)"
     )
     parser.add_argument(
         "--validate-only",
         action="store_true",
-        help="Validate coverage without regenerating YAML (exit 0 if 100%%, 1 otherwise)"
+        help="Validate coverage without regenerating YAML (exit 0 if 100%%, 1 otherwise)",
+    )
+    parser.add_argument("--show-missing", action="store_true", help="List tools without test configurations and exit")
+    parser.add_argument(
+        "--show-categories", action="store_true", help="Show tool classification (category + effect) and exit"
     )
     parser.add_argument(
-        "--show-missing",
-        action="store_true",
-        help="List tools without test configurations and exit"
+        "--quick", action="store_true", help="Quick mode: validate only essential tools (not yet implemented)"
     )
     parser.add_argument(
-        "--show-categories",
-        action="store_true",
-        help="Show tool classification (category + effect) and exit"
-    )
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="Quick mode: validate only essential tools (not yet implemented)"
-    )
-    parser.add_argument(
-        "--retry-failed",
-        action="store_true",
-        help="Re-discover only tools with FAILED status (not yet implemented)"
+        "--retry-failed", action="store_true", help="Re-discover only tools with FAILED status (not yet implemented)"
     )
     parser.add_argument(
         "--discovery-timeout",
         type=float,
         default=15.0,
-        help="Timeout in seconds for each tool discovery (default: 15.0)"
+        help="Timeout in seconds for each tool discovery (default: 15.0)",
     )
     args = parser.parse_args()
 
@@ -256,7 +247,9 @@ async def main():
     # Get resources directly from FastMCP server
     resources = await extract_resource_metadata(server)
 
-    print(f"📊 Found {len(resources)} resources across {len(set(resource['module'] for resource in resources))} modules")
+    print(
+        f"📊 Found {len(resources)} resources across {len(set(resource['module'] for resource in resources))} modules"
+    )
 
     # Combine tools and resources
     all_items = tools + resources
@@ -278,7 +271,7 @@ async def main():
         str(scripts_tests_dir / "mcp-test.yaml"),
         env_vars,
         skip_discovery=args.skip_discovery,
-        discovery_timeout=args.discovery_timeout
+        discovery_timeout=args.discovery_timeout,
     )
 
     print("\n✅ Canonical tool and resource listings generated!")
@@ -297,6 +290,8 @@ async def main():
         print(f"   2. Run all tests: uv run python scripts/mcp-test.py")
         print(f"   3. Test specific loop: uv run python scripts/mcp-test.py --loops admin_user_basic")
 
+
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

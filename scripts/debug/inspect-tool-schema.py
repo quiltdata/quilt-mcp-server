@@ -20,21 +20,20 @@ def main():
     # Start Docker container
     print("\n📦 Starting Docker container...", file=sys.stderr)
     docker_cmd = [
-        "docker", "run", "-i",
+        "docker",
+        "run",
+        "-i",
         "--rm",
-        "-e", "FASTMCP_TRANSPORT=stdio",
+        "-e",
+        "FASTMCP_TRANSPORT=stdio",
         "quilt-mcp:test",
-        "quilt-mcp", "--skip-banner"
+        "quilt-mcp",
+        "--skip-banner",
     ]
 
     try:
         process = subprocess.Popen(
-            docker_cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
+            docker_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
         )
     except Exception as e:
         print(f"❌ Failed to start container: {e}", file=sys.stderr)
@@ -59,8 +58,8 @@ def main():
             "params": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "schema-inspector", "version": "1.0"}
-            }
+                "clientInfo": {"name": "schema-inspector", "version": "1.0"},
+            },
         }
 
         process.stdin.write(json.dumps(init_request) + "\n")
@@ -76,12 +75,7 @@ def main():
 
         # Get tools list
         print("\n📤 Getting tools/list...", file=sys.stderr)
-        list_request = {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/list",
-            "params": {}
-        }
+        list_request = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
 
         process.stdin.write(json.dumps(list_request) + "\n")
         process.stdin.flush()
@@ -156,12 +150,7 @@ def main():
             "jsonrpc": "2.0",
             "id": 3,
             "method": "tools/call",
-            "params": {
-                "name": "catalog_configure",
-                "arguments": {
-                    "catalog_url": "s3://quilt-ernest-staging"
-                }
-            }
+            "params": {"name": "catalog_configure", "arguments": {"catalog_url": "s3://quilt-ernest-staging"}},
         }
 
         print(f"   Request: {json.dumps(call_request_1['params'], indent=6)}", file=sys.stderr)
@@ -182,10 +171,7 @@ def main():
             "jsonrpc": "2.0",
             "id": 4,
             "method": "tools/call",
-            "params": {
-                "name": "catalog_configure",
-                "catalog_url": "s3://quilt-ernest-staging"
-            }
+            "params": {"name": "catalog_configure", "catalog_url": "s3://quilt-ernest-staging"},
         }
 
         print(f"   Request: {json.dumps(call_request_2['params'], indent=6)}", file=sys.stderr)
@@ -206,12 +192,7 @@ def main():
             "jsonrpc": "2.0",
             "id": 5,
             "method": "tools/call",
-            "params": {
-                "name": "catalog_configure",
-                "input": {
-                    "catalog_url": "s3://quilt-ernest-staging"
-                }
-            }
+            "params": {"name": "catalog_configure", "input": {"catalog_url": "s3://quilt-ernest-staging"}},
         }
 
         print(f"   Request: {json.dumps(call_request_3['params'], indent=6)}", file=sys.stderr)
@@ -238,6 +219,7 @@ def main():
     except Exception as e:
         print(f"❌ Test failed: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc(file=sys.stderr)
         return 1
     finally:

@@ -144,10 +144,11 @@ class TestRunnerState:
             return ""
 
         # If we have per-subtask counts, show progress within current subtask
-        if (phase.subtask_test_counts and
-            phase.current_subtask_idx < len(phase.subtask_test_counts) and
-            phase.current_subtask_idx < len(phase.subtask_start_counts)):
-
+        if (
+            phase.subtask_test_counts
+            and phase.current_subtask_idx < len(phase.subtask_test_counts)
+            and phase.current_subtask_idx < len(phase.subtask_start_counts)
+        ):
             # Tests done at start of current subtask
             subtask_start = phase.subtask_start_counts[phase.current_subtask_idx]
             # Tests done in current subtask
@@ -162,7 +163,7 @@ class TestRunnerState:
                 parts = []  # No test progress for subtasks without test counts
         else:
             # Fallback: show cumulative across all phases
-            prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[:self.current_phase])
+            prior_tests = sum(p.tests_passed + p.tests_failed for p in self.phases[: self.current_phase])
             current_test_num = prior_tests + phase.tests_passed + phase.tests_failed
             total_tests = sum(p.tests_total for p in self.phases)
             parts = [f"Test {current_test_num}/{total_tests}"]
@@ -486,9 +487,15 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
             # - Contains error keywords AND is not a passing test, OR
             # - Is a skipped test (important to see what's being skipped)
             error_keywords = [
-                "FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception",
+                "FAILED",
+                "ERROR",
+                "Error",
+                "Traceback",
+                "AssertionError",
+                "Exception",
                 "make: ***",  # Make errors
-                "bash: ", "sh: ",  # Shell errors
+                "bash: ",
+                "sh: ",  # Shell errors
                 "command not found",  # Command errors
                 "No rule to make",  # Make target missing
                 "fatal:",  # Git and other fatal errors
@@ -524,7 +531,8 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
 
     # Count phases passed/failed
     phases_passed = sum(
-        1 for i, p in enumerate(state.phases)
+        1
+        for i, p in enumerate(state.phases)
         if i in selected_set and p.completed and p.tests_failed == 0 and not p.command_failed
     )
     phases_total = len(selected_set)
@@ -672,7 +680,7 @@ def main() -> int:
     """Main test runner entry point."""
     parser = argparse.ArgumentParser(
         description="Run all test phases with TUI",
-        epilog="Phase names: lint, coverage, docker, script-tests (or 'script tests'), mcpb-validate"
+        epilog="Phase names: lint, coverage, docker, script-tests (or 'script tests'), mcpb-validate",
     )
     parser.add_argument("--verbose", action="store_true", help="Show full output")
     parser.add_argument("--no-tui", action="store_true", help="Disable TUI")
@@ -680,7 +688,7 @@ def main() -> int:
         "--phase",
         nargs="+",
         metavar="PHASE",
-        help="Run specific phases only (by number 1-5 or name, e.g., --phase 1 3 or --phase lint coverage)"
+        help="Run specific phases only (by number 1-5 or name, e.g., --phase 1 3 or --phase lint coverage)",
     )
     args = parser.parse_args()
 
@@ -712,9 +720,7 @@ def main() -> int:
             [
                 "bash",
                 "-c",
-                'export PYTHONPATH="src" && '
-                'uv run python -m pytest scripts/tests/ -v && '
-                'make -s test-mcp-legacy',
+                'export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v && make -s test-mcp-legacy',
             ],
         ),
         (4, base_make + ["mcpb-validate"]),

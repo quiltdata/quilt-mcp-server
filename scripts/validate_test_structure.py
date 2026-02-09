@@ -29,11 +29,7 @@ def check_for_real_services(test_file: Path) -> bool:
 def check_multi_module(test_file: Path) -> bool:
     """Check if test file tests multiple modules."""
     content = test_file.read_text()
-    imports = [
-        line
-        for line in content.split("\n")
-        if "from quilt_mcp." in line or "import quilt_mcp." in line
-    ]
+    imports = [line for line in content.split("\n") if "from quilt_mcp." in line or "import quilt_mcp." in line]
     return len(set(imports)) > 2
 
 

@@ -43,20 +43,20 @@ TEST_CASES = [
         "name": "search_catalog.global.no_bucket",
         "tool": "search_catalog",
         "arguments": {"query": "README.md", "limit": 10, "scope": "global", "bucket": ""},
-        "expected_min_results": 1
+        "expected_min_results": 1,
     },
     {
         "name": "search_catalog.file.no_bucket",
         "tool": "search_catalog",
         "arguments": {"query": "README.md", "limit": 10, "scope": "file", "bucket": ""},
-        "expected_min_results": 1
+        "expected_min_results": 1,
     },
     {
         "name": "search_catalog.package.no_bucket",
         "tool": "search_catalog",
         "arguments": {"query": "raw/test", "limit": 10, "scope": "package", "bucket": ""},
-        "expected_min_results": 1
-    }
+        "expected_min_results": 1,
+    },
 ]
 
 
@@ -80,13 +80,22 @@ def start_simple_http_container():
     # Start simple HTTP container (NO MCP_REQUIRE_JWT, NO role ARN)
     print(f"Starting container on port {PORT}...")
     docker_cmd = [
-        "docker", "run", "-d", "--name", CONTAINER_NAME,
-        "-e", "FASTMCP_TRANSPORT=http",
-        "-e", "FASTMCP_HOST=0.0.0.0",
-        "-e", "FASTMCP_PORT=8000",
-        "-e", "LOG_LEVEL=DEBUG",
-        "-p", f"{PORT}:8000",
-        DOCKER_IMAGE
+        "docker",
+        "run",
+        "-d",
+        "--name",
+        CONTAINER_NAME,
+        "-e",
+        "FASTMCP_TRANSPORT=http",
+        "-e",
+        "FASTMCP_HOST=0.0.0.0",
+        "-e",
+        "FASTMCP_PORT=8000",
+        "-e",
+        "LOG_LEVEL=DEBUG",
+        "-p",
+        f"{PORT}:8000",
+        DOCKER_IMAGE,
     ]
 
     result = subprocess.run(docker_cmd, capture_output=True, text=True)
@@ -99,7 +108,8 @@ def start_simple_http_container():
     # Verify running
     result = subprocess.run(
         ["docker", "ps", "--filter", f"name={CONTAINER_NAME}", "--format", "{{.Names}}"],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
     )
     if CONTAINER_NAME not in result.stdout:
         print("❌ Container failed to start")
@@ -144,10 +154,7 @@ def initialize_mcp_session(jwt_token):
     print("=" * 80)
 
     session = requests.Session()
-    session.headers.update({
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {jwt_token}'
-    })
+    session.headers.update({'Content-Type': 'application/json', 'Authorization': f'Bearer {jwt_token}'})
 
     init_request = {
         "jsonrpc": "2.0",
@@ -156,8 +163,8 @@ def initialize_mcp_session(jwt_token):
         "params": {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": {"name": "search-bug-repro", "version": "1.0.0"}
-        }
+            "clientInfo": {"name": "search-bug-repro", "version": "1.0.0"},
+        },
     }
 
     try:
@@ -209,7 +216,7 @@ def run_search_tests(session):
             "jsonrpc": "2.0",
             "id": request_id,
             "method": "tools/call",
-            "params": {"name": test_case['tool'], "arguments": test_case['arguments']}
+            "params": {"name": test_case['tool'], "arguments": test_case['arguments']},
         }
         request_id += 1
 
@@ -247,12 +254,14 @@ def run_search_tests(session):
                 # Print the actual response for debugging
                 if result_count == 0:
                     print(f"   Full response: {json.dumps(search_data, indent=2)[:500]}")
-                results.append({
-                    "test": test_case['name'],
-                    "passed": False,
-                    "result_count": result_count,
-                    "expected_min": expected_min
-                })
+                results.append(
+                    {
+                        "test": test_case['name'],
+                        "passed": False,
+                        "result_count": result_count,
+                        "expected_min": expected_min,
+                    }
+                )
 
         except Exception as e:
             print(f"❌ Exception: {e}")
@@ -279,7 +288,9 @@ def print_summary(results):
         print("\nFailed tests:")
         for r in results:
             if not r['passed']:
-                print(f"  - {r['test']}: got {r.get('result_count', '?')} results, expected ≥{r.get('expected_min', 1)}")
+                print(
+                    f"  - {r['test']}: got {r.get('result_count', '?')} results, expected ≥{r.get('expected_min', 1)}"
+                )
     else:
         print("\n✅ All tests passed - bug may be fixed!")
 
@@ -328,6 +339,7 @@ def main():
     except Exception as e:
         print(f"\n\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
     finally:

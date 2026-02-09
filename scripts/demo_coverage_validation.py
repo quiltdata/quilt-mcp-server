@@ -18,10 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # Import dynamically (can't use regular import due to hyphen in filename)
 import importlib.util
-spec = importlib.util.spec_from_file_location(
-    "mcp_test",
-    Path(__file__).parent / "mcp-test.py"
-)
+
+spec = importlib.util.spec_from_file_location("mcp_test", Path(__file__).parent / "mcp-test.py")
 assert spec and spec.loader
 mcp_test = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mcp_test)
@@ -37,26 +35,13 @@ def demo_success_case():
     print()
 
     # Simulated server tools
-    server_tools = [
-        {"name": "bucket_objects_list"},
-        {"name": "package_browse"},
-        {"name": "search_catalog"}
-    ]
+    server_tools = [{"name": "bucket_objects_list"}, {"name": "package_browse"}, {"name": "search_catalog"}]
 
     # Config covering all tools
     config_tools = {
-        "bucket_objects_list": {
-            "effect": "none",
-            "arguments": {"bucket": "test-bucket"}
-        },
-        "package_browse": {
-            "effect": "none",
-            "arguments": {"package_name": "test/package"}
-        },
-        "search_catalog": {
-            "effect": "none",
-            "arguments": {"query": "test"}
-        }
+        "bucket_objects_list": {"effect": "none", "arguments": {"bucket": "test-bucket"}},
+        "package_browse": {"effect": "none", "arguments": {"package_name": "test/package"}},
+        "search_catalog": {"effect": "none", "arguments": {"query": "test"}},
     }
 
     print(f"Server has {len(server_tools)} tools:")
@@ -90,23 +75,14 @@ def demo_failure_case():
         {"name": "package_browse"},
         {"name": "search_catalog"},
         {"name": "new_visualization_tool"},  # NEW TOOL ADDED!
-        {"name": "new_admin_tool"}          # ANOTHER NEW TOOL!
+        {"name": "new_admin_tool"},  # ANOTHER NEW TOOL!
     ]
 
     # Old config (hasn't been regenerated)
     config_tools = {
-        "bucket_objects_list": {
-            "effect": "none",
-            "arguments": {"bucket": "test-bucket"}
-        },
-        "package_browse": {
-            "effect": "none",
-            "arguments": {"package_name": "test/package"}
-        },
-        "search_catalog": {
-            "effect": "none",
-            "arguments": {"query": "test"}
-        }
+        "bucket_objects_list": {"effect": "none", "arguments": {"bucket": "test-bucket"}},
+        "package_browse": {"effect": "none", "arguments": {"package_name": "test/package"}},
+        "search_catalog": {"effect": "none", "arguments": {"query": "test"}},
         # Missing: new_visualization_tool, new_admin_tool
     }
 
@@ -138,32 +114,26 @@ def demo_variant_case():
     print()
 
     # Server only knows about base tools
-    server_tools = [
-        {"name": "search_catalog"},
-        {"name": "bucket_objects_list"}
-    ]
+    server_tools = [{"name": "search_catalog"}, {"name": "bucket_objects_list"}]
 
     # Config has multiple variants of search_catalog
     config_tools = {
         "search_catalog.file.no_bucket": {
             "tool": "search_catalog",  # Maps to actual tool
             "effect": "none",
-            "arguments": {"query": "test", "scope": "file"}
+            "arguments": {"query": "test", "scope": "file"},
         },
         "search_catalog.package.with_bucket": {
             "tool": "search_catalog",
             "effect": "none",
-            "arguments": {"query": "test", "scope": "package", "bucket": "my-bucket"}
+            "arguments": {"query": "test", "scope": "package", "bucket": "my-bucket"},
         },
         "search_catalog.global.no_bucket": {
             "tool": "search_catalog",
             "effect": "none",
-            "arguments": {"query": "test", "scope": "global"}
+            "arguments": {"query": "test", "scope": "global"},
         },
-        "bucket_objects_list": {
-            "effect": "none",
-            "arguments": {"bucket": "test"}
-        }
+        "bucket_objects_list": {"effect": "none", "arguments": {"bucket": "test"}},
     }
 
     print(f"Server has {len(server_tools)} tools:")

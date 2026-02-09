@@ -100,8 +100,15 @@ async def main():
 
                 # Show sample values for key fields
                 key_fields = [
-                    "key", "ptr_name", "mnfst_name", "entry_lk", "entry_pk",
-                    "name", "handle", "package_name", "manifest_name"
+                    "key",
+                    "ptr_name",
+                    "mnfst_name",
+                    "entry_lk",
+                    "entry_pk",
+                    "name",
+                    "handle",
+                    "package_name",
+                    "manifest_name",
                 ]
 
                 print(f"\n   Field Values:")

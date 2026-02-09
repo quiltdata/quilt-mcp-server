@@ -26,12 +26,14 @@ class TestScriptImports:
     def test_version_script_import(self):
         """Test version.py can be imported."""
         import version
+
         assert hasattr(version, 'get_version')
         assert hasattr(version, 'main')
 
     def test_coverage_analysis_import(self):
         """Test coverage_analysis.py can be imported."""
         import coverage_analysis
+
         # Basic smoke test - check it has expected attributes
         assert hasattr(coverage_analysis, '__name__')
 
@@ -39,9 +41,8 @@ class TestScriptImports:
         """Test mcp-test.py can be imported."""
         # Import with hyphen name requires importlib
         import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "mcp_test", SCRIPTS_DIR / "mcp-test.py"
-        )
+
+        spec = importlib.util.spec_from_file_location("mcp_test", SCRIPTS_DIR / "mcp-test.py")
         mcp_test = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mcp_test)
         assert hasattr(mcp_test, 'MCPTester')
@@ -49,9 +50,8 @@ class TestScriptImports:
     def test_mcp_test_setup_import(self):
         """Test mcp-test-setup.py can be imported."""
         import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "mcp_test_setup", SCRIPTS_DIR / "mcp-test-setup.py"
-        )
+
+        spec = importlib.util.spec_from_file_location("mcp_test_setup", SCRIPTS_DIR / "mcp-test-setup.py")
         mcp_test_setup = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mcp_test_setup)
         # Check it has expected functionality
@@ -63,11 +63,7 @@ class TestScriptExecution:
 
     def test_version_script_help(self):
         """Test version.py shows help when called incorrectly."""
-        result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "version.py")],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([sys.executable, str(SCRIPTS_DIR / "version.py")], capture_output=True, text=True)
         # Should exit with error code but not crash
         assert result.returncode != 0
         assert "Usage:" in result.stderr
@@ -75,9 +71,7 @@ class TestScriptExecution:
     def test_mcp_test_help(self):
         """Test mcp-test.py shows help."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "mcp-test.py"), "--help"],
-            capture_output=True,
-            text=True
+            [sys.executable, str(SCRIPTS_DIR / "mcp-test.py"), "--help"], capture_output=True, text=True
         )
         # Should exit successfully and show help
         assert result.returncode == 0
@@ -85,13 +79,11 @@ class TestScriptExecution:
 
     def test_mcp_test_setup_help(self):
         """Test mcp-test-setup.py shows help."""
-        build_dir = (SCRIPTS_DIR.parent / "build")
+        build_dir = SCRIPTS_DIR.parent / "build"
         build_dir.mkdir(parents=True, exist_ok=True)
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "mcp-test-setup.py"), "--help"],
-            capture_output=True,
-            text=True
+            [sys.executable, str(SCRIPTS_DIR / "mcp-test-setup.py"), "--help"], capture_output=True, text=True
         )
         # Should exit successfully and show help
         assert result.returncode == 0
@@ -143,6 +135,7 @@ class TestScriptExecution:
         )
 
         import json
+
         data = json.loads(result.stdout)
         assert data["registry"] == "test.registry.com"
         assert data["image"] == "quiltdata/mcp"
@@ -260,6 +253,7 @@ class TestScriptExecution:
     def test_post_release_status_import(self):
         """Test post_release_status.py can be imported."""
         import post_release_status
+
         assert hasattr(post_release_status, 'generate_release_comment')
         assert hasattr(post_release_status, 'find_pr_for_tag')
         assert hasattr(post_release_status, 'post_comment_to_pr')
@@ -268,9 +262,7 @@ class TestScriptExecution:
     def test_post_release_status_help(self):
         """Test post_release_status.py shows help."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "post_release_status.py"), "--help"],
-            capture_output=True,
-            text=True
+            [sys.executable, str(SCRIPTS_DIR / "post_release_status.py"), "--help"], capture_output=True, text=True
         )
         assert result.returncode == 0
         # Just verify help output contains key terms, not exact wording
@@ -284,14 +276,18 @@ class TestScriptExecution:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "post_release_status.py"),
-                "--version", "1.2.3",
-                "--release-url", "https://github.com/owner/repo/releases/v1.2.3",
-                "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.2.3/",
-                "--docker-image", "123.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:1.2.3",
-                "--dry-run"
+                "--version",
+                "1.2.3",
+                "--release-url",
+                "https://github.com/owner/repo/releases/v1.2.3",
+                "--pypi-url",
+                "https://pypi.org/project/quilt-mcp-server/1.2.3/",
+                "--docker-image",
+                "123.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:1.2.3",
+                "--dry-run",
             ],
             capture_output=True,
-            text=True
+            text=True,
         )
         assert result.returncode == 0
         assert "DRY RUN - Comment Body" in result.stdout
@@ -306,14 +302,18 @@ class TestScriptExecution:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "post_release_status.py"),
-                "--version", "1.2.3-dev-20250101120000",
-                "--release-url", "https://github.com/owner/repo/releases/v1.2.3-dev",
-                "--pypi-url", "https://test.pypi.org/project/quilt-mcp-server/1.2.3-dev/",
-                "--is-production", "False",
-                "--dry-run"
+                "--version",
+                "1.2.3-dev-20250101120000",
+                "--release-url",
+                "https://github.com/owner/repo/releases/v1.2.3-dev",
+                "--pypi-url",
+                "https://test.pypi.org/project/quilt-mcp-server/1.2.3-dev/",
+                "--is-production",
+                "False",
+                "--dry-run",
             ],
             capture_output=True,
-            text=True
+            text=True,
         )
         assert result.returncode == 0
         # Verify TestPyPI instructions are present
@@ -324,20 +324,19 @@ class TestScriptExecution:
 class TestScriptSyntax:
     """Test that all Python scripts have valid syntax."""
 
-    @pytest.mark.parametrize("script_name", [
-        "version.py",
-        "coverage_analysis.py",
-        "mcp-test.py",
-        "mcp-test-setup.py",
-        "docker_manager.py",
-        "post_release_status.py"
-    ])
+    @pytest.mark.parametrize(
+        "script_name",
+        [
+            "version.py",
+            "coverage_analysis.py",
+            "mcp-test.py",
+            "mcp-test-setup.py",
+            "docker_manager.py",
+            "post_release_status.py",
+        ],
+    )
     def test_script_syntax(self, script_name):
         """Test script has valid Python syntax."""
         script_path = SCRIPTS_DIR / script_name
-        result = subprocess.run(
-            [sys.executable, "-m", "py_compile", str(script_path)],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([sys.executable, "-m", "py_compile", str(script_path)], capture_output=True, text=True)
         assert result.returncode == 0, f"Syntax error in {script_name}: {result.stderr}"
