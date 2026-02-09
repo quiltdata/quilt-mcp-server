@@ -5,6 +5,7 @@ Test suite for scripts directory.
 Ensures Python scripts in scripts/ can be imported and basic functionality works.
 """
 
+import os
 import sys
 import subprocess
 import pytest
@@ -13,6 +14,10 @@ from pathlib import Path
 # Add scripts directory to path for imports
 SCRIPTS_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
+
+# Test environment configuration
+TEST_ENV = os.environ.copy()
+TEST_ENV["DOCKER_IMAGE_NAME"] = "quiltdata/mcp"
 
 
 class TestScriptImports:
@@ -111,6 +116,7 @@ class TestScriptExecution:
             capture_output=True,
             text=True,
             check=True,
+            env=TEST_ENV,
         )
 
         output = result.stdout.strip().splitlines()
@@ -133,6 +139,7 @@ class TestScriptExecution:
             capture_output=True,
             text=True,
             check=True,
+            env=TEST_ENV,
         )
 
         import json
@@ -157,6 +164,7 @@ class TestScriptExecution:
             capture_output=True,
             text=True,
             check=True,
+            env=TEST_ENV,
         )
 
         output = result.stdout.strip().splitlines()
@@ -168,6 +176,7 @@ class TestScriptExecution:
         script = SCRIPTS_DIR / "docker_manager.py"
         assert script.exists(), "docker_manager.py must exist"
 
+        # Note: --help should work even without DOCKER_IMAGE_NAME set
         result = subprocess.run(
             [sys.executable, str(script), "--help"],
             capture_output=True,
@@ -200,6 +209,7 @@ class TestScriptExecution:
             capture_output=True,
             text=True,
             check=True,
+            env=TEST_ENV,
         )
 
         assert result.stdout.strip() == "123456789012.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:1.2.3"
@@ -220,6 +230,7 @@ class TestScriptExecution:
             capture_output=True,
             text=True,
             check=True,
+            env=TEST_ENV,
         )
 
         assert result.stdout.strip() == "image-uri=test.registry.com/quiltdata/mcp:2.0.0"

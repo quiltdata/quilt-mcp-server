@@ -521,7 +521,9 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
                 tasks = len(phase.subtasks)
                 print(f"  Phase {i}: {phase.name:20} ✅ {tasks}/{tasks} tasks")
 
-        print(f"\n  Total: {state.total_passed} tests passed, 0 failed")
+        # Calculate total from phase statistics
+        total_passed = sum(p.tests_passed for p in state.phases)
+        print(f"\n  Total: {total_passed} tests passed, 0 failed")
     else:
         print(f"❌ Test suite failed in {state.elapsed_time()}\n")
 
@@ -555,7 +557,10 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
                     print("    No detailed error information captured")
                 print()
 
-        print(f"  Total: {state.total_passed} passed, {state.total_failed} failed")
+        # Calculate totals from phase statistics (more reliable than incremental counters)
+        total_passed = sum(p.tests_passed for p in state.phases)
+        total_failed = sum(p.tests_failed for p in state.phases)
+        print(f"  Total: {total_passed} passed, {total_failed} failed")
         if not USE_TUI:
             print("\n  Run with --verbose for full command output")
 
