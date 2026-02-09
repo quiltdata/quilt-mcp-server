@@ -72,8 +72,20 @@ class WorkflowService:
             if not workflow_id or not workflow_id.strip():
                 return format_error_response("Workflow ID cannot be empty")
 
-            if self._storage.load(workflow_id) is not None:
-                return format_error_response(f"Workflow '{workflow_id}' already exists")
+            # Check if workflow already exists - make idempotent
+            existing = self._storage.load(workflow_id)
+            if existing is not None:
+                logger.info(f"Workflow '{workflow_id}' already exists, returning existing workflow")
+                return {
+                    "success": True,
+                    "workflow_id": workflow_id,
+                    "workflow": existing,
+                    "message": f"Workflow '{workflow_id}' already exists (idempotent operation)",
+                    "next_steps": [
+                        f"Add steps: workflow_add_step('{workflow_id}', 'step-name', 'description')",
+                        f"Check status: workflow_get_status('{workflow_id}')",
+                    ],
+                }
 
             workflow: dict[str, Any] = {
                 "id": workflow_id,
@@ -124,14 +136,36 @@ class WorkflowService:
             if workflow is None:
                 return ErrorResponse(error=f"Workflow '{workflow_id}' not found")
 
-            # Check if step already exists
-            existing_steps = {step["id"] for step in workflow["steps"]}
+            # Check if step already exists - make idempotent
+            existing_steps = {step["id"]: step for step in workflow["steps"]}
             if step_id in existing_steps:
-                return ErrorResponse(error=f"Step '{step_id}' already exists in workflow")
+                logger.info(f"Step '{step_id}' already exists in workflow '{workflow_id}', returning existing step")
+                existing_step = existing_steps[step_id]
+                step_model = WorkflowStep(
+                    step_id=step_id,
+                    description=existing_step["description"],
+                    status=existing_step["status"],
+                    step_type=existing_step.get("step_type", "manual"),
+                    dependencies=existing_step.get("dependencies", []),
+                    result=existing_step.get("result"),
+                    error_message=existing_step.get("error_message"),
+                    started_at=existing_step.get("started_at"),
+                    completed_at=existing_step.get("completed_at"),
+                )
+                return WorkflowAddStepSuccess(
+                    workflow_id=workflow_id,
+                    step_id=step_id,
+                    step=step_model,
+                    workflow_summary={
+                        "total_steps": workflow["total_steps"],
+                        "status": workflow["status"],
+                    },
+                    message=f"Step '{step_id}' already exists in workflow '{workflow_id}' (idempotent operation)",
+                )
 
             # Validate dependencies
             if dependencies:
-                invalid_deps = set(dependencies) - existing_steps
+                invalid_deps = set(dependencies) - existing_steps.keys()
                 if invalid_deps:
                     return ErrorResponse(error=f"Invalid dependencies: {list(invalid_deps)}")
 
@@ -194,7 +228,15 @@ class WorkflowService:
         try:
             workflow = self._storage.load(workflow_id)
             if workflow is None:
-                return format_error_response(f"Workflow '{workflow_id}' not found")
+                # Provide helpful error with list of available workflows
+                all_workflows = self._storage.list_all()
+                available_ids = [w["id"] for w in all_workflows[:5]]  # Show up to 5
+                hint = (
+                    f" Available workflows: {available_ids}"
+                    if available_ids
+                    else " No workflows found. Create one with workflow_create()."
+                )
+                return format_error_response(f"Workflow '{workflow_id}' not found.{hint}")
 
             # Find the step
             step = None
@@ -372,6 +414,32 @@ class WorkflowService:
             logger.error(f"Failed to list workflows: {e}")
             return ErrorResponse(error=f"Failed to list workflows: {str(e)}")
 
+    def delete_workflow(self, workflow_id: str) -> Dict[str, Any]:
+        """Delete a workflow.
+
+        Args:
+            workflow_id: ID of the workflow to delete
+
+        Returns:
+            Deletion result
+        """
+        try:
+            workflow = self._storage.load(workflow_id)
+            if workflow is None:
+                return format_error_response(f"Workflow '{workflow_id}' not found")
+
+            self._storage.delete(workflow_id)
+
+            return {
+                "success": True,
+                "workflow_id": workflow_id,
+                "message": f"Workflow '{workflow_id}' deleted successfully",
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to delete workflow {workflow_id}: {e}")
+            return format_error_response(f"Failed to delete workflow: {str(e)}")
+
     def template_apply(
         self, template_name: str, workflow_id: str, params: Dict[str, Any]
     ) -> WorkflowTemplateApplyResponse:
@@ -400,7 +468,7 @@ class WorkflowService:
             else:
                 return ErrorResponse(error=f"Template implementation not found: {template_name}")
 
-            # Create the workflow
+            # Create the workflow (idempotent - won't fail if exists)
             create_result = self.create_workflow(
                 workflow_id=workflow_id,
                 name=workflow_config["name"],
@@ -412,6 +480,20 @@ class WorkflowService:
                 if isinstance(create_result, dict):
                     return ErrorResponse(error=create_result.get("error", "Unknown error"))
                 return create_result
+
+            # If workflow already existed, return success with existing workflow
+            workflow = self._storage.load(workflow_id)
+            if workflow and len(workflow.get("steps", [])) > 0:
+                logger.info(f"Workflow '{workflow_id}' already has steps, skipping template application")
+                return WorkflowTemplateApplySuccess(
+                    workflow_id=workflow_id,
+                    template_applied=template_name,
+                    workflow=workflow,
+                    message=f"Workflow '{workflow_id}' already exists with {len(workflow['steps'])} steps (idempotent operation)",
+                    next_steps=[
+                        f"Check status: workflow_get_status('{workflow_id}')",
+                    ],
+                )
 
             # Add all template steps
             for step_config in workflow_config["steps"]:
@@ -733,6 +815,41 @@ def workflow_list_all(*, context: RequestContext) -> WorkflowListAllResponse:
         ```
     """
     return _current_workflow_service(context).list_all()
+
+
+def workflow_delete(
+    id: Annotated[
+        str,
+        Field(
+            description="ID of the workflow to delete",
+            examples=["wf-123", "analysis-workflow-456"],
+        ),
+    ],
+    *,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Delete a workflow - Workflow tracking and orchestration tasks
+
+    Args:
+        id: ID of the workflow to delete
+
+    Returns:
+        Deletion result
+
+    Next step:
+        Workflow has been deleted and removed from tracking.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import workflow_orchestration
+
+        result = workflow_orchestration.workflow_delete(
+            id="wf-123",
+        )
+        # Next step: Workflow has been deleted and removed from tracking.
+        ```
+    """
+    return _current_workflow_service(context).delete_workflow(id)
 
 
 def workflow_template_apply(

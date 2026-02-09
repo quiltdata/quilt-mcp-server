@@ -144,21 +144,41 @@ class Quilt3_Backend(
         if not registry.startswith("s3://"):
             registry = f"s3://{registry}"
 
-        # Push to S3 registry
-        if copy:
-            # Deep copy objects to registry bucket
-            pushed_pkg = quilt3_pkg.push(package_name, registry=registry, message=message, force=True)
-        else:
-            # Shallow references only (no copy)
-            # selector_fn returns False to preserve original physical keys without copying
-            # NOTE: selector_fn_copy_local only uploads LOCAL files - S3 objects retain their physical keys
-            pushed_pkg = quilt3_pkg.push(
-                package_name, registry=registry, message=message, selector_fn=lambda *_: False, force=True
-            )
+        # Capture stdout to prevent quilt3 print statements from breaking JSON-RPC stdio protocol
+        import sys
+        import io
+
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+
+        try:
+            # Push to S3 registry
+            if copy:
+                # Deep copy objects to registry bucket
+                pushed_pkg = quilt3_pkg.push(package_name, registry=registry, message=message, force=True)
+            else:
+                # Shallow references only (no copy)
+                # selector_fn returns False to preserve original physical keys without copying
+                # NOTE: selector_fn_copy_local only uploads LOCAL files - S3 objects retain their physical keys
+                pushed_pkg = quilt3_pkg.push(
+                    package_name, registry=registry, message=message, selector_fn=lambda *_: False, force=True
+                )
+        finally:
+            # Always restore stdout, even if push fails
+            sys.stdout = old_stdout
 
         # Extract top_hash string from the returned value
-        # quilt3.Package.push() returns the top_hash string directly
-        top_hash = pushed_pkg if pushed_pkg else ""
+        # quilt3.Package.push() may return either a string (top_hash) or a Package object
+        # Handle both cases to ensure we always return a string
+        if hasattr(pushed_pkg, 'top_hash'):
+            # It's a Package object, extract the top_hash attribute
+            top_hash = str(pushed_pkg.top_hash) if pushed_pkg.top_hash else ""
+        elif isinstance(pushed_pkg, str):
+            # It's already a string (top_hash)
+            top_hash = pushed_pkg
+        else:
+            # Fallback for unexpected types
+            top_hash = str(pushed_pkg) if pushed_pkg else ""
         return top_hash
 
     def _backend_get_package(self, package_name: str, registry: str, top_hash: Optional[str] = None) -> Any:
