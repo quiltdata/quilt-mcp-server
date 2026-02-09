@@ -75,6 +75,56 @@ class TestQuiltSummary:
         assert result["package_info"]["namespace"] == "invalid"
         assert result["package_info"]["package_name"] == "package"
 
+    def test_generate_quilt_summarize_json_with_varied_keys(self):
+        """Test quilt_summarize.json generation with different key name variations."""
+        package_name = "test/package"
+        package_metadata = {
+            "quilt": {
+                "created_by": "test-user",
+                "creation_date": "2024-01-01T00:00:00Z",
+                "package_version": "1.0.0",
+            }
+        }
+        # Mix of different key variations: Key, key, name, logicalKey
+        organized_structure = {
+            "data": [
+                {"Key": "data/file1.csv", "Size": 1024},  # Standard S3 Key
+                {"key": "data/file2.csv", "Size": 2048},  # Lowercase key
+                {"name": "data/file3.txt", "Size": 512},  # name field (used in test YAML)
+            ],
+            "docs": [
+                {"logicalKey": "docs/readme.md", "Size": 256},  # logicalKey variant
+                {"LogicalKey": "docs/guide.pdf", "Size": 4096},  # LogicalKey variant
+            ],
+        }
+        readme_content = "# Test Package\n\nTest content"
+        source_info = {
+            "type": "s3_bucket",
+            "bucket": "test-bucket",
+            "prefix": "test-prefix",
+        }
+
+        result = generate_quilt_summarize_json(
+            package_name=package_name,
+            package_metadata=package_metadata,
+            organized_structure=organized_structure,
+            readme_content=readme_content,
+            source_info=source_info,
+            metadata_template="standard",
+        )
+
+        # Verify all files were processed regardless of key name variation
+        assert result["package_info"]["name"] == package_name
+        assert result["data_summary"]["total_files"] == 5
+        assert result["data_summary"]["total_size_bytes"] == 7936
+        assert result["structure"]["folders"]["data"]["file_count"] == 3
+        assert result["structure"]["folders"]["docs"]["file_count"] == 2
+        # Check file types were extracted correctly
+        assert "csv" in result["data_summary"]["file_types"]
+        assert "txt" in result["data_summary"]["file_types"]
+        assert "md" in result["data_summary"]["file_types"]
+        assert "pdf" in result["data_summary"]["file_types"]
+
     @patch("matplotlib.pyplot.savefig")
     @patch("matplotlib.pyplot.close")
     def test_generate_package_visualizations(self, mock_close, mock_savefig):

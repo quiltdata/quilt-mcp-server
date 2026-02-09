@@ -611,8 +611,10 @@ def test_infer_arguments_handles_package_metadata(mock_handler, test_env_vars):
     args = infer_arguments("tool", handler, test_env_vars)
 
     assert "package_metadata" in args
-    # Gets matched by 'package' in param_lower, not the visualization-specific logic
-    assert args["package_metadata"] == "test/package"
+    # package_metadata gets special handling to return a dictionary structure
+    assert isinstance(args["package_metadata"], dict)
+    assert args["package_metadata"]["name"] == "test/package"
+    assert "description" in args["package_metadata"]
 
 
 def test_infer_arguments_handles_plot_data(mock_handler, test_env_vars):

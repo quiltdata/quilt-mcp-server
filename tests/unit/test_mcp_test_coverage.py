@@ -154,3 +154,139 @@ class TestValidateTestCoverage:
         assert "Why This Matters" in error_msg
         assert "Coverage Summary" in error_msg
         assert "regenerates scripts/tests/mcp-test.yaml" in error_msg
+
+
+class TestToolsTesterWriteEffectSkipping:
+    """Test suite for write-effect tool skipping in ToolsTester.run_all_tests()."""
+
+    def test_write_effect_tools_are_skipped(self):
+        """Verify write-effect tools are not tested in standalone mode."""
+        from unittest.mock import MagicMock, patch
+
+        config = {
+            "test_tools": {
+                "bucket_objects_list": {"effect": "none", "category": "optional-arg"},
+                "admin_user_create": {"effect": "create", "category": "write-effect"},
+                "package_update": {"effect": "update", "category": "write-effect"},
+                "admin_role_remove": {"effect": "remove", "category": "write-effect"},
+            }
+        }
+
+        # Create ToolsTester instance (MCPTester parent requires endpoint for HTTP transport)
+        tester = mcp_test.ToolsTester(config=config, endpoint="http://test:8080", transport="http")
+
+        # Mock the call_tool method to return success
+        tester.call_tool = MagicMock(return_value={"content": [{"type": "text", "text": "success"}], "isError": False})
+
+        # Run all tests
+        with patch('builtins.print'):  # Suppress output
+            tester.run_all_tests()
+
+        # Only non-write tools should be tested (1 tool: bucket_objects_list)
+        # Write-effect tools should be skipped (3 tools)
+        assert len(tester.results.skipped_tests) == 3
+        assert tester.results.skipped == 3
+
+        # Verify skip reasons contain write-effect information
+        skip_reasons = [s["reason"] for s in tester.results.skipped_tests]
+        assert all("write-effect" in reason.lower() for reason in skip_reasons)
+
+        # Verify skipped tool names
+        skipped_names = {s["name"] for s in tester.results.skipped_tests}
+        assert skipped_names == {"admin_user_create", "package_update", "admin_role_remove"}
+
+    def test_effect_types_correctly_classified(self):
+        """Test that different effect types are correctly classified for skipping."""
+        from unittest.mock import MagicMock, patch
+
+        config = {
+            "test_tools": {
+                "tool_none": {"effect": "none", "category": "read-only"},
+                "tool_create": {"effect": "create", "category": "write-effect"},
+                "tool_update": {"effect": "update", "category": "write-effect"},
+                "tool_remove": {"effect": "remove", "category": "write-effect"},
+                "tool_configure": {"effect": "configure", "category": "config"},
+            }
+        }
+
+        tester = mcp_test.ToolsTester(config=config, endpoint="http://test:8080", transport="http")
+        tester.call_tool = MagicMock(return_value={"content": [{"type": "text", "text": "success"}], "isError": False})
+
+        with patch('builtins.print'):
+            tester.run_all_tests()
+
+        # create/update/remove should be skipped (3 tools)
+        assert tester.results.skipped == 3
+
+        # none and configure should be tested (2 tools)
+        # They may pass or fail, but they should be attempted
+        assert tester.results.total >= 2
+
+        # Verify the right tools were skipped
+        skipped_names = {s["name"] for s in tester.results.skipped_tests}
+        assert skipped_names == {"tool_create", "tool_update", "tool_remove"}
+
+    def test_category_based_skipping(self):
+        """Test that category='write-effect' triggers skipping even without explicit effect."""
+        from unittest.mock import MagicMock, patch
+
+        config = {
+            "test_tools": {
+                "normal_tool": {"effect": "none", "category": "optional-arg"},
+                "write_tool_by_category": {"category": "write-effect"},  # No explicit effect field
+            }
+        }
+
+        tester = mcp_test.ToolsTester(config=config, endpoint="http://test:8080", transport="http")
+        tester.call_tool = MagicMock(return_value={"content": [{"type": "text", "text": "success"}], "isError": False})
+
+        with patch('builtins.print'):
+            tester.run_all_tests()
+
+        # Tool with category='write-effect' should be skipped
+        assert tester.results.skipped == 1
+        skipped_names = {s["name"] for s in tester.results.skipped_tests}
+        assert skipped_names == {"write_tool_by_category"}
+
+    def test_specific_tool_runs_despite_write_effect(self):
+        """Test that specific tool request runs even if it has write effects."""
+        from unittest.mock import MagicMock, patch
+
+        config = {
+            "test_tools": {
+                "bucket_objects_list": {"effect": "none", "category": "read-only"},
+                "admin_user_create": {"effect": "create", "category": "write-effect"},
+            }
+        }
+
+        tester = mcp_test.ToolsTester(config=config, endpoint="http://test:8080", transport="http")
+        tester.call_tool = MagicMock(return_value={"content": [{"type": "text", "text": "success"}], "isError": False})
+
+        # Request specific write-effect tool
+        with patch('builtins.print'):
+            tester.run_all_tests(specific_tool="admin_user_create")
+
+        # Should not be skipped when explicitly requested
+        assert tester.results.skipped == 0
+        # Should be tested (may pass or fail)
+        assert tester.results.total == 1
+
+    def test_missing_effect_classification_defaults_to_test(self):
+        """Test that tools without effect/category fields are tested (conservative default)."""
+        from unittest.mock import MagicMock, patch
+
+        config = {
+            "test_tools": {
+                "tool_with_no_classification": {},  # No effect or category
+            }
+        }
+
+        tester = mcp_test.ToolsTester(config=config, endpoint="http://test:8080", transport="http")
+        tester.call_tool = MagicMock(return_value={"content": [{"type": "text", "text": "success"}], "isError": False})
+
+        with patch('builtins.print'):
+            tester.run_all_tests()
+
+        # Should not be skipped (conservative default: test it)
+        assert tester.results.skipped == 0
+        assert tester.results.total >= 1
