@@ -101,7 +101,19 @@ def generate_quilt_summarize_json(
             }
 
             for obj in files:
-                ext = Path(obj["Key"]).suffix.lower().lstrip(".")
+                # Handle multiple key name variations (Key, key, LogicalKey, logicalKey, name)
+                key = (
+                    obj.get("Key")
+                    or obj.get("key")
+                    or obj.get("LogicalKey")
+                    or obj.get("logicalKey")
+                    or obj.get("name")
+                    or ""
+                )
+                if not key:
+                    logger.warning(f"Object in folder '{folder}' missing key/name field: {obj}")
+                    continue
+                ext = Path(key).suffix.lower().lstrip(".")
                 if ext:
                     file_types[ext] += 1
                     file_sizes[ext] += obj.get("Size", 0)
@@ -626,7 +638,19 @@ def create_quilt_summary_files(
         file_types: dict[str, int] = {}
         for files in organized_structure.values():
             for obj in files:
-                ext = Path(obj["Key"]).suffix.lower().lstrip(".")
+                # Handle multiple key name variations (Key, key, LogicalKey, logicalKey, name)
+                key = (
+                    obj.get("Key")
+                    or obj.get("key")
+                    or obj.get("LogicalKey")
+                    or obj.get("logicalKey")
+                    or obj.get("name")
+                    or ""
+                )
+                if not key:
+                    logger.warning(f"Object missing key/name field: {obj}")
+                    continue
+                ext = Path(key).suffix.lower().lstrip(".")
                 if ext:
                     file_types[ext] = file_types.get(ext, 0) + 1
 

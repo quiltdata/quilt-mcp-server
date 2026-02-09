@@ -1447,7 +1447,7 @@ def package_update(
         return PackageUpdateSuccess(
             package_name=package_name,
             registry=registry,
-            top_hash=result.top_hash,
+            top_hash=str(result.top_hash),  # Convert to string for Pydantic validation
             files_added=result.file_count,
             package_url=result.catalog_url or "",
             files=[],  # QuiltOps doesn't return detailed file list, but that's OK
@@ -1749,17 +1749,11 @@ def package_create_from_s3(
             readme_value = processed_metadata.pop("readme")
             readme_content = str(readme_value) if readme_value is not None else None
 
-        # Validate and normalize bucket name
+        # Validate and normalize bucket name - accept both formats
         if source_bucket.startswith("s3://"):
-            return PackageCreateFromS3Error(
-                error="Invalid bucket name format",
-                package_name=package_name,
-                suggested_actions=[
-                    "Use bucket name only, not full S3 URI",
-                    f"Try using: {source_bucket.replace('s3://', '')}",
-                    "Example: my-bucket (not s3://my-bucket)",
-                ],
-            )
+            # Strip s3:// prefix if provided
+            source_bucket = source_bucket.replace("s3://", "").split("/")[0]
+            logger.info(f"Normalized source_bucket from s3:// URI to: {source_bucket}")
 
         # Suggest target registry if not provided using permissions discovery
         resolved_target_registry = target_registry
