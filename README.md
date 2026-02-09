@@ -124,6 +124,42 @@ make test-func
 make test-e2e
 ```
 
+### Testing Infrastructure
+
+The Quilt MCP Server includes a comprehensive testing framework (`quilt_mcp.testing`) for automated test generation and execution:
+
+- **Automatic Test Generation**: Discovers tools, infers arguments, generates YAML configurations
+- **Intelligent Classification**: Categorizes tools by effect (create/update/remove) and requirements
+- **Tool Loop Execution**: Multi-step workflows for testing write operations (create → modify → verify → cleanup)
+- **Comprehensive Validation**: Result validation, coverage analysis, failure pattern detection
+
+**Quick Start**:
+
+```bash
+# Generate test configuration
+make test-mcp-setup
+
+# Run all MCP tests
+make test-mcp
+
+# Run specific test suites
+uv run scripts/mcp-test.py --tools          # Test tools only
+uv run scripts/mcp-test.py --resources      # Test resources only
+uv run scripts/mcp-test.py --loops          # Test tool loops only
+uv run scripts/mcp-test.py --idempotent-only # Test read-only operations
+
+# Run with selectors
+uv run scripts/mcp-test.py --tools-select "bucket_list,package_list"
+```
+
+**Module Structure**:
+
+- `src/quilt_mcp/testing/` - Testing framework library (4,644 lines)
+- `scripts/mcp-test.py` - Test execution script (1,599 lines)
+- `scripts/mcp-test-setup.py` - Test generation script (302 lines)
+
+See [Testing Framework Documentation](src/quilt_mcp/testing/README.md) for detailed API documentation and usage patterns.
+
 ## Documentation
 
 - [MCP Protocol](https://modelcontextprotocol.io)

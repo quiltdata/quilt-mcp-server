@@ -10,11 +10,17 @@ Runs 5 phases of testing with hierarchical progress tracking:
 5. MCPB Validate (check-tools, build, validate, UVX test)
 
 Usage:
-    python scripts/test-runner.py [--verbose] [--no-tui]
+    python scripts/test-runner.py [--verbose] [--no-tui] [--phase PHASE [PHASE ...]]
 
 Options:
     --verbose: Show full output (disables TUI)
     --no-tui: Disable TUI (show all output)
+    --phase: Run specific phases only (by number 1-5 or name)
+
+Examples:
+    python scripts/test-runner.py --phase 1              # Run only lint
+    python scripts/test-runner.py --phase lint docker   # Run lint and docker
+    python scripts/test-runner.py --phase 1 3 5          # Run phases 1, 3, and 5
 """
 
 import argparse
@@ -89,6 +95,7 @@ class PhaseStats:
     failures: list[TestFailure] = field(default_factory=list)
     error_lines: list[tuple[int, str]] = field(default_factory=list)  # (subtask_idx, error_line)
     completed: bool = False
+    command_failed: bool = False  # Track if the phase command failed (non-zero exit)
 
 
 @dataclass
@@ -99,6 +106,7 @@ class TestRunnerState:
     last_progress_time: float = field(default_factory=time.time)
     current_phase: int = 0
     phases: list[PhaseStats] = field(default_factory=list)
+    selected_phases: set[int] = field(default_factory=set)  # Indices of phases to run (empty = all)
     total_passed: int = 0
     total_failed: int = 0
     all_failures: list[TestFailure] = field(default_factory=list)
@@ -171,8 +179,14 @@ class TestRunnerState:
         """Format multi-line hierarchical status for TUI using tree structure."""
         lines = []
         phase = self.current_phase_stats()
-        phase_num = self.current_phase + 1
-        total_phases = len(self.phases)
+
+        # Calculate phase number within selected phases
+        selected_list = sorted(self.selected_phases) if self.selected_phases else list(range(len(self.phases)))
+        if self.current_phase in selected_list:
+            phase_num = selected_list.index(self.current_phase) + 1
+        else:
+            phase_num = self.current_phase + 1
+        total_phases = len(selected_list)
 
         # ANSI codes
         DIM = "\033[2m"
@@ -209,13 +223,14 @@ class TestRunnerState:
         # Section 3: Blank separator
         lines.append("")
 
-        # Section 4: PENDING (forward-looking)
-        pending = [p.name for i, p in enumerate(self.phases) if i > self.current_phase]
+        # Section 4: PENDING (forward-looking) - only show selected phases
+        selected_set = self.selected_phases if self.selected_phases else set(range(len(self.phases)))
+        pending = [p.name for i, p in enumerate(self.phases) if i > self.current_phase and i in selected_set]
         if pending:
             lines.append(f"💤 PENDING: {' | '.join(pending)}")
 
-        # Section 5: COMPLETED (past) - dimmed
-        completed = [p.name for i, p in enumerate(self.phases) if i < self.current_phase]
+        # Section 5: COMPLETED (past) - dimmed, only show selected phases
+        completed = [p.name for i, p in enumerate(self.phases) if i < self.current_phase and i in selected_set]
         if completed:
             lines.append(f"{DIM}✅ COMPLETED: {' | '.join(completed)}{RESET}")
 
@@ -453,16 +468,13 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
     for line in iter(process.stdout.readline, ""):
         line = line.rstrip()
 
-        if not USE_TUI:
-            print(line, flush=True)
-        else:
-            # Parse line for state updates
-            parse_subtask_transition(line, state)
-            parse_pytest_output(line, state)
+        # Always parse output for statistics tracking (regardless of TUI mode)
+        parse_subtask_transition(line, state)
+        parse_pytest_output(line, state)
 
-            # Capture error-related lines for display in TUI bottom section
-            phase = state.current_phase_stats()
-
+        # Capture error-related lines
+        phase = state.current_phase_stats()
+        if phase:
             # Strip ANSI color codes for reliable pattern matching
             line_clean = strip_ansi(line)
 
@@ -473,12 +485,24 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
             # Flag as notable if:
             # - Contains error keywords AND is not a passing test, OR
             # - Is a skipped test (important to see what's being skipped)
-            has_error_keyword = any(keyword in line_clean for keyword in ["FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception"])
+            error_keywords = [
+                "FAILED", "ERROR", "Error", "Traceback", "AssertionError", "Exception",
+                "make: ***",  # Make errors
+                "bash: ", "sh: ",  # Shell errors
+                "command not found",  # Command errors
+                "No rule to make",  # Make target missing
+                "fatal:",  # Git and other fatal errors
+            ]
+            has_error_keyword = any(keyword in line_clean for keyword in error_keywords)
             is_notable = (has_error_keyword and not is_passing_test) or is_skipped_test
 
-            if phase and is_notable:
+            if is_notable:
                 # Add to error list with subtask info (no limit - show all errors and skipped tests)
                 phase.error_lines.append((phase.current_subtask_idx, line))
+
+        # Display output (only in non-TUI mode)
+        if not USE_TUI:
+            print(line, flush=True)
 
     process.wait()
 
@@ -495,74 +519,89 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
     if USE_TUI:
         print("\n")  # Extra newline after TUI
 
-    # Show phase overview
-    phase_line = []
-    for i, phase in enumerate(state.phases, 1):
-        if phase.completed and phase.tests_failed == 0:
-            phase_line.append(f"{i}.✅ {phase.name}")
-        elif phase.tests_failed > 0:
-            phase_line.append(f"{i}.❌ {phase.name}")
-        else:
-            phase_line.append(f"{i}.💤 {phase.name}")
+    # Determine which phases to show
+    selected_set = state.selected_phases if state.selected_phases else set(range(len(state.phases)))
 
-    print("  ".join(phase_line))
-    print()
+    # Count phases passed/failed
+    phases_passed = sum(
+        1 for i, p in enumerate(state.phases)
+        if i in selected_set and p.completed and p.tests_failed == 0 and not p.command_failed
+    )
+    phases_total = len(selected_set)
 
-    if exit_code == 0 and state.total_failed == 0:
-        print(f"✅ All phases completed successfully in {state.elapsed_time()}\n")
+    # Check if any selected phase had command failures
+    any_command_failures = any(p.command_failed for i, p in enumerate(state.phases) if i in selected_set)
 
-        for i, phase in enumerate(state.phases, 1):
-            if phase.tests_total > 0:
-                print(f"  Phase {i}: {phase.name:20} ✅ {phase.tests_passed}/{phase.tests_total} tests")
-                if phase.subtasks:
-                    for subtask in phase.subtasks:
-                        print(f"           → {subtask:15} ✅")
-            else:
-                tasks = len(phase.subtasks)
-                print(f"  Phase {i}: {phase.name:20} ✅ {tasks}/{tasks} tasks")
-
-        # Calculate total from phase statistics
-        total_passed = sum(p.tests_passed for p in state.phases)
-        print(f"\n  Total: {total_passed} tests passed, 0 failed")
+    # Header: Phase count summary
+    if exit_code == 0 and state.total_failed == 0 and not any_command_failures:
+        print(f"✅ {phases_passed}/{phases_total} Phases passed\n")
     else:
-        print(f"❌ Test suite failed in {state.elapsed_time()}\n")
+        print(f"❌ {phases_passed}/{phases_total} Phases passed\n")
 
-        # Show all phases with failures or errors
-        for phase in state.phases:
-            if phase.tests_failed > 0 or phase.error_lines:
-                if phase.tests_failed > 0:
-                    print(f"  {phase.name} - ❌ {phase.tests_failed} failed:")
-                else:
-                    print(f"  {phase.name} - ❌ Errors detected:")
-                if phase.failures:
-                    # Show detailed failures if we captured them
-                    for failure in phase.failures:
-                        line_info = f":{failure.line}" if failure.line else ""
-                        print(f"    • {failure.test_path}{line_info}")
-                elif phase.error_lines:
-                    # Show captured error lines grouped by subtask
-                    errors_by_subtask: dict[int, list[str]] = {}
-                    for subtask_idx, error_line in phase.error_lines:
-                        if subtask_idx not in errors_by_subtask:
-                            errors_by_subtask[subtask_idx] = []
-                        errors_by_subtask[subtask_idx].append(error_line)
+    # Hierarchical breakdown of each phase
+    for i, phase in enumerate(state.phases):
+        if i not in selected_set:
+            continue
 
-                    for subtask_idx in sorted(errors_by_subtask.keys()):
-                        subtask_name = phase.subtasks[subtask_idx] if subtask_idx < len(phase.subtasks) else "unknown"
-                        print(f"    From subtask: {subtask_name}")
-                        for error_line in errors_by_subtask[subtask_idx]:
-                            print(f"      {error_line}")
-                else:
-                    # Shouldn't happen, but handle gracefully
-                    print("    No detailed error information captured")
-                print()
+        display_num = i + 1
+        phase_failed = phase.tests_failed > 0 or phase.command_failed
 
-        # Calculate totals from phase statistics (more reliable than incremental counters)
-        total_passed = sum(p.tests_passed for p in state.phases)
-        total_failed = sum(p.tests_failed for p in state.phases)
-        print(f"  Total: {total_passed} passed, {total_failed} failed")
-        if not USE_TUI:
-            print("\n  Run with --verbose for full command output")
+        # Phase header
+        if phase.tests_total > 0:
+            status = "❌" if phase_failed else "✅"
+            print(f"  Phase {display_num}: {phase.name:20} {status} {phase.tests_passed}/{phase.tests_total} tests")
+        else:
+            tasks = len(phase.subtasks)
+            status = "❌" if phase_failed else "✅"
+            print(f"  Phase {display_num}: {phase.name:20} {status} {tasks}/{tasks} tasks")
+
+        # Subtask breakdown
+        if phase.subtasks:
+            # Group errors by subtask for easy lookup
+            errors_by_subtask: dict[int, list[str]] = {}
+            for subtask_idx, error_line in phase.error_lines:
+                if subtask_idx not in errors_by_subtask:
+                    errors_by_subtask[subtask_idx] = []
+                errors_by_subtask[subtask_idx].append(error_line)
+
+            for subtask_idx, subtask in enumerate(phase.subtasks):
+                has_errors = subtask_idx in errors_by_subtask
+                status = "❌" if has_errors else "✅"
+                print(f"           → {subtask:15} {status}")
+
+                # Show errors indented under the failing subtask
+                if has_errors:
+                    for error_line in errors_by_subtask[subtask_idx]:
+                        print(f"             {error_line}")
+
+        # Show test failures (from pytest)
+        if phase.failures:
+            for failure in phase.failures:
+                line_info = f":{failure.line}" if failure.line else ""
+                print(f"             • {failure.test_path}{line_info}")
+
+        print()  # Blank line between phases
+
+    # Footer: Total summary
+    total_passed = sum(p.tests_passed for i, p in enumerate(state.phases) if i in selected_set)
+    total_failed = sum(p.tests_failed for i, p in enumerate(state.phases) if i in selected_set)
+    total_tasks = sum(len(p.subtasks) for i, p in enumerate(state.phases) if i in selected_set and p.tests_total == 0)
+
+    summary_parts = []
+    if total_passed > 0:
+        summary_parts.append(f"{total_passed} tests passed")
+    if total_failed > 0:
+        summary_parts.append(f"{total_failed} failed")
+    if total_tasks > 0:
+        summary_parts.append(f"{total_tasks} tasks completed")
+
+    if summary_parts:
+        print(f"  Total: {', '.join(summary_parts)}")
+    else:
+        print(f"  Total: All phases completed")
+
+    if exit_code != 0 and not USE_TUI:
+        print("\n  Run with --verbose for full command output")
 
 
 def run_phase(phase_idx: int, cmd: list[str], state: TestRunnerState, live: Optional["Live"] = None) -> int:
@@ -583,18 +622,76 @@ def run_phase(phase_idx: int, cmd: list[str], state: TestRunnerState, live: Opti
     state.reset_lap_timer()
     exit_code = run_command(cmd, state, live)
     phase.completed = True
+
+    # Track command failure
+    if exit_code != 0:
+        phase.command_failed = True
+
     return exit_code
+
+
+def parse_phase_selection(phase_arg: list[str], available_phases: list[PhaseStats]) -> set[int]:
+    """Parse phase selection from command line arguments.
+
+    Args:
+        phase_arg: List of phase identifiers (numbers 1-5 or names)
+        available_phases: List of available phase stats
+
+    Returns:
+        Set of 0-based phase indices to run
+    """
+    if not phase_arg:
+        # Run all phases
+        return set(range(len(available_phases)))
+
+    # Map phase names to indices (case-insensitive)
+    name_to_idx = {p.name.lower().replace(" ", "-"): i for i, p in enumerate(available_phases)}
+    name_to_idx.update({p.name.lower(): i for i, p in enumerate(available_phases)})
+
+    selected = set()
+    for item in phase_arg:
+        item_lower = item.lower()
+        # Try as number (1-indexed)
+        if item.isdigit():
+            idx = int(item) - 1  # Convert to 0-based
+            if 0 <= idx < len(available_phases):
+                selected.add(idx)
+            else:
+                print(f"Warning: Phase number {item} out of range (1-{len(available_phases)}), ignoring")
+        # Try as name
+        elif item_lower in name_to_idx:
+            selected.add(name_to_idx[item_lower])
+        else:
+            print(f"Warning: Unknown phase '{item}', ignoring")
+            print(f"  Valid options: 1-{len(available_phases)} or {', '.join(p.name for p in available_phases)}")
+
+    return selected if selected else set(range(len(available_phases)))
 
 
 def main() -> int:
     """Main test runner entry point."""
-    parser = argparse.ArgumentParser(description="Run all test phases with TUI")
+    parser = argparse.ArgumentParser(
+        description="Run all test phases with TUI",
+        epilog="Phase names: lint, coverage, docker, script-tests (or 'script tests'), mcpb-validate"
+    )
     parser.add_argument("--verbose", action="store_true", help="Show full output")
     parser.add_argument("--no-tui", action="store_true", help="Disable TUI")
+    parser.add_argument(
+        "--phase",
+        nargs="+",
+        metavar="PHASE",
+        help="Run specific phases only (by number 1-5 or name, e.g., --phase 1 3 or --phase lint coverage)"
+    )
     args = parser.parse_args()
 
     # Initialize state
-    state = TestRunnerState(phases=init_phases())
+    all_phases = init_phases()
+
+    # Parse phase selection
+    selected_phase_indices = parse_phase_selection(args.phase or [], all_phases)
+
+    # Initialize state with selected phases
+    state = TestRunnerState(phases=all_phases, selected_phases=selected_phase_indices)
 
     # Prepare commands for each phase
     # Note: We call make targets directly to leverage existing build system
@@ -605,7 +702,7 @@ def main() -> int:
     results_dir = "build/test-results"
     os.makedirs(results_dir, exist_ok=True)
 
-    phases_cmds = [
+    all_phases_cmds = [
         (0, base_make + ["lint"]),
         (1, base_make + ["coverage"]),  # Runs unit + functional + e2e + analysis + validation
         (2, base_make + ["docker-build"]),  # Includes docker-check as dependency
@@ -622,6 +719,18 @@ def main() -> int:
         ),
         (4, base_make + ["mcpb-validate"]),
     ]
+
+    # Filter phases based on selection
+    phases_cmds = [(idx, cmd) for idx, cmd in all_phases_cmds if idx in selected_phase_indices]
+
+    if not phases_cmds:
+        print("Error: No valid phases selected")
+        return 1
+
+    # Show which phases will run
+    if args.phase:
+        phase_names = [all_phases[idx].name for idx, _ in phases_cmds]
+        print(f"📋 Running phases: {', '.join(phase_names)}\n")
 
     exit_code = 0
 

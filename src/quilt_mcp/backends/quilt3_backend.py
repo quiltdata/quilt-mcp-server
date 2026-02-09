@@ -147,16 +147,19 @@ class Quilt3_Backend(
         # Push to S3 registry
         if copy:
             # Deep copy objects to registry bucket
-            top_hash = quilt3_pkg.push(package_name, registry=registry, message=message, force=True)
+            pushed_pkg = quilt3_pkg.push(package_name, registry=registry, message=message, force=True)
         else:
             # Shallow references only (no copy)
             # selector_fn returns False to preserve original physical keys without copying
             # NOTE: selector_fn_copy_local only uploads LOCAL files - S3 objects retain their physical keys
-            top_hash = quilt3_pkg.push(
+            pushed_pkg = quilt3_pkg.push(
                 package_name, registry=registry, message=message, selector_fn=lambda *_: False, force=True
             )
 
-        return top_hash or ""
+        # Extract top_hash string from the returned value
+        # quilt3.Package.push() returns the top_hash string directly
+        top_hash = pushed_pkg if pushed_pkg else ""
+        return top_hash
 
     def _backend_get_package(self, package_name: str, registry: str, top_hash: Optional[str] = None) -> Any:
         """Retrieve quilt3 package from registry (backend primitive).

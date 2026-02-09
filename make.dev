@@ -141,23 +141,23 @@ test-scripts: coverage docker-check docker-build scripts/tests/test_*.py | $(RES
 
 # Generate test config only when dependencies change (using platform backend)
 TOOL_SOURCES := $(shell find src/quilt_mcp/tools -name "*.py" -type f 2>/dev/null)
-scripts/tests/mcp-test.yaml: scripts/mcp-test-setup.py scripts/mcp-test.py scripts/tests/test_mcp.py $(TOOL_SOURCES) src/quilt_mcp/main.py
+scripts/tests/mcp-test.yaml: scripts/mcp-test-setup.py scripts/mcp-test.py $(TOOL_SOURCES) src/quilt_mcp/main.py
 	@echo "🔧 Regenerating test configuration (sources changed)..."
 	@uv run --group test python scripts/mcp-test-setup.py
 
-# Default - Platform backend, stdio transport
+# Default - Platform backend, stdio transport (using consolidated mcp-test.py)
 test-mcp: scripts/tests/mcp-test.yaml
 	@echo "===🧪 Running MCP server tests (platform backend, stdio)..."
 	@export TEST_BACKEND_MODE=platform && \
 		export FASTMCP_TRANSPORT=stdio && \
-		uv run --group test python scripts/mcp-test-runner.py
+		uv run --group test python scripts/mcp-test.py --spawn-local
 
-# Legacy - Quilt3 backend, stdio transport
+# Legacy - Quilt3 backend, stdio transport (using consolidated mcp-test.py)
 test-mcp-legacy: scripts/tests/mcp-test.yaml
 	@echo "===🧪 Running MCP server tests (quilt3 backend, stdio - LEGACY)..."
 	@export TEST_BACKEND_MODE=quilt3 && \
 		export FASTMCP_TRANSPORT=stdio && \
-		uv run --group test python scripts/mcp-test-runner.py
+		uv run --group test python scripts/mcp-test.py --spawn-local
 
 # Production validation - Platform backend, HTTP+JWT, Docker
 test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
