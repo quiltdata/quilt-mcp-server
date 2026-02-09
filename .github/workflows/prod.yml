@@ -34,7 +34,7 @@ jobs:
           echo "Package Version: $VERSION"
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::730278974607:role/github/GitHub-quilt-mcp-server
           aws-region: us-east-1
@@ -101,7 +101,7 @@ jobs:
         run: uv sync --group dev
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::730278974607:role/github/GitHub-quilt-mcp-server
           aws-region: us-east-1
