@@ -321,7 +321,7 @@ class TestContentInfoDataclassAsdict:
         assert type(result_dict) is dict  # Exact type check
 
         # Verify all fields are present
-        expected_keys = {'path', 'size', 'type', 'modified_date', 'download_url'}
+        expected_keys = {'path', 'size', 'type', 'modified_date', 'download_url', 'meta'}
         assert set(result_dict.keys()) == expected_keys
 
     def test_content_info_asdict_preserves_values(self):

@@ -14,15 +14,14 @@ from pydantic import Field
 # Rationale: MCP server should not manage default bucket state
 # LLM clients provide explicit bucket parameters based on conversation context
 from .quilt_summary import create_quilt_summary_files
-from ..context.exceptions import ContextNotAvailableError
-from ..context.propagation import get_current_context
+from ..context.request_context import RequestContext
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 
-from ..utils import format_error_response, generate_signed_url, get_s3_client, validate_package_name
+from ..utils.common import format_error_response, generate_signed_url, get_s3_client, validate_package_name
 from ..ops.factory import QuiltOpsFactory
 from ..domain import Package_Creation_Result
 from .auth_helpers import AuthorizationContext, check_package_authorization
-from ..models import (
+from .responses import (
     PackageBrowseSuccess,
     PackageCreateSuccess,
     PackageCreateError,
@@ -42,13 +41,6 @@ from ..models import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _current_permission_service():
-    try:
-        return get_current_context().permission_service
-    except ContextNotAvailableError:
-        return None
 
 
 # Helpers
@@ -463,6 +455,9 @@ def _discover_s3_objects(
         for page in pages:
             if "Contents" in page:
                 for obj in page["Contents"]:
+                    # Skip S3 directory markers (zero-byte objects with keys ending in '/')
+                    if obj["Key"].endswith('/'):
+                        continue
                     if _should_include_object(obj["Key"], include_patterns, exclude_patterns):
                         objects.append(obj)
     except ClientError as e:
@@ -477,10 +472,27 @@ def _should_include_object(
     include_patterns: list[str] | None,
     exclude_patterns: list[str] | None,
 ) -> bool:
-    """Determine if an object should be included based on patterns."""
+    """Determine if an object should be included based on patterns.
+
+    Always excludes objects with invalid S3 characters per AWS best practices.
+    https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
+    """
     import fnmatch
 
-    # Check exclude patterns first
+    # Always exclude objects with invalid S3 characters
+    # These characters cause significant issues across applications
+    invalid_chars = r'\{}^%`]">[~<#|'
+    if any(char in key for char in invalid_chars):
+        found_chars = [char for char in invalid_chars if char in key]
+        logger.warning(f"Skipping object with invalid S3 characters {found_chars}: {key}")
+        return False
+
+    # Check for non-printable characters (allows UTF-8, blocks control characters)
+    if not key.isprintable():
+        logger.warning(f"Skipping object with non-printable characters: {key}")
+        return False
+
+    # Check exclude patterns
     if exclude_patterns:
         for pattern in exclude_patterns:
             if fnmatch.fnmatch(key, pattern):
@@ -513,7 +525,7 @@ def _create_enhanced_package(
     try:
         # Collect all S3 URIs from organized structure
         s3_uris = []
-        for folder, objects in organized_structure.items():
+        for objects in organized_structure.values():
             for obj in objects:
                 source_key = obj["Key"]
                 s3_uri = f"s3://{source_bucket}/{source_key}"
@@ -637,7 +649,7 @@ def packages_list(
         # Normalize registry and use QuiltOps.search_packages() for listing
         normalized_registry = _normalize_registry(registry)
         # Suppress stdout during search_packages to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
         from ..ops.factory import QuiltOpsFactory
 
         quilt_ops = QuiltOpsFactory.create()
@@ -780,7 +792,7 @@ def package_browse(
     normalized_registry = _normalize_registry(registry)
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
         from ..ops.factory import QuiltOpsFactory
         from dataclasses import asdict
 
@@ -1015,7 +1027,7 @@ def package_diff(
     try:
         # Use QuiltOps.diff_packages() for business logic
         from ..ops.factory import QuiltOpsFactory
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
 
         quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
@@ -1399,7 +1411,7 @@ def package_update(
     try:
         # Use QuiltOps.update_package_revision() for business logic
         from ..ops.factory import QuiltOpsFactory
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
 
         quilt_ops = QuiltOpsFactory.create()
 
@@ -1435,7 +1447,7 @@ def package_update(
         return PackageUpdateSuccess(
             package_name=package_name,
             registry=registry,
-            top_hash=result.top_hash,
+            top_hash=str(result.top_hash),  # Convert to string for Pydantic validation
             files_added=result.file_count,
             package_url=result.catalog_url or "",
             files=[],  # QuiltOps doesn't return detailed file list, but that's OK
@@ -1533,7 +1545,7 @@ def package_delete(
             )
 
         # Suppress stdout during delete to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
+        from ..utils.common import suppress_stdout
         import quilt3
 
         with suppress_stdout():
@@ -1669,6 +1681,8 @@ def package_create_from_s3(
             description="Additional user-provided metadata",
         ),
     ] = None,
+    *,
+    context: RequestContext,
 ) -> PackageCreateFromS3Success | PackageCreateFromS3Error:
     """Create a well-organized Quilt package from S3 bucket contents with smart organization - Bulk S3-to-package ingestion workflows
 
@@ -1735,17 +1749,11 @@ def package_create_from_s3(
             readme_value = processed_metadata.pop("readme")
             readme_content = str(readme_value) if readme_value is not None else None
 
-        # Validate and normalize bucket name
+        # Validate and normalize bucket name - accept both formats
         if source_bucket.startswith("s3://"):
-            return PackageCreateFromS3Error(
-                error="Invalid bucket name format",
-                package_name=package_name,
-                suggested_actions=[
-                    "Use bucket name only, not full S3 URI",
-                    f"Try using: {source_bucket.replace('s3://', '')}",
-                    "Example: my-bucket (not s3://my-bucket)",
-                ],
-            )
+            # Strip s3:// prefix if provided
+            source_bucket = source_bucket.replace("s3://", "").split("/")[0]
+            logger.info(f"Normalized source_bucket from s3:// URI to: {source_bucket}")
 
         # Suggest target registry if not provided using permissions discovery
         resolved_target_registry = target_registry
@@ -1755,7 +1763,7 @@ def package_create_from_s3(
                 recommendations = bucket_recommendations_get(
                     source_bucket=source_bucket,
                     operation_type="package_creation",
-                    context=get_current_context(),
+                    context=context,
                 )
 
                 if recommendations.get("success") and recommendations.get("recommendations", {}).get(
@@ -1780,7 +1788,7 @@ def package_create_from_s3(
         try:
             access_check = check_bucket_access(
                 target_bucket_name,
-                context=get_current_context(),
+                context=context,
             )
             if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
                 return PackageCreateFromS3Error(

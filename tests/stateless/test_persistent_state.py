@@ -37,6 +37,8 @@ def test_no_state_persists_across_restarts(
                 environment={
                     "QUILT_MULTIUSER_MODE": "true",
                     "MCP_JWT_SECRET": "test-secret",
+                    "QUILT_CATALOG_URL": "http://test-catalog.example.com",  # Required for multiuser
+                    "QUILT_REGISTRY_URL": "http://test-registry.example.com",  # Required for multiuser
                     "QUILT_DISABLE_CACHE": "true",
                     "HOME": "/tmp",  # noqa: S108
                     "FASTMCP_TRANSPORT": "http",
@@ -46,10 +48,8 @@ def test_no_state_persists_across_restarts(
                 ports={"8000/tcp": None},
             )
 
-            time.sleep(3)
+            # Wait for HTTP server to be ready (up to 10 seconds)
             container.reload()
-
-            # Get container URL
             ports = container.ports
 
             if "8000/tcp" not in ports or not ports["8000/tcp"]:
@@ -62,6 +62,23 @@ def test_no_state_persists_across_restarts(
 
             host_port = ports["8000/tcp"][0]["HostPort"]
             url = f"http://localhost:{host_port}"
+
+            # Wait for server to be ready
+            for attempt in range(20):  # 20 attempts * 0.5s = 10s max
+                time.sleep(0.5)
+                container.reload()
+
+                if container.status != "running":
+                    pytest.fail(f"Container failed to start: {container.status}")
+
+                try:
+                    test_response = httpx.get(f"{url}/", timeout=2.0)
+                    if test_response.status_code == 200:
+                        break
+                except (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError):
+                    continue
+            else:
+                pytest.fail("Container did not become healthy after 10s")
 
             # Make test requests
             start_time = time.time()

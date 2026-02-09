@@ -35,7 +35,7 @@ class TestQuilt3BackendAdminIntegration:
         assert hasattr(backend.admin, 'list_roles')
         assert hasattr(backend.admin, 'get_sso_config')
         assert hasattr(backend.admin, 'set_sso_config')
-        assert hasattr(backend.admin, 'remove_sso_config')
+        # Note: remove_sso_config was removed, use set_sso_config(None) instead
 
     @patch('quilt_mcp.backends.quilt3_backend_base.quilt3')
     def test_admin_methods_are_callable(self, mock_quilt3):
@@ -59,7 +59,7 @@ class TestQuilt3BackendAdminIntegration:
         assert callable(backend.admin.list_roles)
         assert callable(backend.admin.get_sso_config)
         assert callable(backend.admin.set_sso_config)
-        assert callable(backend.admin.remove_sso_config)
+        # Note: remove_sso_config was removed, use set_sso_config(None) instead
 
 
 class TestQuilt3BackendAdminBasicFunctionality:

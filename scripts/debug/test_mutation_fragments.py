@@ -16,11 +16,13 @@ backend = QuiltOpsFactory.create()
 
 # Get the session and endpoint
 import quilt3
+
 session = quilt3.session.get_session()
 logged_in_url = quilt3.logged_in()
 catalog_config = backend.get_catalog_config(logged_in_url)
 
 from quilt_mcp.utils import graphql_endpoint
+
 api_url = graphql_endpoint(catalog_config.registry_url)
 
 headers = {}
@@ -75,7 +77,7 @@ source:
 parser:
   format: csv
   delimiter: ","
-  header: true"""
+  header: true""",
 }
 
 print("=== Attempting mutation with inline fragments ===")

@@ -20,9 +20,7 @@ def analyze_test_file(test_file: Path):
     total_asserts = content.count("assert ")
 
     if total_asserts and mock_assertions >= total_asserts * 0.8:
-        print(
-            f"⚠️  {test_file.relative_to('tests/')}: {mock_assertions}/{total_asserts} assertions are mock-only"
-        )
+        print(f"⚠️  {test_file.relative_to('tests/')}: {mock_assertions}/{total_asserts} assertions are mock-only")
 
 
 if __name__ == "__main__":

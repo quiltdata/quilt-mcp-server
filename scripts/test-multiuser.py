@@ -16,16 +16,28 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+import jwt as pyjwt
+import uuid
 
-# Add tests directory to path for jwt_helpers
 repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / 'tests'))
 
-try:
-    from jwt_helpers import get_sample_catalog_token
-except ImportError:
-    print("❌ Could not import jwt_helpers. Make sure tests/jwt_helpers.py exists.", file=sys.stderr)
-    sys.exit(1)
+
+def generate_test_jwt(secret: str = "test-secret", expires_in: int = 3600) -> str:
+    """Generate a test JWT token for testing.
+
+    Args:
+        secret: HS256 shared secret for signing
+        expires_in: Expiration time in seconds from now
+
+    Returns:
+        Signed JWT token string
+    """
+    payload = {
+        "id": "test-user-multiuser",
+        "uuid": str(uuid.uuid4()),
+        "exp": int(time.time()) + expires_in,
+    }
+    return pyjwt.encode(payload, secret, algorithm="HS256")
 
 
 class MultiuserTestRunner:
@@ -43,12 +55,7 @@ class MultiuserTestRunner:
         self.endpoint = endpoint
         self.verbose = verbose
         self.user_tokens: Dict[str, str] = {}
-        self.results: Dict[str, Any] = {
-            "total": 0,
-            "passed": 0,
-            "failed": 0,
-            "scenarios": []
-        }
+        self.results: Dict[str, Any] = {"total": 0, "passed": 0, "failed": 0, "scenarios": []}
 
     def _log(self, message: str, level: str = "INFO") -> None:
         """Log message with timestamp."""
@@ -76,7 +83,7 @@ class MultiuserTestRunner:
             try:
                 token = user_config.get("jwt_token") or user_config.get("token")
                 if not token:
-                    token = get_sample_catalog_token()
+                    token = generate_test_jwt()
 
                 if not token:
                     self._log(f"Missing JWT token for user {user_label}", "ERROR")
@@ -98,16 +105,11 @@ class MultiuserTestRunner:
         Returns:
             Test results dictionary
         """
-        self._log("\n" + "="*80)
+        self._log("\n" + "=" * 80)
         self._log("Running basic connectivity tests...")
-        self._log("="*80)
+        self._log("=" * 80)
 
-        results = {
-            "name": "Basic Connectivity",
-            "passed": 0,
-            "failed": 0,
-            "tests": []
-        }
+        results = {"name": "Basic Connectivity", "passed": 0, "failed": 0, "tests": []}
 
         for user_label, token in self.user_tokens.items():
             self._log(f"\nTesting user: {user_label}")
@@ -124,11 +126,7 @@ class MultiuserTestRunner:
                     results["failed"] += 1
                     self._log(f"  ❌ Initialize: FAILED - {init_result['error']}")
 
-                results["tests"].append({
-                    "user": user_label,
-                    "test": "initialize",
-                    **init_result
-                })
+                results["tests"].append({"user": user_label, "test": "initialize", **init_result})
 
                 # Test tools/list
                 tools_result = self._test_tools_list(token)
@@ -140,19 +138,12 @@ class MultiuserTestRunner:
                     results["failed"] += 1
                     self._log(f"  ❌ Tools List: FAILED - {tools_result['error']}")
 
-                results["tests"].append({
-                    "user": user_label,
-                    "test": "tools_list",
-                    **tools_result
-                })
+                results["tests"].append({"user": user_label, "test": "tools_list", **tools_result})
 
             except Exception as e:
                 results["failed"] += 2
                 self._log(f"  ❌ Connectivity test failed: {e}", "ERROR")
-                results["tests"].append({
-                    "user": user_label,
-                    "error": str(e)
-                })
+                results["tests"].append({"user": user_label, "error": str(e)})
 
         return results
 
@@ -162,32 +153,19 @@ class MultiuserTestRunner:
         Returns:
             Test results dictionary
         """
-        self._log("\n" + "="*80)
+        self._log("\n" + "=" * 80)
         self._log("Running concurrent user operations test...")
-        self._log("="*80)
+        self._log("=" * 80)
 
-        results = {
-            "name": "Concurrent Operations",
-            "passed": 0,
-            "failed": 0,
-            "tests": []
-        }
+        results = {"name": "Concurrent Operations", "passed": 0, "failed": 0, "tests": []}
 
         def test_user_concurrently(user_label: str, token: str) -> Dict[str, Any]:
             """Test single user operation."""
             try:
                 result = self._test_tools_list(token)
-                return {
-                    "user": user_label,
-                    "success": result["success"],
-                    "error": result.get("error")
-                }
+                return {"user": user_label, "success": result["success"], "error": result.get("error")}
             except Exception as e:
-                return {
-                    "user": user_label,
-                    "success": False,
-                    "error": str(e)
-                }
+                return {"user": user_label, "success": False, "error": str(e)}
 
         # Run all user tests concurrently
         with ThreadPoolExecutor(max_workers=len(self.user_tokens)) as executor:
@@ -212,11 +190,7 @@ class MultiuserTestRunner:
                 except Exception as e:
                     results["failed"] += 1
                     self._log(f"  ❌ {user_label}: Exception - {e}", "ERROR")
-                    results["tests"].append({
-                        "user": user_label,
-                        "success": False,
-                        "error": str(e)
-                    })
+                    results["tests"].append({"user": user_label, "success": False, "error": str(e)})
 
         return results
 
@@ -234,11 +208,11 @@ class MultiuserTestRunner:
                     "params": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {},
-                        "clientInfo": {"name": "multiuser-test", "version": "1.0"}
+                        "clientInfo": {"name": "multiuser-test", "version": "1.0"},
                     },
-                    "id": 1
+                    "id": 1,
                 },
-                timeout=10
+                timeout=10,
             )
 
             if response.status_code == 200:
@@ -261,13 +235,8 @@ class MultiuserTestRunner:
             response = requests.post(
                 self.endpoint,
                 headers={"Authorization": f"Bearer {token}"},
-                json={
-                    "jsonrpc": "2.0",
-                    "method": "tools/list",
-                    "params": {},
-                    "id": 1
-                },
-                timeout=10
+                json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1},
+                timeout=10,
             )
 
             if response.status_code == 200:
@@ -294,13 +263,10 @@ class MultiuserTestRunner:
                 json={
                     "jsonrpc": "2.0",
                     "method": "tools/call",
-                    "params": {
-                        "name": tool_name,
-                        "arguments": arguments
-                    },
-                    "id": 1
+                    "params": {"name": tool_name, "arguments": arguments},
+                    "id": 1,
                 },
-                timeout=30
+                timeout=30,
             )
 
             if response.status_code == 200:
@@ -346,9 +312,9 @@ class MultiuserTestRunner:
 
     def print_summary(self) -> None:
         """Print test results summary."""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("📊 MULTIUSER TEST SUMMARY")
-        print("="*80)
+        print("=" * 80)
 
         for scenario in self.results["scenarios"]:
             total_tests = scenario['passed'] + scenario['failed']
@@ -357,7 +323,7 @@ class MultiuserTestRunner:
                 print(f"  ✅ Passed: {scenario['passed']}")
                 print(f"  ❌ Failed: {scenario['failed']}")
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print(f"Overall Results:")
         print(f"  Total: {self.results['total']}")
         print(f"  ✅ Passed: {self.results['passed']}")
@@ -368,7 +334,7 @@ class MultiuserTestRunner:
         else:
             print(f"\n❌ {self.results['failed']} TEST(S) FAILED")
 
-        print("="*80)
+        print("=" * 80)
 
 
 def expand_env_vars(value: Any) -> Any:
@@ -457,26 +423,19 @@ Examples:
 
   # Verbose output
   python scripts/test-multiuser.py http://localhost:8001/mcp -v
-        """
+        """,
     )
 
-    parser.add_argument(
-        "endpoint",
-        help="MCP endpoint URL (e.g., http://localhost:8001/mcp)"
-    )
+    parser.add_argument("endpoint", help="MCP endpoint URL (e.g., http://localhost:8001/mcp)")
 
     parser.add_argument(
         "--config",
         type=Path,
         default=Path(__file__).parent / "tests" / "mcp-test-multiuser.yaml",
-        help="Path to test configuration file"
+        help="Path to test configuration file",
     )
 
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 

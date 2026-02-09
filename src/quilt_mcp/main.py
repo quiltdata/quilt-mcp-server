@@ -7,7 +7,7 @@ import platform
 import sys
 import traceback
 from dotenv import load_dotenv
-from quilt_mcp.utils import run_server
+from quilt_mcp.utils.common import run_server
 from quilt_mcp.config import get_mode_config, ConfigurationError
 
 

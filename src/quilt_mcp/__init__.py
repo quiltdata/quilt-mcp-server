@@ -6,11 +6,6 @@ Quilt packages and S3 buckets through a secure, authenticated interface.
 
 from __future__ import annotations
 
-from .constants import (
-    KNOWN_TEST_ENTRY,
-    KNOWN_TEST_PACKAGE,
-)
-
 # Re-export all tools for easy access
 from .tools.catalog import (
     catalog_uri,
@@ -69,9 +64,6 @@ from .tools.tabulator import (
 __version__ = "0.5.6"
 
 __all__ = [
-    # Constants (test-only)
-    "KNOWN_TEST_PACKAGE",
-    "KNOWN_TEST_ENTRY",
     # Auth tools
     "auth_status",
     "catalog_info",

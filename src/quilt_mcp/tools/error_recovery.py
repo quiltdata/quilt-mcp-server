@@ -10,19 +10,11 @@ from datetime import datetime, timezone
 import functools
 import time
 
-from ..context.exceptions import ContextNotAvailableError
-from ..context.propagation import get_current_context
-from ..utils import format_error_response
-from ..models.responses import HealthCheckSuccess
+from ..context.request_context import RequestContext
+from ..utils.common import format_error_response
+from .responses import HealthCheckSuccess
 
 logger = logging.getLogger(__name__)
-
-
-def _current_permission_service():
-    try:
-        return get_current_context().permission_service
-    except ContextNotAvailableError:
-        return None
 
 
 def _with_fallback_internal(
@@ -285,7 +277,7 @@ def batch_operation_with_recovery(
     }
 
 
-def health_check_with_recovery() -> HealthCheckSuccess:
+def health_check_with_recovery(*, context: RequestContext) -> HealthCheckSuccess:
     """
     Perform comprehensive health check with recovery recommendations.
 
@@ -300,7 +292,7 @@ def health_check_with_recovery() -> HealthCheckSuccess:
         },
         {
             "name": "permissions_discovery",
-            "func": lambda: _check_permissions_discovery(),
+            "func": lambda: _check_permissions_discovery(context),
             "fallback": lambda: {"accessible_buckets": [], "fallback": True},
         },
         {
@@ -363,14 +355,14 @@ def _check_auth_status() -> Dict[str, Any]:
         raise Exception(f"Auth check failed: {e}")
 
 
-def _check_permissions_discovery() -> Dict[str, Any]:
+def _check_permissions_discovery(context: RequestContext) -> Dict[str, Any]:
     """Check permissions discovery functionality."""
     try:
         from quilt_mcp.services.permissions_service import discover_permissions as aws_permissions_discover
 
         result = aws_permissions_discover(
             force_refresh=False,
-            context=get_current_context(),
+            context=context,
         )
         if not result.get("success"):
             raise Exception(result.get("error", "Permissions discovery failed"))

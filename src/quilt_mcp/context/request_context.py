@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from quilt_mcp.config import get_mode_config
-from quilt_mcp.exceptions import OperationNotSupportedError
+from quilt_mcp.context.exceptions import OperationNotSupportedError
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,7 @@
 
 import pytest
 from quilt_mcp.tools.resource_access import get_resource
-from quilt_mcp.models.responses import GetResourceSuccess, GetResourceError
+from quilt_mcp.tools.responses import GetResourceSuccess, GetResourceError
 from quilt_mcp.config import set_test_mode_config
 
 

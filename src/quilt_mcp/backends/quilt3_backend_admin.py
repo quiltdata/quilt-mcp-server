@@ -7,7 +7,7 @@ proper error handling and transformation to domain objects.
 """
 
 import logging
-from typing import List, Optional, TYPE_CHECKING, Any
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -557,14 +557,14 @@ class Quilt3_Backend_Admin(AdminOps):
             # This line should never be reached due to exception raising above
             return None  # pragma: no cover
 
-    def set_sso_config(self, config: str) -> SSOConfig:
-        """Set the SSO configuration.
+    def set_sso_config(self, config: Optional[Dict[str, Any]]) -> Optional[SSOConfig]:
+        """Set or remove the SSO configuration.
 
         Args:
-            config: SSO configuration text to set
+            config: SSO configuration as a dictionary, or None to remove configuration
 
         Returns:
-            SSOConfig object representing the updated configuration
+            SSOConfig object representing the updated configuration, or None if removed
 
         Raises:
             AuthenticationError: When authentication credentials are invalid or missing
@@ -572,15 +572,30 @@ class Quilt3_Backend_Admin(AdminOps):
             ValidationError: When config parameter is invalid
             PermissionError: When user lacks admin privileges to modify SSO configuration
         """
+        import json
+
         try:
-            if not config or not config.strip():
-                raise ValidationError("SSO configuration cannot be empty")
+            # Serialize config to JSON string (quilt3 expects string or None)
+            config_str: Optional[str] = None
+            if config is not None:
+                if not config:
+                    raise ValidationError("SSO configuration cannot be empty")
+                config_str = json.dumps(config)
 
             logger.debug("Setting SSO configuration via quilt3.admin.sso_config")
 
             import quilt3.admin.sso_config as admin_sso_config
 
-            quilt3_sso_config = admin_sso_config.set(config)
+            quilt3_sso_config = admin_sso_config.set(config_str)
+
+            # If config was None (removal), return None
+            if config is None:
+                logger.debug("Successfully removed SSO configuration")
+                return None
+
+            if quilt3_sso_config is None:
+                raise BackendError("Failed to set SSO config: No config data returned")
+
             domain_sso_config = self._transform_quilt3_sso_config_to_domain(quilt3_sso_config)
 
             logger.debug("Successfully set SSO configuration")
@@ -589,35 +604,13 @@ class Quilt3_Backend_Admin(AdminOps):
         except ImportError as e:
             logger.error(f"quilt3.admin.sso_config not available: {e}")
             raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except (ValidationError, BackendError):
+            raise
         except Exception as e:
             logger.error(f"Failed to set SSO configuration: {e}")
             self._handle_admin_error(e, "set SSO configuration")
             # This line should never be reached due to exception raising above
             raise  # pragma: no cover
-
-    def remove_sso_config(self) -> None:
-        """Remove the SSO configuration.
-
-        Raises:
-            AuthenticationError: When authentication credentials are invalid or missing
-            BackendError: When the backend operation fails
-            PermissionError: When user lacks admin privileges to modify SSO configuration
-        """
-        try:
-            logger.debug("Removing SSO configuration via quilt3.admin.sso_config")
-
-            import quilt3.admin.sso_config as admin_sso_config
-
-            admin_sso_config.remove()
-
-            logger.debug("Successfully removed SSO configuration")
-
-        except ImportError as e:
-            logger.error(f"quilt3.admin.sso_config not available: {e}")
-            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
-        except Exception as e:
-            logger.error(f"Failed to remove SSO configuration: {e}")
-            self._handle_admin_error(e, "remove SSO configuration")
 
     # ========================================================================
     # Transformation Methods

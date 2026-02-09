@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from quilt_mcp.services.permission_discovery import AWSPermissionDiscovery, PermissionLevel
 from quilt_mcp.services.auth_service import AuthService, create_auth_service
 from quilt_mcp.context.request_context import RequestContext
-from quilt_mcp.utils import format_error_response
+from quilt_mcp.utils.common import format_error_response
 
 logger = logging.getLogger(__name__)
 

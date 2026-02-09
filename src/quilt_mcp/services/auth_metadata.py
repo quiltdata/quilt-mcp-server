@@ -25,7 +25,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
             raise ModuleNotFoundError("quilt3 is required for QuiltOpsFactory")
 
 
-from quilt_mcp.utils import get_dns_name_from_url as _extract_catalog_name_from_url
+from quilt_mcp.utils.common import get_dns_name_from_url as _extract_catalog_name_from_url
 
 
 # ---------------------------------------------------------------------------

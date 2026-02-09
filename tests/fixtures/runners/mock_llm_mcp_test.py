@@ -18,7 +18,7 @@ from dataclasses import dataclass
 # Add the app directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
-from quilt_mcp.utils import create_mcp_server, register_tools
+from quilt_mcp.utils.common import create_mcp_server, register_tools
 
 
 @dataclass

@@ -16,6 +16,7 @@ backend = QuiltOpsFactory.create()
 
 # Get the session and endpoint
 import quilt3
+
 session = quilt3.session.get_session()
 logged_in_url = quilt3.logged_in()
 print(f"Logged in URL: {logged_in_url}")
@@ -25,6 +26,7 @@ catalog_config = backend.get_catalog_config(logged_in_url)
 print(f"Registry URL: {catalog_config.registry_url}")
 
 from quilt_mcp.utils import graphql_endpoint
+
 api_url = graphql_endpoint(catalog_config.registry_url)
 print(f"GraphQL endpoint: {api_url}")
 
@@ -60,7 +62,7 @@ variables = {
     "tableName": "test_debug_table",
     "config": """schema:
 - name: id
-  type: STRING"""
+  type: STRING""",
 }
 
 # Make request with quilt session

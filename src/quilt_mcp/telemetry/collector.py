@@ -43,9 +43,12 @@ class TelemetryConfig:
 
     @classmethod
     def from_env(cls) -> "TelemetryConfig":
-        """Create config from environment variables."""
+        """Create config from environment variables (quilt3-compatible)."""
+        # Use QUILT_DISABLE_USAGE_METRICS exclusively (quilt3 compatibility)
+        enabled = not cls._check_quilt_disable_envvar()
+
         return cls(
-            enabled=os.getenv("MCP_TELEMETRY_ENABLED", "true").lower() == "true",
+            enabled=enabled,
             level=TelemetryLevel(os.getenv("MCP_TELEMETRY_LEVEL", "standard")),
             local_only=os.getenv("MCP_TELEMETRY_LOCAL_ONLY", "false").lower() == "true",
             endpoint=os.getenv("MCP_TELEMETRY_ENDPOINT"),
@@ -54,6 +57,14 @@ class TelemetryConfig:
             privacy_level=os.getenv("MCP_TELEMETRY_PRIVACY_LEVEL", "standard"),
             session_timeout=int(os.getenv("MCP_TELEMETRY_SESSION_TIMEOUT", "3600")),
         )
+
+    @staticmethod
+    def _check_quilt_disable_envvar() -> bool:
+        """Check QUILT_DISABLE_USAGE_METRICS environment variable (quilt3-compatible)."""
+        envvar = os.environ.get("QUILT_DISABLE_USAGE_METRICS", "")
+        if envvar.lower() in ("false", "no", "0"):
+            return False
+        return bool(envvar)
 
 
 @dataclass
@@ -98,9 +109,13 @@ class TelemetryCollector:
         # Initialize transport if enabled
         self.transport = None
         if self.config.enabled and not self.config.local_only:
-            from .transport import create_transport
+            from .transport import create_transport, register_http_transport, HTTPTransport
 
             self.transport = create_transport(self.config)
+
+            # Register HTTP transport for atexit cleanup (quilt3-compatible)
+            if isinstance(self.transport, HTTPTransport):
+                register_http_transport(self.transport)
 
         # Initialize privacy manager
         from .privacy import PrivacyManager

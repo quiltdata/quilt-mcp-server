@@ -10,7 +10,7 @@ maintaining 100% data parity with the native resource implementation.
 
 from typing import Optional, Union
 
-from quilt_mcp.models.responses import (
+from quilt_mcp.tools.responses import (
     GetResourceSuccess,
     GetResourceError,
 )

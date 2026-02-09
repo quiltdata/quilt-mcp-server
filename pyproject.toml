@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.14.1"
+version = "0.15.0"
 description = "Secure MCP server for accessing Quilt data with IAM or JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -43,6 +43,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "pyathena>=3.0.0",
     "PyYAML>=6.0.0",
+    "requests-futures>=1.0.0",
 ]
 
 [project.urls]
@@ -89,6 +90,7 @@ lint = [
     "types-cachetools>=5.3.0",
     "types-PyYAML>=6.0.0",
     "types-requests>=2.31.0",
+    "quiltx>=0.3.0",  # Required for type checking tool_classifier.py
 ]
 dev = [
     "pytest-xdist>=3.8.0",

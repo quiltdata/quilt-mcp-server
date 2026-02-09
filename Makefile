@@ -29,7 +29,7 @@ help:
 	@echo "  make test-e2e-quilt3  - Run quilt3-only e2e tests"
 	@echo "  make test-e2e-platform - Run platform-only e2e tests"
 	@echo "  make test-scripts     - Run script validation tests"
-	@echo "  make test-mcp         - Run MCP server tests (idempotent only)"
+	@echo "  make test-mcp         - Run MCP server tests (auto-regen via Make deps)"
 	@echo "  make test-multiuser    - Run multiuser platform tests (JWT/Platform)"
 	@echo "  make test-multiuser-fake - Test multiuser JWT auth with fake roles (local dev)"
 	@echo "  make test-ci          - Run CI-optimized tests (excludes slow/platform)"

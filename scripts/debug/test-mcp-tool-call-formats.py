@@ -19,21 +19,20 @@ def main():
     # Start Docker container
     print("\n📦 Starting Docker container...", file=sys.stderr)
     docker_cmd = [
-        "docker", "run", "-i",
+        "docker",
+        "run",
+        "-i",
         "--rm",  # Auto-remove when done
-        "-e", "FASTMCP_TRANSPORT=stdio",
+        "-e",
+        "FASTMCP_TRANSPORT=stdio",
         "quilt-mcp:test",
-        "quilt-mcp", "--skip-banner"
+        "quilt-mcp",
+        "--skip-banner",
     ]
 
     try:
         process = subprocess.Popen(
-            docker_cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
+            docker_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
         )
     except Exception as e:
         print(f"❌ Failed to start container: {e}", file=sys.stderr)
@@ -59,8 +58,8 @@ def main():
             "params": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "minimal-test", "version": "1.0"}
-            }
+                "clientInfo": {"name": "minimal-test", "version": "1.0"},
+            },
         }
 
         print(f"Request: {json.dumps(init_request)}", file=sys.stderr)
@@ -79,12 +78,7 @@ def main():
 
         # Test 2: Tools list
         print("\n📤 Test 2: Tools List", file=sys.stderr)
-        list_request = {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/list",
-            "params": {}
-        }
+        list_request = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
 
         print(f"Request: {json.dumps(list_request)}", file=sys.stderr)
         process.stdin.write(json.dumps(list_request) + "\n")
@@ -112,12 +106,7 @@ def main():
             "jsonrpc": "2.0",
             "id": 3,
             "method": "tools/call",
-            "params": {
-                "name": "catalog_configure",
-                "arguments": {
-                    "catalog_url": "s3://quilt-ernest-staging"
-                }
-            }
+            "params": {"name": "catalog_configure", "arguments": {"catalog_url": "s3://quilt-ernest-staging"}},
         }
 
         print(f"Request: {json.dumps(call_request, indent=2)}", file=sys.stderr)
@@ -141,8 +130,8 @@ def main():
                 "method": "tools/call",
                 "params": {
                     "name": "catalog_configure",
-                    "catalog_url": "s3://quilt-ernest-staging"  # Flat params
-                }
+                    "catalog_url": "s3://quilt-ernest-staging",  # Flat params
+                },
             }
 
             print(f"Request: {json.dumps(alt_request, indent=2)}", file=sys.stderr)
@@ -167,6 +156,7 @@ def main():
     except Exception as e:
         print(f"❌ Test failed with exception: {e}", file=sys.stderr)
         import traceback
+
         traceback.print_exc(file=sys.stderr)
         return 1
     finally:

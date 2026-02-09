@@ -40,7 +40,9 @@ def _argument_names(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
         if arg.arg not in {"self", "cls"}:
             args.append(arg.arg)
     for arg in node.args.kwonlyargs:
-        args.append(arg.arg)
+        # Skip 'context' parameter as it's injected by the wrapper, not user-facing
+        if arg.arg != "context":
+            args.append(arg.arg)
     return args
 
 

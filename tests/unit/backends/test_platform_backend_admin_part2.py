@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock, patch
 
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     RuntimeAuthState,
     get_runtime_environment,
     push_runtime_context,
@@ -246,13 +246,14 @@ def test_set_sso_config_empty(monkeypatch):
 
 
 def test_remove_sso_config_success(monkeypatch):
-    """Test successful SSO config removal."""
+    """Test successful SSO config removal using set_sso_config(None)."""
     backend = _make_backend(monkeypatch)
 
-    mock_response = {"data": {"admin": {"removeSsoConfig": {"message": "SSO configuration removed"}}}}
+    mock_response = {"data": {"admin": {"setSsoConfig": {"ssoConfig": None}}}}
 
     with patch.object(backend, 'execute_graphql_query', return_value=mock_response):
-        backend.admin.remove_sso_config()  # Should not raise
+        result = backend.admin.set_sso_config(None)  # Use set with None to remove
+        assert result is None
 
 
 # ---------------------------------------------------------------------

@@ -1,6 +1,6 @@
 """Tests for S3 package creation utilities and validators."""
 
-from quilt_mcp.constants import KNOWN_TEST_PACKAGE
+from tests.conftest import KNOWN_TEST_PACKAGE
 from quilt_mcp.tools.packages import (
     _should_include_object,
     _suggest_target_registry,
@@ -8,12 +8,10 @@ from quilt_mcp.tools.packages import (
     _generate_readme_content,
     _generate_package_metadata,
 )
-from quilt_mcp.utils import validate_package_name, format_error_response
-from quilt_mcp.validators import (
-    validate_package_structure,
-    validate_metadata_compliance,
-    validate_package_naming,
-)
+from quilt_mcp.utils.common import validate_package_name, format_error_response
+from quilt_mcp.utils.structure_validator import validate_package_structure
+from quilt_mcp.utils.metadata_validator import validate_metadata_compliance
+from quilt_mcp.utils.naming_validator import validate_package_naming
 
 TEST_BUCKET = "test-bucket"
 

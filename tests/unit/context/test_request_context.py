@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from quilt_mcp.context.request_context import RequestContext
-from quilt_mcp.exceptions import OperationNotSupportedError
+from quilt_mcp.context.exceptions import OperationNotSupportedError
 
 
 def test_request_context_stores_fields():

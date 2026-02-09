@@ -22,6 +22,7 @@ tests/
 ### Issue B: Mock-Only Tests Without Business Logic Validation
 
 Multiple tests only verify mock interactions without testing actual behavior:
+
 - `test_auth_service_factory.py` - Tests fixture creation, not auth behavior
 - `test_tabulator.py` (unit) - Tests mock call arguments, not query execution
 - `test_health_endpoint.py` - Tests mock patterns, not real health checks
@@ -32,6 +33,7 @@ Multiple tests only verify mock interactions without testing actual behavior:
 The `test-e2e-platform` Make target does NOT properly configure the environment for Platform backend tests:
 
 **Current (broken):**
+
 ```makefile
 test-e2e-platform:
     export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=platform && \
@@ -39,6 +41,7 @@ test-e2e-platform:
 ```
 
 **Should be (like test-func-platform):**
+
 ```makefile
 test-e2e-platform:
     export PLATFORM_TEST_ENABLED=true && \
@@ -136,6 +139,7 @@ tests/func/test_bucket_tools_version_edge_cases.py → tests/e2e/test_bucket_too
 ```
 
 **Mixed files requiring review:**
+
 - `tests/func/test_bucket_tools_basic.py` - Has one mocked test, rest are real (MOVE TO E2E)
 - `tests/func/test_packages_integration.py` - Patches session but hits real backend (MOVE TO E2E)
 - `tests/func/test_utils_integration.py` - Review needed
@@ -158,17 +162,20 @@ tests/e2e/test_readme.py → tests/func/test_readme.py
 ```
 
 **Files to delete:**
+
 - `tests/e2e/test_selector_debug.py` - Empty file
 
 ### Phase 3: Update Fixture Configuration
 
 **tests/func/conftest.py** - Should enable mocking:
+
 ```python
 # Current: Provides real backend fixtures (requires_catalog, test_bucket)
 # After: Should provide mocking fixtures like e2e does
 ```
 
 **tests/e2e/conftest.py** - Should require real services:
+
 ```python
 # Current: Provides mocking fixtures
 # After: Should provide real integration fixtures like func does
@@ -183,11 +190,13 @@ tests/e2e/test_readme.py → tests/func/test_readme.py
 ### Phase 5: Update Make Targets & CI
 
 **Makefile changes:**
+
 - `make test-func` - Should run faster (all mocked now)
 - `make test-e2e` - Will be slower (all real integration now)
 - `make test-ci` - May need to skip more e2e tests
 
 **GitHub Actions (.github/workflows/prod.yml):**
+
 - Review test-func runtime expectations (should be faster)
 - Review test-e2e requirements (needs AWS credentials, Docker, Elasticsearch)
 
@@ -279,10 +288,12 @@ echo "  - Backup: $BACKUP_DIR"
 **Manual review required** - The conftest.py files need fixture logic changes, not just file swaps.
 
 **tests/func/conftest.py** after migration:
+
 - Remove `requires_catalog`, `test_bucket`, `test_registry` (real integration fixtures)
 - Add mocking setup fixtures similar to current e2e conftest
 
 **tests/e2e/conftest.py** after migration:
+
 - Add `requires_catalog`, `test_bucket`, `test_registry` (from current func conftest)
 - Remove mocking-specific fixtures
 
@@ -300,6 +311,7 @@ Some tests may have imports that reference the old directory structure in commen
 ### Step 5: Update Documentation
 
 **Files to update:**
+
 - [TESTING.md](TESTING.md) - Verify structure documentation is accurate
 - [CLAUDE.md](CLAUDE.md) - Update any test structure references
 - [README.md](README.md) - Update testing section if present

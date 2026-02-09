@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-local test-mcp-docker test-mcp-stateless test-multiuser test-multiuser-fake test-stateless test-orchestrator lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -24,21 +24,19 @@ test:
 
 test-all: test-catalog | $(RESULTS_DIR)
 	@echo "Running all test phases with TUI..."
-	@uv sync --group test
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
 		export QUILT_DISABLE_CACHE=true && \
 		export PYTHONPATH="src" && \
-		uv run python scripts/test-runner.py
+		uv run --group test python scripts/test-runner.py
 
 test-catalog:
 	@echo "Validating .env Quilt config matches quiltx..."
-	@uv sync --group test
 	@ENV_CATALOG_URL=$${QUILT_CATALOG_URL:-} && \
 		if [ -z "$$ENV_CATALOG_URL" ]; then \
 			echo "❌ QUILT_CATALOG_URL missing from environment (.env?)"; \
 			exit 1; \
 		fi; \
-		QUILTX_OUTPUT="$$(uv run python scripts/quilt_config_env.py)" && \
+		QUILTX_OUTPUT="$$(uv run --group test python scripts/quilt_config_env.py)" && \
 		QUILT_CATALOG_URL="" && QUILT_REGISTRY_URL="" && \
 		eval "$$QUILTX_OUTPUT" && \
 		QUILTX_CATALOG_URL=$$QUILT_CATALOG_URL && \
@@ -53,23 +51,20 @@ test-catalog:
 
 test-ci: | $(RESULTS_DIR)
 	@echo "Running CI tests..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/unit tests/func -v -m "not slow and not platform"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
+	@export PYTHONPATH="src" && uv run --group test python -m pytest tests/unit tests/func -v -m "not slow and not platform"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
 
 test-unit: $(RESULTS_DIR)/coverage-unit.xml
 
 $(RESULTS_DIR)/coverage-unit.xml: tests/unit/test_*.py | $(RESULTS_DIR)
 	@echo "Running unit tests only (fast, mocked)..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-unit.xml --cov-report=term-missing
+	@export PYTHONPATH="src" && uv run --group test python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-unit.xml --cov-report=term-missing
 
 test-func: test-catalog $(RESULTS_DIR)/coverage-func.xml
 
 $(RESULTS_DIR)/coverage-func.xml: tests/func/test_*.py | $(RESULTS_DIR)
 	@echo "Running func tests (mocked)..."
-	@uv sync --group test
 	@if [ -d "tests/func" ] && [ "$$(find tests/func -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run python -m pytest tests/func/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-func.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run --group test python -m pytest tests/func/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-func.xml --cov-report=term-missing; \
 	else \
 		echo "No func tests found, creating empty coverage file..."; \
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-func.xml; \
@@ -80,12 +75,11 @@ test-func-quilt3: test-catalog
 
 test-func-platform: test-catalog
 	@echo "Running platform backend func tests..."
-	@uv sync --group test
 	@export PYTHONPATH="src" && \
 		export PLATFORM_TEST_ENABLED=true && \
 		export TEST_BACKEND_MODE=platform && \
-		eval "$$(uv run python scripts/quilt_config_env.py)" && \
-		uv run python -m pytest tests/func/ -v
+		eval "$$(uv run --group test python scripts/quilt_config_env.py)" && \
+		uv run --group test python -m pytest tests/func/ -v
 
 test-e2e: test-catalog $(RESULTS_DIR)/coverage-e2e.xml
 
@@ -94,22 +88,20 @@ test-e2e-quilt3: test-catalog
 
 test-e2e-platform: test-catalog
 	@echo "Running platform backend e2e tests..."
-	@uv sync --group test
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
 		export PYTHONPATH="src" && \
 		export PLATFORM_TEST_ENABLED=true && \
 		export TEST_BACKEND_MODE=platform && \
-		eval "$$(uv run python scripts/quilt_config_env.py)" && \
-		uv run python -m pytest tests/e2e/ -v -m "not admin"; \
+		eval "$$(uv run --group test python scripts/quilt_config_env.py)" && \
+		uv run --group test python -m pytest tests/e2e/ -v -m "not admin"; \
 	else \
 		echo "No e2e tests found"; \
 	fi
 
 $(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py | $(RESULTS_DIR)
 	@echo "Running end-to-end workflow tests..."
-	@uv sync --group test
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run python -m pytest tests/e2e/ -v -m "not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run --group test python -m pytest tests/e2e/ -v -m "not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
 	else \
 		echo "No e2e tests found, creating empty coverage file..."; \
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-e2e.xml; \
@@ -119,133 +111,98 @@ coverage: $(RESULTS_DIR)/coverage-analysis.csv coverage-results | $(RESULTS_DIR)
 
 $(RESULTS_DIR)/coverage-analysis.csv: $(RESULTS_DIR)/coverage-unit.xml $(RESULTS_DIR)/coverage-func.xml $(RESULTS_DIR)/coverage-e2e.xml scripts/coverage_analysis.py | $(RESULTS_DIR)
 	@echo "Generating coverage analysis report..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
+	@export PYTHONPATH="src" && uv run --group test python scripts/coverage_analysis.py
 
 coverage-results: $(RESULTS_DIR)/coverage-analysis.csv scripts/tests/coverage_required.yaml scripts/tests/test_coverage_analysis.py
 	@echo "Validating coverage thresholds..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python scripts/tests/test_coverage_analysis.py || (echo "❌ Coverage thresholds not met! See scripts/tests/coverage_results.yaml for details" && exit 1)
+	@export PYTHONPATH="src" && uv run --group test python scripts/tests/test_coverage_analysis.py || (echo "❌ Coverage thresholds not met! See scripts/tests/coverage_results.yaml for details" && exit 1)
 	@echo "✅ Coverage validation passed - results in scripts/tests/coverage_results.yaml"
 
 coverage-html:
 	@echo "Running tests with HTML coverage report..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=html:htmlcov --cov-report=term-missing -v
+	@export PYTHONPATH="src" && uv run --group test python -m pytest tests/ --cov=quilt_mcp --cov-report=html:htmlcov --cov-report=term-missing -v
 	@echo "✅ HTML coverage report generated in htmlcov/"
 	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
 test-scripts: coverage docker-check docker-build scripts/tests/test_*.py | $(RESULTS_DIR)
 	@echo "===🔍Running script tests (coverage analysis, workflow behavior)..."
-	@uv sync --group test
 	@if [ -d "scripts/tests" ] && [ "$$(find scripts/tests -name "test_*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v; \
+		export PYTHONPATH="src" && uv run --group test python -m pytest scripts/tests/ -v; \
 	else \
 		echo "No script tests found"; \
 	fi
 	@echo "\n===🧪 Running MCP server tests (idempotent only)..."
-	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test
+	@uv run --group test python scripts/tests/test_mcp.py --docker --image quilt-mcp:test
 	@echo "\n===✅ Finished all script tests"
 
-# Default - uses local server (fast) with verbose output
-test-mcp:
-	@echo "===🧪 Running MCP server tests (local mode, verbose)..."
-	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py
+# MCP Server Testing Targets
+# Refactored per spec/a18-mcp-test/10-mcp-refactor-phase1.md
+# 10+ targets → 3 targets (one per deployment mode)
 
-# Explicit local mode with verbose output
-test-mcp-local:
-	@echo "===🧪 Running MCP server tests (local mode, verbose)..."
-	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py --local -v
+# Generate test config only when dependencies change (using platform backend)
+TOOL_SOURCES := $(shell find src/quilt_mcp/tools -name "*.py" -type f 2>/dev/null)
+scripts/tests/mcp-test.yaml: scripts/mcp-test-setup.py scripts/mcp-test.py $(TOOL_SOURCES) src/quilt_mcp/main.py
+	@echo "🔧 Regenerating test configuration (sources changed)..."
+	@uv run --group test python scripts/mcp-test-setup.py
 
-# Docker mode (requires docker-build)
-test-mcp-docker: docker-build
-	@echo "===🧪 Running MCP server tests (Docker mode, verbose)..."
-	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
+# Default - Platform backend, stdio transport (using consolidated mcp-test.py)
+test-mcp: scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running MCP server tests (platform backend, stdio)..."
+	@export TEST_BACKEND_MODE=platform && \
+		export FASTMCP_TRANSPORT=stdio && \
+		uv run --group test python scripts/mcp-test.py --spawn-local
 
-# Test orchestrator - compare stdio vs HTTP+JWT modes
-test-orchestrator: docker-build
-	@echo "===🔬 Running test orchestrator (stdio vs HTTP+JWT)..."
-	@uv sync --group test
-	@uv run python spec/a11-client-testing/18-test-orchestrator.py
+# Legacy - Quilt3 backend, stdio transport (using consolidated mcp-test.py)
+test-mcp-legacy: scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running MCP server tests (quilt3 backend, stdio - LEGACY)..."
+	@export TEST_BACKEND_MODE=quilt3 && \
+		export FASTMCP_TRANSPORT=stdio && \
+		uv run --group test python scripts/mcp-test.py --spawn-local
 
-# Stateless Deployment Testing (convenience target - included in test-all)
-test-stateless: docker-build
-	@echo "Running stateless deployment tests only..."
-	@echo "💡 Tip: Run 'make test-all' to run all tests including stateless"
+# Production validation - Platform backend, HTTP+JWT, Docker
+test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running MCP server tests (platform backend, HTTP+JWT, Docker)..."
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		export QUILT_DISABLE_CACHE=true && \
-		export PYTHONPATH="src" && \
-		uv run python -m pytest tests/stateless/ -v --tb=short --color=yes
-
-# Stateless MCP Testing with JWT Authentication (using Python docker_manager)
-test-mcp-stateless: docker-build
-	@echo "🔐 Testing stateless MCP with JWT authentication..."
-	@uv sync --group test
-	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		uv run python scripts/docker_manager.py start \
+		export TEST_BACKEND_MODE=platform && \
+		uv run --group test python scripts/docker_manager.py start \
 			--mode stateless \
 			--image $$TEST_DOCKER_IMAGE \
-			--name mcp-stateless-test \
+			--name mcp-docker-test \
 			--port 8002 \
 			--jwt-secret "test-secret" && \
-		(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
+		(uv run --group test python scripts/mcp-test.py http://localhost:8002/mcp \
 			--jwt \
-			--tools-test --resources-test \
 			--config scripts/tests/mcp-test.yaml && \
-		uv run python scripts/docker_manager.py stop --name mcp-stateless-test) || \
-		(uv run python scripts/docker_manager.py stop --name mcp-stateless-test && exit 1)
-	@echo "✅ Stateless JWT testing with catalog authentication completed"
+		uv run --group test python scripts/docker_manager.py stop --name mcp-docker-test) || \
+		(uv run --group test python scripts/docker_manager.py stop --name mcp-docker-test && exit 1)
+	@echo "✅ Docker testing completed"
 
-# Multiuser platform tests (Platform backend expectations)
+# Multiuser platform tests (pytest-based, unchanged)
 test-multiuser:
 	@echo "Running multiuser platform tests..."
-	@uv sync --group test
 	@export QUILT_MULTIUSER_MODE=true && \
 		export PYTHONPATH="src" && \
-		uv run python -m pytest tests/func/test_multiuser.py -v
-
-# Multiuser Testing with Fake Roles (for local development)
-test-multiuser-fake: docker-build
-	@echo "👥 Testing multiuser MCP with sample catalog JWTs (local dev only)..."
-	@uv sync --group test
-	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
-		uv run python scripts/docker_manager.py start \
-			--mode multiuser-fake \
-			--image $$TEST_DOCKER_IMAGE \
-			--name mcp-multiuser-fake-test \
-			--port 8003 \
-			--jwt-secret "test-secret" && \
-		(uv run python scripts/test-multiuser.py http://localhost:8003/mcp \
-			--verbose && \
-		uv run python scripts/docker_manager.py stop --name mcp-multiuser-fake-test) || \
-		(uv run python scripts/docker_manager.py stop --name mcp-multiuser-fake-test && exit 1)
-	@echo "✅ Multiuser fake role testing completed"
+		uv run --group test python -m pytest tests/func/test_multiuser.py -v
 
 # Code Quality Targets
 lint:
 	@echo "Running code linting and auto-fixing..."
-	@uv sync --group lint
 	@echo "Running ruff (format + lint) - auto-fixing..."
-	@uv run ruff format src/quilt_mcp/ tests/
-	@uv run ruff check --fix src/quilt_mcp/ tests/
+	@uv run --group lint ruff format src/quilt_mcp/ tests/
+	@uv run --group lint ruff check --fix src/quilt_mcp/ tests/
 	@echo "Running mypy type checking..."
-	@uv run mypy src/quilt_mcp/ --show-error-codes --pretty
+	@uv run --group lint mypy src/quilt_mcp/ --show-error-codes --pretty
 	@echo "✅ All linting completed"
 
 # Development Server Targets
 run:
 	@echo "Starting local MCP server..."
-	@uv sync
 	@echo "Server starting on $(DEV_ENDPOINT)"
 	@export PYTHONPATH="src" && uv run python src/main.py
 
 run-inspector:
 	@echo "Launching MCP Inspector for visual testing..."
 	@command -v npx >/dev/null || (echo "Error: npx not found. Please install Node.js first." && exit 1)
-	@uv sync
 	@echo "Starting MCP Inspector with server at $(DEV_ENDPOINT)"
 	@echo "Inspector UI will be available at http://127.0.0.1:6274"
 	@export PYTHONPATH="src" && npx @modelcontextprotocol/inspector uv run python src/main.py
