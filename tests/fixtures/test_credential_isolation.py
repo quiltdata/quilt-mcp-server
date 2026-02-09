@@ -7,7 +7,7 @@ import asyncio
 import pytest
 
 from quilt_mcp.context.factory import RequestContextFactory
-from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
+from quilt_mcp.context.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
 
 
 @pytest.mark.asyncio

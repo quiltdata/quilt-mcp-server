@@ -304,7 +304,14 @@ class TestAuthStatusTypeHints:
 
         # Check that all expected fields exist
         field_names = {f.name for f in fields}
-        expected_fields = {'is_authenticated', 'logged_in_url', 'catalog_name', 'registry_url'}
+        expected_fields = {
+            'is_authenticated',
+            'logged_in_url',
+            'catalog_name',
+            'registry_url',
+            'region',
+            'tabulator_data_catalog',
+        }
         assert field_names == expected_fields
 
         # Check field types

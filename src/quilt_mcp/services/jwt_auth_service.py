@@ -8,11 +8,10 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, Literal, Optional, cast
 
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     get_runtime_auth,
     get_runtime_claims,
 )
-from quilt_mcp.services.jwt_decoder import JwtDecodeError, get_jwt_decoder
 
 
 class JwtAuthServiceError(RuntimeError):
@@ -24,13 +23,17 @@ class JwtAuthServiceError(RuntimeError):
 
 
 class JWTAuthService:
-    """Resolve authentication context for Quilt MCP tools using JWT claims."""
+    """
+    JWT pass-through authentication service.
+
+    This service extracts JWT tokens from the runtime context and exchanges
+    them for temporary AWS credentials. It does NOT validate JWTs locally -
+    all validation happens at the GraphQL backend.
+    """
 
     auth_type: Literal["jwt"] = "jwt"
-    _ALLOWED_CLAIMS = {"id", "uuid", "exp"}
 
     def __init__(self) -> None:
-        self._decoder = get_jwt_decoder()
         self._cached_credentials: Optional[Dict[str, Any]] = None
         self._credentials_lock = threading.Lock()
 
@@ -56,6 +59,9 @@ class JWTAuthService:
         Exchanges JWT token for temporary AWS credentials and caches them
         with automatic refresh when expired.
 
+        Note: This does NOT validate the JWT locally. The GraphQL backend
+        will validate the JWT when we call the credential exchange endpoint.
+
         Returns:
             boto3.Session configured with temporary AWS credentials
         """
@@ -68,16 +74,7 @@ class JWTAuthService:
                 code="missing_jwt",
             )
 
-        # Validate JWT token
-        if runtime_auth.claims:
-            claims = runtime_auth.claims
-        else:
-            try:
-                claims = self._decoder.decode(runtime_auth.access_token)
-            except JwtDecodeError as exc:
-                raise JwtAuthServiceError(f"Invalid JWT: {exc.detail}", code=exc.code) from exc
-
-        # Get or refresh AWS credentials
+        # Pass JWT directly to backend - GraphQL validates it
         credentials = self._get_or_refresh_credentials(runtime_auth.access_token)
 
         # Create boto3 session with temporary credentials
@@ -183,44 +180,37 @@ class JWTAuthService:
             raise JwtAuthServiceError(f"Failed to fetch AWS credentials: {str(exc)}", code="request_failed") from exc
 
     def is_valid(self) -> bool:
+        """
+        Check if JWT token is present and has correct structure.
+
+        Note: This does NOT validate signatures, expiration, or claims.
+        The GraphQL backend will perform full validation.
+
+        Returns:
+            True if token exists and has valid JWT structure (3 dot-separated parts)
+        """
         runtime_auth = get_runtime_auth()
-        if runtime_auth is None:
+        if runtime_auth is None or not runtime_auth.access_token:
             return False
 
-        claims = runtime_auth.claims or {}
-        if not claims and runtime_auth.access_token:
-            try:
-                claims = self._decoder.decode(runtime_auth.access_token)
-            except JwtDecodeError:
-                return False
-
-        if set(claims.keys()) - self._ALLOWED_CLAIMS:
-            return False
-
-        if not (claims.get("id") or claims.get("uuid")):
-            return False
-
-        exp = claims.get("exp")
-        if exp is None:
-            return False
-        try:
-            return float(exp) > time.time()
-        except (TypeError, ValueError):
-            return False
+        # Check JWT structure only (3 dot-separated parts)
+        token = runtime_auth.access_token
+        return token.count(".") == 2
 
     def get_user_identity(self) -> Dict[str, str | None]:
+        """
+        Extract user identity from JWT claims in runtime context.
+
+        Note: This uses claims from the runtime context (populated by middleware
+        or GraphQL response). It does NOT decode JWTs locally.
+
+        Returns:
+            Dictionary with user_id, email, and name (values may be None)
+        """
         runtime_auth = get_runtime_auth()
         claims: Dict[str, Any] = {}
         if runtime_auth:
             claims = runtime_auth.claims or {}
-            if not claims and runtime_auth.access_token:
-                try:
-                    claims = self._decoder.decode(runtime_auth.access_token)
-                except JwtDecodeError:
-                    claims = {}
-
-        if set(claims.keys()) - self._ALLOWED_CLAIMS:
-            claims = {}
 
         user_id = claims.get("id") or claims.get("uuid")
         if not user_id:

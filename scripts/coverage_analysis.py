@@ -180,10 +180,18 @@ def generate_coverage_analysis() -> None:
         # Create empty CSV file to maintain workflow compatibility
         with open(output_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow([
-                'file', 'unit_pct_covered', 'func_pct_covered', 'e2e_pct_covered',
-                'combined_pct_covered', 'lines_total', 'lines_covered', 'coverage_gaps'
-            ])
+            writer.writerow(
+                [
+                    'file',
+                    'unit_pct_covered',
+                    'func_pct_covered',
+                    'e2e_pct_covered',
+                    'combined_pct_covered',
+                    'lines_total',
+                    'lines_covered',
+                    'coverage_gaps',
+                ]
+            )
         return
 
     # Build comprehensive coverage analysis
@@ -205,10 +213,18 @@ def generate_coverage_analysis() -> None:
             writer = csv.writer(csvfile)
 
             # Write header
-            writer.writerow([
-                'file', 'unit_pct_covered', 'func_pct_covered', 'e2e_pct_covered',
-                'combined_pct_covered', 'lines_total', 'lines_covered', 'coverage_gaps'
-            ])
+            writer.writerow(
+                [
+                    'file',
+                    'unit_pct_covered',
+                    'func_pct_covered',
+                    'e2e_pct_covered',
+                    'combined_pct_covered',
+                    'lines_total',
+                    'lines_covered',
+                    'coverage_gaps',
+                ]
+            )
 
             # Calculate totals for summary using global line tracking
             total_lines_all = 0
@@ -233,16 +249,18 @@ def generate_coverage_analysis() -> None:
                 for line_num in coverage.e2e_lines:
                     all_e2e_lines.add(f"{file_path}:{line_num}")
 
-                writer.writerow([
-                    file_path,
-                    f"{unit_pct:.1f}",
-                    f"{func_pct:.1f}",
-                    f"{e2e_pct:.1f}",
-                    f"{combined_pct:.1f}",
-                    coverage.total_lines,
-                    len(combined_lines),
-                    coverage.get_coverage_gaps()
-                ])
+                writer.writerow(
+                    [
+                        file_path,
+                        f"{unit_pct:.1f}",
+                        f"{func_pct:.1f}",
+                        f"{e2e_pct:.1f}",
+                        f"{combined_pct:.1f}",
+                        coverage.total_lines,
+                        len(combined_lines),
+                        coverage.get_coverage_gaps(),
+                    ]
+                )
 
             # Calculate summary percentages using global line counts
             if total_lines_all > 0:
@@ -255,16 +273,18 @@ def generate_coverage_analysis() -> None:
                 summary_combined_pct = len(all_combined_lines) / total_lines_all * 100
 
                 # Write summary row
-                writer.writerow([
-                    "SUMMARY",
-                    f"{summary_unit_pct:.1f}",
-                    f"{summary_func_pct:.1f}",
-                    f"{summary_e2e_pct:.1f}",
-                    f"{summary_combined_pct:.1f}",
-                    total_lines_all,
-                    len(all_combined_lines),
-                    "overall-totals"
-                ])
+                writer.writerow(
+                    [
+                        "SUMMARY",
+                        f"{summary_unit_pct:.1f}",
+                        f"{summary_func_pct:.1f}",
+                        f"{summary_e2e_pct:.1f}",
+                        f"{summary_combined_pct:.1f}",
+                        total_lines_all,
+                        len(all_combined_lines),
+                        "overall-totals",
+                    ]
+                )
 
         logger.info(f"Coverage analysis CSV generated: {output_csv}")
         logger.info(f"Analyzed {len(file_coverage_map)} files across {len(coverage_files)} test suites")

@@ -51,6 +51,7 @@ sys.path.insert(0, str(repo_root / "src"))
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
+
 load_dotenv(repo_root / ".env")
 
 from quilt_mcp.ops.factory import QuiltOpsFactory
@@ -82,17 +83,16 @@ def check_credentials_or_fail():
     # Check if catalog config exists
     config_file = os.path.expanduser("~/.quilt/config.yml")
     if not os.path.exists(config_file):
-        errors.append(
-            "❌ Quilt3 not configured!\n"
-            "   Run: quilt3 catalog login"
-        )
+        errors.append("❌ Quilt3 not configured!\n   Run: quilt3 catalog login")
 
     # Check for AWS credentials (basic check)
-    has_aws_env = any([
-        os.getenv("AWS_ACCESS_KEY_ID"),
-        os.getenv("AWS_PROFILE"),
-        os.path.exists(os.path.expanduser("~/.aws/credentials"))
-    ])
+    has_aws_env = any(
+        [
+            os.getenv("AWS_ACCESS_KEY_ID"),
+            os.getenv("AWS_PROFILE"),
+            os.path.exists(os.path.expanduser("~/.aws/credentials")),
+        ]
+    )
     if not has_aws_env:
         errors.append(
             "⚠️  No AWS credentials detected!\n"
@@ -138,7 +138,7 @@ class StateManager:
             'table_exists': False,
             'last_step': 0,
             'created_at': None,
-            'history': []
+            'history': [],
         }
 
     def save(self):
@@ -158,7 +158,7 @@ class StateManager:
             'table_exists': False,
             'last_step': 0,
             'created_at': None,
-            'history': []
+            'history': [],
         }
         if self.state_file.exists():
             self.state_file.unlink()
@@ -167,12 +167,9 @@ class StateManager:
     def record_step(self, step_num: int, step_name: str, success: bool):
         """Record a step execution in history."""
         self.state['last_step'] = step_num
-        self.state['history'].append({
-            'step': step_num,
-            'name': step_name,
-            'success': success,
-            'timestamp': datetime.now().isoformat()
-        })
+        self.state['history'].append(
+            {'step': step_num, 'name': step_name, 'success': success, 'timestamp': datetime.now().isoformat()}
+        )
         self.save()
 
     def get_status(self) -> str:
@@ -186,7 +183,7 @@ class StateManager:
             f"Current table: {self.state['current_table_name']}",
             f"Table exists: {self.state['table_exists']}",
             f"Last step: {self.state['last_step']}",
-            f"Created: {self.state.get('created_at', 'unknown')}"
+            f"Created: {self.state.get('created_at', 'unknown')}",
         ]
         return "\n  ".join(status_lines)
 
@@ -237,11 +234,7 @@ def demo_create_table(backend, bucket, table_name, state_manager, verbose=False)
     print(f"  Table: {table_name}")
 
     try:
-        result = backend.create_tabulator_table(
-            bucket=bucket,
-            table_name=table_name,
-            config=EXAMPLE_CONFIG_YAML
-        )
+        result = backend.create_tabulator_table(bucket=bucket, table_name=table_name, config=EXAMPLE_CONFIG_YAML)
 
         if result.get('__typename') == 'BucketConfig':
             print(f"  ✅ Table created successfully")
@@ -265,6 +258,7 @@ def demo_create_table(backend, bucket, table_name, state_manager, verbose=False)
         print(f"  ❌ Error: {e}")
         if verbose:
             import traceback
+
             traceback.print_exc()
         state_manager.record_step(1, "create_table", False)
         return False
@@ -300,6 +294,7 @@ def demo_list_tables(backend, bucket, state_manager, verbose=False):
         print(f"  ❌ Error: {e}")
         if verbose:
             import traceback
+
             traceback.print_exc()
         state_manager.record_step(2, "list_tables", False)
         return False
@@ -329,6 +324,7 @@ def demo_get_table(backend, bucket, table_name, state_manager, verbose=False):
         print(f"  ❌ Error: {e}")
         if verbose:
             import traceback
+
             traceback.print_exc()
         state_manager.record_step(3, "get_table", False)
         return False
@@ -362,6 +358,7 @@ def demo_rename_table(backend, bucket, old_name, new_name, state_manager, verbos
         print(f"  ❌ Error: {e}")
         if verbose:
             import traceback
+
             traceback.print_exc()
         state_manager.record_step(4, "rename_table", False)
         return False
@@ -384,22 +381,12 @@ def demo_query_table(bucket, table_name, state_manager, verbose=False):
     try:
         # Call the companion query script
         # The script will auto-discover stack, catalog, and workgroup from bucket config
-        cmd = [
-            "uv", "run", "python", str(QUERY_SCRIPT),
-            "--bucket", bucket,
-            "--table", table_name,
-            "--limit", "5"
-        ]
+        cmd = ["uv", "run", "python", str(QUERY_SCRIPT), "--bucket", bucket, "--table", table_name, "--limit", "5"]
 
         if verbose:
             print(f"  Running: {' '.join(cmd)}")
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
         if result.returncode == 0:
             print(f"  ✅ Query executed successfully")
@@ -434,6 +421,7 @@ def demo_query_table(bucket, table_name, state_manager, verbose=False):
         print(f"  ❌ Error running query: {e}")
         if verbose:
             import traceback
+
             traceback.print_exc()
         state_manager.record_step(5, "query_table", False)
         return False
@@ -466,6 +454,7 @@ def demo_delete_table(backend, bucket, table_name, state_manager, verbose=False)
         print(f"  ❌ Error: {e}")
         if verbose:
             import traceback
+
             traceback.print_exc()
         state_manager.record_step(6, "delete_table", False)
         return False
@@ -475,29 +464,12 @@ def main():
     """Main integration test function."""
     parser = argparse.ArgumentParser(
         description="Integration test for Tabulator lifecycle (REAL backend only)",
-        epilog="This script hits the REAL backend - no mock mode!"
+        epilog="This script hits the REAL backend - no mock mode!",
     )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Show detailed output"
-    )
-    parser.add_argument(
-        "--step",
-        type=int,
-        choices=[1, 2, 3, 4, 5, 6],
-        help="Run a specific step (1-6)"
-    )
-    parser.add_argument(
-        "--reset",
-        action="store_true",
-        help="Reset persistent state and exit"
-    )
-    parser.add_argument(
-        "--status",
-        action="store_true",
-        help="Show current state and exit"
-    )
+    parser.add_argument("--verbose", action="store_true", help="Show detailed output")
+    parser.add_argument("--step", type=int, choices=[1, 2, 3, 4, 5, 6], help="Run a specific step (1-6)")
+    parser.add_argument("--reset", action="store_true", help="Reset persistent state and exit")
+    parser.add_argument("--status", action="store_true", help="Show current state and exit")
     args = parser.parse_args()
 
     # Initialize state manager
@@ -548,10 +520,22 @@ def main():
         steps = [
             (1, "Create table", lambda: demo_create_table(backend, bucket, table_name, state_manager, args.verbose)),
             (2, "List tables", lambda: demo_list_tables(backend, bucket, state_manager, args.verbose)),
-            (3, "Get specific table", lambda: demo_get_table(backend, bucket, table_name, state_manager, args.verbose)),
-            (4, "Rename table", lambda: demo_rename_table(backend, bucket, table_name, new_table_name, state_manager, args.verbose)),
+            (
+                3,
+                "Get specific table",
+                lambda: demo_get_table(backend, bucket, table_name, state_manager, args.verbose),
+            ),
+            (
+                4,
+                "Rename table",
+                lambda: demo_rename_table(backend, bucket, table_name, new_table_name, state_manager, args.verbose),
+            ),
             (5, "Query table", lambda: demo_query_table(bucket, new_table_name, state_manager, args.verbose)),
-            (6, "Delete table", lambda: demo_delete_table(backend, bucket, new_table_name, state_manager, args.verbose)),
+            (
+                6,
+                "Delete table",
+                lambda: demo_delete_table(backend, bucket, new_table_name, state_manager, args.verbose),
+            ),
         ]
 
         # Run specific step or all steps
@@ -600,6 +584,7 @@ def main():
         print(f"\n❌ Fatal error: {e}")
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 

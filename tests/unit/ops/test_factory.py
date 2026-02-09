@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch, MagicMock
 import os
 
 from quilt_mcp.ops.exceptions import AuthenticationError
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     RuntimeAuthState,
     get_runtime_environment,
     push_runtime_context,

@@ -601,7 +601,7 @@ class AWSPermissionDiscovery:
                 return set()
 
             # Get catalog config to find registry URL
-            from quilt_mcp.utils import normalize_url
+            from quilt_mcp.utils.common import normalize_url
 
             normalized_catalog = normalize_url(logged_in_url)
             config_url = f"{normalized_catalog}/config.json"

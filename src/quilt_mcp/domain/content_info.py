@@ -5,7 +5,7 @@ in a way that's independent of the underlying backend (quilt3 library or Platfor
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,7 @@ class Content_Info:
         type: Content type ('file' or 'directory')
         modified_date: ISO 8601 formatted modification date (optional)
         download_url: URL for downloading the content (optional)
+        meta: Entry-level metadata dictionary (optional)
     """
 
     path: str
@@ -28,6 +29,7 @@ class Content_Info:
     type: str
     modified_date: Optional[str]
     download_url: Optional[str]
+    meta: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
         """Validate required fields after initialization."""
@@ -56,4 +58,5 @@ class Content_Info:
 
     def __hash__(self) -> int:
         """Custom hash implementation for hashable dataclass."""
+        # meta is a dict and not hashable, so we exclude it from hash
         return hash((self.path, self.size, self.type, self.modified_date, self.download_url))

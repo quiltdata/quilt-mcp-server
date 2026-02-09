@@ -13,8 +13,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, Annotated, Literal
 from pydantic import Field
 from ..services.athena_service import AthenaQueryService
-from ..utils import format_error_response
-from ..models import (
+from quilt_mcp.utils.common import format_error_response
+from quilt_mcp.tools.responses import (
     AthenaDatabasesListResponse,
     AthenaDatabasesListSuccess,
     AthenaTablesListResponse,
@@ -480,7 +480,7 @@ def athena_query_execute(
         formatted_result = service.format_results(result, output_format)
 
         # Enhance with table formatting for better readability
-        from ..formatting import format_athena_results_as_table
+        from quilt_mcp.utils.formatting import format_athena_results_as_table
 
         formatted_result = format_athena_results_as_table(formatted_result)
 

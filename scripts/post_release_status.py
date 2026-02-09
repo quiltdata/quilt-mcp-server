@@ -201,9 +201,7 @@ def post_comment_to_pr(
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Post release status to GitHub releases and PRs"
-    )
+    parser = argparse.ArgumentParser(description="Post release status to GitHub releases and PRs")
     parser.add_argument(
         "--version",
         required=True,

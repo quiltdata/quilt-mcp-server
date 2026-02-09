@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, NotFoundError, ValidationError
-from quilt_mcp.runtime_context import (
+from quilt_mcp.context.runtime_context import (
     RuntimeAuthState,
     get_runtime_environment,
     push_runtime_context,
@@ -137,19 +137,16 @@ def test_list_buckets(monkeypatch):
 def test_get_catalog_config(monkeypatch):
     backend = _make_backend(monkeypatch)
 
-    class DummyResponse:
-        def raise_for_status(self):
-            return None
+    # Mock the backend primitive
+    def mock_get_config(catalog_url):
+        return {
+            "region": "us-east-1",
+            "apiGatewayEndpoint": "https://api.example.com",
+            "registryUrl": "https://registry.example.com",
+            "analyticsBucket": "quilt-demo-analyticsbucket-123",
+        }
 
-        def json(self):
-            return {
-                "region": "us-east-1",
-                "apiGatewayEndpoint": "https://api.example.com",
-                "registryUrl": "https://registry.example.com",
-                "analyticsBucket": "quilt-demo-analyticsbucket-123",
-            }
-
-    backend._session.get = lambda *args, **kwargs: DummyResponse()
+    backend._backend_get_catalog_config = mock_get_config
     config = backend.get_catalog_config("https://example.quiltdata.com")
     assert config.registry_url == "https://registry.example.com"
     assert config.stack_prefix == "quilt-demo"
@@ -173,19 +170,22 @@ def test_configure_catalog_rejects_dynamic_config(monkeypatch):
 
 def test_diff_packages_detects_changes(monkeypatch):
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {
-        "data": {
-            "p1": {"revision": {"contentsFlatMap": {"a.txt": {"size": 1, "hash": "h1", "physicalKey": "s3://b/a"}}}},
-            "p2": {
+
+    def mock_get_package(package_name, registry, top_hash=None):
+        if package_name == "team/a":
+            return {"revision": {"contentsFlatMap": {"a.txt": {"size": 1, "hash": "h1", "physicalKey": "s3://b/a"}}}}
+        else:  # team/b
+            return {
                 "revision": {
                     "contentsFlatMap": {
                         "a.txt": {"size": 2, "hash": "h2", "physicalKey": "s3://b/a"},
                         "b.txt": {"size": 1, "hash": "h3", "physicalKey": "s3://b/b"},
                     }
                 }
-            },
-        }
-    }
+            }
+
+    backend._backend_get_package = mock_get_package
+
     diff = backend.diff_packages("team/a", "team/b", "s3://bucket")
     assert diff["added"] == ["b.txt"]
     assert diff["modified"] == ["a.txt"]
@@ -343,31 +343,6 @@ def test_get_content_url_presigned(monkeypatch):
 
     url = backend.get_content_url("team/data", "s3://bucket", "key")
     assert url == "https://signed"
-
-
-def test_list_all_packages_paginates(monkeypatch):
-    from quilt_mcp.backends.platform_backend import Platform_Backend
-
-    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
-    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
-    token = _push_jwt_context()
-    try:
-        backend = Platform_Backend()
-    finally:
-        reset_runtime_context(token)
-
-    responses = [
-        {"data": {"packages": {"total": 101, "page": [{"name": "a"}]}}},
-        {"data": {"packages": {"total": 101, "page": [{"name": "b"}]}}},
-    ]
-
-    def _side_effect(*args, **kwargs):
-        return responses.pop(0)
-
-    backend.execute_graphql_query = _side_effect
-
-    results = backend.list_all_packages("s3://test-bucket")
-    assert results == ["a", "b"]
 
 
 def test_get_package_info_missing(monkeypatch):

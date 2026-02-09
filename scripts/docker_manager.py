@@ -27,15 +27,21 @@ except ImportError:
 
 
 # Configuration
-# DOCKER_IMAGE_NAME must be set (typically exported from Makefile)
-_docker_image_name = os.getenv("DOCKER_IMAGE_NAME")
-if not _docker_image_name:
-    print("ERROR: DOCKER_IMAGE_NAME environment variable must be set", file=sys.stderr)
-    sys.exit(1)
-DOCKER_IMAGE_NAME: str = _docker_image_name
+# DOCKER_IMAGE_NAME can be set via environment variable (typically exported from Makefile)
+# If not set, it will be checked when actually needed (allows --help to work)
+DOCKER_IMAGE_NAME: Optional[str] = os.getenv("DOCKER_IMAGE_NAME")
 
 DEFAULT_REGION = "us-east-1"
 LATEST_TAG = "latest"
+
+
+def get_docker_image_name() -> str:
+    """Get DOCKER_IMAGE_NAME or raise an error if not set."""
+    if not DOCKER_IMAGE_NAME:
+        print("ERROR: DOCKER_IMAGE_NAME environment variable must be set", file=sys.stderr)
+        print("  Set it like: export DOCKER_IMAGE_NAME=quiltdata/mcp", file=sys.stderr)
+        sys.exit(1)
+    return DOCKER_IMAGE_NAME
 
 
 @dataclass(frozen=True)
@@ -110,7 +116,7 @@ class DockerManager:
         region: str = DEFAULT_REGION,
         dry_run: bool = False,
     ):
-        self.image_name = DOCKER_IMAGE_NAME
+        self.image_name = get_docker_image_name()
         self.region = region
         self.dry_run = dry_run
         self.registry = self._get_registry(registry)
@@ -1116,7 +1122,7 @@ def cmd_tags(args: argparse.Namespace) -> int:
         if args.output == "json":
             payload = {
                 "registry": manager.registry,
-                "image": DOCKER_IMAGE_NAME,
+                "image": get_docker_image_name(),
                 "tags": [ref.tag for ref in references],
                 "uris": [ref.uri for ref in references],
             }
@@ -1162,7 +1168,7 @@ def cmd_info(args: argparse.Namespace) -> int:
 
     try:
         manager = DockerManager(registry=args.registry)
-        ref = ImageReference(manager.registry, DOCKER_IMAGE_NAME, version)
+        ref = ImageReference(manager.registry, get_docker_image_name(), version)
 
         if args.output == "github":
             # Output for GitHub Actions

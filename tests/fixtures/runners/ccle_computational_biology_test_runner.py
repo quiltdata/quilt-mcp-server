@@ -26,7 +26,7 @@ import sys
 
 sys.path.append(str(Path(__file__).parent / "app"))
 
-from quilt_mcp.utils import create_mcp_server, register_tools
+from quilt_mcp.utils.common import create_mcp_server, register_tools
 
 
 class CCLEComputationalBiologyTester:

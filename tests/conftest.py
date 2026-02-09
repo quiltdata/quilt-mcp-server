@@ -10,8 +10,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict, Any
 
-from tests.jwt_helpers import get_sample_catalog_claims, get_sample_catalog_token
-
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
@@ -49,6 +47,11 @@ if app_dir not in sys.path:
 # ============================================================================
 
 QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
+
+# Test package configuration (can reference any package in any bucket)
+# These are used for basic connectivity checks only
+KNOWN_TEST_PACKAGE = os.getenv("QUILT_TEST_PACKAGE", "test/raw")
+KNOWN_TEST_ENTRY = os.getenv("QUILT_TEST_ENTRY", "README.md")
 
 
 def _is_truthy_env(value: str | None) -> bool:
@@ -173,7 +176,7 @@ def test_env():
 def clean_auth():
     """Ensure runtime auth state doesn't leak between tests (opt-in)."""
     try:
-        from quilt_mcp.runtime_context import clear_runtime_auth, update_runtime_metadata
+        from quilt_mcp.context.runtime_context import clear_runtime_auth, update_runtime_metadata
 
         clear_runtime_auth()
         update_runtime_metadata(jwt_assumed_session=None, jwt_assumed_expiration=None)
@@ -191,7 +194,7 @@ def clean_auth():
     yield
 
     try:
-        from quilt_mcp.runtime_context import clear_runtime_auth, update_runtime_metadata
+        from quilt_mcp.context.runtime_context import clear_runtime_auth, update_runtime_metadata
 
         clear_runtime_auth()
         update_runtime_metadata(jwt_assumed_session=None, jwt_assumed_expiration=None)
@@ -214,7 +217,7 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
     del test_env
 
     from quilt_mcp.config import reset_mode_config, set_test_mode_config
-    from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
+    from quilt_mcp.context.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
 
     mode = request.param
     token_handle = None
@@ -231,14 +234,36 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
         monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
         monkeypatch.setenv("QUILT_CATALOG_URL", quilt_catalog_url)
         monkeypatch.setenv("QUILT_REGISTRY_URL", quilt_registry_url)
-        monkeypatch.setenv("MCP_JWT_SECRET", os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret"))
+
+        jwt_secret = os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret")
+        monkeypatch.setenv("MCP_JWT_SECRET", jwt_secret)
+
+        # Use real JWT from environment if available, otherwise generate test JWT
+        access_token = os.getenv("PLATFORM_TEST_JWT_TOKEN")
+        if not access_token:
+            # Generate test JWT for mocked platform tests
+            import jwt as pyjwt
+            import time
+            import uuid
+
+            claims = {
+                "id": "test-user-platform",
+                "uuid": str(uuid.uuid4()),
+                "exp": int(time.time()) + 3600,
+            }
+            access_token = pyjwt.encode(claims, jwt_secret, algorithm="HS256")
+        else:
+            # Decode real JWT to get claims
+            import jwt as pyjwt
+
+            claims = pyjwt.decode(access_token, options={"verify_signature": False})
 
         token_handle = push_runtime_context(
             environment="web",
             auth=RuntimeAuthState(
                 scheme="Bearer",
-                access_token=get_sample_catalog_token(),
-                claims=get_sample_catalog_claims(),
+                access_token=access_token,
+                claims=claims,
             ),
         )
 
@@ -427,3 +452,274 @@ def platform_backend():
         pytest.skip(f"Failed to import Platform_Backend: {e}")
     except Exception as e:
         pytest.skip(f"Failed to initialize Platform_Backend: {e}")
+
+
+# ============================================================================
+# Docker Infrastructure (Shared by stateless and e2e tests)
+# ============================================================================
+#
+# These fixtures provide Docker container infrastructure for testing the
+# containerized MCP server. They are shared between:
+#
+# 1. tests/stateless/ - Validates deployment constraints (security, resources, JWT)
+# 2. tests/e2e/ - Validates functional correctness (MCP protocol, backend-agnostic)
+#
+# Key fixtures:
+# - docker_client: Docker client for container management
+# - docker_image_name: Image name to test (from TEST_DOCKER_IMAGE env var)
+# - build_docker_image: Builds the Docker image once per session
+# - stateless_container: Starts container with production-like constraints
+# - container_url: HTTP endpoint URL for making requests to the container
+# - get_container_filesystem_writes: Helper to detect filesystem changes
+#
+# See: spec/a18-valid-jwts/08-test-organization.md
+# ============================================================================
+
+
+def make_test_jwt(
+    *,
+    secret: str,
+    subject: str = "stateless-user",
+    expires_in: int = 600,
+    extra_claims: Dict[str, Any] | None = None,
+) -> str:
+    """Generate a catalog-format JWT for testing.
+
+    Args:
+        secret: HS256 shared secret for signing
+        subject: User ID (goes in 'id' claim)
+        expires_in: Expiration time in seconds from now
+        extra_claims: Additional claims to include
+
+    Returns:
+        Signed JWT token string
+    """
+    import jwt
+    import time
+    import uuid
+
+    payload: Dict[str, Any] = {
+        "id": subject,
+        "uuid": str(uuid.uuid4()),
+        "exp": int(time.time()) + expires_in,
+    }
+
+    if extra_claims:
+        payload.update(extra_claims)
+
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+@pytest.fixture(scope="session")
+def docker_client():
+    """Provide Docker client for container management.
+
+    Used by both stateless tests (to verify deployment constraints)
+    and e2e tests (to test MCP protocol functionality).
+    """
+    import docker
+
+    return docker.from_env()
+
+
+@pytest.fixture(scope="session")
+def docker_image_name() -> str:
+    """Get the Docker image name to test.
+
+    Defaults to 'quilt-mcp-server:test' but can be overridden with
+    TEST_DOCKER_IMAGE environment variable.
+    """
+    return os.getenv("TEST_DOCKER_IMAGE", "quilt-mcp-server:test")
+
+
+@pytest.fixture(scope="session")
+def build_docker_image(docker_client, docker_image_name: str) -> str:
+    """Build the Docker image for testing.
+
+    This fixture builds the image once per session and returns the image name.
+    Both stateless and e2e tests use this same image.
+    """
+    print(f"\n🔨 Building Docker image: {docker_image_name}")
+
+    # Get project root (parent directory of tests/)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Build image
+    image, build_logs = docker_client.images.build(
+        path=project_root,
+        tag=docker_image_name,
+        rm=True,
+        forcerm=True,
+    )
+
+    # Print build summary
+    print(f"✅ Built image: {image.short_id}")
+    return docker_image_name
+
+
+@pytest.fixture
+def stateless_container(
+    docker_client,
+    build_docker_image: str,
+):
+    """
+    Start a container with stateless deployment constraints.
+
+    This fixture creates a container with:
+    - Read-only root filesystem
+    - Tmpfs mounts for temporary storage
+    - Security constraints (no-new-privileges, cap-drop=ALL)
+    - Resource limits (512M memory, 1.0 CPU)
+    - JWT-only authentication mode
+
+    Function-scoped: Each test gets a fresh container to ensure isolation.
+
+    Used by both stateless tests (to verify constraints) and e2e tests
+    (to test MCP protocol functionality).
+    """
+    from typing import Generator
+    from docker.models.containers import Container
+
+    container: Container | None = None
+
+    try:
+        # Container configuration matching production constraints
+        container = docker_client.containers.run(
+            image=build_docker_image,
+            detach=True,
+            remove=False,  # Don't auto-remove so we can inspect it
+            read_only=True,  # Read-only root filesystem
+            security_opt=["no-new-privileges:true"],  # Prevent privilege escalation
+            cap_drop=["ALL"],  # Drop all capabilities
+            tmpfs={
+                "/tmp": "size=100M,mode=1777",  # noqa: S108
+                # "/app/.cache": "size=50M,mode=700",  # Not needed with QUILT_DISABLE_CACHE=true
+                "/run": "size=10M,mode=755",
+            },
+            mem_limit="512m",  # Memory limit
+            memswap_limit="512m",  # No swap
+            cpu_quota=100000,  # 1.0 CPU (100000/100000)
+            cpu_period=100000,
+            environment={
+                "QUILT_MULTIUSER_MODE": "true",  # Enable multiuser mode
+                "MCP_JWT_SECRET": "test-secret",  # Test JWT secret
+                "QUILT_CATALOG_URL": "http://test-catalog.example.com",  # Required for multiuser
+                "QUILT_REGISTRY_URL": "http://test-registry.example.com",  # Required for multiuser
+                "QUILT_DISABLE_CACHE": "true",  # Disable caching
+                "HOME": "/tmp",  # Redirect home directory  # noqa: S108
+                "LOG_LEVEL": "DEBUG",  # Verbose logging
+                "FASTMCP_TRANSPORT": "http",
+                "FASTMCP_HOST": "0.0.0.0",  # noqa: S104
+                "FASTMCP_PORT": "8000",
+            },
+            ports={"8000/tcp": None},  # Random host port
+        )
+
+        # Wait for container to be healthy
+        print(f"🚀 Started container: {container.short_id}")
+        import time
+        import httpx
+
+        # Wait for HTTP server to be ready (up to 10 seconds)
+        container.reload()
+        ports = container.ports
+        if "8000/tcp" not in ports or not ports["8000/tcp"]:
+            raise RuntimeError("Container port 8000 not exposed")
+
+        host_port = ports["8000/tcp"][0]["HostPort"]
+        url = f"http://localhost:{host_port}"
+
+        for attempt in range(20):  # 20 attempts * 0.5s = 10s max
+            time.sleep(0.5)
+            container.reload()
+
+            if container.status != "running":
+                logs = container.logs().decode("utf-8")
+                raise RuntimeError(f"Container failed to start: {logs}")
+
+            try:
+                response = httpx.get(f"{url}/", timeout=2.0)
+                if response.status_code == 200:
+                    print(f"✅ Container running and healthy: {container.short_id}")
+                    break
+            except (httpx.ConnectError, httpx.ReadError, httpx.RemoteProtocolError):
+                # Server not ready yet, continue waiting
+                continue
+        else:
+            logs = container.logs().decode("utf-8")
+            raise RuntimeError(f"Container did not become healthy after 10s: {logs}")
+
+        yield container
+
+    finally:
+        if container:
+            try:
+                print(f"\n🧹 Cleaning up container: {container.short_id}")
+                container.stop(timeout=5)
+                container.remove(force=True)
+                print("✅ Container cleaned up")
+            except Exception as e:
+                print(f"⚠️  Error cleaning up container: {e}")
+
+
+@pytest.fixture
+def container_url(stateless_container) -> str:
+    """Get the HTTP URL for the container's MCP server.
+
+    This fixture is used by both stateless tests (to verify deployment)
+    and e2e tests (to test MCP protocol functionality).
+
+    E2E tests are completely backend-agnostic - they only use this URL
+    to make HTTP requests and don't know or care what backend is running.
+
+    Function-scoped to match stateless_container fixture.
+    """
+    stateless_container.reload()
+    ports = stateless_container.ports
+
+    if "8000/tcp" not in ports or not ports["8000/tcp"]:
+        raise RuntimeError("Container port 8000 not exposed")
+
+    host_port = ports["8000/tcp"][0]["HostPort"]
+    return f"http://localhost:{host_port}"
+
+
+def get_container_filesystem_writes(container) -> list[str]:
+    """
+    Get list of files written outside tmpfs directories.
+
+    Uses `docker diff` to detect filesystem changes.
+    Used by stateless tests to verify read-only filesystem enforcement.
+    """
+    import subprocess
+
+    result = subprocess.run(
+        ["docker", "diff", container.id],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        return []
+
+    # Parse docker diff output (format: "A /path/to/file" or "C /path/to/file")
+    changes = []
+    tmpfs_paths = {"/tmp", "/run"}  # noqa: S108
+
+    for line in result.stdout.strip().split("\n"):
+        if not line:
+            continue
+
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            continue
+
+        change_type, path = parts
+
+        # Ignore changes in tmpfs directories
+        if any(path.startswith(tmpfs_path) for tmpfs_path in tmpfs_paths):
+            continue
+
+        changes.append(path)
+
+    return changes

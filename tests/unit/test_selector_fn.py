@@ -44,6 +44,10 @@ class MockPackage:
                     raise ValueError(f"selector_fn must return boolean, got {type(should_include)}")
         return "test_top_hash"
 
+    def build(self, name, registry=None, message=None, **kwargs):
+        """Mock build operation for copy=False scenarios."""
+        return "test_top_hash"
+
 
 class MockEntry:
     """Mock package entry with physical_key attribute."""

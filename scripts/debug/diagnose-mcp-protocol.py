@@ -42,22 +42,23 @@ class MCPProtocolDiagnostic:
 
         try:
             # Check if image exists
-            result = subprocess.run(
-                ["docker", "image", "inspect", self.image],
-                capture_output=True,
-                text=True
-            )
+            result = subprocess.run(["docker", "image", "inspect", self.image], capture_output=True, text=True)
             if result.returncode != 0:
                 self.log(f"Image {self.image} not found. Build it first with 'make docker'", "ERROR")
                 return False
 
             # Build docker command
             docker_cmd = [
-                "docker", "run", "-i",
-                "--name", f"mcp-diagnostic-{int(time.time())}",
-                "-e", "FASTMCP_TRANSPORT=stdio",
+                "docker",
+                "run",
+                "-i",
+                "--name",
+                f"mcp-diagnostic-{int(time.time())}",
+                "-e",
+                "FASTMCP_TRANSPORT=stdio",
                 self.image,
-                "quilt-mcp", "--skip-banner"
+                "quilt-mcp",
+                "--skip-banner",
             ]
 
             # Start container as interactive process
@@ -67,7 +68,7 @@ class MCPProtocolDiagnostic:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                bufsize=1  # Line buffered
+                bufsize=1,  # Line buffered
             )
 
             # Wait for startup
@@ -92,12 +93,7 @@ class MCPProtocolDiagnostic:
         if not self.process:
             return {"error": "Server not running"}
 
-        request = {
-            "jsonrpc": "2.0",
-            "id": self.request_id,
-            "method": method,
-            "params": params
-        }
+        request = {"jsonrpc": "2.0", "id": self.request_id, "method": method, "params": params}
         self.request_id += 1
 
         try:
@@ -127,8 +123,9 @@ class MCPProtocolDiagnostic:
                     # Truncate large results for readability
                     result = response["result"]
                     if isinstance(result, dict):
-                        result_summary = {k: (f"<{len(v)} items>" if isinstance(v, list) else v)
-                                        for k, v in list(result.items())[:5]}
+                        result_summary = {
+                            k: (f"<{len(v)} items>" if isinstance(v, list) else v) for k, v in list(result.items())[:5]
+                        }
                         self.log(f"Result: {json.dumps(result_summary, indent=2)}", "RESPONSE")
                     else:
                         self.log(f"Result: {str(result)[:200]}", "RESPONSE")
@@ -143,11 +140,14 @@ class MCPProtocolDiagnostic:
         """Test initialize protocol."""
         self.log("\n=== Test 1: Initialize ===", "INFO")
 
-        response = self.send_request("initialize", {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "diagnostic", "version": "1.0"}
-        })
+        response = self.send_request(
+            "initialize",
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "diagnostic", "version": "1.0"},
+            },
+        )
 
         if "error" in response:
             self.log(f"Initialize FAILED: {response['error']}", "ERROR")
@@ -191,10 +191,7 @@ class MCPProtocolDiagnostic:
         self.log("\n=== Test 3: Tool Call (No Arguments) ===", "INFO")
 
         # Try calling auth_status which should work with minimal args
-        response = self.send_request("tools/call", {
-            "name": "auth_status",
-            "arguments": {}
-        })
+        response = self.send_request("tools/call", {"name": "auth_status", "arguments": {}})
 
         if "error" in response:
             self.log(f"tools/call (no args) FAILED: {response['error']}", "ERROR")
@@ -214,12 +211,9 @@ class MCPProtocolDiagnostic:
         self.log("\n=== Test 4: Tool Call (With Arguments) ===", "INFO")
 
         # Try calling catalog_configure with arguments
-        response = self.send_request("tools/call", {
-            "name": "catalog_configure",
-            "arguments": {
-                "catalog_url": "s3://quilt-ernest-staging"
-            }
-        })
+        response = self.send_request(
+            "tools/call", {"name": "catalog_configure", "arguments": {"catalog_url": "s3://quilt-ernest-staging"}}
+        )
 
         if "error" in response:
             self.log(f"tools/call (with args) FAILED: {response['error']}", "ERROR")
@@ -240,9 +234,7 @@ class MCPProtocolDiagnostic:
 
         # Test 1: Flat params (no nesting)
         self.log("   Test 5a: Flat params (no 'arguments' key)", "INFO")
-        response = self.send_request("tools/call", {
-            "name": "auth_status"
-        })
+        response = self.send_request("tools/call", {"name": "auth_status"})
 
         if "result" in response:
             self.log("      Format 5a PASSED: Flat params work!", "SUCCESS")
@@ -252,10 +244,7 @@ class MCPProtocolDiagnostic:
 
         # Test 2: Different nesting
         self.log("   Test 5b: Arguments as 'input' key", "INFO")
-        response = self.send_request("tools/call", {
-            "name": "auth_status",
-            "input": {}
-        })
+        response = self.send_request("tools/call", {"name": "auth_status", "input": {}})
 
         if "result" in response:
             self.log("      Format 5b PASSED: 'input' key works!", "SUCCESS")
@@ -330,26 +319,15 @@ Examples:
 
   # Quiet mode (less verbose)
   python scripts/diagnose-mcp-protocol.py --quiet
-        """
+        """,
     )
 
-    parser.add_argument(
-        "--image",
-        default="quilt-mcp:test",
-        help="Docker image to test (default: quilt-mcp:test)"
-    )
-    parser.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Reduce verbosity"
-    )
+    parser.add_argument("--image", default="quilt-mcp:test", help="Docker image to test (default: quilt-mcp:test)")
+    parser.add_argument("--quiet", action="store_true", help="Reduce verbosity")
 
     args = parser.parse_args()
 
-    diagnostic = MCPProtocolDiagnostic(
-        image=args.image,
-        verbose=not args.quiet
-    )
+    diagnostic = MCPProtocolDiagnostic(image=args.image, verbose=not args.quiet)
 
     results = diagnostic.run_diagnostics()
 

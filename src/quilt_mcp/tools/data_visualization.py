@@ -11,13 +11,13 @@ from typing import Annotated, Any, Dict, Iterable, List, Literal, Optional, Sequ
 
 from pydantic import Field
 
-from ..models import (
+from .responses import (
     DataVisualizationSuccess,
     DataVisualizationError,
     VisualizationConfig,
     VisualizationFile,
 )
-from ..utils import get_s3_client
+from ..utils.common import get_s3_client
 
 
 COLOR_SCHEMES = {

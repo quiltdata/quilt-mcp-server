@@ -29,23 +29,9 @@ class Quilt3_Backend_Buckets:
         def _normalize_string_field(self, value: Any) -> str: ...
         def _normalize_datetime(self, dt: Any) -> Optional[str]: ...
 
-    def list_buckets(self) -> List[Bucket_Info]:
-        """List accessible buckets.
-
-        Returns:
-            List of Bucket_Info objects representing accessible buckets
-
-        Raises:
-            BackendError: If bucket listing fails
-        """
-        try:
-            logger.debug("Listing buckets")
-            bucket_data = self.quilt3.list_buckets()
-            result = [self._transform_bucket(name, data) for name, data in bucket_data.items()]
-            logger.debug(f"Found {len(result)} buckets")
-            return result
-        except Exception as e:
-            raise BackendError(f"Quilt3 backend list_buckets failed: {str(e)}")
+    # HIGH-LEVEL METHOD REMOVED - Now implemented in QuiltOps base class
+    # list_buckets() is now a concrete method in QuiltOps that calls:
+    # - _backend_list_buckets() primitive (which returns Bucket_Info objects directly)
 
     def _transform_bucket(self, bucket_name: str, bucket_data: Dict[str, Any]) -> Bucket_Info:
         """Transform quilt3 bucket data to domain Bucket_Info.

@@ -13,7 +13,6 @@ from quilt_mcp.config import get_mode_config
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.auth_metrics import record_auth_mode
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
-from quilt_mcp.services.jwt_decoder import JwtConfigError, get_jwt_decoder
 
 logger = logging.getLogger(__name__)
 
@@ -49,21 +48,17 @@ class AuthService(ABC):
         return self.get_session()
 
 
-def _validate_jwt_mode() -> None:
-    decoder = get_jwt_decoder()
-    try:
-        decoder.validate_config()
-    except JwtConfigError as exc:
-        raise AuthServiceError(str(exc), code="jwt_config_error") from exc
-
-
 def create_auth_service() -> AuthService:
-    """Create a new auth service instance for the configured mode."""
+    """
+    Create a new auth service instance for the configured mode.
+
+    Note: JWT mode no longer validates configuration at startup.
+    Validation happens at the GraphQL backend when credentials are requested.
+    """
     mode_config = get_mode_config()
 
     if mode_config.requires_jwt:
-        _validate_jwt_mode()
-        logger.info("Authentication mode selected: JWT")
+        logger.info("Authentication mode selected: JWT (pass-through to GraphQL)")
         record_auth_mode("jwt")
         return cast(AuthService, JWTAuthService())
 

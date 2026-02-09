@@ -6,7 +6,7 @@ while maintaining consistent domain-driven operations for MCP tools.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Any
+from typing import Any, Dict, List, Optional
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from ..domain.user import User
@@ -316,34 +316,23 @@ class AdminOps(ABC):
         pass
 
     @abstractmethod
-    def set_sso_config(self, config: str) -> SSOConfig:
-        """Set the SSO configuration.
+    def set_sso_config(self, config: Optional[Dict[str, Any]]) -> Optional[SSOConfig]:
+        """Set or remove the SSO configuration.
 
-        Updates the SSO configuration in the registry with the provided configuration text.
+        Updates the SSO configuration in the registry with the provided configuration.
+        Pass None to remove the SSO configuration.
 
         Args:
-            config: SSO configuration text to set
+            config: SSO configuration as a dictionary, or None to remove configuration.
+                    Backends handle JSON serialization internally.
 
         Returns:
-            SSOConfig object representing the updated configuration
+            SSOConfig object representing the updated configuration, or None if removed
 
         Raises:
             AuthenticationError: When authentication credentials are invalid or missing
             BackendError: When the backend operation fails
             ValidationError: When config parameter is invalid
-            PermissionError: When user lacks admin privileges to modify SSO configuration
-        """
-        pass
-
-    @abstractmethod
-    def remove_sso_config(self) -> None:
-        """Remove the SSO configuration.
-
-        Removes the current SSO configuration from the registry.
-
-        Raises:
-            AuthenticationError: When authentication credentials are invalid or missing
-            BackendError: When the backend operation fails
             PermissionError: When user lacks admin privileges to modify SSO configuration
         """
         pass

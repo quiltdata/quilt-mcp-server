@@ -20,6 +20,7 @@ from quilt_mcp.ops.exceptions import NotFoundError
 from quilt_mcp.domain.package_info import Package_Info
 from quilt_mcp.domain.content_info import Content_Info
 from quilt_mcp.domain.bucket_info import Bucket_Info
+from quilt_mcp.domain.package_builder import PackageBuilder, PackageEntry
 from quilt_mcp.backends.quilt3_backend_base import Quilt3_Backend_Base, quilt3, requests, boto3
 from quilt_mcp.backends.quilt3_backend_packages import Quilt3_Backend_Packages
 from quilt_mcp.backends.quilt3_backend_content import Quilt3_Backend_Content
@@ -75,4 +76,429 @@ class Quilt3_Backend(
         """
         return self
 
-    pass
+    # =========================================================================
+    # Backend Primitives (Template Method Pattern)
+    # =========================================================================
+    # These methods implement the abstract backend primitives defined in QuiltOps.
+    # They wrap quilt3 library calls without adding validation or transformation logic.
+
+    def _backend_create_empty_package(self) -> PackageBuilder:
+        """Create a new empty package representation (backend primitive).
+
+        Returns:
+            PackageBuilder with empty entries
+        """
+        return {"entries": [], "metadata": {}}
+
+    def _backend_add_file_to_package(self, package: PackageBuilder, logical_key: str, s3_uri: str) -> None:
+        """Add a file reference to package representation (backend primitive).
+
+        Args:
+            package: PackageBuilder being constructed
+            logical_key: Logical path within package
+            s3_uri: S3 URI of file to add
+        """
+        package["entries"].append(
+            {
+                "logicalKey": logical_key,
+                "physicalKey": s3_uri,
+            }
+        )
+
+    def _backend_set_package_metadata(self, package: PackageBuilder, metadata: Dict[str, Any]) -> None:
+        """Set metadata on package representation (backend primitive).
+
+        Args:
+            package: PackageBuilder being constructed
+            metadata: Metadata dictionary
+        """
+        package["metadata"] = metadata
+
+    def _backend_push_package(
+        self, package: PackageBuilder, package_name: str, registry: str, message: str, copy: bool
+    ) -> str:
+        """Convert PackageBuilder to quilt3.Package and push to registry (backend primitive).
+
+        Args:
+            package: PackageBuilder to push
+            package_name: Full package name
+            registry: Registry S3 URL (will be normalized to s3:// prefix)
+            message: Commit message
+            copy: If True, copy objects. If False, create shallow references.
+
+        Returns:
+            Top hash of pushed package (empty string if push fails)
+        """
+        # Convert PackageBuilder to quilt3.Package
+        quilt3_pkg = self.quilt3.Package()
+
+        # Add all entries to the quilt3 package
+        for entry in package["entries"]:
+            quilt3_pkg.set(entry["logicalKey"], entry["physicalKey"])
+
+        # Set package-level metadata if present
+        if "metadata" in package and package["metadata"]:
+            quilt3_pkg.set_meta(package["metadata"])
+
+        # Normalize registry to ensure s3:// prefix (all registries are S3)
+        if not registry.startswith("s3://"):
+            registry = f"s3://{registry}"
+
+        # Capture stdout to prevent quilt3 print statements from breaking JSON-RPC stdio protocol
+        import sys
+        import io
+
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
+
+        try:
+            # Push to S3 registry
+            if copy:
+                # Deep copy objects to registry bucket
+                pushed_pkg = quilt3_pkg.push(package_name, registry=registry, message=message, force=True)
+            else:
+                # Shallow references only (no copy)
+                # selector_fn returns False to preserve original physical keys without copying
+                # NOTE: selector_fn_copy_local only uploads LOCAL files - S3 objects retain their physical keys
+                pushed_pkg = quilt3_pkg.push(
+                    package_name, registry=registry, message=message, selector_fn=lambda *_: False, force=True
+                )
+        finally:
+            # Always restore stdout, even if push fails
+            sys.stdout = old_stdout
+
+        # Extract top_hash string from the returned value
+        # quilt3.Package.push() may return either a string (top_hash) or a Package object
+        # Handle both cases to ensure we always return a string
+        if hasattr(pushed_pkg, 'top_hash'):
+            # It's a Package object, extract the top_hash attribute
+            top_hash = str(pushed_pkg.top_hash) if pushed_pkg.top_hash else ""
+        elif isinstance(pushed_pkg, str):
+            # It's already a string (top_hash)
+            top_hash = pushed_pkg
+        else:
+            # Fallback for unexpected types
+            top_hash = str(pushed_pkg) if pushed_pkg else ""
+        return top_hash
+
+    def _backend_get_package(self, package_name: str, registry: str, top_hash: Optional[str] = None) -> Any:
+        """Retrieve quilt3 package from registry (backend primitive).
+
+        Args:
+            package_name: Full package name
+            registry: Registry S3 URL
+            top_hash: Optional specific version hash
+
+        Returns:
+            quilt3.Package object
+
+        Raises:
+            Exception: If package not found (will be wrapped by base class)
+        """
+        if top_hash:
+            return self.quilt3.Package.browse(package_name, registry=registry, top_hash=top_hash)
+        else:
+            return self.quilt3.Package.browse(package_name, registry=registry)
+
+    def _backend_get_package_entries(self, package: Any) -> Dict[str, PackageEntry]:
+        """Get all entries from quilt3 package (backend primitive).
+
+        Args:
+            package: quilt3.Package object
+
+        Returns:
+            Dict mapping logical_key to PackageEntry with normalized types
+        """
+        entries = {}
+        for logical_key, entry in package.walk():
+            # package.walk() only yields files (PackageEntry), never directories
+            # Normalize quilt3-specific types to domain types
+            entries[logical_key] = PackageEntry(
+                logicalKey=logical_key,
+                physicalKey=str(entry.physical_key),  # Convert PhysicalKey object to string
+                size=entry.size,
+                hash=entry.hash,
+                meta=getattr(entry, 'meta', None),  # Entry-level metadata
+            )
+        return entries
+
+    def _backend_get_package_metadata(self, package: Any) -> Dict[str, Any]:
+        """Get metadata from quilt3 package (backend primitive).
+
+        Args:
+            package: quilt3.Package object
+
+        Returns:
+            Package metadata dictionary (empty dict if no metadata)
+        """
+        return package.meta or {}
+
+    def _backend_search_packages(self, query: str, registry: str) -> List[Dict[str, Any]]:
+        """Execute Elasticsearch package search via quilt3 (backend primitive).
+
+        Args:
+            query: Search query string (empty string returns all packages)
+            registry: Registry S3 URL
+
+        Returns:
+            List of package data dictionaries (not domain objects)
+        """
+        from quilt3.search_util import search_api
+
+        # Extract bucket name from registry for index pattern
+        bucket_name = registry.replace("s3://", "").split("/")[0]
+        index_pattern = f"{bucket_name}_packages"
+
+        # Convert string query to Elasticsearch DSL query
+        if query.strip() == "":
+            # Empty query - match all packages (manifest documents only)
+            es_query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"match_all": {}},
+                            {"exists": {"field": "ptr_name"}},  # Only manifest documents
+                        ]
+                    }
+                },
+                "size": 1000,
+            }
+        else:
+            # Escape special ES characters but preserve wildcards
+            escaped_query = self._escape_elasticsearch_query(query)
+            es_query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {"query_string": {"query": escaped_query}},
+                            {"exists": {"field": "ptr_name"}},  # Only manifest documents
+                        ]
+                    }
+                },
+                "size": 1000,
+            }
+
+        # Execute search
+        response = search_api(query=es_query, index=index_pattern, limit=1000)
+
+        if "error" in response:
+            raise Exception(f"Search API error: {response['error']}")
+
+        # Extract and return hits as raw dictionaries
+        hits = response.get("hits", {}).get("hits", [])
+        results = []
+        for hit in hits:
+            source = hit.get("_source", {})
+            results.append(
+                {
+                    "name": source.get("ptr_name", ""),
+                    "description": source.get("description", ""),
+                    "tags": source.get("tags", []),
+                    "modified": source.get("ptr_last_modified", ""),
+                    "bucket": bucket_name,
+                    "top_hash": source.get("top_hash", ""),
+                    "registry": registry,
+                }
+            )
+
+        return results
+
+    def _backend_diff_packages(self, pkg1: Any, pkg2: Any) -> Dict[str, List[str]]:
+        """Compute diff between two quilt3 packages (backend primitive).
+
+        Args:
+            pkg1: First quilt3.Package object
+            pkg2: Second quilt3.Package object
+
+        Returns:
+            Dict with keys "added", "deleted", "modified"
+        """
+        # Use quilt3's built-in diff functionality
+        diff_result = pkg1.diff(pkg2)
+
+        # Convert tuple (added, deleted, modified) to dictionary
+        if isinstance(diff_result, tuple) and len(diff_result) == 3:
+            added, deleted, modified = diff_result
+            return {
+                "added": [str(path) for path in added] if added else [],
+                "deleted": [str(path) for path in deleted] if deleted else [],
+                "modified": [str(path) for path in modified] if modified else [],
+            }
+        else:
+            # If diff_result is already a dict or unexpected format, use as-is
+            return diff_result if isinstance(diff_result, dict) else {"raw": [str(diff_result)]}
+
+    def _backend_browse_package_content(self, package: Any, path: str) -> List[Dict[str, Any]]:
+        """List contents of quilt3 package at path (backend primitive).
+
+        Args:
+            package: quilt3.Package object
+            path: Path within package to browse
+
+        Returns:
+            List of content entry dictionaries (not domain objects)
+        """
+        # Navigate to path if specified
+        if path:
+            package = package[path]
+
+        # Walk the package and return entries
+        # Note: package.walk() only yields files (PackageEntry objects), never directories
+        entries = []
+        for key, entry in package.walk():
+            entries.append(
+                {
+                    "path": key,
+                    "size": entry.size if hasattr(entry, 'size') else None,
+                    "type": "file",  # walk() only yields files, directories are not yielded
+                }
+            )
+
+        return entries
+
+    def _backend_get_file_url(
+        self, package_name: str, registry: str, path: str, top_hash: Optional[str] = None
+    ) -> str:
+        """Generate download URL for file in quilt3 package (backend primitive).
+
+        Args:
+            package_name: Full package name
+            registry: Registry S3 URL
+            path: Path to file within package
+            top_hash: Optional specific version hash
+
+        Returns:
+            Presigned URL for file download
+        """
+        # Browse package
+        if top_hash:
+            package = self.quilt3.Package.browse(package_name, registry=registry, top_hash=top_hash)
+        else:
+            package = self.quilt3.Package.browse(package_name, registry=registry)
+
+        # Get presigned URL
+        return str(package.get_url(path))
+
+    def _backend_get_session_info(self) -> Dict[str, Any]:
+        """Get quilt3 session information (backend primitive).
+
+        Returns:
+            Dict with session info
+        """
+        logged_in_url = self.quilt3.logged_in()
+        return {
+            "is_authenticated": bool(logged_in_url),
+            "catalog_url": logged_in_url,
+            "registry_url": None,  # Will be derived from catalog config if needed
+        }
+
+    # _backend_get_catalog_config inherited from base class (standard HTTP GET)
+
+    def _backend_list_buckets(self) -> List["Bucket_Info"]:
+        """List S3 buckets via boto3 (backend primitive).
+
+        Returns:
+            List of Bucket_Info domain objects
+        """
+        from quilt_mcp.domain import Bucket_Info
+
+        s3_client = self.get_boto3_client('s3')
+        response = s3_client.list_buckets()
+
+        buckets = []
+        for bucket in response.get('Buckets', []):
+            # Convert creation date to ISO string if present
+            created_date = bucket.get('CreationDate')
+            created_date_str = created_date.isoformat() if created_date else None
+
+            # Construct Bucket_Info domain object
+            bucket_info = Bucket_Info(
+                name=bucket['Name'],
+                region="unknown",  # boto3 list_buckets doesn't return region
+                access_level="unknown",  # Would require additional API calls to determine
+                created_date=created_date_str,
+            )
+            buckets.append(bucket_info)
+
+        return buckets
+
+    def _backend_get_boto3_session(self) -> Any:
+        """Get boto3 session with quilt3 credentials (backend primitive).
+
+        Returns:
+            boto3.Session object
+        """
+        # Extract credentials from quilt3 session
+        catalog_url = self.quilt3.logged_in()
+        if not catalog_url:
+            from quilt_mcp.ops.exceptions import AuthenticationError
+
+            raise AuthenticationError("Not logged in to quilt3")
+
+        # Get config to extract credentials
+        config = self.get_catalog_config(catalog_url)
+
+        # Create boto3 session (quilt3 handles credentials internally)
+        # For now, use default session - quilt3 manages credentials
+        return boto3.Session()
+
+    def _transform_search_result_to_package_info(self, result: Dict[str, Any], registry: str) -> Package_Info:
+        """Transform quilt3 search result to Package_Info (backend primitive).
+
+        Args:
+            result: Backend-specific search result dictionary
+            registry: Registry URL for context
+
+        Returns:
+            Package_Info domain object
+        """
+        # Create mock package object for transformation
+        mock_package = type('MockPackage', (), {})()
+        mock_package.name = result.get("name", "")
+        mock_package.description = result.get("description", "")
+        mock_package.tags = result.get("tags", [])
+        mock_package.modified = result.get("modified", "")
+        mock_package.registry = registry
+        mock_package.bucket = result.get("bucket", "")
+        mock_package.top_hash = result.get("top_hash", "")
+
+        # Use existing _transform_package from mixin
+        return self._transform_package(mock_package)
+
+    def _transform_content_entry_to_content_info(self, entry: Dict[str, Any]) -> Content_Info:
+        """Transform quilt3 content entry to Content_Info (backend primitive).
+
+        Args:
+            entry: Backend-specific content entry dictionary
+
+        Returns:
+            Content_Info domain object
+        """
+        return Content_Info(
+            path=entry.get("path", ""),
+            size=entry.get("size"),
+            type=entry.get("type", "file"),
+            modified_date=None,  # quilt3 doesn't provide this in walk()
+            download_url=None,  # Not available in browse results
+            meta=entry.get("meta"),  # Entry-level metadata
+        )
+
+    def _escape_elasticsearch_query(self, query: str) -> str:
+        """Escape special characters in Elasticsearch query_string queries.
+
+        Helper method for _backend_search_packages primitive.
+
+        Args:
+            query: Raw query string
+
+        Returns:
+            Escaped query string
+        """
+        # Characters that need to be escaped (omit * and ? for wildcard support)
+        special_chars = ['\\', '+', '-', '=', '>', '<', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', ':', '/']
+
+        escaped = query
+        for char in special_chars:
+            escaped = escaped.replace(char, '\\' + char)
+
+        return escaped

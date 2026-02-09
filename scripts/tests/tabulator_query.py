@@ -177,10 +177,8 @@ class TabulatorQueryClient:
             catalog = self.get_catalog_name()
             execution_params = {
                 'QueryString': query,
-                'QueryExecutionContext': {
-                    'Catalog': catalog
-                },
-                'ResultConfiguration': {'OutputLocation': output_location}
+                'QueryExecutionContext': {'Catalog': catalog},
+                'ResultConfiguration': {'OutputLocation': output_location},
             }
 
             # Add workgroup if specified
@@ -197,10 +195,9 @@ class TabulatorQueryClient:
             # Wait for query to complete
             print("   Waiting for query to complete...", end='', flush=True)
             import time
+
             while True:
-                status = self.athena_client.get_query_execution(
-                    QueryExecutionId=query_execution_id
-                )
+                status = self.athena_client.get_query_execution(QueryExecutionId=query_execution_id)
                 state = status['QueryExecution']['Status']['State']
 
                 if state in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
@@ -215,10 +212,7 @@ class TabulatorQueryClient:
                 raise Exception(f"Query {state}: {reason}")
 
             # Get query results
-            results = self.athena_client.get_query_results(
-                QueryExecutionId=query_execution_id,
-                MaxResults=max_results
-            )
+            results = self.athena_client.get_query_results(QueryExecutionId=query_execution_id, MaxResults=max_results)
 
             # Parse results
             columns = []
@@ -243,11 +237,7 @@ class TabulatorQueryClient:
 
             print(f"✅ Query completed: {len(rows)} row(s) returned")
 
-            return {
-                'columns': columns,
-                'rows': rows,
-                'metadata': metadata
-            }
+            return {'columns': columns, 'rows': rows, 'metadata': metadata}
 
         except Exception as e:
             print(f"\n❌ Query failed: {e}")
@@ -299,37 +289,17 @@ def load_demo_state() -> Optional[Dict[str, Any]]:
 
 def main():
     """Main query function."""
-    parser = argparse.ArgumentParser(
-        description="Query tabulator tables using Athena"
-    )
-    parser.add_argument(
-        "--bucket",
-        help="S3 bucket name (default: from demo state)"
-    )
-    parser.add_argument(
-        "--table",
-        help="Table name to query (default: from demo state)"
-    )
-    parser.add_argument(
-        "--query",
-        help="Custom SQL query to execute"
-    )
-    parser.add_argument(
-        "--list-tables",
-        action="store_true",
-        help="List available tables and exit"
-    )
+    parser = argparse.ArgumentParser(description="Query tabulator tables using Athena")
+    parser.add_argument("--bucket", help="S3 bucket name (default: from demo state)")
+    parser.add_argument("--table", help="Table name to query (default: from demo state)")
+    parser.add_argument("--query", help="Custom SQL query to execute")
+    parser.add_argument("--list-tables", action="store_true", help="List available tables and exit")
     parser.add_argument(
         "--stack-name",
         default=None,
-        help="CloudFormation stack name (e.g., quilt-staging). Will auto-discover from quilt3 config if not provided."
+        help="CloudFormation stack name (e.g., quilt-staging). Will auto-discover from quilt3 config if not provided.",
     )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=10,
-        help="LIMIT for default query (default: 10)"
-    )
+    parser.add_argument("--limit", type=int, default=10, help="LIMIT for default query (default: 10)")
     args = parser.parse_args()
 
     # Load state from demo script if available

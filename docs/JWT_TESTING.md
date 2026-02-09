@@ -27,12 +27,11 @@ Platform JWTs contain only:
    ```bash
    # Using environment variable (recommended)
    export MCP_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-   python scripts/mcp-test.py http://localhost:8000/mcp --tools-test --resources-test
+   python scripts/mcp-test.py http://localhost:8000/mcp
 
    # Using command-line argument
    python scripts/mcp-test.py http://localhost:8000/mcp \
-     --jwt-token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
-     --tools-test --resources-test
+     --jwt-token "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
    ```
 
 ## JWT Token Generation
@@ -103,7 +102,7 @@ For production testing, generate tokens using your auth system. Ensure tokens in
 
    ```bash
    export MCP_JWT_TOKEN="$JWT_TOKEN"
-   python scripts/mcp-test.py http://localhost:8000/mcp --tools-test
+   python scripts/mcp-test.py http://localhost:8000/mcp
    ```
 
 ### CI/CD with Programmatic Tokens

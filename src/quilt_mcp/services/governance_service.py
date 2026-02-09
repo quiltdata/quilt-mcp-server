@@ -12,10 +12,11 @@ secure access to governance capabilities.
 import logging
 from typing import Annotated, Dict, List, Any, Optional
 from pydantic import Field
-from ..utils import format_error_response
-from ..formatting import format_users_as_table, format_roles_as_table
+from ..utils.common import format_error_response
+from quilt_mcp.utils.formatting import format_users_as_table, format_roles_as_table
 from ..ops.quilt_ops import QuiltOps
 from ..ops.exceptions import NotFoundError, BackendError, ValidationError, AuthenticationError, PermissionError
+from ..context.request_context import RequestContext
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +198,7 @@ class GovernanceService:
 # User Management Functions
 
 
-async def admin_users_list(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_users_list(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
     """List all users in the registry with detailed information - Quilt governance and administrative operations
 
     Args:
@@ -258,7 +259,9 @@ async def admin_user_get(
             examples=["john-doe", "admin-user"],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Get detailed information about a specific user - Quilt governance and administrative operations
 
@@ -337,7 +340,9 @@ async def admin_user_create(
             examples=[["data-scientist", "analyst"], []],
         ),
     ] = None,
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Create a new user in the registry - Quilt governance and administrative operations
 
@@ -410,7 +415,9 @@ async def admin_user_delete(
             examples=["user-to-remove", "inactive-user"],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Delete a user from the registry - Quilt governance and administrative operations
 
@@ -468,7 +475,9 @@ async def admin_user_set_email(
             examples=["newemail@example.com", "updated@company.org"],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Update a user's email address - Quilt governance and administrative operations
 
@@ -538,7 +547,9 @@ async def admin_user_set_admin(
             examples=[True, False],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the admin status for a user - Quilt governance and administrative operations
 
@@ -602,7 +613,9 @@ async def admin_user_set_active(
             examples=[True, False],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the active status for a user - Quilt governance and administrative operations
 
@@ -659,7 +672,9 @@ async def admin_user_reset_password(
             examples=["john-doe", "user123"],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Reset a user's password - Quilt governance and administrative operations
 
@@ -735,7 +750,9 @@ async def admin_user_set_role(
             description="Whether to append extra roles to existing ones (True) or replace them (False)",
         ),
     ] = False,
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the primary and extra roles for a user - Quilt governance and administrative operations
 
@@ -809,7 +826,9 @@ async def admin_user_add_roles(
             examples=[["data-scientist", "analyst"], ["viewer"]],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Add roles to a user - Quilt governance and administrative operations
 
@@ -890,7 +909,9 @@ async def admin_user_remove_roles(
             examples=["viewer", "editor"],
         ),
     ] = None,
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Remove roles from a user - Quilt governance and administrative operations
 
@@ -949,7 +970,7 @@ async def admin_user_remove_roles(
 # Role Management Functions
 
 
-async def admin_roles_list(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_roles_list(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
     """List all available roles in the registry - Quilt governance and administrative operations
 
     Args:
@@ -1005,7 +1026,7 @@ async def admin_roles_list(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, An
 # SSO Configuration Functions
 
 
-async def admin_sso_config_get(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_sso_config_get(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
     """Get the current SSO configuration - Quilt governance and administrative operations
 
     Args:
@@ -1056,18 +1077,23 @@ async def admin_sso_config_get(quilt_ops: Optional[QuiltOps] = None) -> Dict[str
 
 async def admin_sso_config_set(
     config: Annotated[
-        str,
+        Dict[str, Any],
         Field(
-            description="SSO configuration text",
-            examples=["<saml_config>...</saml_config>", "provider_config_string"],
+            description="SSO configuration as a dictionary object",
+            examples=[
+                {"provider": "okta", "saml_config": "<saml_config>...</saml_config>"},
+                {"provider": "saml", "entity_id": "https://example.com"},
+            ],
         ),
     ],
+    *,
     quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the SSO configuration - Quilt governance and administrative operations
 
     Args:
-        config: SSO configuration text
+        config: SSO configuration as a dictionary (will be JSON-serialized before sending to backend)
         quilt_ops: QuiltOps instance for admin operations (optional, will create if not provided)
 
     Returns:
@@ -1081,7 +1107,7 @@ async def admin_sso_config_set(
         from quilt_mcp.tools import governance
 
         result = governance.admin_sso_config_set(
-            config="<saml_config>...</saml_config>",
+            config={"provider": "okta", "saml_config": "<saml_config>...</saml_config>"},
         )
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
@@ -1095,7 +1121,7 @@ async def admin_sso_config_set(
         if not config:
             return format_error_response("SSO configuration cannot be empty")
 
-        # Use QuiltOps.admin interface
+        # Use QuiltOps.admin interface (backend handles JSON serialization)
         quilt_ops_instance = service._get_quilt_ops()
         domain_sso_config = quilt_ops_instance.admin.set_sso_config(config)
 
@@ -1111,7 +1137,7 @@ async def admin_sso_config_set(
         return service._handle_admin_error(e, "set SSO configuration")
 
 
-async def admin_sso_config_remove(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_sso_config_remove(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
     """Remove the SSO configuration - Quilt governance and administrative operations
 
     Args:
@@ -1138,8 +1164,9 @@ async def admin_sso_config_remove(quilt_ops: Optional[QuiltOps] = None) -> Dict[
             return error_check
 
         # Use QuiltOps.admin interface
+        # Note: quilt3 uses set_sso_config(None) to remove config, there is no separate remove method
         quilt_ops_instance = service._get_quilt_ops()
-        quilt_ops_instance.admin.remove_sso_config()
+        quilt_ops_instance.admin.set_sso_config(None)
 
         return {"success": True, "message": "Successfully removed SSO configuration"}
 
@@ -1150,7 +1177,9 @@ async def admin_sso_config_remove(quilt_ops: Optional[QuiltOps] = None) -> Dict[
 # Enhanced Tabulator Administration Functions
 
 
-async def admin_tabulator_open_query_get(quilt_ops: Optional[QuiltOps] = None) -> Dict[str, Any]:
+async def admin_tabulator_open_query_get(
+    *, quilt_ops: Optional[QuiltOps] = None, context: RequestContext
+) -> Dict[str, Any]:
     """Get the current tabulator open query status - Quilt governance and administrative operations
 
     Args:
@@ -1201,6 +1230,8 @@ async def admin_tabulator_open_query_set(
             examples=[True, False],
         ),
     ],
+    *,
+    context: RequestContext,
 ) -> Dict[str, Any]:
     """Set the tabulator open query status - Quilt governance and administrative operations
 

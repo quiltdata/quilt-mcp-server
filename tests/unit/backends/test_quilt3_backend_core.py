@@ -116,17 +116,17 @@ class TestQuilt3BackendIntegration:
         mock_search_api.side_effect = Exception("Search failed")
 
         with pytest.raises(BackendError):
-            backend.search_packages("test", "registry")
+            backend.search_packages("test", "s3://test-registry")
 
         # Reset and test next step
         mock_search_api.side_effect = None
         mock_quilt3.Package.browse.side_effect = Exception("Browse failed")
 
         with pytest.raises(BackendError):
-            backend.get_package_info("test/package", "registry")
+            backend.get_package_info("test/package", "s3://test-registry")
 
         with pytest.raises(BackendError):
-            backend.browse_content("test/package", "registry")
+            backend.browse_content("test/package", "s3://test-registry")
 
         with pytest.raises(BackendError):
-            backend.get_content_url("test/package", "registry", "path")
+            backend.get_content_url("test/package", "s3://test-registry", "path")
