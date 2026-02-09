@@ -17,6 +17,8 @@ This document provides a comprehensive reference of all MCP capabilities in the 
 
 ### How to Run Tests
 
+Recommend: 60 second timeouts
+
 **Individual Tools:**
 
 ```bash
@@ -186,7 +188,7 @@ No arguments required - simplest to test and discover.
 
 #### Tool #1: `discover_permissions`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Category**: zero-arg
 - **Module**: resources
@@ -195,7 +197,7 @@ No arguments required - simplest to test and discover.
 
 #### Tool #2: `get_resource`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Category**: zero-arg
 - **Module**: resources
@@ -204,7 +206,7 @@ No arguments required - simplest to test and discover.
 
 #### Tool #3: `tabulator_list_buckets`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Category**: zero-arg
 - **Module**: tabulator
@@ -219,7 +221,7 @@ At least one argument must be provided.
 
 #### Tool #4: `athena_query_validate`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Category**: required-arg
 - **Module**: athena
@@ -229,7 +231,7 @@ At least one argument must be provided.
 
 #### Tool #5: `bucket_object_info`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Category**: required-arg
 - **Module**: buckets
@@ -239,7 +241,7 @@ At least one argument must be provided.
 
 #### Tool #6: `catalog_configure`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: configure
 - **Category**: required-arg
 - **Module**: catalog
@@ -249,7 +251,7 @@ At least one argument must be provided.
 
 #### Tool #7: `tabulator_tables_list`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Category**: required-arg
 - **Module**: tabulator
@@ -259,7 +261,7 @@ At least one argument must be provided.
 
 #### Tool #8: `workflow_template_apply`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: configure
 - **Category**: required-arg
 - **Module**: workflows
@@ -277,7 +279,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #9: `catalog_uri`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: catalog
 - **Description**: Build Quilt+ URI (quilt+s3://...)
@@ -286,7 +288,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #10: `catalog_url`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: catalog
 - **Description**: Generate Quilt catalog URL (https://...)
@@ -297,7 +299,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #11: `bucket_object_fetch`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: buckets
 - **Description**: Fetch binary or text data from S3 object
@@ -306,7 +308,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #12: `bucket_object_link`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: buckets
 - **Description**: Generate presigned URL for S3 object
@@ -315,7 +317,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #13: `bucket_object_text`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: buckets
 - **Description**: Read text content from S3 object
@@ -324,7 +326,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #14: `bucket_objects_list`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: buckets
 - **Description**: List objects in S3 bucket
@@ -333,7 +335,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #15: `check_bucket_access`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: buckets
 - **Description**: Check read/write access to S3 bucket
@@ -344,7 +346,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #16: `package_browse`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: packages
 - **Description**: Browse package contents with file info
@@ -353,7 +355,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #17: `package_diff`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: packages
 - **Description**: Compare two package versions
@@ -362,7 +364,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #18: `generate_package_visualizations`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: configure
 - **Module**: visualization
 - **Description**: Generate visualizations for package data
@@ -371,7 +373,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #19: `generate_quilt_summarize_json`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: configure
 - **Module**: packages
 - **Description**: Generate quilt_summarize.json for package
@@ -382,7 +384,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #20: `search_catalog`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: search
 - **Description**: Search catalog for packages, objects, or queries
@@ -391,7 +393,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #21: `search_explain`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: search
 - **Description**: Explain how a search query is interpreted
@@ -400,7 +402,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #22: `search_suggest`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: search
 - **Description**: Get search suggestions as user types
@@ -411,7 +413,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #23: `athena_query_execute`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: configure
 - **Module**: athena
 - **Description**: Execute Athena SQL query
@@ -420,7 +422,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #24: `athena_table_schema`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: athena
 - **Description**: Get schema for Athena table
@@ -429,7 +431,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #25: `athena_tables_list`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: athena
 - **Description**: List tables in Athena database
@@ -438,7 +440,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #26: `tabulator_bucket_query`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: tabulator
 - **Description**: Query Tabulator data in bucket
@@ -447,7 +449,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #27: `tabulator_query_execute`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: configure
 - **Module**: tabulator
 - **Description**: Execute Tabulator query
@@ -458,7 +460,7 @@ All arguments have defaults or are truly optional.
 
 ##### Tool #28: `admin_user_get`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: none
 - **Module**: admin
 - **Description**: Get user information
@@ -475,7 +477,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #29: `admin_sso_config_set`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Category**: write-effect
 - **Module**: admin
@@ -484,7 +486,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #30: `admin_sso_config_remove`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: remove
 - **Category**: write-effect
 - **Module**: admin
@@ -495,7 +497,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #31: `admin_user_create`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: admin
 - **Description**: Create new user account
@@ -503,7 +505,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #32: `admin_user_delete`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: remove
 - **Module**: admin
 - **Description**: Delete user account
@@ -511,7 +513,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #33: `admin_user_add_roles`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: update
 - **Module**: admin
 - **Description**: Add roles to user
@@ -519,7 +521,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #34: `admin_user_remove_roles`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: remove
 - **Module**: admin
 - **Description**: Remove roles from user
@@ -527,7 +529,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #35: `admin_user_reset_password`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: admin
 - **Description**: Reset user password
@@ -535,7 +537,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #36: `admin_user_set_active`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: admin
 - **Description**: Set user active/inactive status
@@ -543,7 +545,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #37: `admin_user_set_admin`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: admin
 - **Description**: Set user admin status
@@ -551,7 +553,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #38: `admin_user_set_email`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: admin
 - **Description**: Update user email
@@ -559,7 +561,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #39: `admin_user_set_role`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: admin
 - **Description**: Set user role
@@ -567,7 +569,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #40: `admin_tabulator_open_query_set`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: admin
 - **Description**: Set open query permissions in Tabulator
@@ -577,7 +579,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #41: `bucket_objects_put`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: buckets
 - **Description**: Upload multiple objects to S3
@@ -587,7 +589,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #42: `package_create`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: packages
 - **Description**: Create new package from S3 objects
@@ -595,7 +597,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #43: `package_create_from_s3`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: packages
 - **Description**: Create organized package from S3 bucket
@@ -603,7 +605,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #44: `package_update`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: update
 - **Module**: packages
 - **Description**: Update existing package with new objects
@@ -611,7 +613,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #45: `package_delete`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: remove
 - **Module**: packages
 - **Description**: Delete package from registry
@@ -621,7 +623,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #46: `create_data_visualization`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: visualization
 - **Description**: Create data visualization
@@ -629,7 +631,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #47: `create_quilt_summary_files`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: packages
 - **Description**: Create package summary files
@@ -639,7 +641,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #48: `tabulator_table_create`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: tabulator
 - **Description**: Create Tabulator table
@@ -647,7 +649,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #49: `tabulator_table_delete`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: remove
 - **Module**: tabulator
 - **Description**: Delete Tabulator table
@@ -655,7 +657,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #50: `tabulator_table_rename`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: update
 - **Module**: tabulator
 - **Description**: Rename Tabulator table
@@ -665,7 +667,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #51: `workflow_create`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: create
 - **Module**: workflows
 - **Description**: Create new workflow
@@ -673,7 +675,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #52: `workflow_add_step`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: update
 - **Module**: workflows
 - **Description**: Add step to workflow
@@ -681,7 +683,7 @@ Tools that modify state, tested via tool loops with create → verify → cleanu
 
 ##### Tool #53: `workflow_update_step`
 
-- [ ] **Verified**
+- [x] **Verified**
 - **Effect**: update
 - **Module**: workflows
 - **Description**: Update workflow step
