@@ -1,7 +1,7 @@
 # JWT Discovery Architecture Analysis
 
 **Spec ID:** a20-jwt-auth/03-jwt-discovery-architecture-analysis
-**Status:** Analysis Complete
+**Status:** In Progress (Option B Implementation)
 **Created:** 2026-02-09
 **Author:** System Analysis
 **Related:** a20-jwt-auth/01-e2e-tabulator-test.md, a20-jwt-auth/02-e2e-backend-integration.md
@@ -455,6 +455,12 @@ def _load_access_token(self) -> str:
    - Clear test boundaries
 
 ### Implementation Plan
+
+- [x] Create `JWTDiscovery` service in production code
+- [x] Integrate `JWTDiscovery` with `Platform_Backend`
+- [x] Update E2E auth availability checks to use `JWTDiscovery`
+- [x] Add unit tests for `JWTDiscovery`
+- [ ] Verify tests (make test)
 
 **1. Create JWT Discovery Service**
 
