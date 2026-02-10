@@ -410,33 +410,3 @@ class TestDataDiscoveryWorkflow:
         print(f"  - {len(sampled_content)} files sampled for content")
         print(f"  - {len(catalog_urls)} catalog URLs generated")
         print("=" * 80)
-
-
-@pytest.mark.e2e
-@pytest.mark.workflow
-def test_data_discovery_workflow_quilt3_only(backend_with_auth, real_test_bucket, backend_mode):
-    """Run data discovery workflow test for quilt3 backend only.
-
-    This is a convenience wrapper that skips for platform backend.
-    """
-    if backend_mode != "quilt3":
-        pytest.skip("This test variant is quilt3-only")
-
-    # Delegate to main test
-    test_instance = TestDataDiscoveryWorkflow()
-    test_instance.test_data_discovery_workflow(backend_with_auth, real_test_bucket, backend_mode)
-
-
-@pytest.mark.e2e
-@pytest.mark.workflow
-def test_data_discovery_workflow_platform_only(backend_with_auth, real_test_bucket, backend_mode):
-    """Run data discovery workflow test for platform backend only.
-
-    This is a convenience wrapper that skips for quilt3 backend.
-    """
-    if backend_mode != "platform":
-        pytest.skip("This test variant is platform-only")
-
-    # Delegate to main test
-    test_instance = TestDataDiscoveryWorkflow()
-    test_instance.test_data_discovery_workflow(backend_with_auth, real_test_bucket, backend_mode)

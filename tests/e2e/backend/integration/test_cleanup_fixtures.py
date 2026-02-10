@@ -68,12 +68,14 @@ class TestCleanupFixtures:
 
         # Cleanup will happen automatically
 
-    @pytest.mark.skipif(True, reason="Intentional failure test - enable manually to test cleanup on failure")
-    def test_cleanup_on_failure(self, real_test_bucket, cleanup_s3_objects):
-        """Test cleanup happens even when test fails.
+    @pytest.mark.manual
+    def test_MANUAL_cleanup_on_failure(self, real_test_bucket, cleanup_s3_objects):
+        """MANUAL TEST: Verify cleanup works when test fails.
 
-        This test is SKIPPED by default to avoid polluting test results.
-        Enable it manually to verify cleanup works on failure.
+        This test intentionally fails to verify that cleanup fixtures
+        properly clean up S3 objects even when a test fails.
+
+        Run with: pytest -m manual tests/e2e/backend/integration/test_cleanup_fixtures.py
 
         Args:
             real_test_bucket: Test bucket name

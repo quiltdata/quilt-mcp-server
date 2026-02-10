@@ -120,6 +120,7 @@ markers = [
     "performance: marks tests that measure performance metrics",
     "package: marks tests for package operations",
     "consistency: marks tests for data consistency validation",
+    "manual: marks tests that require manual execution (intentionally fail to test infrastructure)",
 ]
 
 [tool.ruff]
