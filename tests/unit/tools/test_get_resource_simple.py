@@ -9,6 +9,10 @@ from quilt_mcp.config import set_test_mode_config
 class TestGetResourceSimple:
     """Test get_resource tool with actual service calls."""
 
+    @pytest.fixture(autouse=True)
+    def _default_local_mode(self):
+        set_test_mode_config(multiuser_mode=False)
+
     @pytest.mark.asyncio
     async def test_discovery_mode(self):
         """Test discovery mode lists all resources."""
