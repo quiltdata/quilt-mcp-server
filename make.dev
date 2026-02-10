@@ -57,14 +57,14 @@ test-unit: $(RESULTS_DIR)/coverage-unit.xml
 
 $(RESULTS_DIR)/coverage-unit.xml: tests/unit/test_*.py | $(RESULTS_DIR)
 	@echo "Running unit tests only (fast, mocked)..."
-	@export PYTHONPATH="src" && uv run --group test python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-unit.xml --cov-report=term-missing
+	@export PYTHONPATH="src" && uv run --group test python -m pytest tests/unit/ -v -s --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-unit.xml --cov-report=term-missing
 
 test-func: test-catalog $(RESULTS_DIR)/coverage-func.xml
 
 $(RESULTS_DIR)/coverage-func.xml: tests/func/test_*.py | $(RESULTS_DIR)
 	@echo "Running func tests (mocked)..."
 	@if [ -d "tests/func" ] && [ "$$(find tests/func -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run --group test python -m pytest tests/func/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-func.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run --group test python -m pytest tests/func/ -v -s --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-func.xml --cov-report=term-missing; \
 	else \
 		echo "No func tests found, creating empty coverage file..."; \
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-func.xml; \
@@ -101,7 +101,7 @@ test-e2e-platform: test-catalog
 $(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py | $(RESULTS_DIR)
 	@echo "Running end-to-end workflow tests..."
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run --group test python -m pytest tests/e2e/ -v -m "not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && export PLATFORM_TEST_ENABLED=true && export TEST_BACKEND_MODE=$${TEST_BACKEND_MODE:-both} && uv run --group test python -m pytest tests/e2e/ -v -s -m "not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
 	else \
 		echo "No e2e tests found, creating empty coverage file..."; \
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-e2e.xml; \
