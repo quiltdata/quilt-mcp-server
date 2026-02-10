@@ -106,7 +106,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             if variables:
                 payload["variables"] = variables
 
-            response = self._session.post(endpoint, json=payload, headers=headers, timeout=30)
+            response = self._session.post(endpoint, json=payload, headers=headers, timeout=60)
             response.raise_for_status()
             result = response.json()
             if not isinstance(result, dict):
@@ -243,11 +243,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                 revision(hashOrTag: "latest") {
                   dir(path: $path) {
                     path
-                    size
                     children {
                       __typename
                       ... on PackageFile { path size physicalKey }
-                      ... on PackageDir { path size }
+                      ... on PackageDir { path }
                     }
                   }
                   file(path: $path) {
@@ -760,11 +759,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             revision(hashOrTag: "latest") {
               dir(path: $path) {
                 path
-                size
                 children {
                   __typename
                   ... on PackageFile { path size physicalKey }
-                  ... on PackageDir { path size }
+                  ... on PackageDir { path }
                 }
               }
               file(path: $path) {
