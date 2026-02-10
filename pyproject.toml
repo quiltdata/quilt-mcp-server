@@ -112,7 +112,14 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "e2e: marks tests as end-to-end integration tests",
     "tabulator: marks tests for tabulator functionality",
+    "athena: marks tests that use AWS Athena",
     "admin: marks tests that require admin permissions",
+    "search: marks tests for search functionality",
+    "workflow: marks tests for complete multi-step workflows",
+    "error_handling: marks tests for error handling scenarios",
+    "performance: marks tests that measure performance metrics",
+    "package: marks tests for package operations",
+    "consistency: marks tests for data consistency validation",
 ]
 
 [tool.ruff]

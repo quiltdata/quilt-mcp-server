@@ -92,9 +92,7 @@ def _check_auth_available(mode: str) -> bool:
     elif mode == "platform":
         # Check if platform env vars are set
         return bool(
-            os.getenv("PLATFORM_TEST_ENABLED")
-            and os.getenv("QUILT_CATALOG_URL")
-            and os.getenv("QUILT_REGISTRY_URL")
+            os.getenv("PLATFORM_TEST_ENABLED") and os.getenv("QUILT_CATALOG_URL") and os.getenv("QUILT_REGISTRY_URL")
         )
     return False
 

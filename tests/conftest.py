@@ -243,7 +243,7 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
                     auth_header = quilt_session.headers["Authorization"]
                     if auth_header.startswith("Bearer "):
                         access_token = auth_header[7:]  # Strip "Bearer " prefix
-                        print(f"✅ Using JWT from quilt3 session")
+                        print("✅ Using JWT from quilt3 session")
             except Exception as e:
                 print(f"⚠️  Could not get JWT from quilt3 session: {e}")
 
@@ -262,7 +262,7 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
                 "exp": int(time.time()) + 3600,
             }
             access_token = pyjwt.encode(claims, jwt_secret, algorithm="HS256")
-            print(f"⚠️  Using generated test JWT (may not work with real servers)")
+            print("⚠️  Using generated test JWT (may not work with real servers)")
 
         # Decode JWT to get claims (works for both real and generated tokens)
         import jwt as pyjwt
