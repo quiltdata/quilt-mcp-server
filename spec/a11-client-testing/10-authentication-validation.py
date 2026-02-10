@@ -113,11 +113,9 @@ def check_environment_variables():
 
     relevant_vars = [
         'MCP_REQUIRE_JWT',
-        'MCP_JWT_SECRET',
         'AWS_ACCESS_KEY_ID',
         'AWS_SECRET_ACCESS_KEY',
         'AWS_PROFILE',
-        'QUILT_TEST_JWT_TOKEN',
     ]
 
     for var in relevant_vars:

@@ -148,10 +148,6 @@ def test_env():
     # Ensure unit tests run in local mode (not multiuser mode)
     os.environ["QUILT_MULTIUSER_MODE"] = "false"
 
-    # Remove JWT secrets to prevent development fallback behavior
-    os.environ.pop("MCP_JWT_SECRET", None)
-    os.environ.pop("MCP_JWT_SECRET_SSM_PARAMETER", None)
-
     # Reset ModeConfig singleton to pick up test environment variables
     try:
         from quilt_mcp.config import reset_mode_config
@@ -234,9 +230,6 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
         monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
         monkeypatch.setenv("QUILT_CATALOG_URL", quilt_catalog_url)
         monkeypatch.setenv("QUILT_REGISTRY_URL", quilt_registry_url)
-
-        jwt_secret = os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret")
-        monkeypatch.setenv("MCP_JWT_SECRET", jwt_secret)
 
         # Use real JWT from environment if available, otherwise generate test JWT
         access_token = os.getenv("PLATFORM_TEST_JWT_TOKEN")
@@ -602,7 +595,6 @@ def stateless_container(
             cpu_period=100000,
             environment={
                 "QUILT_MULTIUSER_MODE": "true",  # Enable multiuser mode
-                "MCP_JWT_SECRET": "test-secret",  # Test JWT secret
                 "QUILT_CATALOG_URL": "http://test-catalog.example.com",  # Required for multiuser
                 "QUILT_REGISTRY_URL": "http://test-registry.example.com",  # Required for multiuser
                 "QUILT_DISABLE_CACHE": "true",  # Disable caching

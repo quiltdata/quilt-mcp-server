@@ -45,12 +45,7 @@ def print_startup_error(error: Exception, error_type: str = "Startup Error") -> 
         print("3. Restart your MCP client (e.g., Claude Desktop)", file=sys.stderr)
     elif error_type == "Configuration Error":
         print("Troubleshooting:", file=sys.stderr)
-        print("1. Check the error message above for missing configuration", file=sys.stderr)
-        print("2. For multiuser mode, ensure these environment variables are set:", file=sys.stderr)
-        print("   - MCP_JWT_SECRET", file=sys.stderr)
-        print("   - MCP_JWT_ISSUER", file=sys.stderr)
-        print("   - MCP_JWT_AUDIENCE", file=sys.stderr)
-        print("3. For local development, set QUILT_MULTIUSER_MODE=false or leave unset", file=sys.stderr)
+        print("Check the error message above for missing configuration", file=sys.stderr)
     else:
         print("Troubleshooting:", file=sys.stderr)
         print("1. Check the error message above for specific issues", file=sys.stderr)

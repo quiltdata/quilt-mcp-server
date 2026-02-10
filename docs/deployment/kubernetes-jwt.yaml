@@ -3,8 +3,6 @@ kind: Secret
 metadata:
   name: quilt-mcp-jwt
 type: Opaque
-stringData:
-  MCP_JWT_SECRET: "replace-me"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -32,8 +30,3 @@ spec:
               value: "https://your-catalog.quiltdata.com"
             - name: QUILT_REGISTRY_URL
               value: "https://registry.your-catalog.quiltdata.com"
-            - name: MCP_JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: quilt-mcp-jwt
-                  key: MCP_JWT_SECRET

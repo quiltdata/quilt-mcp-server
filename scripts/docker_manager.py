@@ -286,7 +286,6 @@ class DockerManager:
 
         env_vars = {
             "QUILT_MULTIUSER_MODE": "true",
-            "MCP_JWT_SECRET": jwt_secret,
             "QUILT_CATALOG_URL": catalog_url,
             "QUILT_REGISTRY_URL": registry_url,
             "QUILT_DISABLE_CACHE": "true",
@@ -348,7 +347,6 @@ class DockerManager:
 
         env_vars = {
             "QUILT_MULTIUSER_MODE": "true",
-            "MCP_JWT_SECRET": jwt_secret,
             "QUILT_CATALOG_URL": catalog_url,
             "QUILT_REGISTRY_URL": registry_url,
             "QUILT_DISABLE_CACHE": "true",

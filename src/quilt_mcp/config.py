@@ -129,10 +129,6 @@ class ModeConfig:
         """Get validation errors specific to multiuser mode."""
         errors = []
 
-        # Check required JWT configuration
-        if not os.getenv("MCP_JWT_SECRET"):
-            errors.append("Multiuser mode requires MCP_JWT_SECRET environment variable")
-
         if not os.getenv("QUILT_CATALOG_URL"):
             errors.append("Multiuser mode requires QUILT_CATALOG_URL environment variable")
 
