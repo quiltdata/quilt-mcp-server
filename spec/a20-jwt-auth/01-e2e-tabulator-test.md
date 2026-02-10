@@ -1,9 +1,15 @@
 # E2E Tabulator Test with Dynamic Backend Switching
 
 **Spec ID:** a20-jwt-auth/01-e2e-tabulator-test
-**Status:** Draft
+**Status:** Completed
 **Created:** 2026-02-09
+**Completed:** 2026-02-09
 **Author:** System Design
+
+**ISSUE FIXED:** JWT authentication for platform backend now works by using real JWT
+from quilt3 session instead of generating test JWTs. The `backend_mode` fixture in
+`tests/conftest.py` now attempts to retrieve JWT from quilt3 session before falling
+back to generating test tokens.
 
 ---
 
@@ -12,9 +18,14 @@
 ### Current State
 
 - `scripts/tests/test_tabulator.py` exists as a standalone integration test script (594 lines)
-- Tests full tabulator lifecycle: create, list, get, rename, query (Athena), delete
+- **Tests full tabulator lifecycle as a SEQUENCE on THE SAME TABLE:**
+  - Step 1: Create table `test_tabulator_123`
+  - Steps 2-3: List and get that same table
+  - Step 4: Rename to `test_genomics_123` (table name changes)
+  - Steps 5-6: Query and delete the RENAMED table
+- Uses `StateManager` to track table name through lifecycle (persists to disk for resumability)
 - Uses `QuiltOpsFactory.create()` with hardcoded backend selection
-- Has manual credential checking, state management, and subprocess-based Athena querying
+- Has manual credential checking and subprocess-based Athena querying
 - Companion script `tabulator_query.py` handles Athena SQL queries separately
 - Not integrated with pytest infrastructure
 - No reusable auth helpers
@@ -40,18 +51,22 @@
 
 ### Primary Goals
 
-1. **Convert Script to Pytest:** Transform `test_tabulator.py` into proper `tests/e2e/test_tabulator.py`
-2. **Auth Helper Infrastructure:** Create reusable auth helpers in `tests/e2e/conftest.py`
-3. **Dynamic Backend Switching:** Support both quilt3 and platform backends via pytest parametrization
-4. **Athena Integration:** Properly integrate Athena querying into the test flow
-5. **Clean Test Patterns:** Establish patterns that other E2E tests can follow
+1. **Convert Script to Pytest:** Transform `test_tabulator.py` into `tests/e2e/test_tabulator.py` preserving
+   sequential lifecycle design
+2. **Sequential Lifecycle Test:** Implement `test_full_lifecycle()` that runs all 6 steps on the same table
+   (create → list → get → rename → query renamed → delete renamed)
+3. **Auth Helper Infrastructure:** Create reusable auth helpers in `tests/e2e/conftest.py`
+4. **Dynamic Backend Switching:** Support both quilt3 and platform backends via pytest parametrization
+5. **Athena Integration:** Properly integrate Athena querying into the test flow
+6. **Clean Test Patterns:** Establish patterns that other E2E tests can follow
 
 ### Secondary Goals
 
-- Maintain test coverage from original script (all 6 lifecycle steps)
+- Maintain test coverage from original script (all 6 lifecycle steps on same table)
+- Track table state through lifecycle (especially through rename operation)
 - Add better error reporting and diagnostics
-- Make tests independently runnable (no state persistence needed)
-- Enable parallel test execution where possible
+- Remove cross-run state persistence (no StateManager, no disk state)
+- Ensure proper cleanup even on mid-lifecycle failures
 
 ---
 
@@ -100,11 +115,12 @@
 - ✅ Replace subprocess call to `tabulator_query.py` with direct Python calls
 - ✅ Better error handling and faster execution
 
-**Decision 4: No State Persistence**
+**Decision 4: No Cross-Run State Persistence**
 
-- ❌ Remove StateManager class (lines 119-188 in original)
-- ✅ Each test is self-contained and stateless
-- ✅ Use pytest fixtures for setup/teardown
+- ❌ Remove StateManager class (lines 119-188 in original) - no state persistence to disk
+- ✅ Each test run is self-contained (no resuming from previous sessions)
+- ✅ But within a test run: track state as table progresses through lifecycle
+- ✅ Use pytest fixtures for setup/teardown, variables for intra-test state
 
 **Decision 5: Keep Companion Script**
 
@@ -250,28 +266,48 @@ class TestTabulatorLifecycle:
 
     Tests run against both quilt3 and platform backends unless
     TEST_BACKEND_MODE environment variable restricts it.
+
+    IMPORTANT: This is a SEQUENTIAL LIFECYCLE TEST. Operations are performed
+    on THE SAME TABLE as it progresses through states:
+      create → list → get → rename → query (renamed) → delete (renamed)
     """
 
+    def test_full_lifecycle(self, tabulator_backend, test_bucket, athena_service_factory):
+        """PRIMARY TEST: Run all 6 lifecycle steps in sequence on the same table.
+
+        This is the main test that validates the complete tabulator workflow:
+        1. Create table with unique name (e.g., test_tabulator_1234567890)
+        2. List tables (verify creation)
+        3. Get specific table (verify metadata)
+        4. Rename table (e.g., test_tabulator_1234567890 → test_genomics_1234567890)
+        5. Query RENAMED table via Athena (uses new name)
+        6. Delete RENAMED table (uses new name, cleanup)
+
+        The table evolves through the lifecycle - particularly the rename in step 4
+        means steps 5-6 operate on the renamed table, not the original name.
+        """
+
+    # Optional: Individual step tests for debugging/development
+    # These are NOT independent - they're extracted lifecycle steps
+    # Each requires its own setup/teardown since they can't reuse state
+
     def test_create_table(self, tabulator_backend, test_bucket):
-        """Step 1: Create tabulator table via GraphQL."""
+        """Lifecycle Step 1: Create tabulator table via GraphQL."""
 
     def test_list_tables(self, tabulator_backend, test_bucket):
-        """Step 2: List tables in bucket via GraphQL."""
+        """Lifecycle Step 2: List tables in bucket via GraphQL."""
 
     def test_get_table(self, tabulator_backend, test_bucket):
-        """Step 3: Get specific table metadata via GraphQL."""
+        """Lifecycle Step 3: Get specific table metadata via GraphQL."""
 
     def test_rename_table(self, tabulator_backend, test_bucket):
-        """Step 4: Rename table via GraphQL."""
+        """Lifecycle Step 4: Rename table via GraphQL."""
 
     def test_query_table_athena(self, tabulator_backend, test_bucket, athena_service_factory):
-        """Step 5: Query table data via Athena SQL."""
+        """Lifecycle Step 5: Query table data via Athena SQL."""
 
     def test_delete_table(self, tabulator_backend, test_bucket):
-        """Step 6: Delete table via GraphQL."""
-
-    def test_full_lifecycle(self, tabulator_backend, test_bucket, athena_service_factory):
-        """Integration test: Run all steps in sequence."""
+        """Lifecycle Step 6: Delete table via GraphQL."""
 ```
 
 ---
@@ -385,22 +421,25 @@ result = athena.query_tabulator_table(
 
 ---
 
-### Phase 2: Convert Core Test Logic (Priority: High)
+### Phase 2: Create Full Lifecycle Test (Priority: High)
+
+**Focus:** Implement `test_full_lifecycle()` - the primary sequential test
 
 **Tasks:**
 
-1. Create `tests/e2e/test_tabulator.py` skeleton
-2. Convert `demo_create_table()` → `test_create_table()`
-3. Convert `demo_list_tables()` → `test_list_tables()`
-4. Convert `demo_get_table()` → `test_get_table()`
-5. Convert `demo_rename_table()` → `test_rename_table()`
-6. Convert `demo_delete_table()` → `test_delete_table()`
+1. Create `tests/e2e/test_tabulator.py` with test class
+2. Implement `test_full_lifecycle()` method
+3. Extract logic from `demo_*()` functions into sequential steps
+4. Track `current_table_name` through lifecycle (especially after rename)
+5. Add assertions after each step
+6. Add cleanup with pytest finalizers
 
 **Deliverables:**
 
-- 6 individual test methods
-- Each test is independent and stateless
-- Tests use fixtures instead of StateManager
+- `test_full_lifecycle()` that runs all 6 steps on same table
+- Sequential state tracking (table name through rename)
+- Proper cleanup even on mid-lifecycle failure
+- Test works with both backends via parametrization
 
 ---
 
@@ -421,20 +460,20 @@ result = athena.query_tabulator_table(
 
 ---
 
-### Phase 4: Add Full Lifecycle Test (Priority: Medium)
+### Phase 4: Optional Individual Step Tests (Priority: Low)
+
+**Note:** These are optional and mainly for debugging. The primary test is `test_full_lifecycle()` from Phase 2.
 
 **Tasks:**
 
-1. Create `test_full_lifecycle()` integration test
-2. Run all 6 steps in sequence
-3. Add proper cleanup in case of mid-test failure
-4. Add detailed assertion messages
-5. Add timing measurements
+1. Consider if individual step tests are needed for debugging
+2. If implemented, each must do its own setup/teardown
+3. Cannot share state between tests
 
 **Deliverables:**
 
-- `test_full_lifecycle()` that chains all operations
-- Comprehensive error messages on failure
+- Decision on whether individual tests are needed
+- If implemented: independent tests with full setup/cleanup per test
 
 ---
 
@@ -489,33 +528,60 @@ result = athena.query_tabulator_table(
 
 ---
 
-### Task 2: Convert Individual Test Steps
+### Task 2: Convert Sequential Lifecycle Test
+
+**Primary Focus: `test_full_lifecycle()` - Sequential Test on Same Table**
+
+This task converts the original script's sequential lifecycle into a pytest test that:
+
+- Creates a table with unique name
+- Performs operations on THE SAME TABLE
+- Renames the table (changing its name mid-lifecycle)
+- Queries and deletes using the RENAMED table name
 
 **Subtasks:**
-For each step (create, list, get, rename, delete):
 
-1. Convert function to test method
-   - [ ] Remove state management code
-   - [ ] Use fixtures for backend and bucket
-   - [ ] Convert print statements to assertions
-   - [ ] Add proper pytest assertions
+1. Create `test_full_lifecycle()` method
+   - [ ] Generate unique table name (timestamp-based)
+   - [ ] Step 1: Create table with `table_name`
+   - [ ] Step 2: List tables (verify creation)
+   - [ ] Step 3: Get specific table (verify metadata)
+   - [ ] Step 4: Rename table to `new_table_name` (track name change)
+   - [ ] Step 5: Query using `new_table_name` (use renamed table)
+   - [ ] Step 6: Delete using `new_table_name` (cleanup renamed table)
 
-2. Add error handling
-   - [ ] Catch specific exceptions
-   - [ ] Add helpful error messages
-   - [ ] Add debug output on failure
+2. Implement sequential state tracking
+   - [ ] Track `current_table_name` variable through lifecycle
+   - [ ] Update after rename (step 4)
+   - [ ] Use updated name in steps 5-6
 
-3. Add cleanup
-   - [ ] Use pytest fixtures for cleanup
-   - [ ] Ensure tables are deleted after test
+3. Add comprehensive assertions
+   - [ ] Assert success after each step
+   - [ ] Verify table name changes after rename
+   - [ ] Validate query results from Athena
+   - [ ] Confirm deletion
+
+4. Add cleanup strategy
+   - [ ] Use pytest finalizer to delete table if test fails mid-lifecycle
    - [ ] Handle cleanup failures gracefully
+   - [ ] Log cleanup actions
+
+#### Optional: Individual Step Tests (Lower Priority)
+
+If implementing individual tests for debugging:
+
+- [ ] Each test must do its own setup (create table) and teardown (delete table)
+- [ ] Cannot reuse state from previous tests
+- [ ] Primarily useful for development/debugging, not primary test strategy
 
 **Acceptance Criteria:**
 
-- [ ] Each test can run independently
-- [ ] Tests clean up after themselves
-- [ ] Clear assertion messages on failure
-- [ ] Tests work with both backends
+- [ ] `test_full_lifecycle()` completes all 6 steps on same table
+- [ ] Rename step correctly updates table name for subsequent steps
+- [ ] Test cleans up (deletes renamed table) even on failure
+- [ ] Clear assertion messages at each lifecycle stage
+- [ ] Test works with both quilt3 and platform backends
+- [ ] Timing measurements show full lifecycle completes in <60s
 
 ---
 
@@ -547,31 +613,39 @@ For each step (create, list, get, rename, delete):
 
 ---
 
-### Task 4: Full Lifecycle Test
+### Task 4: Full Lifecycle Test (Primary Test)
+
+**Note:** This is now the PRIMARY test (moved from Task 2). This task focuses on the implementation details.
 
 **Subtasks:**
 
-1. Create lifecycle test
-   - [ ] Call all 6 steps in sequence
-   - [ ] Use unique table name per test run
+1. Create sequential lifecycle test
+   - [ ] Call all 6 steps in sequence on THE SAME TABLE
+   - [ ] Generate unique table name per test run (timestamp-based)
+   - [ ] Track `current_table_name` variable through lifecycle
+   - [ ] Update `current_table_name` after step 4 (rename)
+   - [ ] Use `current_table_name` in steps 5-6 (query/delete renamed table)
    - [ ] Add assertions between steps
 
 2. Add cleanup strategy
-   - [ ] Ensure table deleted even on failure
+   - [ ] Ensure renamed table is deleted even on failure
    - [ ] Use pytest finalizers
+   - [ ] Track current table name for cleanup
    - [ ] Log cleanup actions
 
 3. Add diagnostics
-   - [ ] Log each step execution
+   - [ ] Log each step execution with table name
    - [ ] Add timing measurements
-   - [ ] Add state inspection between steps
+   - [ ] Log state changes (especially rename)
+   - [ ] Show which table name is being used at each step
 
 **Acceptance Criteria:**
 
-- [ ] Full lifecycle test completes successfully
-- [ ] Cleanup happens even on failure
-- [ ] Clear diagnostics on failure
-- [ ] Test is reproducible
+- [ ] Full lifecycle test completes all 6 steps on same table
+- [ ] Rename in step 4 correctly updates table name for steps 5-6
+- [ ] Cleanup happens even on failure (deletes renamed table)
+- [ ] Clear diagnostics show table name evolution through lifecycle
+- [ ] Test is reproducible with unique names per run
 
 ---
 
@@ -635,11 +709,12 @@ For each step (create, list, get, rename, delete):
 
 ### Functional Requirements
 
-- ✅ All 6 tabulator operations work in E2E test
+- ✅ All 6 tabulator operations work in sequential lifecycle test
+- ✅ Test correctly tracks same table through entire lifecycle (including rename)
 - ✅ Tests pass with both quilt3 and platform backends
 - ✅ Athena querying works without subprocess
-- ✅ Tests are independently runnable
-- ✅ Cleanup happens reliably
+- ✅ Each test run is self-contained (no cross-run state persistence)
+- ✅ Cleanup happens reliably (deletes renamed table even on failure)
 
 ### Code Quality Requirements
 
@@ -867,28 +942,53 @@ pytest tests/e2e/ -v --tb=short
 
 ## Appendix A: Example Test Output
 
-### Successful Test Run
+### Successful Test Run (Primary Test)
+
+```
+$ pytest tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_full_lifecycle -v
+
+tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_full_lifecycle[quilt3] PASSED
+tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_full_lifecycle[platform] PASSED
+
+========================= 2 passed in 45.23s =========================
+```
+
+**Test Details (with verbose output):**
+
+```
+tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_full_lifecycle[quilt3]
+  Step 1: Created table test_tabulator_1707512345
+  Step 2: Found 1 table(s) in bucket
+  Step 3: Retrieved table test_tabulator_1707512345
+  Step 4: Renamed test_tabulator_1707512345 → test_genomics_1707512345
+  Step 5: Queried table test_genomics_1707512345 (Athena)
+  Step 6: Deleted table test_genomics_1707512345
+  PASSED
+
+tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_full_lifecycle[platform]
+  Step 1: Created table test_tabulator_1707512346
+  Step 2: Found 1 table(s) in bucket
+  Step 3: Retrieved table test_tabulator_1707512346
+  Step 4: Renamed test_tabulator_1707512346 → test_genomics_1707512346
+  Step 5: Queried table test_genomics_1707512346 (Athena)
+  Step 6: Deleted table test_genomics_1707512346
+  PASSED
+```
+
+### Successful Test Run (With Optional Individual Tests)
+
+If individual step tests are implemented:
 
 ```
 $ pytest tests/e2e/test_tabulator.py -v
 
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_create_table[quilt3] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_list_tables[quilt3] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_get_table[quilt3] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_rename_table[quilt3] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_query_table_athena[quilt3] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_delete_table[quilt3] PASSED
 tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_full_lifecycle[quilt3] PASSED
-
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_create_table[platform] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_list_tables[platform] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_get_table[platform] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_rename_table[platform] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_query_table_athena[platform] PASSED
-tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_delete_table[platform] PASSED
 tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_full_lifecycle[platform] PASSED
+tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_create_table[quilt3] PASSED
+tests/e2e/test_tabulator.py::TestTabulatorLifecycle::test_create_table[platform] PASSED
+... (other individual tests)
 
-========================= 14 passed in 45.23s =========================
+========================= 14 passed in 60.15s =========================
 ```
 
 ### Skipped Test (Missing Credentials)
