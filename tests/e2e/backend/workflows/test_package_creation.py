@@ -145,9 +145,7 @@ class TestPackageCreationWorkflow:
                 print(f"    - {obj['Key']} ({size_kb:.2f} KB)")
 
             # Verify we found the expected files
-            assert object_count == len(test_files), (
-                f"Expected {len(test_files)} objects, found {object_count}"
-            )
+            assert object_count == len(test_files), f"Expected {len(test_files)} objects, found {object_count}"
             print("  ✅ Object listing successful")
 
         except Exception as e:
@@ -158,7 +156,7 @@ class TestPackageCreationWorkflow:
         # =========================================================================
         print(f"\n[Step 3] Creating package: {package_name}")
         print(f"  Registry: {registry}")
-        print(f"  Auto-organize: True (preserve S3 structure)")
+        print("  Auto-organize: True (preserve S3 structure)")
 
         # Build S3 URIs for package creation
         s3_uris = [f"s3://{real_test_bucket}/{key}" for key in test_files]
@@ -175,12 +173,8 @@ class TestPackageCreationWorkflow:
             # Assertions: Package creation succeeded
             assert result is not None, "Package creation returned None"
             assert result.success, f"Package creation failed: {result}"
-            assert result.package_name == package_name, (
-                f"Wrong package name: {result.package_name} != {package_name}"
-            )
-            assert result.file_count == len(s3_uris), (
-                f"File count mismatch: {result.file_count} != {len(s3_uris)}"
-            )
+            assert result.package_name == package_name, f"Wrong package name: {result.package_name} != {package_name}"
+            assert result.file_count == len(s3_uris), f"File count mismatch: {result.file_count} != {len(s3_uris)}"
 
             print("  ✅ Package created successfully")
             print(f"  ℹ️  Package hash: {result.top_hash}")
@@ -193,7 +187,7 @@ class TestPackageCreationWorkflow:
         # =========================================================================
         # STEP 4: Verify in real catalog
         # =========================================================================
-        print(f"\n[Step 4] Verifying package in catalog")
+        print("\n[Step 4] Verifying package in catalog")
 
         # Wait for indexing (catalog may have slight delay)
         max_retries = 5
@@ -211,9 +205,7 @@ class TestPackageCreationWorkflow:
 
                 # Verify browse result
                 assert browse_result is not None, "Browse returned None"
-                assert isinstance(browse_result, list), (
-                    f"Browse should return list, got {type(browse_result)}"
-                )
+                assert isinstance(browse_result, list), f"Browse should return list, got {type(browse_result)}"
 
                 # Get all paths from browse result
                 browse_paths = [item.path for item in browse_result]
@@ -233,8 +225,7 @@ class TestPackageCreationWorkflow:
 
                 for expected_file in expected_filenames:
                     assert expected_file in found_filenames, (
-                        f"Expected file {expected_file} not found in package. "
-                        f"Found: {found_filenames}"
+                        f"Expected file {expected_file} not found in package. Found: {found_filenames}"
                     )
 
                 # Verify entry count matches (files only, directories may vary)
@@ -268,8 +259,8 @@ class TestPackageCreationWorkflow:
             if package_name in package_names:
                 print("  ✅ Package appears in catalog search")
             else:
-                print(f"  ⚠️  Package not yet indexed in search (may take time)")
-                print(f"  ℹ️  This is non-critical - package exists and is browseable")
+                print("  ⚠️  Package not yet indexed in search (may take time)")
+                print("  ℹ️  This is non-critical - package exists and is browseable")
 
         except Exception as e:
             print(f"  ⚠️  Search verification failed: {e}")
@@ -278,7 +269,7 @@ class TestPackageCreationWorkflow:
         # =========================================================================
         # STEP 5: Generate real catalog URL and verify accessibility
         # =========================================================================
-        print(f"\n[Step 5] Verifying catalog URL accessibility")
+        print("\n[Step 5] Verifying catalog URL accessibility")
 
         if result.catalog_url:
             print(f"  ℹ️  Catalog URL: {result.catalog_url}")
@@ -287,15 +278,11 @@ class TestPackageCreationWorkflow:
             # and may not work in all test environments. We verify URL format instead.
             assert isinstance(result.catalog_url, str), "Catalog URL should be string"
             assert len(result.catalog_url) > 0, "Catalog URL should not be empty"
-            assert result.catalog_url.startswith('http'), (
-                f"Catalog URL should start with http: {result.catalog_url}"
-            )
+            assert result.catalog_url.startswith('http'), f"Catalog URL should start with http: {result.catalog_url}"
             assert real_test_bucket in result.catalog_url, (
                 f"Catalog URL should contain bucket name: {result.catalog_url}"
             )
-            assert package_name in result.catalog_url, (
-                f"Catalog URL should contain package name: {result.catalog_url}"
-            )
+            assert package_name in result.catalog_url, f"Catalog URL should contain package name: {result.catalog_url}"
 
             print("  ✅ Catalog URL format is valid")
 
@@ -307,10 +294,7 @@ class TestPackageCreationWorkflow:
                 if response.status_code == 200:
                     print("  ✅ Catalog URL is accessible (HTTP 200)")
                 else:
-                    print(
-                        f"  ℹ️  Catalog URL returned HTTP {response.status_code} "
-                        "(may require authentication)"
-                    )
+                    print(f"  ℹ️  Catalog URL returned HTTP {response.status_code} (may require authentication)")
             except Exception as e:
                 print(f"  ℹ️  Catalog URL accessibility check skipped: {e}")
                 print("  ℹ️  This is non-critical - URL format is valid")
@@ -326,7 +310,7 @@ class TestPackageCreationWorkflow:
         print(f"Package name:     {package_name}")
         print(f"Registry:         {registry}")
         print(f"Files created:    {len(test_files)}")
-        print(f"Auto-organized:   Yes (preserved S3 structure)")
-        print(f"Catalog verified: Yes")
+        print("Auto-organized:   Yes (preserved S3 structure)")
+        print("Catalog verified: Yes")
         print(f"URL generated:    {'Yes' if result.catalog_url else 'No'}")
         print("=" * 70)

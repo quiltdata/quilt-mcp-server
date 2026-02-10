@@ -446,9 +446,17 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                     file_count=added_count,
                     success=True,
                 )
+            elif typename == "PackagePushInvalidInputFailure":
+                # Handle validation errors
+                errors = package_construct.get("errors", [])
+                error_msg = "; ".join(f"{e.get('path', 'unknown')}: {e.get('message', 'unknown')}" for e in errors)
+                raise ValidationError(f"Invalid package input: {error_msg}")
+            elif typename == "PackagePushComputeFailure":
+                # Handle compute failures
+                message_text = package_construct.get("message", "Unknown compute failure")
+                raise BackendError(f"Package update compute failure: {message_text}")
             else:
-                # Handle any non-success response
-                # Note: Specific error types are not available in current schema
+                # Handle any other non-success response
                 raise BackendError(f"Package update failed with response type: {typename}")
 
         except (ValidationError, NotImplementedError, NotFoundError):
@@ -574,9 +582,17 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                 return str(promoted_hash)
 
             return top_hash
+        elif typename == "PackagePushInvalidInputFailure":
+            # Handle validation errors
+            errors = package_construct.get("errors", [])
+            error_msg = "; ".join(f"{e.get('path', 'unknown')}: {e.get('message', 'unknown')}" for e in errors)
+            raise ValidationError(f"Invalid package input: {error_msg}")
+        elif typename == "PackagePushComputeFailure":
+            # Handle compute failures
+            message_text = package_construct.get("message", "Unknown compute failure")
+            raise BackendError(f"Package creation compute failure: {message_text}")
         else:
-            # Handle any non-success response
-            # Note: Specific error types are not available in current schema
+            # Handle any other non-success response
             raise BackendError(f"Package creation failed with response type: {typename}")
 
     def _backend_get_package(self, package_name: str, registry: str, top_hash: Optional[str] = None) -> Any:

@@ -9,9 +9,6 @@ import pytest
 from typing import Dict, Any
 from pathlib import Path
 
-# Import from root conftest for reuse
-from tests.conftest import backend_mode, athena_service_factory, test_bucket  # noqa: F401
-
 
 class AuthBackend:
     """Backend-agnostic auth helper for E2E tests.
@@ -92,9 +89,7 @@ def _check_auth_available(mode: str) -> bool:
     elif mode == "platform":
         # Check if platform env vars are set and JWT is discoverable
         if not (
-            os.getenv("PLATFORM_TEST_ENABLED")
-            and os.getenv("QUILT_CATALOG_URL")
-            and os.getenv("QUILT_REGISTRY_URL")
+            os.getenv("PLATFORM_TEST_ENABLED") and os.getenv("QUILT_CATALOG_URL") and os.getenv("QUILT_REGISTRY_URL")
         ):
             return False
         from quilt_mcp.auth.jwt_discovery import JWTDiscovery

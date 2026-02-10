@@ -34,9 +34,7 @@ class TestLargeResultSetPerformance:
     targets are scaled proportionally to maintain meaningful benchmarks.
     """
 
-    def test_large_result_set_performance(
-        self, backend_with_auth, real_test_bucket, backend_mode
-    ):
+    def test_large_result_set_performance(self, backend_with_auth, real_test_bucket, backend_mode):
         """Test performance of large result set operations across backends.
 
         This test measures performance for three key operations:
@@ -99,13 +97,11 @@ class TestLargeResultSetPerformance:
                     # Have substantial data - enforce performance target
                     target_time = 30.0
                     assert duration < target_time, (
-                        f"List operation too slow: {duration:.2f}s > {target_time}s "
-                        f"for {object_count} objects"
+                        f"List operation too slow: {duration:.2f}s > {target_time}s for {object_count} objects"
                     )
                 else:
                     # Limited data - just ensure operation completes
-                    print(f"     ℹ️  Limited test data ({object_count} objects), "
-                          "skipping strict performance check")
+                    print(f"     ℹ️  Limited test data ({object_count} objects), skipping strict performance check")
 
                 # Result count validation
                 assert object_count > 0, "Should return at least some objects"
@@ -132,7 +128,7 @@ class TestLargeResultSetPerformance:
         # =====================================================================
         # Scenario 2: Search returning many results
         # =====================================================================
-        print(f"\n[Scenario 2] Testing catalog search...")
+        print("\n[Scenario 2] Testing catalog search...")
 
         from quilt_mcp.tools.search import search_catalog
 
@@ -167,24 +163,21 @@ class TestLargeResultSetPerformance:
                     'success': True,
                 }
 
-                print(f"  ✅ Found {total_results} total results, "
-                      f"returned {returned_count} in {duration:.2f}s")
+                print(f"  ✅ Found {total_results} total results, returned {returned_count} in {duration:.2f}s")
 
                 # Performance assertion - scale based on actual data
                 # Base target: 5s for 100+ results
                 if total_results >= 100:
                     target_time = 5.0
                     assert duration < target_time, (
-                        f"Search too slow: {duration:.2f}s > {target_time}s "
-                        f"for {total_results} results"
+                        f"Search too slow: {duration:.2f}s > {target_time}s for {total_results} results"
                     )
                 else:
-                    print(f"     ℹ️  Limited search results ({total_results}), "
-                          "skipping strict performance check")
+                    print(f"     ℹ️  Limited search results ({total_results}), skipping strict performance check")
 
                 # Result count validation - only warn if no results
                 if total_results == 0:
-                    print(f"     ℹ️  No search results found (may indicate empty catalog or no indexed data)")
+                    print("     ℹ️  No search results found (may indicate empty catalog or no indexed data)")
 
             elif is_dict and 'error' in search_result:
                 # Handle dict-based error response
@@ -203,7 +196,7 @@ class TestLargeResultSetPerformance:
                     'success': False,
                     'error': f'Unexpected response format: {type(search_result)}',
                 }
-                print(f"  ⚠️  Search failed: unexpected response format (may be expected if no catalog)")
+                print("  ⚠️  Search failed: unexpected response format (may be expected if no catalog)")
 
         except Exception as e:
             duration = time.time() - start
@@ -217,7 +210,7 @@ class TestLargeResultSetPerformance:
         # =====================================================================
         # Scenario 3: Large Athena query
         # =====================================================================
-        print(f"\n[Scenario 3] Testing Athena query...")
+        print("\n[Scenario 3] Testing Athena query...")
 
         # Only run for quilt3 backend (platform may not have direct Athena)
         if backend_mode == "quilt3":
@@ -235,13 +228,15 @@ class TestLargeResultSetPerformance:
 
                     # Execute query requesting many rows
                     # tabulator_bucket_query is async, so we need to run it with asyncio
-                    query_result = asyncio.run(tabulator_bucket_query(
-                        bucket_name=real_test_bucket,
-                        query=f'SELECT * FROM "{table_name}" LIMIT 10000',
-                        max_results=10000,
-                        output_format="json",
-                        use_quilt_auth=True,
-                    ))
+                    query_result = asyncio.run(
+                        tabulator_bucket_query(
+                            bucket_name=real_test_bucket,
+                            query=f'SELECT * FROM "{table_name}" LIMIT 10000',
+                            max_results=10000,
+                            output_format="json",
+                            use_quilt_auth=True,
+                        )
+                    )
 
                     duration = time.time() - start
 
@@ -263,15 +258,17 @@ class TestLargeResultSetPerformance:
                         if row_count >= 1000:
                             target_time = 60.0
                             assert duration < target_time, (
-                                f"Athena query too slow: {duration:.2f}s > {target_time}s "
-                                f"for {row_count} rows"
+                                f"Athena query too slow: {duration:.2f}s > {target_time}s for {row_count} rows"
                             )
                         elif row_count == 0:
-                            print(f"     ℹ️  Table '{table_name}' is empty (0 rows), "
-                                  "query executed successfully but returned no data")
+                            print(
+                                f"     ℹ️  Table '{table_name}' is empty (0 rows), "
+                                "query executed successfully but returned no data"
+                            )
                         else:
-                            print(f"     ℹ️  Limited query results ({row_count} rows), "
-                                  "skipping strict performance check")
+                            print(
+                                f"     ℹ️  Limited query results ({row_count} rows), skipping strict performance check"
+                            )
 
                     else:
                         # Handle error case
@@ -284,8 +281,7 @@ class TestLargeResultSetPerformance:
                         print(f"  ⚠️  Query failed: {error_msg}")
 
                 else:
-                    print(f"  ℹ️  No tabulator tables found in {real_test_bucket}, "
-                          "skipping Athena query test")
+                    print(f"  ℹ️  No tabulator tables found in {real_test_bucket}, skipping Athena query test")
                     results['athena_query'] = {
                         'success': False,
                         'error': 'No tables available',
@@ -330,9 +326,7 @@ class TestLargeResultSetPerformance:
         print("=" * 70)
 
         # Final assertion - at least list_objects should succeed
-        assert results['list_objects']['success'], (
-            "List objects operation must succeed"
-        )
+        assert results['list_objects']['success'], "List objects operation must succeed"
 
         # If we had any successful operations, test passes
         successful_ops = sum(1 for r in results.values() if r.get('success'))

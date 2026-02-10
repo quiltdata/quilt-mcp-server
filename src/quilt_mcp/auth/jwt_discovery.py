@@ -6,7 +6,7 @@ import logging
 import os
 import time
 import uuid
-from typing import Optional
+from typing import Optional, cast
 
 from quilt_mcp.context.runtime_context import get_runtime_auth
 from quilt_mcp.ops.exceptions import AuthenticationError
@@ -88,16 +88,16 @@ def _get_env_jwt_secret() -> Optional[str]:
 def _get_token_from_quilt3_session() -> Optional[str]:
     # Try quilt3 session headers first
     try:
-        import quilt3  # type: ignore
+        import quilt3
 
         quilt_session = quilt3.session.get_session()
         if hasattr(quilt_session, "headers"):
             headers = quilt_session.headers
             auth_header = headers.get("Authorization") or headers.get("authorization")
             if auth_header and auth_header.startswith("Bearer "):
-                token = auth_header[7:].strip()
-                if token:
-                    return token
+                bearer_token = cast(str, auth_header[7:].strip())
+                if bearer_token:
+                    return bearer_token
     except Exception as exc:  # pragma: no cover - environment dependent
         logger.debug("Failed to get JWT from quilt3 session: %s", exc)
 

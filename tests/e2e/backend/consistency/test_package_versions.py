@@ -68,11 +68,7 @@ class TestPackageVersionConsistency:
 
         print(f"\n[Setup] Creating test file in S3: {real_test_bucket}")
         try:
-            s3_client.put_object(
-                Bucket=real_test_bucket,
-                Key=test_key,
-                Body=test_content.encode()
-            )
+            s3_client.put_object(Bucket=real_test_bucket, Key=test_key, Body=test_content.encode())
             print(f"  ✅ Created: s3://{real_test_bucket}/{test_key}")
         except Exception as e:
             pytest.fail(f"Failed to create test S3 file: {e}")
@@ -105,7 +101,7 @@ class TestPackageVersionConsistency:
         elif isinstance(create_result, dict) and 'top_hash' in create_result:
             package_hash = create_result['top_hash']
 
-        print(f"  ✅ Package created successfully")
+        print("  ✅ Package created successfully")
         if package_hash:
             print(f"  ℹ️  Package hash: {package_hash}")
         if hasattr(create_result, 'catalog_url'):
@@ -117,11 +113,7 @@ class TestPackageVersionConsistency:
         # Path 1: Direct package browse
         print("\n[Path 1] Direct package browse via backend API")
         try:
-            browse_result = backend_with_auth.browse_content(
-                package_name=package_name,
-                registry=registry,
-                path=""
-            )
+            browse_result = backend_with_auth.browse_content(package_name=package_name, registry=registry, path="")
 
             assert browse_result is not None, "Browse returned None"
             assert isinstance(browse_result, list), f"Browse should return list, got {type(browse_result)}"
@@ -135,10 +127,7 @@ class TestPackageVersionConsistency:
 
             # Try to get package info for hash
             try:
-                package_info = backend_with_auth.get_package_info(
-                    package_name=package_name,
-                    registry=registry
-                )
+                package_info = backend_with_auth.get_package_info(package_name=package_name, registry=registry)
                 if hasattr(package_info, 'top_hash'):
                     browse_hash = package_info.top_hash
                     print(f"  ℹ️  Browse hash from package info: {browse_hash}")
@@ -159,6 +148,7 @@ class TestPackageVersionConsistency:
                 # For quilt3, construct catalog URL from bucket config
                 try:
                     from quilt3 import get_remote_registry
+
                     catalog_base = get_remote_registry(registry)
                     if catalog_base:
                         # Construct catalog package URL
@@ -198,10 +188,7 @@ class TestPackageVersionConsistency:
 
         for attempt in range(max_retries):
             try:
-                packages = backend_with_auth.search_packages(
-                    query=package_name,
-                    registry=registry
-                )
+                packages = backend_with_auth.search_packages(query=package_name, registry=registry)
 
                 # Look for our package in results
                 for pkg in packages:
@@ -217,7 +204,9 @@ class TestPackageVersionConsistency:
                     break
                 else:
                     if attempt < max_retries - 1:
-                        print(f"  ℹ️  Package not yet indexed (attempt {attempt + 1}/{max_retries}), waiting {retry_delay}s...")
+                        print(
+                            f"  ℹ️  Package not yet indexed (attempt {attempt + 1}/{max_retries}), waiting {retry_delay}s..."
+                        )
                         time.sleep(retry_delay)
 
             except Exception as e:
@@ -244,7 +233,7 @@ class TestPackageVersionConsistency:
                 manifest_obj = s3_client.get_object(Bucket=real_test_bucket, Key=manifest_key)
                 manifest_content = manifest_obj['Body'].read().decode('utf-8')
                 manifest_hash = package_hash  # The hash we used to fetch it
-                print(f"  ✅ Manifest fetched successfully")
+                print("  ✅ Manifest fetched successfully")
                 print(f"  ℹ️  Manifest size: {len(manifest_content)} bytes")
                 print(f"  ℹ️  Manifest hash: {manifest_hash}")
             except Exception as e:
@@ -275,7 +264,7 @@ class TestPackageVersionConsistency:
             if len(unique_hashes) == 1:
                 print(f"  ✅ All paths return same version/hash: {unique_hashes.pop()}")
             else:
-                print(f"  ❌ INCONSISTENCY DETECTED!")
+                print("  ❌ INCONSISTENCY DETECTED!")
                 for source, hash_val in valid_hashes.items():
                     print(f"     {source}: {hash_val}")
                 pytest.fail(f"Hash verification inconsistent across paths: {valid_hashes}")
@@ -314,9 +303,7 @@ class TestPackageVersionConsistency:
         # If we have multiple hashes, they must match
         if len(valid_hashes) >= 2:
             unique_hashes = set(valid_hashes.values())
-            assert len(unique_hashes) == 1, (
-                f"Hash verification inconsistent across paths: {valid_hashes}"
-            )
+            assert len(unique_hashes) == 1, f"Hash verification inconsistent across paths: {valid_hashes}"
 
         # Manual cleanup of package since backend doesn't have package_delete
         print(f"\n[Cleanup] Deleting package manually: {package_name}")

@@ -72,11 +72,7 @@ class TestCrossBackendConsistency:
         print(f"\n[Setup] Creating test files in S3: {real_test_bucket}")
         for file_info in test_files:
             try:
-                s3_client.put_object(
-                    Bucket=real_test_bucket,
-                    Key=file_info["key"],
-                    Body=file_info["content"].encode()
-                )
+                s3_client.put_object(Bucket=real_test_bucket, Key=file_info["key"], Body=file_info["content"].encode())
                 print(f"  ✅ Created: s3://{real_test_bucket}/{file_info['key']}")
                 # Track for cleanup
                 cleanup_s3_objects.track_s3_object(bucket=real_test_bucket, key=file_info["key"])
@@ -108,7 +104,7 @@ class TestCrossBackendConsistency:
         elif isinstance(create_result, dict) and 'top_hash' in create_result:
             package_hash = create_result['top_hash']
 
-        print(f"  ✅ Package created successfully")
+        print("  ✅ Package created successfully")
         if package_hash:
             print(f"  ℹ️  Package hash: {package_hash}")
 
@@ -121,11 +117,7 @@ class TestCrossBackendConsistency:
         browse_succeeded = False
 
         try:
-            browse_result = backend_with_auth.browse_content(
-                package_name=package_name,
-                registry=registry,
-                path=""
-            )
+            browse_result = backend_with_auth.browse_content(package_name=package_name, registry=registry, path="")
 
             assert browse_result is not None, "Browse returned None"
             assert isinstance(browse_result, list), f"Browse should return list, got {type(browse_result)}"
@@ -133,10 +125,7 @@ class TestCrossBackendConsistency:
             # Extract file information
             for item in browse_result:
                 if hasattr(item, 'path') and hasattr(item, 'size'):
-                    browse_files[item.path] = {
-                        'size': item.size,
-                        'type': getattr(item, 'type', 'unknown')
-                    }
+                    browse_files[item.path] = {'size': item.size, 'type': getattr(item, 'type', 'unknown')}
 
             browse_succeeded = True
             print(f"  ✅ Browse succeeded: {len(browse_files)} files")
@@ -156,10 +145,7 @@ class TestCrossBackendConsistency:
 
         for attempt in range(max_retries):
             try:
-                packages = backend_with_auth.search_packages(
-                    query=package_name,
-                    registry=registry
-                )
+                packages = backend_with_auth.search_packages(query=package_name, registry=registry)
 
                 # Look for our package in results
                 for pkg in packages:
@@ -173,7 +159,7 @@ class TestCrossBackendConsistency:
                                 if hasattr(entry, 'logical_key'):
                                     search_files[entry.logical_key] = {
                                         'size': getattr(entry, 'size', None),
-                                        'type': getattr(entry, 'type', 'unknown')
+                                        'type': getattr(entry, 'type', 'unknown'),
                                     }
                             print(f"  ℹ️  Search returned {len(search_files)} files")
 
@@ -181,15 +167,13 @@ class TestCrossBackendConsistency:
                         if not search_files:
                             try:
                                 browse_from_search = backend_with_auth.browse_content(
-                                    package_name=package_name,
-                                    registry=registry,
-                                    path=""
+                                    package_name=package_name, registry=registry, path=""
                                 )
                                 for item in browse_from_search:
                                     if hasattr(item, 'path'):
                                         search_files[item.path] = {
                                             'size': getattr(item, 'size', None),
-                                            'type': getattr(item, 'type', 'unknown')
+                                            'type': getattr(item, 'type', 'unknown'),
                                         }
                                 print(f"  ℹ️  Retrieved {len(search_files)} files via browse after search")
                             except Exception as e:
@@ -201,7 +185,9 @@ class TestCrossBackendConsistency:
                     break
                 else:
                     if attempt < max_retries - 1:
-                        print(f"  ℹ️  Package not yet indexed (attempt {attempt + 1}/{max_retries}), waiting {retry_delay}s...")
+                        print(
+                            f"  ℹ️  Package not yet indexed (attempt {attempt + 1}/{max_retries}), waiting {retry_delay}s..."
+                        )
                         time.sleep(retry_delay)
 
             except Exception as e:
@@ -229,16 +215,14 @@ class TestCrossBackendConsistency:
             try:
                 # Try to get logical keys via tabulator
                 logical_keys_result = backend_with_auth.tabulator_get_logical_keys(
-                    bucket=real_test_bucket,
-                    package_name=package_name,
-                    package_hash=package_hash
+                    bucket=real_test_bucket, package_name=package_name, package_hash=package_hash
                 )
 
                 if logical_keys_result:
                     for key in logical_keys_result:
                         tabulator_files[key] = {
                             'size': None,  # Tabulator may not return size
-                            'type': 'file'
+                            'type': 'file',
                         }
                     tabulator_succeeded = True
                     print(f"  ✅ Tabulator succeeded: {len(tabulator_files)} files")
@@ -291,17 +275,13 @@ class TestCrossBackendConsistency:
                     print(f"  ℹ️  Database: {real_test_bucket}_catalog")
 
                     athena_result = backend_with_auth.athena_query_execute(
-                        query=query,
-                        database=f"{real_test_bucket}_catalog"
+                        query=query, database=f"{real_test_bucket}_catalog"
                     )
 
                     if athena_result and 'formatted_data' in athena_result:
                         for row in athena_result['formatted_data']:
                             if 'logical_key' in row:
-                                athena_files[row['logical_key']] = {
-                                    'size': row.get('size'),
-                                    'type': 'file'
-                                }
+                                athena_files[row['logical_key']] = {'size': row.get('size'), 'type': 'file'}
 
                         if athena_files:
                             athena_succeeded = True
@@ -309,7 +289,9 @@ class TestCrossBackendConsistency:
                             for path, info in athena_files.items():
                                 print(f"     - {path} ({info['size']} bytes)")
                         else:
-                            athena_skip_reason = "Athena query returned no results (package may not be indexed in Glue)"
+                            athena_skip_reason = (
+                                "Athena query returned no results (package may not be indexed in Glue)"
+                            )
                             print(f"  ⚠️  {athena_skip_reason}")
                     else:
                         athena_skip_reason = "Athena query returned no data"
@@ -330,7 +312,7 @@ class TestCrossBackendConsistency:
             'athena': set(athena_files.keys()) if athena_succeeded else set(),
         }
 
-        print(f"  ℹ️  File counts by method:")
+        print("  ℹ️  File counts by method:")
         print(f"     - Browse: {len(file_sets['browse'])} files")
         print(f"     - Search: {len(file_sets['search'])} files")
         print(f"     - Tabulator: {len(file_sets['tabulator'])} files")
@@ -378,8 +360,7 @@ class TestCrossBackendConsistency:
                     else:
                         # For search, this is more concerning
                         pytest.fail(
-                            f"Method '{method}' file list inconsistent with browse. "
-                            f"Missing: {missing}, Extra: {extra}"
+                            f"Method '{method}' file list inconsistent with browse. Missing: {missing}, Extra: {extra}"
                         )
 
             # Check metadata consistency for files present in multiple methods
@@ -399,9 +380,7 @@ class TestCrossBackendConsistency:
 
                 # Check size consistency (if available)
                 sizes = {
-                    method: info['size']
-                    for method, info in metadata_by_method.items()
-                    if info['size'] is not None
+                    method: info['size'] for method, info in metadata_by_method.items() if info['size'] is not None
                 }
 
                 if len(sizes) >= 2:
@@ -420,9 +399,15 @@ class TestCrossBackendConsistency:
         # Summary
         print("\n[Summary] Cross-backend consistency test results")
         print(f"  ✅ Browse: {'PASS' if browse_succeeded else 'FAIL'}")
-        print(f"  {'✅' if search_succeeded else '⚠️ '} Search: {'PASS' if search_succeeded else 'SKIP (indexing delay)'}")
-        print(f"  {'✅' if tabulator_succeeded else '⚠️ '} Tabulator: {'PASS' if tabulator_succeeded else f'SKIP ({tabulator_skip_reason})'}")
-        print(f"  {'✅' if athena_succeeded else '⚠️ '} Athena: {'PASS' if athena_succeeded else f'SKIP ({athena_skip_reason})'}")
+        print(
+            f"  {'✅' if search_succeeded else '⚠️ '} Search: {'PASS' if search_succeeded else 'SKIP (indexing delay)'}"
+        )
+        print(
+            f"  {'✅' if tabulator_succeeded else '⚠️ '} Tabulator: {'PASS' if tabulator_succeeded else f'SKIP ({tabulator_skip_reason})'}"
+        )
+        print(
+            f"  {'✅' if athena_succeeded else '⚠️ '} Athena: {'PASS' if athena_succeeded else f'SKIP ({athena_skip_reason})'}"
+        )
         print(f"  Package: {package_name}")
         print(f"  Registry: {registry}")
         print(f"  Files: {len(test_files)} created, {len(browse_files)} retrieved via browse")

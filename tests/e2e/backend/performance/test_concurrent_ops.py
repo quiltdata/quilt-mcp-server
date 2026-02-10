@@ -89,10 +89,7 @@ class TestConcurrentOperationsPerformance:
             start = time.time()
             errors = []
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [
-                    executor.submit(get_auth_headers)
-                    for _ in range(20)
-                ]
+                futures = [executor.submit(get_auth_headers) for _ in range(20)]
                 results = []
                 for f in futures:
                     try:
@@ -133,18 +130,12 @@ class TestConcurrentOperationsPerformance:
 
                 # Upload to S3
                 s3_client.put_object(
-                    Bucket=real_test_bucket,
-                    Key=key,
-                    Body=content.encode('utf-8'),
-                    ContentType='text/plain'
+                    Bucket=real_test_bucket, Key=key, Body=content.encode('utf-8'), ContentType='text/plain'
                 )
 
                 # Track for cleanup
                 test_keys.append(key)
-                cleanup_s3_objects.track_s3_object(
-                    bucket=real_test_bucket,
-                    key=key
-                )
+                cleanup_s3_objects.track_s3_object(bucket=real_test_bucket, key=key)
 
             # Define helper function for HeadObject
             def head_object(bucket: str, key: str) -> dict:
@@ -155,10 +146,7 @@ class TestConcurrentOperationsPerformance:
             print("  Executing 20 concurrent HeadObject calls (5 workers)...")
             start = time.time()
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                futures = [
-                    executor.submit(head_object, real_test_bucket, key)
-                    for key in test_keys
-                ]
+                futures = [executor.submit(head_object, real_test_bucket, key) for key in test_keys]
                 results = [f.result() for f in futures]
             duration = time.time() - start
 
@@ -171,8 +159,7 @@ class TestConcurrentOperationsPerformance:
             # HeadObject returns dict with metadata if successful
             successful_results = [r for r in results if 'ETag' in r]  # ETag present = success
             assert len(successful_results) == 20, (
-                f"Not all operations succeeded: {len(successful_results)}/20. "
-                "Possible race condition detected."
+                f"Not all operations succeeded: {len(successful_results)}/20. Possible race condition detected."
             )
 
             # Verify connection pooling efficiency
@@ -188,11 +175,11 @@ class TestConcurrentOperationsPerformance:
         # Define search queries that should work across different backends
         # Use general terms that are likely to return results
         queries = [
-            "data",      # Generic term likely in any dataset
-            "test",      # Test data/packages
-            "file",      # File references
-            "sample",    # Sample data
-            "config",    # Configuration files
+            "data",  # Generic term likely in any dataset
+            "test",  # Test data/packages
+            "file",  # File references
+            "sample",  # Sample data
+            "config",  # Configuration files
         ]
 
         # Get registry URL for search
@@ -205,7 +192,7 @@ class TestConcurrentOperationsPerformance:
             return backend_with_auth.search_packages(query=query, registry=registry)
 
         # Execute parallel search operations
-        print(f"  Executing 5 concurrent search queries (3 workers)...")
+        print("  Executing 5 concurrent search queries (3 workers)...")
         start = time.time()
         search_results = []
         search_errors = []
@@ -280,9 +267,7 @@ class TestConcurrentOperationsPerformance:
             else:
                 # Quilt3: Verify S3 list operation works
                 list_result = s3_client.list_objects_v2(
-                    Bucket=real_test_bucket,
-                    Prefix="performance_test/concurrent_ops/",
-                    MaxKeys=5
+                    Bucket=real_test_bucket, Prefix="performance_test/concurrent_ops/", MaxKeys=5
                 )
                 assert 'Contents' in list_result or 'KeyCount' in list_result, "Connection pool exhausted"
                 print("  ✓ Connection pool still healthy (no leaks)")
@@ -292,4 +277,4 @@ class TestConcurrentOperationsPerformance:
         print("\n✅ Concurrent operations performance test completed successfully")
         print(f"   - S3 operations: {duration:.2f}s for 20 HeadObject calls (5 workers)")
         print(f"   - Search queries: {len(search_results)} successful queries (3 workers)")
-        print(f"   - No race conditions, deadlocks, or resource leaks detected")
+        print("   - No race conditions, deadlocks, or resource leaks detected")

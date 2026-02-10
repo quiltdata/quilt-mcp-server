@@ -80,9 +80,9 @@ class TestDataAnalysisWorkflow:
             backend_mode: Backend mode (quilt3|platform)
             request: pytest request object for cleanup finalizer
         """
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"Data Analysis Workflow Test - Backend: {backend_mode}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         # Initialize Athena service (only for quilt3 backend)
         real_athena = None
@@ -92,7 +92,7 @@ class TestDataAnalysisWorkflow:
         test_table_name = None
         created_table = False
 
-        print(f"\n[Step 0] Creating test table for analysis")
+        print("\n[Step 0] Creating test table for analysis")
         timestamp = int(time.time())
         test_table_name = f"test_analysis_{timestamp}"
 
@@ -111,9 +111,7 @@ class TestDataAnalysisWorkflow:
 
         try:
             result = backend_with_auth.create_tabulator_table(
-                bucket=real_test_bucket,
-                table_name=test_table_name,
-                config=GENOMICS_TABLE_CONFIG
+                bucket=real_test_bucket, table_name=test_table_name, config=GENOMICS_TABLE_CONFIG
             )
             assert result.get("__typename") == "BucketConfig", f"Create failed: {result}"
             created_table = True
@@ -121,7 +119,7 @@ class TestDataAnalysisWorkflow:
         except Exception as e:
             # If table creation fails, try to use existing tables
             print(f"  ⚠️  Could not create test table: {e}")
-            print(f"  ℹ️  Will attempt to use existing tables if available")
+            print("  ℹ️  Will attempt to use existing tables if available")
             test_table_name = None
 
         # Step 1: List real databases
@@ -178,9 +176,7 @@ class TestDataAnalysisWorkflow:
 
                 # Create Athena service
                 real_athena = AthenaQueryService(
-                    use_quilt_auth=True,
-                    data_catalog_name=catalog_name,
-                    backend=backend_with_auth
+                    use_quilt_auth=True, data_catalog_name=catalog_name, backend=backend_with_auth
                 )
 
                 # Discover databases via Athena
@@ -196,10 +192,7 @@ class TestDataAnalysisWorkflow:
                 # Try to list tables in the database using athena_tables_list
                 from quilt_mcp.services.athena_read_service import athena_tables_list
 
-                tables_result = athena_tables_list(
-                    database=database_name,
-                    service=real_athena
-                )
+                tables_result = athena_tables_list(database=database_name, service=real_athena)
 
                 # Check result format (Pydantic response)
                 if test_table_name:
@@ -222,7 +215,7 @@ class TestDataAnalysisWorkflow:
         print(f"  ✅ Database identified: {database_name}")
 
         # Step 2: Query real table schema
-        print(f"\n[Step 2] Querying table schema from real data source")
+        print("\n[Step 2] Querying table schema from real data source")
 
         if table_name is None:
             pytest.skip("No table available for schema query")
@@ -240,6 +233,7 @@ class TestDataAnalysisWorkflow:
 
                 if target_table and "config" in target_table:
                     import yaml
+
                     config = yaml.safe_load(target_table["config"])
                     schema = config.get("schema", [])
                     print(f"  ✅ Schema query succeeded: {len(schema)} column(s)")
@@ -265,9 +259,7 @@ class TestDataAnalysisWorkflow:
                 """
 
                 schema_result = real_athena.execute_query(
-                    query=schema_query,
-                    database_name=database_name,
-                    max_results=100
+                    query=schema_query, database_name=database_name, max_results=100
                 )
 
                 # Check if query succeeded
@@ -295,7 +287,7 @@ class TestDataAnalysisWorkflow:
         print("  ✅ Schema information accurate")
 
         # Step 3: Execute real analytical query
-        print(f"\n[Step 3] Executing analytical query on real data")
+        print("\n[Step 3] Executing analytical query on real data")
 
         # For demonstration, we'll execute a simple query that works across different table types
         # We'll use COUNT(*) which works regardless of schema
@@ -323,13 +315,11 @@ class TestDataAnalysisWorkflow:
 
             else:
                 # Quilt3 backend: execute via Athena
-                print(f"  ℹ️  Executing query via Athena:")
+                print("  ℹ️  Executing query via Athena:")
                 print(f"      {analytical_query.strip()}")
 
                 query_result = real_athena.execute_query(
-                    query=analytical_query,
-                    database_name=database_name,
-                    max_results=100
+                    query=analytical_query, database_name=database_name, max_results=100
                 )
 
                 # Validate query execution
@@ -372,7 +362,7 @@ class TestDataAnalysisWorkflow:
         print("  ✅ Analytical query completed")
 
         # Step 4: Generate visualization from results (if available)
-        print(f"\n[Step 4] Attempting visualization generation")
+        print("\n[Step 4] Attempting visualization generation")
 
         # Check if visualization tools are available
         try:
@@ -394,7 +384,7 @@ class TestDataAnalysisWorkflow:
                         plot_type='bar',
                         x_column=list(data.columns)[0],
                         y_column=list(data.columns)[0] if len(data.columns) == 1 else list(data.columns)[1],
-                        title='Analysis Results'
+                        title='Analysis Results',
                     )
 
                     print("  ✅ Visualization generated successfully")
@@ -415,7 +405,7 @@ class TestDataAnalysisWorkflow:
             print("  ℹ️  This is acceptable - visualization is optional")
 
         # Step 5: Validate results format
-        print(f"\n[Step 5] Validating overall workflow results")
+        print("\n[Step 5] Validating overall workflow results")
 
         # Final assertions
         assert database_name is not None, "Database should be identified"
@@ -427,15 +417,15 @@ class TestDataAnalysisWorkflow:
         print("  ✅ Results format validated")
 
         # Workflow completion summary
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("✅ Data Analysis Workflow Test COMPLETED")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"   Backend: {backend_mode}")
         print(f"   Database: {database_name}")
         print(f"   Table: {table_name}")
         if query_result:
             if query_result.get("skipped"):
-                print(f"   Query: Skipped (platform backend)")
+                print("   Query: Skipped (platform backend)")
             else:
                 print(f"   Query: {'Success' if query_result.get('success') else 'Failed'}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")

@@ -16,9 +16,6 @@ import boto3
 from typing import List, Dict, Any, Set
 from pathlib import Path
 
-# Import from root conftest for reuse
-from tests.conftest import backend_mode, athena_service_factory, test_bucket  # noqa: F401
-
 # Import from parent e2e conftest for auth_backend compatibility
 from tests.e2e.conftest import AuthBackend  # noqa: F401
 

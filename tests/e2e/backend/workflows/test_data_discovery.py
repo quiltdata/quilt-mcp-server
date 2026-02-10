@@ -56,9 +56,9 @@ class TestDataDiscoveryWorkflow:
             real_test_bucket: Test bucket name (validated)
             backend_mode: Backend mode string (quilt3 or platform)
         """
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"Data Discovery Workflow Test (backend: {backend_mode})")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         # Step 1: Search real catalog for genomics CSV files
         print("\n[Step 1] Searching catalog for 'genomics csv'")
@@ -74,9 +74,7 @@ class TestDataDiscoveryWorkflow:
 
         # Validate search executed successfully
         assert search_result is not None, "Search returned None"
-        assert "success" in search_result or "results" in search_result, (
-            "Search result missing success/results"
-        )
+        assert "success" in search_result or "results" in search_result, "Search result missing success/results"
 
         # Check if search succeeded
         if not search_result.get("success", True):
@@ -170,10 +168,7 @@ class TestDataDiscoveryWorkflow:
         print(f"  ✅ Permission check complete: {len(accessible_buckets)}/{len(unique_buckets)} buckets accessible")
 
         # Filter results to only accessible buckets
-        accessible_results = [
-            r for r in working_results
-            if r.get("bucket") in accessible_buckets
-        ]
+        accessible_results = [r for r in working_results if r.get("bucket") in accessible_buckets]
 
         if not accessible_results:
             pytest.skip("No accessible buckets found - cannot proceed with object listing")
@@ -285,11 +280,13 @@ class TestDataDiscoveryWorkflow:
                 text = getattr(content_result, "text", "")
                 assert len(text) > 0, f"Content should not be empty for {s3_uri}"
 
-                sampled_content.append({
-                    "s3_uri": s3_uri,
-                    "text_length": len(text),
-                    "preview": text[:100],
-                })
+                sampled_content.append(
+                    {
+                        "s3_uri": s3_uri,
+                        "text_length": len(text),
+                        "preview": text[:100],
+                    }
+                )
 
                 print(f"  ✅ Result {idx + 1}: Sampled {len(text)} bytes from {s3_uri}")
 
@@ -383,9 +380,9 @@ class TestDataDiscoveryWorkflow:
 
         # Criterion 5: No false positives from real data
         # All buckets we tried to access had valid permission checks
-        assert all(
-            "can_read" in perms for perms in bucket_permissions.values()
-        ), "All permission checks should have can_read field"
+        assert all("can_read" in perms for perms in bucket_permissions.values()), (
+            "All permission checks should have can_read field"
+        )
         print("  ✅ No false positives: All permission checks valid")
 
         # Overall success: At least one complete path through the workflow
@@ -405,14 +402,14 @@ class TestDataDiscoveryWorkflow:
 
         assert has_complete_workflow, "Workflow failed: incomplete path through discovery process"
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("Data Discovery Workflow: SUCCESS")
         print(f"  - {len(working_results)} files discovered via Elasticsearch")
         print(f"  - {len(accessible_buckets)}/{len(unique_buckets)} buckets accessible via IAM")
         print(f"  - {listed_locations} locations listed via S3")
         print(f"  - {len(sampled_content)} files sampled for content")
         print(f"  - {len(catalog_urls)} catalog URLs generated")
-        print("="*80)
+        print("=" * 80)
 
 
 @pytest.mark.e2e

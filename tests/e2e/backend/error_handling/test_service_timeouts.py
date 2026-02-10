@@ -18,6 +18,7 @@ from quilt_mcp.ops.exceptions import BackendError
 
 class TimeoutError(Exception):
     """Custom timeout error for test scenarios."""
+
     pass
 
 
@@ -31,8 +32,11 @@ def timeout_context(seconds: int):
     Raises:
         TimeoutError: If operation exceeds timeout
     """
+
     def timeout_handler(signum, frame):
-        raise TimeoutError(f"Operation exceeded timeout of {seconds} seconds. Consider retry with exponential backoff.")
+        raise TimeoutError(
+            f"Operation exceeded timeout of {seconds} seconds. Consider retry with exponential backoff."
+        )
 
     # Set the signal handler and alarm
     old_handler = signal.signal(signal.SIGALRM, timeout_handler)
@@ -109,11 +113,9 @@ class TestServiceTimeouts:
             db_result = real_athena.discover_databases()
             if not db_result.get("success") or not db_result.get("databases"):
                 print("  ⚠️  No Athena databases available - skipping Athena timeout test")
-                scenario_results.append({
-                    "name": "Athena Query Timeout",
-                    "status": "skipped",
-                    "reason": "No databases available"
-                })
+                scenario_results.append(
+                    {"name": "Athena Query Timeout", "status": "skipped", "reason": "No databases available"}
+                )
             else:
                 # Pick first database with tables
                 test_database = None
@@ -129,11 +131,9 @@ class TestServiceTimeouts:
 
                 if not test_database or not test_tables:
                     print("  ⚠️  No Athena tables available - skipping Athena timeout test")
-                    scenario_results.append({
-                        "name": "Athena Query Timeout",
-                        "status": "skipped",
-                        "reason": "No tables available"
-                    })
+                    scenario_results.append(
+                        {"name": "Athena Query Timeout", "status": "skipped", "reason": "No tables available"}
+                    )
                 else:
                     # Create a query that might take some time
                     # Use the first table and add a complex condition
@@ -171,6 +171,7 @@ class TestServiceTimeouts:
                         # Test retry with backoff
                         print("  🔄 Testing automatic retry with backoff...")
                         try:
+
                             def execute_with_longer_timeout():
                                 # Retry with longer timeout (5 seconds)
                                 with timeout_context(5):
@@ -183,20 +184,20 @@ class TestServiceTimeouts:
                             print("  ⚠️  Retry also timed out (query is genuinely slow)")
 
                     # Record result
-                    scenario_results.append({
-                        "name": "Athena Query Timeout",
-                        "status": "passed" if athena_timeout_triggered or query_result else "completed_fast",
-                        "timeout_triggered": athena_timeout_triggered,
-                        "message": "Timeout handling verified" if athena_timeout_triggered else "Query completed before timeout"
-                    })
+                    scenario_results.append(
+                        {
+                            "name": "Athena Query Timeout",
+                            "status": "passed" if athena_timeout_triggered or query_result else "completed_fast",
+                            "timeout_triggered": athena_timeout_triggered,
+                            "message": "Timeout handling verified"
+                            if athena_timeout_triggered
+                            else "Query completed before timeout",
+                        }
+                    )
 
         except Exception as e:
             print(f"  ❌ Athena timeout test failed: {e}")
-            scenario_results.append({
-                "name": "Athena Query Timeout",
-                "status": "error",
-                "error": str(e)
-            })
+            scenario_results.append({"name": "Athena Query Timeout", "status": "error", "error": str(e)})
 
         # ========================================================================
         # Scenario 2: S3 Object Fetch Timeout
@@ -214,10 +215,7 @@ class TestServiceTimeouts:
             # Look for objects > 1MB that might take time to fetch
             print(f"  Scanning bucket: {real_test_bucket}")
 
-            list_response = s3_client.list_objects_v2(
-                Bucket=real_test_bucket,
-                MaxKeys=100
-            )
+            list_response = s3_client.list_objects_v2(Bucket=real_test_bucket, MaxKeys=100)
 
             large_object = None
             if "Contents" in list_response:
@@ -234,11 +232,9 @@ class TestServiceTimeouts:
 
             if not large_object:
                 print("  ⚠️  No objects in bucket - skipping S3 timeout test")
-                scenario_results.append({
-                    "name": "S3 Object Fetch Timeout",
-                    "status": "skipped",
-                    "reason": "No objects in test bucket"
-                })
+                scenario_results.append(
+                    {"name": "S3 Object Fetch Timeout", "status": "skipped", "reason": "No objects in test bucket"}
+                )
             else:
                 object_key = large_object["Key"]
                 object_size = large_object.get("Size", 0)
@@ -266,6 +262,7 @@ class TestServiceTimeouts:
 
                     print("  🔄 Testing retry with longer timeout...")
                     try:
+
                         def fetch_with_longer_timeout():
                             with timeout_context(10):
                                 response = s3_client.get_object(Bucket=real_test_bucket, Key=object_key)
@@ -285,20 +282,20 @@ class TestServiceTimeouts:
                 except Exception as e:
                     print(f"  ⚠️  Could not verify object integrity: {e}")
 
-                scenario_results.append({
-                    "name": "S3 Object Fetch Timeout",
-                    "status": "passed" if s3_timeout_triggered else "completed_fast",
-                    "timeout_triggered": s3_timeout_triggered,
-                    "message": "Timeout handling verified" if s3_timeout_triggered else "Fetch completed before timeout"
-                })
+                scenario_results.append(
+                    {
+                        "name": "S3 Object Fetch Timeout",
+                        "status": "passed" if s3_timeout_triggered else "completed_fast",
+                        "timeout_triggered": s3_timeout_triggered,
+                        "message": "Timeout handling verified"
+                        if s3_timeout_triggered
+                        else "Fetch completed before timeout",
+                    }
+                )
 
         except Exception as e:
             print(f"  ❌ S3 timeout test failed: {e}")
-            scenario_results.append({
-                "name": "S3 Object Fetch Timeout",
-                "status": "error",
-                "error": str(e)
-            })
+            scenario_results.append({"name": "S3 Object Fetch Timeout", "status": "error", "error": str(e)})
 
         # ========================================================================
         # Scenario 3: Search Timeout with Cache Fallback
@@ -310,11 +307,13 @@ class TestServiceTimeouts:
             # Check if backend has search capability
             if not hasattr(backend_with_auth, "search_packages"):
                 print("  ⚠️  Backend does not support search - skipping search timeout test")
-                scenario_results.append({
-                    "name": "Search Timeout Recovery",
-                    "status": "skipped",
-                    "reason": "Backend does not support search"
-                })
+                scenario_results.append(
+                    {
+                        "name": "Search Timeout Recovery",
+                        "status": "skipped",
+                        "reason": "Backend does not support search",
+                    }
+                )
             else:
                 # First, execute a successful search to potentially populate cache
                 print("  Warming up cache with successful search...")
@@ -354,6 +353,7 @@ class TestServiceTimeouts:
                         # Test retry with longer timeout
                         print("  🔄 Testing retry with longer timeout...")
                         try:
+
                             def search_with_longer_timeout():
                                 with timeout_context(10):
                                     return backend_with_auth.search_packages(query=search_query, registry=registry)
@@ -366,27 +366,25 @@ class TestServiceTimeouts:
                         # Non-timeout error - re-raise
                         raise
 
-                scenario_results.append({
-                    "name": "Search Timeout Recovery",
-                    "status": "passed",
-                    "timeout_triggered": search_timeout_triggered,
-                    "message": "Search timeout mechanism verified"
-                })
+                scenario_results.append(
+                    {
+                        "name": "Search Timeout Recovery",
+                        "status": "passed",
+                        "timeout_triggered": search_timeout_triggered,
+                        "message": "Search timeout mechanism verified",
+                    }
+                )
 
         except Exception as e:
             print(f"  ❌ Search timeout test failed: {e}")
-            scenario_results.append({
-                "name": "Search Timeout Recovery",
-                "status": "error",
-                "error": str(e)
-            })
+            scenario_results.append({"name": "Search Timeout Recovery", "status": "error", "error": str(e)})
 
         # ========================================================================
         # Test Summary
         # ========================================================================
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("📋 Test Summary")
-        print("="*70)
+        print("=" * 70)
 
         for result in scenario_results:
             name = result["name"]
@@ -395,11 +393,11 @@ class TestServiceTimeouts:
             if status == "passed":
                 print(f"✅ {name}: PASSED")
                 if result.get("timeout_triggered"):
-                    print(f"   • Timeout was triggered and handled correctly")
+                    print("   • Timeout was triggered and handled correctly")
                 print(f"   • {result.get('message', 'Success')}")
             elif status == "completed_fast":
                 print(f"⚡ {name}: COMPLETED FAST")
-                print(f"   • Operation completed before timeout could trigger")
+                print("   • Operation completed before timeout could trigger")
                 print(f"   • {result.get('message', 'Success')}")
             elif status == "skipped":
                 print(f"⚠️  {name}: SKIPPED")
@@ -408,7 +406,7 @@ class TestServiceTimeouts:
                 print(f"❌ {name}: ERROR")
                 print(f"   • {result.get('error', 'Unknown error')}")
 
-        print("="*70)
+        print("=" * 70)
 
         # Assert that we tested at least one scenario successfully
         successful_tests = [r for r in scenario_results if r["status"] in ["passed", "completed_fast"]]

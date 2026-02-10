@@ -21,9 +21,7 @@ from quilt_mcp.tools.buckets import bucket_object_text
 class TestDataValidationErrors:
     """Test data validation error handling with REAL services."""
 
-    def test_data_validation_errors(
-        self, backend_with_auth, real_test_bucket, backend_mode, cleanup_s3_objects
-    ):
+    def test_data_validation_errors(self, backend_with_auth, real_test_bucket, backend_mode, cleanup_s3_objects):
         """Test that validation catches invalid inputs before real operations.
 
         This test verifies:
@@ -79,9 +77,7 @@ class TestDataValidationErrors:
                 assert isinstance(e.context, dict), "ValidationError context should be a dict"
             except Exception as e:
                 # If we get a different error type, validation didn't run early enough
-                pytest.fail(
-                    f"Expected ValidationError for '{invalid_name}', got {type(e).__name__}: {e}"
-                )
+                pytest.fail(f"Expected ValidationError for '{invalid_name}', got {type(e).__name__}: {e}")
 
         # ============================================================
         # Scenario 2: Invalid S3 URI (real parsing)
@@ -117,9 +113,7 @@ class TestDataValidationErrors:
                 assert isinstance(e.context, dict), "ValidationError context should be a dict"
             except Exception as e:
                 # If we get a different error type, validation didn't run early enough
-                pytest.fail(
-                    f"Expected ValidationError for '{invalid_uri}', got {type(e).__name__}: {e}"
-                )
+                pytest.fail(f"Expected ValidationError for '{invalid_uri}', got {type(e).__name__}: {e}")
 
         # ============================================================
         # Scenario 3: Unsupported file type (binary file)
@@ -157,7 +151,7 @@ class TestDataValidationErrors:
             assert len(result.error) > 0, "Error message should not be empty"
         else:
             # Success case with replacement characters - verify we got text back
-            print(f"  ℹ️  Binary file returned text (with replacement chars)")
+            print("  ℹ️  Binary file returned text (with replacement chars)")
             assert hasattr(result, "text"), "Success result should have 'text' attribute"
             # Text should contain replacement characters since we read binary data
             # The UTF-8 decoder with errors='replace' will insert U+FFFD for invalid bytes
