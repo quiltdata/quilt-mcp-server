@@ -333,7 +333,7 @@ def init_phases() -> list[PhaseStats]:
         ),
         PhaseStats(
             name="Script Tests",
-            subtasks=["pytest scripts", "MCP server tests (legacy)"],
+            subtasks=["pytest scripts", "mcp-test"],
             subtask_test_counts=[scripts_count, 0],  # Only pytest scripts reports test counts
             tests_total=scripts_count,  # Just pytest scripts count (MCP tests reported differently)
         ),
@@ -432,7 +432,7 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
     elif phase.name == "Script Tests":
         if "pytest scripts" in line.lower():
             phase.current_subtask_idx = 0
-        elif "mcp" in line.lower() and ("server" in line.lower() or "legacy" in line.lower()):
+        elif "mcp-test" in line.lower() or ("mcp" in line.lower() and "test" in line.lower()):
             phase.current_subtask_idx = 1
 
     # MCPB Validate phase
@@ -749,7 +749,7 @@ def main() -> int:
             [
                 "bash",
                 "-c",
-                'export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v && make -s test-mcp-legacy',
+                'export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v && make -s mcp-test',
             ],
         ),
         (4, base_make + ["mcpb-validate"]),

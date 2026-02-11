@@ -1066,12 +1066,15 @@ class Platform_Admin_Ops(AdminOps):
             return result.get("message") or "Operation failed"
         if typename == "InvalidInput":
             errors = result.get("errors") or []
-            messages = [err.get("message") for err in errors if isinstance(err, dict) and err.get("message")]
+            messages: list[str] = [
+                str(err.get("message")) for err in errors if isinstance(err, dict) and err.get("message")
+            ]
             return "; ".join(messages) if messages else "Invalid input"
 
         # Backward compatibility for older response wrappers.
-        if "message" in result and isinstance(result.get("message"), str):
-            return result["message"]
+        message = result.get("message")
+        if isinstance(message, str):
+            return message
         return None
 
     def _transform_graphql_sso_config(self, sso_config_data: Dict[str, Any]) -> SSOConfig:
