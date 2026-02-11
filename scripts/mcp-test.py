@@ -18,8 +18,9 @@ import subprocess
 import sys
 import time
 import uuid as uuid_module
-from collections import Counter
+from collections import Counter, deque
 from pathlib import Path
+import threading
 from typing import Any, Dict, List, Optional, Union
 
 import requests
@@ -85,6 +86,21 @@ class LocalMCPServer:
         self.python_path = python_path or sys.executable
         self.process: Optional[subprocess.Popen] = None
         self.server_id = f"local-{uuid_module.uuid4().hex[:8]}"
+        self._stderr_buffer: deque[str] = deque(maxlen=200)
+        self._stderr_drain_thread: Optional[threading.Thread] = None
+
+    def _drain_stderr(self, stream: Optional[Any]) -> None:
+        """Continuously drain server stderr to prevent pipe deadlocks."""
+        if stream is None:
+            return
+        try:
+            for line in iter(stream.readline, ""):
+                if not line:
+                    break
+                self._stderr_buffer.append(line.rstrip("\n"))
+        except Exception:
+            # Best-effort drain thread; failures should not crash tests.
+            return
 
     def start(self) -> bool:
         """Start MCP server as local subprocess with stdio transport.
@@ -118,12 +134,22 @@ class LocalMCPServer:
                 env=env,
             )
 
+            # CRITICAL: Drain stderr continuously to avoid child-process blocking
+            # on a full stderr pipe during long test runs.
+            if self.process.stderr:
+                self._stderr_drain_thread = threading.Thread(
+                    target=self._drain_stderr,
+                    args=(self.process.stderr,),
+                    daemon=True,
+                )
+                self._stderr_drain_thread.start()
+
             # Brief wait for startup
             time.sleep(0.5)  # Much faster than Docker's 2s
 
             # Check if process is still running
             if self.process.poll() is not None:
-                stderr = self.process.stderr.read() if self.process.stderr else ""
+                stderr = "\n".join(self._stderr_buffer)
                 print(f"❌ Server exited immediately")
                 print(f"   stderr: {stderr}")
                 return False

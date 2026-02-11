@@ -2,12 +2,30 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import inspect
+import sys
 from functools import wraps
 from typing import Any, Callable, Mapping, Optional
 
 from quilt_mcp.context.factory import RequestContextFactory
 from quilt_mcp.context.runtime_context import RuntimeAuthState
+
+
+@contextlib.contextmanager
+def _suppress_tool_stdout():
+    """Capture accidental stdout writes from tool implementations.
+
+    In stdio transport, stdout is reserved for JSON-RPC frames. Any stray
+    print() output can corrupt or block protocol communication.
+    """
+    capture = io.StringIO()
+    with contextlib.redirect_stdout(capture):
+        yield
+    captured = capture.getvalue().strip()
+    if captured:
+        print(f"Suppressed tool stdout: {captured}", file=sys.stderr)
 
 
 def extract_auth_info(headers: Optional[Mapping[str, str]]) -> Optional[RuntimeAuthState]:
@@ -45,22 +63,24 @@ def wrap_tool_with_context(func: Callable[..., Any], factory: RequestContextFact
 
         @wraps(func)
         async def _async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            if has_context_param:
-                context = factory.create_context()
-                return await func(*args, context=context, **kwargs)
-            else:
-                return await func(*args, **kwargs)
+            with _suppress_tool_stdout():
+                if has_context_param:
+                    context = factory.create_context()
+                    return await func(*args, context=context, **kwargs)
+                else:
+                    return await func(*args, **kwargs)
 
         _async_wrapper.__signature__ = modified_sig  # type: ignore[attr-defined]
         return _async_wrapper
 
     @wraps(func)
     def _wrapper(*args: Any, **kwargs: Any) -> Any:
-        if has_context_param:
-            context = factory.create_context()
-            return func(*args, context=context, **kwargs)
-        else:
-            return func(*args, **kwargs)
+        with _suppress_tool_stdout():
+            if has_context_param:
+                context = factory.create_context()
+                return func(*args, context=context, **kwargs)
+            else:
+                return func(*args, **kwargs)
 
     _wrapper.__signature__ = modified_sig  # type: ignore[attr-defined]
     return _wrapper

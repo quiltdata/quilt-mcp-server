@@ -505,6 +505,25 @@ def configure_catalog(catalog_url: str) -> Dict[str, Any]:
         }
 
     except Exception as exc:
+        # Platform backend is configured via environment and does not support runtime
+        # catalog mutation. Treat matching catalog requests as a successful no-op.
+        if "Platform backend uses static configuration" in str(exc):
+            configured_url = os.getenv("QUILT_CATALOG_URL")
+            if configured_url and configured_url.rstrip("/") == catalog_url.rstrip("/"):
+                return {
+                    "status": "success",
+                    "catalog_url": catalog_url,
+                    "configured_url": configured_url,
+                    "message": "Catalog already configured via platform environment",
+                    "next_steps": [
+                        "Verify with: auth_status()",
+                        "Start exploring with: packages_list()",
+                    ],
+                    "help": {
+                        "verify_command": "auth_status()",
+                        "documentation": "https://docs.quiltdata.com/",
+                    },
+                }
         return {
             "status": "error",
             "error": f"Failed to configure catalog: {exc}",

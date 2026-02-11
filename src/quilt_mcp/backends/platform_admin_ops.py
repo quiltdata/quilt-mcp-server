@@ -26,6 +26,57 @@ from quilt_mcp.domain.sso_config import SSOConfig
 
 logger = logging.getLogger(__name__)
 
+_ROLE_SELECTION = """
+__typename
+... on ManagedRole {
+    id
+    name
+    arn
+}
+... on UnmanagedRole {
+    id
+    name
+    arn
+}
+"""
+
+_USER_SELECTION = f"""
+name
+email
+isActive
+isAdmin
+isSsoOnly
+isService
+dateJoined
+lastLogin
+role {{
+    {_ROLE_SELECTION}
+}}
+extraRoles {{
+    {_ROLE_SELECTION}
+}}
+"""
+
+_USER_RESULT_SELECTION = f"""
+__typename
+... on User {{
+    {_USER_SELECTION}
+}}
+... on InvalidInput {{
+    errors {{
+        path
+        message
+        name
+        context
+    }}
+}}
+... on OperationError {{
+    message
+    name
+    context
+}}
+"""
+
 
 class Platform_Admin_Ops(AdminOps):
     """Admin operations for Platform backend using GraphQL.
@@ -68,26 +119,9 @@ class Platform_Admin_Ops(AdminOps):
                     admin {
                         user {
                             list {
-                                name
-                                email
-                                isActive
-                                isAdmin
-                                isSsoOnly
-                                isService
-                                dateJoined
-                                lastLogin
-                                role {
-                                    id
-                                    name
-                                    arn
-                                    type
-                                }
-                                extraRoles {
-                                    id
-                                    name
-                                    arn
-                                    type
-                                }
+                                """
+            query += _USER_SELECTION
+            query += """
                             }
                         }
                     }
@@ -135,26 +169,9 @@ class Platform_Admin_Ops(AdminOps):
                     admin {
                         user {
                             get(name: $name) {
-                                name
-                                email
-                                isActive
-                                isAdmin
-                                isSsoOnly
-                                isService
-                                dateJoined
-                                lastLogin
-                                role {
-                                    id
-                                    name
-                                    arn
-                                    type
-                                }
-                                extraRoles {
-                                    id
-                                    name
-                                    arn
-                                    type
-                                }
+                                """
+            query += _USER_SELECTION
+            query += """
                             }
                         }
                     }
@@ -215,36 +232,9 @@ class Platform_Admin_Ops(AdminOps):
                     admin {
                         user {
                             create(input: $input) {
-                                ... on UserSuccess {
-                                    user {
-                                        name
-                                        email
-                                        isActive
-                                        isAdmin
-                                        isSsoOnly
-                                        isService
-                                        dateJoined
-                                        lastLogin
-                                        role {
-                                            id
-                                            name
-                                            arn
-                                            type
-                                        }
-                                        extraRoles {
-                                            id
-                                            name
-                                            arn
-                                            type
-                                        }
-                                    }
-                                }
-                                ... on InvalidInput {
-                                    message
-                                }
-                                ... on OperationError {
-                                    message
-                                }
+                                """
+            mutation += _USER_RESULT_SELECTION
+            mutation += """
                             }
                         }
                     }
@@ -261,16 +251,14 @@ class Platform_Admin_Ops(AdminOps):
             result = self._backend.execute_graphql_query(mutation, variables={"input": user_input})
             create_result = result.get("data", {}).get("admin", {}).get("user", {}).get("create", {})
 
-            # Check for errors in the result
-            if "message" in create_result:
-                error_message = create_result["message"]
+            error_message = self._extract_result_error(create_result)
+            if error_message:
                 raise ValidationError(f"Failed to create user: {error_message}")
 
-            user_data = create_result.get("user")
-            if not user_data:
+            if create_result.get("__typename") != "User":
                 raise BackendError("Failed to create user: No user data returned")
 
-            domain_user = self._transform_graphql_user(user_data)
+            domain_user = self._transform_graphql_user(create_result)
 
             logger.debug(f"Successfully created user: {name}")
             return domain_user
@@ -307,11 +295,19 @@ class Platform_Admin_Ops(AdminOps):
                         user {
                             mutate(name: $name) {
                                 delete {
-                                    ... on OperationSuccess {
-                                        message
-                                    }
+                                    __typename
                                     ... on InvalidInput {
+                                        errors {
+                                            path
+                                            message
+                                            name
+                                            context
+                                        }
+                                    }
+                                    ... on OperationError {
                                         message
+                                        name
+                                        context
                                     }
                                 }
                             }
@@ -323,9 +319,11 @@ class Platform_Admin_Ops(AdminOps):
             result = self._backend.execute_graphql_query(mutation, variables={"name": name})
             delete_result = result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("delete", {})
 
-            # Check if the mutation was successful
             if not delete_result:
                 raise NotFoundError(f"User not found: {name}")
+            error_message = self._extract_result_error(delete_result)
+            if error_message:
+                raise ValidationError(f"Failed to delete user: {error_message}")
 
             logger.debug(f"Successfully deleted user: {name}")
 
@@ -366,33 +364,9 @@ class Platform_Admin_Ops(AdminOps):
                         user {
                             mutate(name: $name) {
                                 setEmail(email: $email) {
-                                    ... on UserSuccess {
-                                        user {
-                                            name
-                                            email
-                                            isActive
-                                            isAdmin
-                                            isSsoOnly
-                                            isService
-                                            dateJoined
-                                            lastLogin
-                                            role {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                            extraRoles {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                        }
-                                    }
-                                    ... on InvalidInput {
-                                        message
-                                    }
+                                    """
+            mutation += _USER_RESULT_SELECTION
+            mutation += """
                                 }
                             }
                         }
@@ -405,18 +379,16 @@ class Platform_Admin_Ops(AdminOps):
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("setEmail", {})
             )
 
-            # Check for errors
-            if "message" in set_email_result:
-                error_message = set_email_result["message"]
+            error_message = self._extract_result_error(set_email_result)
+            if error_message:
                 if "not found" in error_message.lower():
                     raise NotFoundError(f"User not found: {name}")
                 raise ValidationError(f"Failed to set email: {error_message}")
 
-            user_data = set_email_result.get("user")
-            if not user_data:
+            if set_email_result.get("__typename") != "User":
                 raise BackendError("Failed to set email: No user data returned")
 
-            domain_user = self._transform_graphql_user(user_data)
+            domain_user = self._transform_graphql_user(set_email_result)
 
             logger.debug(f"Successfully set email for user: {name}")
             return domain_user
@@ -457,33 +429,9 @@ class Platform_Admin_Ops(AdminOps):
                         user {
                             mutate(name: $name) {
                                 setAdmin(admin: $admin) {
-                                    ... on UserSuccess {
-                                        user {
-                                            name
-                                            email
-                                            isActive
-                                            isAdmin
-                                            isSsoOnly
-                                            isService
-                                            dateJoined
-                                            lastLogin
-                                            role {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                            extraRoles {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                        }
-                                    }
-                                    ... on InvalidInput {
-                                        message
-                                    }
+                                    """
+            mutation += _USER_RESULT_SELECTION
+            mutation += """
                                 }
                             }
                         }
@@ -496,18 +444,16 @@ class Platform_Admin_Ops(AdminOps):
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("setAdmin", {})
             )
 
-            # Check for errors
-            if "message" in set_admin_result:
-                error_message = set_admin_result["message"]
+            error_message = self._extract_result_error(set_admin_result)
+            if error_message:
                 if "not found" in error_message.lower():
                     raise NotFoundError(f"User not found: {name}")
                 raise ValidationError(f"Failed to set admin status: {error_message}")
 
-            user_data = set_admin_result.get("user")
-            if not user_data:
+            if set_admin_result.get("__typename") != "User":
                 raise BackendError("Failed to set admin status: No user data returned")
 
-            domain_user = self._transform_graphql_user(user_data)
+            domain_user = self._transform_graphql_user(set_admin_result)
 
             logger.debug(f"Successfully set admin status for user: {name}")
             return domain_user
@@ -548,33 +494,9 @@ class Platform_Admin_Ops(AdminOps):
                         user {
                             mutate(name: $name) {
                                 setActive(active: $active) {
-                                    ... on UserSuccess {
-                                        user {
-                                            name
-                                            email
-                                            isActive
-                                            isAdmin
-                                            isSsoOnly
-                                            isService
-                                            dateJoined
-                                            lastLogin
-                                            role {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                            extraRoles {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                        }
-                                    }
-                                    ... on InvalidInput {
-                                        message
-                                    }
+                                    """
+            mutation += _USER_RESULT_SELECTION
+            mutation += """
                                 }
                             }
                         }
@@ -587,18 +509,16 @@ class Platform_Admin_Ops(AdminOps):
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("setActive", {})
             )
 
-            # Check for errors
-            if "message" in set_active_result:
-                error_message = set_active_result["message"]
+            error_message = self._extract_result_error(set_active_result)
+            if error_message:
                 if "not found" in error_message.lower():
                     raise NotFoundError(f"User not found: {name}")
                 raise ValidationError(f"Failed to set active status: {error_message}")
 
-            user_data = set_active_result.get("user")
-            if not user_data:
+            if set_active_result.get("__typename") != "User":
                 raise BackendError("Failed to set active status: No user data returned")
 
-            domain_user = self._transform_graphql_user(user_data)
+            domain_user = self._transform_graphql_user(set_active_result)
 
             logger.debug(f"Successfully set active status for user: {name}")
             return domain_user
@@ -635,11 +555,19 @@ class Platform_Admin_Ops(AdminOps):
                         user {
                             mutate(name: $name) {
                                 resetPassword {
-                                    ... on OperationSuccess {
-                                        message
-                                    }
+                                    __typename
                                     ... on InvalidInput {
+                                        errors {
+                                            path
+                                            message
+                                            name
+                                            context
+                                        }
+                                    }
+                                    ... on OperationError {
                                         message
+                                        name
+                                        context
                                     }
                                 }
                             }
@@ -653,9 +581,11 @@ class Platform_Admin_Ops(AdminOps):
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("resetPassword", {})
             )
 
-            # Check if the mutation was successful
             if not reset_result:
                 raise NotFoundError(f"User not found: {name}")
+            error_message = self._extract_result_error(reset_result)
+            if error_message:
+                raise ValidationError(f"Failed to reset password: {error_message}")
 
             logger.debug(f"Successfully reset password for user: {name}")
 
@@ -700,33 +630,9 @@ class Platform_Admin_Ops(AdminOps):
                         user {
                             mutate(name: $name) {
                                 setRole(role: $role, extraRoles: $extraRoles, append: $append) {
-                                    ... on UserSuccess {
-                                        user {
-                                            name
-                                            email
-                                            isActive
-                                            isAdmin
-                                            isSsoOnly
-                                            isService
-                                            dateJoined
-                                            lastLogin
-                                            role {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                            extraRoles {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                        }
-                                    }
-                                    ... on InvalidInput {
-                                        message
-                                    }
+                                    """
+            mutation += _USER_RESULT_SELECTION
+            mutation += """
                                 }
                             }
                         }
@@ -746,18 +652,16 @@ class Platform_Admin_Ops(AdminOps):
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("setRole", {})
             )
 
-            # Check for errors
-            if "message" in set_role_result:
-                error_message = set_role_result["message"]
+            error_message = self._extract_result_error(set_role_result)
+            if error_message:
                 if "not found" in error_message.lower():
                     raise NotFoundError(f"User or role not found: {error_message}")
                 raise ValidationError(f"Failed to set role: {error_message}")
 
-            user_data = set_role_result.get("user")
-            if not user_data:
+            if set_role_result.get("__typename") != "User":
                 raise BackendError("Failed to set role: No user data returned")
 
-            domain_user = self._transform_graphql_user(user_data)
+            domain_user = self._transform_graphql_user(set_role_result)
 
             logger.debug(f"Successfully set role for user: {name}")
             return domain_user
@@ -800,33 +704,9 @@ class Platform_Admin_Ops(AdminOps):
                         user {
                             mutate(name: $name) {
                                 addRoles(roles: $roles) {
-                                    ... on UserSuccess {
-                                        user {
-                                            name
-                                            email
-                                            isActive
-                                            isAdmin
-                                            isSsoOnly
-                                            isService
-                                            dateJoined
-                                            lastLogin
-                                            role {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                            extraRoles {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                        }
-                                    }
-                                    ... on InvalidInput {
-                                        message
-                                    }
+                                    """
+            mutation += _USER_RESULT_SELECTION
+            mutation += """
                                 }
                             }
                         }
@@ -839,18 +719,16 @@ class Platform_Admin_Ops(AdminOps):
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("addRoles", {})
             )
 
-            # Check for errors
-            if "message" in add_roles_result:
-                error_message = add_roles_result["message"]
+            error_message = self._extract_result_error(add_roles_result)
+            if error_message:
                 if "not found" in error_message.lower():
                     raise NotFoundError(f"User or role not found: {error_message}")
                 raise ValidationError(f"Failed to add roles: {error_message}")
 
-            user_data = add_roles_result.get("user")
-            if not user_data:
+            if add_roles_result.get("__typename") != "User":
                 raise BackendError("Failed to add roles: No user data returned")
 
-            domain_user = self._transform_graphql_user(user_data)
+            domain_user = self._transform_graphql_user(add_roles_result)
 
             logger.debug(f"Successfully added roles to user: {name}")
             return domain_user
@@ -894,33 +772,9 @@ class Platform_Admin_Ops(AdminOps):
                         user {
                             mutate(name: $name) {
                                 removeRoles(roles: $roles, fallback: $fallback) {
-                                    ... on UserSuccess {
-                                        user {
-                                            name
-                                            email
-                                            isActive
-                                            isAdmin
-                                            isSsoOnly
-                                            isService
-                                            dateJoined
-                                            lastLogin
-                                            role {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                            extraRoles {
-                                                id
-                                                name
-                                                arn
-                                                type
-                                            }
-                                        }
-                                    }
-                                    ... on InvalidInput {
-                                        message
-                                    }
+                                    """
+            mutation += _USER_RESULT_SELECTION
+            mutation += """
                                 }
                             }
                         }
@@ -937,18 +791,16 @@ class Platform_Admin_Ops(AdminOps):
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("removeRoles", {})
             )
 
-            # Check for errors
-            if "message" in remove_roles_result:
-                error_message = remove_roles_result["message"]
+            error_message = self._extract_result_error(remove_roles_result)
+            if error_message:
                 if "not found" in error_message.lower():
                     raise NotFoundError(f"User or role not found: {error_message}")
                 raise ValidationError(f"Failed to remove roles: {error_message}")
 
-            user_data = remove_roles_result.get("user")
-            if not user_data:
+            if remove_roles_result.get("__typename") != "User":
                 raise BackendError("Failed to remove roles: No user data returned")
 
-            domain_user = self._transform_graphql_user(user_data)
+            domain_user = self._transform_graphql_user(remove_roles_result)
 
             logger.debug(f"Successfully removed roles from user: {name}")
             return domain_user
@@ -977,10 +829,9 @@ class Platform_Admin_Ops(AdminOps):
             query = """
                 query ListRoles {
                     roles {
-                        id
-                        name
-                        arn
-                        type
+                        """
+            query += _ROLE_SELECTION
+            query += """
                     }
                 }
             """
@@ -1066,9 +917,14 @@ class Platform_Admin_Ops(AdminOps):
             # Serialize config to JSON string (backend expects string)
             config_str: Optional[str] = None
             if config is not None:
-                if not config:
+                if isinstance(config, str):
+                    if not config.strip():
+                        raise ValidationError("SSO configuration cannot be empty")
+                    config_str = config
+                elif not config:
                     raise ValidationError("SSO configuration cannot be empty")
-                config_str = json.dumps(config)
+                else:
+                    config_str = json.dumps(config)
 
             logger.debug("Setting SSO configuration via Platform GraphQL")
 
@@ -1076,18 +932,27 @@ class Platform_Admin_Ops(AdminOps):
                 mutation SetSSOConfig($config: String) {
                     admin {
                         setSsoConfig(config: $config) {
-                            ... on SsoConfigSuccess {
-                                ssoConfig {
-                                    text
-                                    timestamp
-                                    uploader {
-                                        name
-                                        email
-                                    }
+                            __typename
+                            ... on SsoConfig {
+                                text
+                                timestamp
+                                uploader {
+                                    name
+                                    email
                                 }
                             }
                             ... on InvalidInput {
+                                errors {
+                                    path
+                                    message
+                                    name
+                                    context
+                                }
+                            }
+                            ... on OperationError {
                                 message
+                                name
+                                context
                             }
                         }
                     }
@@ -1097,21 +962,24 @@ class Platform_Admin_Ops(AdminOps):
             result = self._backend.execute_graphql_query(mutation, variables={"config": config_str})
             set_sso_result = result.get("data", {}).get("admin", {}).get("setSsoConfig", {})
 
-            # Check for errors
-            if "message" in set_sso_result:
-                error_message = set_sso_result["message"]
-                raise ValidationError(f"Failed to set SSO config: {error_message}")
-
-            sso_config_data = set_sso_result.get("ssoConfig")
-            # If config was None (removal), ssoConfig will be None/null
             if config is None:
+                if set_sso_result is None:
+                    logger.debug("Successfully removed SSO configuration")
+                    return None
+                error_message = self._extract_result_error(set_sso_result)
+                if error_message:
+                    raise ValidationError(f"Failed to set SSO config: {error_message}")
                 logger.debug("Successfully removed SSO configuration")
                 return None
 
-            if not sso_config_data:
+            error_message = self._extract_result_error(set_sso_result)
+            if error_message:
+                raise ValidationError(f"Failed to set SSO config: {error_message}")
+
+            if set_sso_result.get("__typename") != "SsoConfig":
                 raise BackendError("Failed to set SSO config: No config data returned")
 
-            domain_sso_config = self._transform_graphql_sso_config(sso_config_data)
+            domain_sso_config = self._transform_graphql_sso_config(set_sso_result)
 
             logger.debug("Successfully set SSO configuration")
             return domain_sso_config
@@ -1175,15 +1043,36 @@ class Platform_Admin_Ops(AdminOps):
             Domain Role object
         """
         try:
+            role_type = role_data.get("type")
+            if not role_type:
+                role_type = role_data.get("__typename", "")
             return Role(
                 id=role_data.get("id"),
                 name=role_data.get("name", ""),
                 arn=role_data.get("arn"),
-                type=role_data.get("type", ""),
+                type=role_type,
             )
         except Exception as e:
             logger.error(f"Failed to transform GraphQL role to domain object: {e}")
             raise BackendError(f"Failed to transform role data: {str(e)}")
+
+    def _extract_result_error(self, result: Dict[str, Any]) -> Optional[str]:
+        """Extract a user-friendly error message from GraphQL union result."""
+        if not isinstance(result, dict):
+            return "Invalid GraphQL response"
+
+        typename = result.get("__typename")
+        if typename == "OperationError":
+            return result.get("message") or "Operation failed"
+        if typename == "InvalidInput":
+            errors = result.get("errors") or []
+            messages = [err.get("message") for err in errors if isinstance(err, dict) and err.get("message")]
+            return "; ".join(messages) if messages else "Invalid input"
+
+        # Backward compatibility for older response wrappers.
+        if "message" in result and isinstance(result.get("message"), str):
+            return result["message"]
+        return None
 
     def _transform_graphql_sso_config(self, sso_config_data: Dict[str, Any]) -> SSOConfig:
         """Transform GraphQL SSO config response to domain SSOConfig object.
