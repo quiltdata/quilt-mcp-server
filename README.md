@@ -96,6 +96,21 @@ QUILT_DEPLOYMENT=local uvx quilt-mcp
 QUILT_DEPLOYMENT=legacy uvx quilt-mcp
 ```
 
+Remote Docker + ngrok testing hack (for Claude.ai without OAuth):
+
+```bash
+make run-docker-remote
+# Starts Docker container on localhost:8000 with auto-injected real JWT fallback
+# Launches MCP Inspector at http://127.0.0.1:6274 for testing
+# JWT discovery priority: PLATFORM_TEST_JWT_TOKEN -> quilt3 login session
+#
+# In another terminal, expose via ngrok:
+ngrok http 8000 --domain=$NGROK_DOMAIN
+```
+
+Set `NGROK_DOMAIN` in `.env`, and configure Claude MCP URL as `https://<your-ngrok-domain>/mcp`.
+Use this only for local development/testing.
+
 Backward compatibility:
 - `--backend` still works as an explicit backend override.
 - `QUILT_MULTIUSER_MODE` is still supported as a legacy selector.

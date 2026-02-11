@@ -33,6 +33,7 @@ DOCKER_IMAGE_NAME: Optional[str] = os.getenv("DOCKER_IMAGE_NAME")
 
 DEFAULT_REGION = "us-east-1"
 LATEST_TAG = "latest"
+FALLBACK_JWT_ENV_VAR = "QUILT_FALLBACK_JWT"
 
 
 def get_docker_image_name() -> str:
@@ -260,6 +261,7 @@ class DockerManager:
         image: str = "quilt-mcp:test",
         port: int = 8002,
         jwt_secret: Optional[str] = None,
+        fallback_jwt: Optional[str] = None,
     ) -> Optional[ContainerConfig]:
         """Create configuration for stateless MCP container.
 
@@ -296,6 +298,8 @@ class DockerManager:
             "FASTMCP_PORT": "8000",
             "AWS_REGION": "us-east-1",
         }
+        if fallback_jwt:
+            env_vars[FALLBACK_JWT_ENV_VAR] = fallback_jwt
 
         return ContainerConfig(
             name=container_name,
@@ -321,6 +325,7 @@ class DockerManager:
         image: str = "quilt-mcp:test",
         port: int = 8003,
         jwt_secret: Optional[str] = None,
+        fallback_jwt: Optional[str] = None,
     ) -> Optional[ContainerConfig]:
         """Create configuration for multiuser fake role testing.
 
@@ -357,6 +362,8 @@ class DockerManager:
             "FASTMCP_PORT": "8000",
             "AWS_REGION": "us-east-1",
         }
+        if fallback_jwt:
+            env_vars[FALLBACK_JWT_ENV_VAR] = fallback_jwt
 
         return ContainerConfig(
             name=container_name,
@@ -1097,6 +1104,15 @@ ENVIRONMENT VARIABLES:
         "--port", type=int, help="Host port to expose (defaults: 8002 for stateless, 8003 for multiuser-fake)"
     )
     start_parser.add_argument("--jwt-secret", help="JWT secret key (defaults based on mode)")
+    start_parser.add_argument(
+        "--fallback-jwt",
+        help=f"Real JWT value to inject into {FALLBACK_JWT_ENV_VAR} for unauthenticated HTTP requests",
+    )
+    start_parser.add_argument(
+        "--inject-fallback-jwt",
+        action="store_true",
+        help=f"Discover a real JWT from PLATFORM_TEST_JWT_TOKEN or quilt3 session and inject {FALLBACK_JWT_ENV_VAR}",
+    )
 
     # Stop command
     stop_parser = subparsers.add_parser("stop", help="Stop and remove a Docker container")
@@ -1194,9 +1210,55 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0 if success else 1
 
 
+def discover_real_jwt(*, verbose: bool = True) -> Optional[str]:
+    """Resolve a real JWT from environment or quilt3 session."""
+    jwt_token = os.getenv("PLATFORM_TEST_JWT_TOKEN")
+    if jwt_token:
+        token = jwt_token.strip()
+        if token:
+            if verbose:
+                print("INFO: Using JWT from PLATFORM_TEST_JWT_TOKEN", file=sys.stderr)
+            return token
+
+    try:
+        import quilt3  # type: ignore
+
+        quilt_session = quilt3.session.get_session()
+        if hasattr(quilt_session, "headers") and "Authorization" in quilt_session.headers:
+            auth_header = quilt_session.headers["Authorization"]
+            if isinstance(auth_header, str) and auth_header.startswith("Bearer "):
+                jwt_token = auth_header[7:].strip()
+                if jwt_token:
+                    if verbose:
+                        print("INFO: Using JWT from quilt3 session", file=sys.stderr)
+                    return jwt_token
+    except Exception as exc:
+        if verbose:
+            print(f"WARNING: Could not read quilt3 session token: {exc}", file=sys.stderr)
+
+    return None
+
+
 def cmd_start(args: argparse.Namespace) -> int:
     """Start a Docker container."""
     manager = DockerManager(dry_run=getattr(args, 'dry_run', False))
+    fallback_jwt = args.fallback_jwt
+
+    if args.inject_fallback_jwt and fallback_jwt:
+        print("ERROR: Use either --fallback-jwt or --inject-fallback-jwt, not both.", file=sys.stderr)
+        return 1
+
+    if args.inject_fallback_jwt:
+        fallback_jwt = discover_real_jwt()
+        if not fallback_jwt:
+            print("ERROR: Could not discover a real JWT for fallback auth.", file=sys.stderr)
+            print("  Options:", file=sys.stderr)
+            print("    1. Set PLATFORM_TEST_JWT_TOKEN", file=sys.stderr)
+            print("    2. Run 'quilt3 login' and retry", file=sys.stderr)
+            return 1
+
+    if fallback_jwt:
+        print(f"INFO: Injecting {FALLBACK_JWT_ENV_VAR} into container env", file=sys.stderr)
 
     # Determine container configuration based on mode
     if args.mode == "stateless":
@@ -1207,6 +1269,7 @@ def cmd_start(args: argparse.Namespace) -> int:
             image=args.image,
             port=port,
             jwt_secret=args.jwt_secret,
+            fallback_jwt=fallback_jwt,
         )
     elif args.mode == "multiuser-fake":
         container_name = args.name or "mcp-multiuser-fake-test"
@@ -1216,6 +1279,7 @@ def cmd_start(args: argparse.Namespace) -> int:
             image=args.image,
             port=port,
             jwt_secret=args.jwt_secret,
+            fallback_jwt=fallback_jwt,
         )
     else:
         print(f"ERROR: Unknown mode: {args.mode}", file=sys.stderr)

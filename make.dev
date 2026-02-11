@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker run-docker-remote stop-docker-remote test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -183,6 +183,96 @@ test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
 		uv run --group test python scripts/docker_manager.py stop --name mcp-docker-test) || \
 		(uv run --group test python scripts/docker_manager.py stop --name mcp-docker-test && exit 1)
 	@echo "✅ Docker testing completed"
+
+# Remote Docker + ngrok workflow for Claude.ai testing (no OAuth yet)
+# Usage:
+#   make run-docker-remote              - Start Docker + Inspector + ngrok (DEFAULT)
+#   make run-docker-remote WITH_NGROK=0 - Start Docker + Inspector (local only)
+# Default to WITH_NGROK=1 unless explicitly disabled
+WITH_NGROK ?= 1
+NGROK_DOMAIN ?= uniformly-alive-halibut.ngrok-free.app
+
+run-docker-remote: docker-build
+	@echo "===🚀 Starting remote Docker MCP server with fallback JWT..."
+	@uv run --group test python scripts/docker_manager.py start \
+		--mode stateless \
+		--image quilt-mcp:test \
+		--name mcp-remote-ngrok \
+		--port 8000 \
+		--inject-fallback-jwt
+	@echo ""
+	@echo "✅ Container running at http://localhost:8000/mcp"
+	@echo ""
+	@if [ "$(WITH_NGROK)" = "1" ]; then \
+		if command -v ngrok >/dev/null 2>&1; then \
+			echo "🌐 Starting ngrok tunnel..."; \
+			pkill -f "ngrok http 8000" 2>/dev/null || true; \
+			ngrok http 8000 --domain=$(NGROK_DOMAIN) --log=stdout > /tmp/ngrok.log 2>&1 & \
+			sleep 3; \
+			echo ""; \
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+			echo "✅ ngrok tunnel active at https://$(NGROK_DOMAIN)/mcp"; \
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+			echo ""; \
+			echo "📋 Configure Inspector UI (opens at http://localhost:6274):"; \
+			echo "  1. Transport Type: Select 'Streamable HTTP'"; \
+			echo "  2. URL: Enter 'https://$(NGROK_DOMAIN)/mcp'"; \
+			echo "  3. Connection Type: 'Direct'"; \
+			echo "  4. Click 'Connect'"; \
+			echo ""; \
+			echo "🔧 For Claude.ai Desktop, add to MCP config:"; \
+			echo "  {"; \
+			echo "    \"mcpServers\": {"; \
+			echo "      \"quilt-remote\": {"; \
+			echo "        \"url\": \"https://$(NGROK_DOMAIN)/mcp\""; \
+			echo "      }"; \
+			echo "    }"; \
+			echo "  }"; \
+			echo ""; \
+		else \
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+			echo "⚠️  ngrok not found - install from https://ngrok.com"; \
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+			echo ""; \
+			echo "Or run manually in another terminal:"; \
+			echo "  ngrok http 8000 --domain=$(NGROK_DOMAIN)"; \
+			echo ""; \
+			echo "📋 Configure Inspector UI (opens at http://localhost:6274):"; \
+			echo "  1. Transport Type: Select 'Streamable HTTP'"; \
+			echo "  2. URL: Enter 'http://localhost:8000/mcp' (local only)"; \
+			echo "  3. Connection Type: 'Direct'"; \
+			echo "  4. Click 'Connect'"; \
+			echo ""; \
+		fi; \
+	else \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		echo "🔍 MCP Inspector Configuration (Local Only Mode)"; \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		echo ""; \
+		echo "📋 Configure Inspector UI (opens at http://localhost:6274):"; \
+		echo "  1. Transport Type: Select 'Streamable HTTP'"; \
+		echo "  2. URL: Enter 'http://localhost:8000/mcp'"; \
+		echo "  3. Connection Type: 'Direct'"; \
+		echo "  4. Click 'Connect'"; \
+		echo ""; \
+		echo "💡 To enable ngrok remote access:"; \
+		echo "  make stop-docker-remote"; \
+		echo "  make run-docker-remote"; \
+		echo ""; \
+	fi
+	@command -v npx >/dev/null || (echo "Error: npx not found. Please install Node.js first." && exit 1)
+	@echo "⏳ Launching Inspector..."
+	@echo ""
+	@npx @modelcontextprotocol/inspector
+
+stop-docker-remote:
+	@echo "Stopping Docker container..."
+	@uv run --group test python scripts/docker_manager.py stop --name mcp-remote-ngrok
+	@echo "Stopping Inspector..."
+	@pkill -f "@modelcontextprotocol/inspector" 2>/dev/null || echo "No MCP Inspector processes found"
+	@echo "Stopping ngrok..."
+	@pkill -f "ngrok http 8000" 2>/dev/null || echo "No ngrok processes found"
+	@echo "✅ All processes stopped"
 
 # Multiuser platform tests (pytest-based, unchanged)
 test-multiuser:
