@@ -8,6 +8,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-02-11
+
+### Added
+
+- **Deployment Mode Parameter**: Simplified configuration with high-level deployment presets
+  - New `--deployment {remote,local,legacy}` CLI flag for standard configurations
+  - `remote`: platform + http (production containers)
+  - `local`: platform + stdio (IDE integration, default)
+  - `legacy`: quilt3 + stdio (legacy local dev)
+  - `QUILT_DEPLOYMENT` environment variable support
+  - Dockerfile automatically sets `QUILT_DEPLOYMENT=remote`
+  - Server version string now reports deployment mode
+  - Backward compatible with existing `--backend` and transport flags
+
+- **JWT Discovery Service**: Automatic JWT authentication detection
+  - Discovers JWT from `MCP_JWT_SECRET` environment variable
+  - Enables JWT auth without explicit configuration
+  - Validates JWT format and expiration before use
+  - Seamless integration with platform backend authentication
+
+- **Comprehensive E2E Backend Test Suite**: 1,500+ new end-to-end tests
+  - **Integration tests**: package lifecycle, tabulator workflows, content pipeline, search-to-access
+  - **Consistency tests**: cross-backend behavior, package version handling
+  - **Error handling tests**: permission failures, service timeouts, validation errors
+  - **Performance tests**: concurrent operations, large result sets
+  - **Workflow tests**: data discovery, analysis, package creation workflows
+  - Dual backend support (quilt3 + platform) with parametrized fixtures
+  - Real service integration (no mocks) for authentic behavior testing
+  - Comprehensive cleanup and isolation between tests
+
+- **Platform Backend as Default**: Platform backend is now the default for all deployments
+  - Changed default from quilt3 to platform (GraphQL) backend
+  - Requires `QUILT_CATALOG_URL` and `QUILT_REGISTRY_URL` configuration
+  - Better scalability and multi-tenant support
+  - Clearer error messages for missing platform configuration
+
+### Changed
+
+- **Test Infrastructure Improvements**: Enhanced test runner and reporting
+  - Fixed progress display to show accurate test counts per phase
+  - Added coverage reporting to test runner output
+  - Improved type safety with stricter mypy configuration
+  - Removed redundant backend-specific test wrappers
+  - Better test result formatting and error reporting
+
+- **Platform Admin Operations**: Complete rewrite of GraphQL admin operations
+  - Fixed admin schema with proper field selections
+  - Improved error handling and validation
+  - Better type safety with explicit return types
+  - Comprehensive test coverage for all admin operations
+
+- **Default Transport**: Changed default transport from http to stdio for CLI deployments
+  - stdio is more appropriate for local/CLI usage
+  - Docker deployments still use http via `QUILT_DEPLOYMENT=remote`
+  - Better alignment with typical MCP client expectations
+
+### Fixed
+
+- **Platform Browse Query**: Fixed package browse queries by removing invalid size field
+  - Removed `size` field from `PackageDir` GraphQL selections
+  - Resolves "Cannot query field 'size' on type 'PackageDir'" errors
+  - Browse operations now work correctly with platform backend
+
+- **Test Runner Coverage**: Fixed test runner to properly handle coverage data collection
+  - Coverage reports now included in test runner output
+  - Better integration with pytest-cov plugin
+
+### Removed
+
+- **Obsolete Test Files and Scripts**: Cleaned up unused testing infrastructure
+  - Removed obsolete E2E Docker container tests (replaced by new E2E suite)
+  - Removed unused test migration scripts
+  - Removed legacy multiuser test script (replaced by fixtures)
+  - Removed test-catalog.sh script (functionality moved to E2E tests)
+  - Removed validate_test_structure.py (no longer needed)
+  - Removed find_mock_only_tests.py (superseded by E2E tests)
+
+### Documentation
+
+- **Specification Documents**: Added comprehensive specs for new features
+  - JWT discovery implementation options and analysis
+  - E2E test suite architecture and design decisions
+  - Platform backend configuration and deployment modes
+  - Deployment parameter specification and migration guide
+
+### Internal
+
+- **Configuration Management**: Enhanced mode configuration system
+  - `DeploymentMode` enum for type-safe deployment selection
+  - Improved precedence handling for CLI flags, env vars, and defaults
+  - Better validation and error messages for configuration issues
+  - Backward compatibility with legacy environment variables
+
 ## [0.15.0] - 2026-02-08
 
 ### Changed
