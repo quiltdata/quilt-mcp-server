@@ -705,6 +705,12 @@ def run_server(skip_banner: bool = False) -> None:
 
         mcp.run(transport=transport, show_banner=not skip_banner)
 
+    except BrokenPipeError:
+        # Expected during stdio shutdown when client closes connection before server finishes flushing.
+        # This is a harmless race condition in the MCP SDK's stdio transport cleanup.
+        # Suppress to avoid noise in logs - server will restart cleanly.
+        pass
+
     except (ImportError, ModuleNotFoundError) as e:
         # Use stderr to avoid interfering with JSON-RPC on stdout
         print(f"Error starting MCP server - Missing dependency: {e}", file=sys.stderr)

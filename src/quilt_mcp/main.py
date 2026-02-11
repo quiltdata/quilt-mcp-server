@@ -125,9 +125,9 @@ def main() -> None:
             print_startup_error(e, "Configuration Error", selected_backend=args.backend or "platform")
             sys.exit(1)
 
-        # Set transport protocol based on deployment mode
-        # HTTP for multiuser mode, stdio for local development mode
-        # Allow callers (e.g., container entrypoints) to override via environment
+        # Set transport protocol (defaults to stdio for MCP protocol standard)
+        # Docker deployments override to http via FASTMCP_TRANSPORT env var
+        # setdefault() respects explicit environment variable if already set
         os.environ.setdefault("FASTMCP_TRANSPORT", mode_config.default_transport)
 
         # Determine skip_banner setting with precedence: CLI flag > env var > default

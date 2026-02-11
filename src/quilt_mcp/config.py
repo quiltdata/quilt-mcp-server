@@ -145,8 +145,12 @@ class ModeConfig:
 
     @property
     def default_transport(self) -> Literal["stdio", "http"]:
-        """Default transport protocol based on deployment mode."""
-        return "http" if self.backend_type == "graphql" else "stdio"
+        """Default transport protocol for MCP server.
+
+        Returns stdio by default (MCP protocol standard for CLI tools).
+        Docker deployments override to http via FASTMCP_TRANSPORT environment variable.
+        """
+        return "stdio"
 
     def validate(self) -> None:
         """Validate configuration for current mode.
