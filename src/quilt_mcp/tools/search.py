@@ -183,7 +183,8 @@ def search_catalog(
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, _execute_search())
-                result = future.result(timeout=30)
+                # Increased timeout to 120s for large Elasticsearch searches across many buckets
+                result = future.result(timeout=120)
         except RuntimeError:
             # No event loop running, we can use asyncio.run directly
             result = asyncio.run(_execute_search())
