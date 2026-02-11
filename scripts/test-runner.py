@@ -500,12 +500,16 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
             # Strip ANSI color codes for reliable pattern matching
             line_clean = strip_ansi(line)
 
+            # Skip informational log messages (these are not errors)
+            info_indicators = ["ℹ️", "✅", "🔍", "📊", "⏳", "🎯", "📝", "💡"]
+            is_info_message = any(line_clean.strip().startswith(indicator) for indicator in info_indicators)
+
             # Check for pytest status indicators first (these take precedence)
             is_passing_test = " PASSED " in line_clean or line_clean.endswith(" PASSED") or "PASSED [" in line_clean
             is_skipped_test = " SKIPPED " in line_clean or line_clean.endswith(" SKIPPED") or "SKIPPED [" in line_clean
 
             # Flag as notable if:
-            # - Contains error keywords AND is not a passing test, OR
+            # - Contains error keywords AND is not a passing test AND is not an info message, OR
             # - Is a skipped test (important to see what's being skipped)
             error_keywords = [
                 "FAILED",
@@ -522,7 +526,7 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
                 "fatal:",  # Git and other fatal errors
             ]
             has_error_keyword = any(keyword in line_clean for keyword in error_keywords)
-            is_notable = (has_error_keyword and not is_passing_test) or is_skipped_test
+            is_notable = (has_error_keyword and not is_passing_test and not is_info_message) or is_skipped_test
 
             if is_notable:
                 # Add to error list with subtask info (no limit - show all errors and skipped tests)
@@ -749,7 +753,7 @@ def main() -> int:
             [
                 "bash",
                 "-c",
-                'export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v && make -s mcp-test',
+                'export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v && make -s test-mcp',
             ],
         ),
         (4, base_make + ["mcpb-validate"]),
@@ -781,6 +785,9 @@ def main() -> int:
             # Show final status with all errors visible
             final_status = state.format_status_line()
             live.update(Text(final_status))
+
+        # Print summary after TUI completes
+        print_summary(state, exit_code)
     else:
         # Run without TUI
         for phase_idx, cmd in phases_cmds:
@@ -788,7 +795,7 @@ def main() -> int:
             if code != 0 and exit_code == 0:
                 exit_code = code
 
-        # Print summary only in non-TUI mode
+        # Print summary in non-TUI mode
         print_summary(state, exit_code)
 
     return exit_code

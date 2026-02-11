@@ -390,7 +390,7 @@ def print_detailed_summary(
             # Show tools tested via loops (informational, not a problem)
             if tested_via_loops:
                 print(f"\n   ℹ️  Write-Effect Tools Tested via Loops ({len(tested_via_loops)}):")
-                print(f"      (Skipped standalone, verified in multi-step workflows)")
+                print("      (Skipped standalone, verified in multi-step workflows)")
                 for tool in tested_via_loops[:5]:  # Show first 5
                     print(f"      • {tool}")
                 if len(tested_via_loops) > 5:

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Package Metadata Retrieval**: Fixed `package_browse` to return actual package metadata
+  - Previously always returned `None` for package metadata
+  - Now correctly retrieves metadata using backend primitives
+  - Gracefully handles cases where metadata is unavailable
+
 ## [0.16.0] - 2026-02-11
 
 ### Added
