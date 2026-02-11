@@ -10,8 +10,8 @@ from typing import Any, Dict, Literal, Optional, cast
 
 from quilt_mcp.context.runtime_context import (
     get_runtime_auth,
-    get_runtime_claims,
 )
+from quilt_mcp.auth.jwt_discovery import JWTDiscovery
 
 
 class JwtAuthServiceError(RuntimeError):
@@ -36,6 +36,13 @@ class JWTAuthService:
     def __init__(self) -> None:
         self._cached_credentials: Optional[Dict[str, Any]] = None
         self._credentials_lock = threading.Lock()
+
+    def _resolve_access_token(self) -> Optional[str]:
+        """Resolve JWT token from runtime context first, then discovery fallbacks."""
+        runtime_auth = get_runtime_auth()
+        if runtime_auth and runtime_auth.access_token:
+            return runtime_auth.access_token
+        return JWTDiscovery.discover()
 
     def get_session(self):
         """Get boto3 session with temporary AWS credentials from JWT.
@@ -67,15 +74,15 @@ class JWTAuthService:
         """
         import boto3
 
-        runtime_auth = get_runtime_auth()
-        if runtime_auth is None or not runtime_auth.access_token:
+        access_token = self._resolve_access_token()
+        if not access_token:
             raise JwtAuthServiceError(
                 "JWT authentication required. Provide Authorization: Bearer header.",
                 code="missing_jwt",
             )
 
         # Pass JWT directly to backend - GraphQL validates it
-        credentials = self._get_or_refresh_credentials(runtime_auth.access_token)
+        credentials = self._get_or_refresh_credentials(access_token)
 
         # Create boto3 session with temporary credentials
         return boto3.Session(
@@ -189,12 +196,11 @@ class JWTAuthService:
         Returns:
             True if token exists and has valid JWT structure (3 dot-separated parts)
         """
-        runtime_auth = get_runtime_auth()
-        if runtime_auth is None or not runtime_auth.access_token:
+        token = self._resolve_access_token()
+        if not token:
             return False
 
         # Check JWT structure only (3 dot-separated parts)
-        token = runtime_auth.access_token
         return token.count(".") == 2
 
     def get_user_identity(self) -> Dict[str, str | None]:
@@ -211,6 +217,15 @@ class JWTAuthService:
         claims: Dict[str, Any] = {}
         if runtime_auth:
             claims = runtime_auth.claims or {}
+        if not claims:
+            token = self._resolve_access_token()
+            if token:
+                try:
+                    import jwt as pyjwt
+
+                    claims = cast(Dict[str, Any], pyjwt.decode(token, options={"verify_signature": False}))
+                except Exception:
+                    claims = {}
 
         user_id = claims.get("id") or claims.get("uuid")
         if not user_id:

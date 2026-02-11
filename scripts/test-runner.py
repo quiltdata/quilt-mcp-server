@@ -24,6 +24,7 @@ Examples:
 """
 
 import argparse
+import csv
 import os
 import re
 import subprocess
@@ -71,6 +72,25 @@ def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE.sub('', text)
 
 
+def read_coverage_summary(csv_path: str = "build/test-results/coverage-analysis.csv") -> Optional[float]:
+    """Read overall coverage percentage from coverage analysis CSV.
+
+    Returns:
+        Combined coverage percentage from SUMMARY row, or None if not available
+    """
+    try:
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get('file') == 'SUMMARY':
+                    # Extract combined_pct_covered column
+                    combined_str = row.get('combined_pct_covered', '0')
+                    return float(combined_str)
+    except (FileNotFoundError, ValueError, KeyError):
+        pass
+    return None
+
+
 @dataclass
 class TestFailure:
     """Details of a test failure."""
@@ -96,6 +116,7 @@ class PhaseStats:
     error_lines: list[tuple[int, str]] = field(default_factory=list)  # (subtask_idx, error_line)
     completed: bool = False
     command_failed: bool = False  # Track if the phase command failed (non-zero exit)
+    coverage_pct: Optional[float] = None  # Overall coverage percentage
 
 
 @dataclass
@@ -312,7 +333,7 @@ def init_phases() -> list[PhaseStats]:
         ),
         PhaseStats(
             name="Script Tests",
-            subtasks=["pytest scripts", "MCP server tests (legacy)"],
+            subtasks=["pytest scripts", "mcp-test"],
             subtask_test_counts=[scripts_count, 0],  # Only pytest scripts reports test counts
             tests_total=scripts_count,  # Just pytest scripts count (MCP tests reported differently)
         ),
@@ -411,7 +432,7 @@ def parse_subtask_transition(line: str, state: TestRunnerState) -> None:
     elif phase.name == "Script Tests":
         if "pytest scripts" in line.lower():
             phase.current_subtask_idx = 0
-        elif "mcp" in line.lower() and ("server" in line.lower() or "legacy" in line.lower()):
+        elif "mcp-test" in line.lower() or ("mcp" in line.lower() and "test" in line.lower()):
             phase.current_subtask_idx = 1
 
     # MCPB Validate phase
@@ -479,12 +500,16 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
             # Strip ANSI color codes for reliable pattern matching
             line_clean = strip_ansi(line)
 
+            # Skip informational log messages (these are not errors)
+            info_indicators = ["ℹ️", "✅", "🔍", "📊", "⏳", "🎯", "📝", "💡"]
+            is_info_message = any(line_clean.strip().startswith(indicator) for indicator in info_indicators)
+
             # Check for pytest status indicators first (these take precedence)
             is_passing_test = " PASSED " in line_clean or line_clean.endswith(" PASSED") or "PASSED [" in line_clean
             is_skipped_test = " SKIPPED " in line_clean or line_clean.endswith(" SKIPPED") or "SKIPPED [" in line_clean
 
             # Flag as notable if:
-            # - Contains error keywords AND is not a passing test, OR
+            # - Contains error keywords AND is not a passing test AND is not an info message, OR
             # - Is a skipped test (important to see what's being skipped)
             error_keywords = [
                 "FAILED",
@@ -501,7 +526,7 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
                 "fatal:",  # Git and other fatal errors
             ]
             has_error_keyword = any(keyword in line_clean for keyword in error_keywords)
-            is_notable = (has_error_keyword and not is_passing_test) or is_skipped_test
+            is_notable = (has_error_keyword and not is_passing_test and not is_info_message) or is_skipped_test
 
             if is_notable:
                 # Add to error list with subtask info (no limit - show all errors and skipped tests)
@@ -557,7 +582,11 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
         # Phase header
         if phase.tests_total > 0:
             status = "❌" if phase_failed else "✅"
-            print(f"  Phase {display_num}: {phase.name:20} {status} {phase.tests_passed}/{phase.tests_total} tests")
+            header = f"  Phase {display_num}: {phase.name:20} {status} {phase.tests_passed}/{phase.tests_total} tests"
+            # Add coverage percentage for Coverage phase
+            if phase.name == "Coverage" and phase.coverage_pct is not None:
+                header += f" | 📊 {phase.coverage_pct:.1f}% coverage"
+            print(header)
         else:
             tasks = len(phase.subtasks)
             status = "❌" if phase_failed else "✅"
@@ -634,6 +663,10 @@ def run_phase(phase_idx: int, cmd: list[str], state: TestRunnerState, live: Opti
     # Track command failure
     if exit_code != 0:
         phase.command_failed = True
+
+    # Read coverage summary for Coverage phase
+    if phase.name == "Coverage":
+        phase.coverage_pct = read_coverage_summary()
 
     return exit_code
 
@@ -720,7 +753,7 @@ def main() -> int:
             [
                 "bash",
                 "-c",
-                'export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v && make -s test-mcp-legacy',
+                'export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v && make -s test-mcp',
             ],
         ),
         (4, base_make + ["mcpb-validate"]),
@@ -752,6 +785,9 @@ def main() -> int:
             # Show final status with all errors visible
             final_status = state.format_status_line()
             live.update(Text(final_status))
+
+        # Print summary after TUI completes
+        print_summary(state, exit_code)
     else:
         # Run without TUI
         for phase_idx, cmd in phases_cmds:
@@ -759,7 +795,7 @@ def main() -> int:
             if code != 0 and exit_code == 0:
                 exit_code = code
 
-        # Print summary only in non-TUI mode
+        # Print summary in non-TUI mode
         print_summary(state, exit_code)
 
     return exit_code

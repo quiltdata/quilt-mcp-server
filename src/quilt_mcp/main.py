@@ -8,10 +8,16 @@ import sys
 import traceback
 from dotenv import load_dotenv
 from quilt_mcp.utils.common import run_server
-from quilt_mcp.config import get_mode_config, ConfigurationError
+from quilt_mcp.config import ConfigurationError, get_mode_config
+from quilt_mcp.ops.exceptions import AuthenticationError
 
 
-def print_startup_error(error: Exception, error_type: str = "Startup Error") -> None:
+def print_startup_error(
+    error: Exception,
+    error_type: str = "Startup Error",
+    selected_backend: str | None = None,
+    selected_deployment: str | None = None,
+) -> None:
     """Print formatted startup error diagnostic to stderr.
 
     Args:
@@ -24,6 +30,10 @@ def print_startup_error(error: Exception, error_type: str = "Startup Error") -> 
     print(file=sys.stderr)
     print(f"Error Type: {error_type}", file=sys.stderr)
     print(f"Details: {error}", file=sys.stderr)
+    if selected_deployment:
+        print(f"Selected deployment: {selected_deployment}", file=sys.stderr)
+    if selected_backend:
+        print(f"Selected backend: {selected_backend}", file=sys.stderr)
     print(file=sys.stderr)
 
     # Provide specific troubleshooting based on error type
@@ -45,12 +55,15 @@ def print_startup_error(error: Exception, error_type: str = "Startup Error") -> 
         print("3. Restart your MCP client (e.g., Claude Desktop)", file=sys.stderr)
     elif error_type == "Configuration Error":
         print("Troubleshooting:", file=sys.stderr)
-        print("1. Check the error message above for missing configuration", file=sys.stderr)
-        print("2. For multiuser mode, ensure these environment variables are set:", file=sys.stderr)
-        print("   - MCP_JWT_SECRET", file=sys.stderr)
-        print("   - MCP_JWT_ISSUER", file=sys.stderr)
-        print("   - MCP_JWT_AUDIENCE", file=sys.stderr)
-        print("3. For local development, set QUILT_MULTIUSER_MODE=false or leave unset", file=sys.stderr)
+        print("Check the error message above for missing configuration.", file=sys.stderr)
+        print("Platform backend needs QUILT_CATALOG_URL and QUILT_REGISTRY_URL.", file=sys.stderr)
+        print("For legacy local development, try: uvx quilt-mcp --deployment legacy", file=sys.stderr)
+    elif error_type == "Authentication Error":
+        print("Troubleshooting:", file=sys.stderr)
+        print("1. Run 'quilt3 login' to authenticate", file=sys.stderr)
+        print("2. Or set MCP_JWT_SECRET for platform backend", file=sys.stderr)
+        print("3. For legacy local development: uvx quilt-mcp --deployment legacy", file=sys.stderr)
+        print("4. Try debug output: FASTMCP_DEBUG=1 uvx quilt-mcp", file=sys.stderr)
     else:
         print("Troubleshooting:", file=sys.stderr)
         print("1. Check the error message above for specific issues", file=sys.stderr)
@@ -81,6 +94,20 @@ def main() -> None:
             action="store_true",
             help="Skip startup banner display (useful for multi-server setups)",
         )
+        parser.add_argument(
+            "--backend",
+            choices=["quilt3", "platform"],
+            help=("Override backend implementation: quilt3 or platform. Prefer --deployment for standard setups."),
+        )
+        parser.add_argument(
+            "--deployment",
+            choices=["remote", "local", "legacy"],
+            help=(
+                "Deployment preset: remote (platform + http), "
+                "local (platform + stdio, default), legacy (quilt3 + stdio). "
+                "Can also be set via QUILT_DEPLOYMENT."
+            ),
+        )
         args = parser.parse_args()
 
         # Load .env for development (project root only, not user's home directory)
@@ -90,23 +117,39 @@ def main() -> None:
 
         # Validate configuration early in startup before accepting requests
         try:
-            mode_config = get_mode_config()
+            mode_config = get_mode_config(
+                backend_override=args.backend,
+                deployment_mode=args.deployment,
+            )
             mode_config.validate()
 
             # Log successful validation and current mode
             mode_name = "multiuser" if mode_config.is_multiuser else "local development"
             print(f"Quilt MCP Server starting in {mode_name} mode", file=sys.stderr)
+            print(
+                f"Deployment mode: {mode_config.deployment_mode.value} ({mode_config.deployment_selection_source})",
+                file=sys.stderr,
+            )
+            print(
+                f"Backend selection: {mode_config.backend_name} ({mode_config.backend_selection_source})",
+                file=sys.stderr,
+            )
             print(f"Backend type: {mode_config.backend_type}", file=sys.stderr)
             print(f"JWT required: {mode_config.requires_jwt}", file=sys.stderr)
             print(f"Default transport: {mode_config.default_transport}", file=sys.stderr)
 
         except ConfigurationError as e:
-            print_startup_error(e, "Configuration Error")
+            print_startup_error(
+                e,
+                "Configuration Error",
+                selected_backend=args.backend or mode_config.backend_name if "mode_config" in locals() else "platform",
+                selected_deployment=(args.deployment or os.getenv("QUILT_DEPLOYMENT") or "local"),
+            )
             sys.exit(1)
 
-        # Set transport protocol based on deployment mode
-        # HTTP for multiuser mode, stdio for local development mode
-        # Allow callers (e.g., container entrypoints) to override via environment
+        # Set transport protocol (defaults to stdio for MCP protocol standard)
+        # Docker deployments override to http via FASTMCP_TRANSPORT env var
+        # setdefault() respects explicit environment variable if already set
         os.environ.setdefault("FASTMCP_TRANSPORT", mode_config.default_transport)
 
         # Determine skip_banner setting with precedence: CLI flag > env var > default
@@ -118,6 +161,10 @@ def main() -> None:
 
     except (ImportError, ModuleNotFoundError) as e:
         print_startup_error(e, "Missing Dependency")
+        sys.exit(1)
+
+    except AuthenticationError as e:
+        print_startup_error(e, "Authentication Error")
         sys.exit(1)
 
     except KeyboardInterrupt:

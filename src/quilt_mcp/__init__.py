@@ -6,6 +6,8 @@ Quilt packages and S3 buckets through a secure, authenticated interface.
 
 from __future__ import annotations
 
+from .config import DeploymentMode
+
 # Re-export all tools for easy access
 from .tools.catalog import (
     catalog_uri,
@@ -64,6 +66,7 @@ from .tools.tabulator import (
 __version__ = "0.5.6"
 
 __all__ = [
+    "DeploymentMode",
     # Auth tools
     "auth_status",
     "catalog_info",

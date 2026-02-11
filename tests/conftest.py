@@ -148,10 +148,6 @@ def test_env():
     # Ensure unit tests run in local mode (not multiuser mode)
     os.environ["QUILT_MULTIUSER_MODE"] = "false"
 
-    # Remove JWT secrets to prevent development fallback behavior
-    os.environ.pop("MCP_JWT_SECRET", None)
-    os.environ.pop("MCP_JWT_SECRET_SSM_PARAMETER", None)
-
     # Reset ModeConfig singleton to pick up test environment variables
     try:
         from quilt_mcp.config import reset_mode_config
@@ -235,16 +231,30 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
         monkeypatch.setenv("QUILT_CATALOG_URL", quilt_catalog_url)
         monkeypatch.setenv("QUILT_REGISTRY_URL", quilt_registry_url)
 
-        jwt_secret = os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret")
-        monkeypatch.setenv("MCP_JWT_SECRET", jwt_secret)
-
-        # Use real JWT from environment if available, otherwise generate test JWT
+        # Use real JWT from environment if available, otherwise try quilt3 session, otherwise generate test JWT
         access_token = os.getenv("PLATFORM_TEST_JWT_TOKEN")
         if not access_token:
-            # Generate test JWT for mocked platform tests
+            # Try to get JWT from quilt3 session (if authenticated)
+            try:
+                import quilt3
+
+                quilt_session = quilt3.session.get_session()
+                if hasattr(quilt_session, "headers") and "Authorization" in quilt_session.headers:
+                    auth_header = quilt_session.headers["Authorization"]
+                    if auth_header.startswith("Bearer "):
+                        access_token = auth_header[7:]  # Strip "Bearer " prefix
+                        print("✅ Using JWT from quilt3 session")
+            except Exception as e:
+                print(f"⚠️  Could not get JWT from quilt3 session: {e}")
+
+        if not access_token:
+            # Generate test JWT for mocked platform tests (only if no real token available)
             import jwt as pyjwt
             import time
             import uuid
+
+            # Get JWT secret from environment or use default test secret
+            jwt_secret = os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret-for-jwt-generation")
 
             claims = {
                 "id": "test-user-platform",
@@ -252,11 +262,12 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
                 "exp": int(time.time()) + 3600,
             }
             access_token = pyjwt.encode(claims, jwt_secret, algorithm="HS256")
-        else:
-            # Decode real JWT to get claims
-            import jwt as pyjwt
+            print("⚠️  Using generated test JWT (may not work with real servers)")
 
-            claims = pyjwt.decode(access_token, options={"verify_signature": False})
+        # Decode JWT to get claims (works for both real and generated tokens)
+        import jwt as pyjwt
+
+        claims = pyjwt.decode(access_token, options={"verify_signature": False})
 
         token_handle = push_runtime_context(
             environment="web",
@@ -602,7 +613,6 @@ def stateless_container(
             cpu_period=100000,
             environment={
                 "QUILT_MULTIUSER_MODE": "true",  # Enable multiuser mode
-                "MCP_JWT_SECRET": "test-secret",  # Test JWT secret
                 "QUILT_CATALOG_URL": "http://test-catalog.example.com",  # Required for multiuser
                 "QUILT_REGISTRY_URL": "http://test-registry.example.com",  # Required for multiuser
                 "QUILT_DISABLE_CACHE": "true",  # Disable caching

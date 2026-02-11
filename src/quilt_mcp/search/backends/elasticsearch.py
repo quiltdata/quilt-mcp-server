@@ -10,6 +10,7 @@ This backend simply:
 3. Normalizes results to the standard format
 """
 
+import asyncio
 import logging
 import time
 from typing import Dict, List, Any, Optional, TYPE_CHECKING
@@ -507,7 +508,8 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             # Execute search with retry logic for 403 errors (too many indices)
             # Try search with full index pattern first
             try:
-                response = search_api(query=dsl_query, index=index_pattern, limit=limit)
+                # Run synchronous search_api in thread pool to avoid blocking event loop
+                response = await asyncio.to_thread(search_api, query=dsl_query, index=index_pattern, limit=limit)
             except Exception as search_error:
                 # Check if error is 403 and we're searching multiple buckets
                 if "403" in str(search_error) and "," in index_pattern and not bucket:
@@ -529,7 +531,10 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                             logger.info(
                                 f"Retrying with {max_buckets} buckets ({len(reduced_pattern.split(','))} indices)"
                             )
-                            response = search_api(query=dsl_query, index=reduced_pattern, limit=limit)
+                            # Run synchronous search_api in thread pool to avoid blocking event loop
+                            response = await asyncio.to_thread(
+                                search_api, query=dsl_query, index=reduced_pattern, limit=limit
+                            )
                             logger.info(f"✅ Search succeeded with {max_buckets} buckets")
                             break
                         except Exception as retry_error:

@@ -74,7 +74,9 @@ class RequestContextFactory:
             return JWTAuthService()  # type: ignore[return-value]
 
         if mode_config.requires_jwt:
-            raise ServiceInitializationError("AuthService", "JWT authentication required but missing.")
+            # In stdio/local test workflows there may be no request-scoped runtime JWT.
+            # JWTAuthService can still resolve credentials from discovery sources.
+            return JWTAuthService()  # type: ignore[return-value]
 
         return IAMAuthService()  # type: ignore[return-value]
 

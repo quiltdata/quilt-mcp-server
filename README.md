@@ -12,7 +12,12 @@ MCP server for Quilt data catalog - search, analyze, and manage data packages wi
 
 ```bash
 # Run directly with uvx (requires uv: https://docs.astral.sh/uv/)
+# Default deployment is "local" (platform + stdio)
 uvx quilt-mcp
+
+# Other deployment modes
+uvx quilt-mcp --deployment remote  # platform + http
+uvx quilt-mcp --deployment legacy  # quilt3 + stdio
 
 # Or install globally
 uv tool install quilt-mcp
@@ -69,10 +74,31 @@ quilt3 config https://your-stack.your-company.com
 quilt3 login
 ```
 
-By default, quilt-mcp uses IAM credentials from your environment, AWS profiles, or quilt3 sessions.
+By default, quilt-mcp uses the **local deployment mode** (`--deployment local`), which uses the platform backend and requires:
 
-For multiuser deployments, enable **multiuser mode** by setting `QUILT_MULTIUSER_MODE=true`. In multiuser mode the server
-requires `Authorization: Bearer <token>` on every request and delegates authorization to the Platform.
+- `QUILT_CATALOG_URL`
+- `QUILT_REGISTRY_URL`
+- authentication (`quilt3 login` session or `MCP_JWT_SECRET`)
+
+Use deployment presets:
+
+```bash
+uvx quilt-mcp --deployment remote  # platform + http
+uvx quilt-mcp --deployment local   # platform + stdio (default)
+uvx quilt-mcp --deployment legacy  # quilt3 + stdio
+```
+
+`QUILT_DEPLOYMENT` env var can set the same modes:
+
+```bash
+QUILT_DEPLOYMENT=remote uvx quilt-mcp
+QUILT_DEPLOYMENT=local uvx quilt-mcp
+QUILT_DEPLOYMENT=legacy uvx quilt-mcp
+```
+
+Backward compatibility:
+- `--backend` still works as an explicit backend override.
+- `QUILT_MULTIUSER_MODE` is still supported as a legacy selector.
 
 See `docs/AUTHENTICATION.md` for full configuration details and examples.
 
@@ -82,9 +108,10 @@ Override defaults via environment or MCP config:
 
 - `QUILT_CATALOG_URL` - Your Quilt catalog URL (e.g., `https://your-catalog.quiltdata.com`)
 - `QUILT_REGISTRY_URL` - Your Quilt registry URL (e.g., `https://registry.your-catalog.quiltdata.com`)
+- `QUILT_DEPLOYMENT` - Deployment mode (`remote`, `local`, `legacy`)
+- `QUILT_MULTIUSER_MODE` - Legacy backend selector (true -> platform, false -> quilt3)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 - `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)
-- `QUILT_MULTIUSER_MODE` - Enable multiuser mode with JWT auth (true/false, default: false)
 - `MCP_JWT_SECRET` - HS256 shared secret for JWT validation (JWT mode)
 - `MCP_JWT_SECRET_SSM_PARAMETER` - SSM parameter name for JWT secret (JWT mode)
 - `MCP_JWT_ISSUER` - Expected JWT issuer (optional)

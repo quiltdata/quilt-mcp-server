@@ -46,4 +46,5 @@ def test_credentials_cleared_after_request():
     finally:
         reset_runtime_context(token_handle)
 
-    assert context.auth_service.get_user_identity()["user_id"] is None
+    next_context = factory.create_context()
+    assert next_context.auth_service.get_user_identity()["user_id"] != "user-1"

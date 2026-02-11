@@ -36,7 +36,6 @@ def test_no_state_persists_across_restarts(
                 tmpfs={"/tmp": "size=100M", "/app/.cache": "size=50M"},  # noqa: S108
                 environment={
                     "QUILT_MULTIUSER_MODE": "true",
-                    "MCP_JWT_SECRET": "test-secret",
                     "QUILT_CATALOG_URL": "http://test-catalog.example.com",  # Required for multiuser
                     "QUILT_REGISTRY_URL": "http://test-registry.example.com",  # Required for multiuser
                     "QUILT_DISABLE_CACHE": "true",

@@ -7,6 +7,7 @@ import pytest
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, NotFoundError, ValidationError
 from quilt_mcp.context.runtime_context import (
     RuntimeAuthState,
+    clear_runtime_auth,
     get_runtime_environment,
     push_runtime_context,
     reset_runtime_context,
@@ -43,9 +44,22 @@ def _make_backend(monkeypatch, claims=None):
 def test_platform_backend_requires_access_token(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 
+    # Ensure no runtime context exists from previous tests
+    clear_runtime_auth()
+
     monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
     monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
+    # Ensure no JWT sources are available
+    monkeypatch.delenv("MCP_JWT_SECRET", raising=False)
+    monkeypatch.delenv("PLATFORM_TEST_JWT_SECRET", raising=False)
+    monkeypatch.delenv("QUILT_ALLOW_TEST_JWT", raising=False)
+    # Prevent finding token from quilt3 session
+    monkeypatch.setattr(
+        "quilt_mcp.auth.jwt_discovery._get_token_from_quilt3_session",
+        lambda: None,
+    )
+
     with pytest.raises(AuthenticationError):
         Platform_Backend()
 

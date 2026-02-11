@@ -82,6 +82,9 @@ def _get_catalog_host_from_config() -> str | None:
 def catalog_info() -> Dict[str, Any]:
     """Summarize catalog configuration for discovery and troubleshooting."""
     try:
+        from quilt_mcp.config import get_mode_config
+
+        mode_config = get_mode_config()
         info = _get_catalog_info()
 
         # Determine detection method
@@ -99,6 +102,13 @@ def catalog_info() -> Dict[str, Any]:
             "is_authenticated": info["is_authenticated"],
             "detection_method": detection_method,
             "status": "success",
+            "deployment_mode": mode_config.deployment_mode.value,
+            "deployment": {
+                "mode": mode_config.deployment_mode.value,
+                "backend": mode_config.backend_name,
+                "transport": mode_config.default_transport,
+                "multiuser": mode_config.is_multiuser,
+            },
         }
 
         if info["navigator_url"]:
@@ -142,6 +152,7 @@ def catalog_info() -> Dict[str, Any]:
             "error": f"Failed to get catalog info: {exc}",
             "catalog_name": "unknown",
             "detection_method": "error",
+            "deployment_mode": "unknown",
         }
 
 
@@ -505,6 +516,25 @@ def configure_catalog(catalog_url: str) -> Dict[str, Any]:
         }
 
     except Exception as exc:
+        # Platform backend is configured via environment and does not support runtime
+        # catalog mutation. Treat matching catalog requests as a successful no-op.
+        if "Platform backend uses static configuration" in str(exc):
+            configured_url = os.getenv("QUILT_CATALOG_URL")
+            if configured_url and configured_url.rstrip("/") == catalog_url.rstrip("/"):
+                return {
+                    "status": "success",
+                    "catalog_url": catalog_url,
+                    "configured_url": configured_url,
+                    "message": "Catalog already configured via platform environment",
+                    "next_steps": [
+                        "Verify with: auth_status()",
+                        "Start exploring with: packages_list()",
+                    ],
+                    "help": {
+                        "verify_command": "auth_status()",
+                        "documentation": "https://docs.quiltdata.com/",
+                    },
+                }
         return {
             "status": "error",
             "error": f"Failed to configure catalog: {exc}",

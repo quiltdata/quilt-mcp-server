@@ -46,6 +46,22 @@ class TestMCPServerConfiguration(unittest.TestCase):
         finally:
             reset_mode_config()
 
+    @patch("quilt_mcp.utils.common.FastMCP")
+    def test_create_mcp_server_includes_deployment_metadata(self, mock_fast_mcp):
+        """Test create_mcp_server encodes deployment mode in version and instructions."""
+        from quilt_mcp.config import reset_mode_config
+
+        with patch.dict(os.environ, {"QUILT_DEPLOYMENT": "remote"}, clear=False):
+            reset_mode_config()
+            create_mcp_server()
+        reset_mode_config()
+
+        mock_fast_mcp.assert_called_once()
+        args, kwargs = mock_fast_mcp.call_args
+        self.assertEqual(args[0], "quilt-mcp-server")
+        self.assertIn("(remote)", kwargs["version"])
+        self.assertIn("Remote deployment using platform backend", kwargs["instructions"])
+
     def test_register_tools_only_public_functions(self):
         """Test that only public functions are registered as tools."""
         mock_server = Mock(spec=FastMCP)

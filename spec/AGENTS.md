@@ -106,3 +106,4 @@
 ## Repo Learnings
 
 - Service modules that used to live under `quilt_mcp.aws` now live in `quilt_mcp.services.*`. Remove legacy references before touching the service layer so tests stay aligned with the current layout.
+- JWT best practice: use `JWTDiscovery` (`quilt_mcp.auth.jwt_discovery`) to discover tokens; do not duplicate discovery logic in backends or tests. Platform backend should call `JWTDiscovery.discover_or_raise()`. In tests, use `JWTDiscovery.is_available()` for auth checks.

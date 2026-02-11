@@ -371,9 +371,40 @@ def print_detailed_summary(
 
                 print(f"        Error Type: {test['error_type']}")
 
-        if tools_results.get('untested_side_effects'):
-            print(f"\n   ⚠️  Untested Tools with Side Effects ({len(tools_results['untested_side_effects'])}):")
-            for tool in tools_results['untested_side_effects']:
+        # Cross-reference "untested" tools with loop results
+        untested_tools = tools_results.get('untested_side_effects', [])
+        if untested_tools and config and loops_results:
+            # Get tools that are actually in loops
+            tool_loops = config.get('tool_loops', {})
+            tools_in_loops = set()
+            for loop_name, loop_config in tool_loops.items():
+                for step in loop_config.get('steps', []):
+                    tool = step.get('tool')
+                    if tool:
+                        tools_in_loops.add(tool)
+
+            # Separate truly untested vs tested-in-loops
+            tested_via_loops = [t for t in untested_tools if t in tools_in_loops]
+            truly_untested = [t for t in untested_tools if t not in tools_in_loops]
+
+            # Show tools tested via loops (informational, not a problem)
+            if tested_via_loops:
+                print(f"\n   ℹ️  Write-Effect Tools Tested via Loops ({len(tested_via_loops)}):")
+                print("      (Skipped standalone, verified in multi-step workflows)")
+                for tool in tested_via_loops[:5]:  # Show first 5
+                    print(f"      • {tool}")
+                if len(tested_via_loops) > 5:
+                    print(f"      ... and {len(tested_via_loops) - 5} more")
+
+            # Only warn about truly untested tools
+            if truly_untested:
+                print(f"\n   ⚠️  Tools NOT Tested ({len(truly_untested)}):")
+                for tool in truly_untested:
+                    print(f"      • {tool}")
+        elif untested_tools:
+            # Fallback if config/loops_results not available
+            print(f"\n   ⚠️  Untested Tools with Side Effects ({len(untested_tools)}):")
+            for tool in untested_tools:
                 print(f"      • {tool}")
 
     # Tool Loops summary

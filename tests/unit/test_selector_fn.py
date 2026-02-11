@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, Mock, MagicMock
 
+from quilt_mcp.config import set_test_mode_config
 from quilt_mcp.tools.packages import package_create, package_create_from_s3
 
 
@@ -59,6 +60,8 @@ class MockEntry:
 @patch("quilt3.Package")
 @patch("quilt_mcp.tools.packages.get_s3_client")
 def test_package_ops_copy_false(mock_get_s3_client, mock_package_class):
+    set_test_mode_config(multiuser_mode=False)
+
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
 
@@ -86,6 +89,8 @@ def test_package_ops_copy_false(mock_get_s3_client, mock_package_class):
 @patch("quilt3.Package")
 @patch("quilt_mcp.tools.packages.get_s3_client")
 def test_package_ops_copy_true(mock_get_s3_client, mock_package_class):
+    set_test_mode_config(multiuser_mode=False)
+
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
 

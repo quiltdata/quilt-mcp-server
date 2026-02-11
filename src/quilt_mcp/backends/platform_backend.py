@@ -25,9 +25,6 @@ from quilt_mcp.domain import (
     Package_Creation_Result,
 )
 from quilt_mcp.domain.package_builder import PackageBuilder, PackageEntry
-from quilt_mcp.context.runtime_context import (
-    get_runtime_auth,
-)
 from quilt_mcp.services.browsing_session_client import BrowsingSessionClient
 from quilt_mcp.utils.common import graphql_endpoint, normalize_url, get_dns_name_from_url
 
@@ -109,7 +106,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             if variables:
                 payload["variables"] = variables
 
-            response = self._session.post(endpoint, json=payload, headers=headers, timeout=30)
+            response = self._session.post(endpoint, json=payload, headers=headers, timeout=60)
             response.raise_for_status()
             result = response.json()
             if not isinstance(result, dict):
@@ -246,11 +243,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                 revision(hashOrTag: "latest") {
                   dir(path: $path) {
                     path
-                    size
                     children {
                       __typename
                       ... on PackageFile { path size physicalKey }
-                      ... on PackageDir { path size }
+                      ... on PackageDir { path }
                     }
                   }
                   file(path: $path) {
@@ -399,6 +395,8 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             merged_meta = {**existing_meta, **(metadata or {})}
 
             # Build GraphQL packageConstruct mutation
+            # Note: Error types (PackagePushInvalidInputFailure, PackagePushComputeFailure)
+            # are not available in current GraphQL schema, so we rely on general error handling
             mutation = """
             mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
               packageConstruct(params: $params, src: $src) {
@@ -406,12 +404,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                 ... on PackagePushSuccess {
                   package { name }
                   revision { hash }
-                }
-                ... on PackagePushInvalidInputFailure {
-                  errors { path message }
-                }
-                ... on PackagePushComputeFailure {
-                  message
                 }
               }
             }
@@ -455,16 +447,17 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                     success=True,
                 )
             elif typename == "PackagePushInvalidInputFailure":
+                # Handle validation errors
                 errors = package_construct.get("errors", [])
-                error_messages = [
-                    f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors
-                ]
-                raise ValidationError(f"Invalid package input: {'; '.join(error_messages)}")
+                error_msg = "; ".join(f"{e.get('path', 'unknown')}: {e.get('message', 'unknown')}" for e in errors)
+                raise ValidationError(f"Invalid package input: {error_msg}")
             elif typename == "PackagePushComputeFailure":
-                message_text = package_construct.get("message", "Package update failed")
+                # Handle compute failures
+                message_text = package_construct.get("message", "Unknown compute failure")
                 raise BackendError(f"Package update compute failure: {message_text}")
             else:
-                raise BackendError(f"Unexpected response type: {typename}")
+                # Handle any other non-success response
+                raise BackendError(f"Package update failed with response type: {typename}")
 
         except (ValidationError, NotImplementedError, NotFoundError):
             raise
@@ -547,6 +540,9 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         """
         bucket = self._extract_bucket_from_registry(registry)
 
+        # Build GraphQL packageConstruct mutation
+        # Note: Error types (PackagePushInvalidInputFailure, PackagePushComputeFailure)
+        # are not available in current GraphQL schema, so we rely on general error handling
         mutation = """
         mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
           packageConstruct(params: $params, src: $src) {
@@ -554,12 +550,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             ... on PackagePushSuccess {
               package { name }
               revision { hash }
-            }
-            ... on PackagePushInvalidInputFailure {
-              errors { path message }
-            }
-            ... on PackagePushComputeFailure {
-              message
             }
           }
         }
@@ -593,14 +583,17 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
             return top_hash
         elif typename == "PackagePushInvalidInputFailure":
+            # Handle validation errors
             errors = package_construct.get("errors", [])
-            error_messages = [f"{err.get('path', 'unknown')}: {err.get('message', 'invalid input')}" for err in errors]
-            raise ValidationError(f"Invalid package input: {'; '.join(error_messages)}")
+            error_msg = "; ".join(f"{e.get('path', 'unknown')}: {e.get('message', 'unknown')}" for e in errors)
+            raise ValidationError(f"Invalid package input: {error_msg}")
         elif typename == "PackagePushComputeFailure":
-            message_text = package_construct.get("message", "Package creation failed")
-            raise Exception(f"Package creation compute failure: {message_text}")
+            # Handle compute failures
+            message_text = package_construct.get("message", "Unknown compute failure")
+            raise BackendError(f"Package creation compute failure: {message_text}")
         else:
-            raise Exception(f"Unexpected response type: {typename}")
+            # Handle any other non-success response
+            raise BackendError(f"Package creation failed with response type: {typename}")
 
     def _backend_get_package(self, package_name: str, registry: str, top_hash: Optional[str] = None) -> Any:
         """Retrieve package via GraphQL query (backend primitive).
@@ -782,11 +775,10 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             revision(hashOrTag: "latest") {
               dir(path: $path) {
                 path
-                size
                 children {
                   __typename
                   ... on PackageFile { path size physicalKey }
-                  ... on PackageDir { path size }
+                  ... on PackageDir { path }
                 }
               }
               file(path: $path) {
@@ -950,10 +942,9 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # ---------------------------------------------------------------------
 
     def _load_access_token(self) -> str:
-        runtime_auth = get_runtime_auth()
-        if runtime_auth and runtime_auth.access_token:
-            return runtime_auth.access_token
-        raise AuthenticationError("JWT access token is required for Platform backend.")
+        from quilt_mcp.auth.jwt_discovery import JWTDiscovery
+
+        return JWTDiscovery.discover_or_raise()
 
     # TRANSFORMATION METHOD REMOVED - Now in QuiltOps base class
     # _transform_catalog_config() is now a concrete method in QuiltOps base class

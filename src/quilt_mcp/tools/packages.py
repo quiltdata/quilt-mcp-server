@@ -801,6 +801,15 @@ def package_browse(
             # Use QuiltOps.browse_content() to get Content_Info objects directly
             content_infos = quilt_ops.browse_content(package_name, registry=normalized_registry, path="")
 
+            # Also get package metadata using backend primitive
+            # We need to get the package object first, then extract metadata
+            try:
+                package_obj = quilt_ops._backend_get_package(package_name, registry=normalized_registry)
+                pkg_metadata = quilt_ops._backend_get_package_metadata(package_obj)
+            except Exception as meta_error:
+                logger.warning(f"Could not retrieve package metadata: {meta_error}")
+                pkg_metadata = None
+
     except Exception as e:
         return ErrorResponse(
             error=f"Failed to browse package '{package_name}'",
@@ -887,10 +896,6 @@ def package_browse(
         total_files=len([e for e in entries if not e.get("is_directory", False)]),
         total_directories=len([e for e in entries if e.get("is_directory", False)]),
     )
-
-    # Get package metadata - for now, we don't have metadata from Content_Info
-    # This could be enhanced in the future by adding a get_package_info() call
-    pkg_metadata = None
 
     return PackageBrowseSuccess(
         package_name=package_name,
