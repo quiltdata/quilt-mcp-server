@@ -160,6 +160,10 @@ test-mcp-legacy: scripts/tests/mcp-test.yaml
 		uv run --group test python scripts/mcp-test.py --spawn-local
 
 # Production validation - Platform backend, HTTP+JWT, Docker
+MCP_DOCKER_TOOLS ?= bucket_objects_list,admin_user_get,athena_query_validate,bucket_object_fetch,bucket_object_info,bucket_object_link,bucket_object_text,catalog_configure,catalog_uri,catalog_url,check_bucket_access,discover_permissions,generate_package_visualizations,generate_quilt_summarize_json,get_resource,package_browse,package_diff,search_explain,search_suggest,tabulator_tables_list
+MCP_DOCKER_RESOURCES ?= all
+MCP_DOCKER_LOOPS ?= none
+
 test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
 	@echo "===🧪 Running MCP server tests (platform backend, HTTP+JWT, Docker)..."
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
@@ -172,6 +176,9 @@ test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
 			--jwt-secret "test-secret" && \
 		(uv run --group test python scripts/mcp-test.py http://localhost:8002/mcp \
 			--jwt \
+			--tools "$(MCP_DOCKER_TOOLS)" \
+			--resources "$(MCP_DOCKER_RESOURCES)" \
+			--loops "$(MCP_DOCKER_LOOPS)" \
 			--config scripts/tests/mcp-test.yaml && \
 		uv run --group test python scripts/docker_manager.py stop --name mcp-docker-test) || \
 		(uv run --group test python scripts/docker_manager.py stop --name mcp-docker-test && exit 1)
