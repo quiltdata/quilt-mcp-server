@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **MCP_JWT_SECRET Configuration**: Removed failed experiment with JWT secret environment variables
+  - Removed `MCP_JWT_SECRET` environment variable support
+  - Removed `PLATFORM_TEST_JWT_SECRET` test environment variable
+  - JWT discovery now relies on quilt3 session or runtime context only
+  - Test JWT generation now uses fixed secret instead of environment variables
+
 ### Fixed
 
 - **Package Metadata Retrieval**: Fixed `package_browse` to return actual package metadata

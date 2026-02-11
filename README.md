@@ -78,7 +78,7 @@ By default, quilt-mcp uses the **local deployment mode** (`--deployment local`),
 
 - `QUILT_CATALOG_URL`
 - `QUILT_REGISTRY_URL`
-- authentication (`quilt3 login` session or `MCP_JWT_SECRET`)
+- authentication (`quilt3 login` session)
 
 Use deployment presets:
 
@@ -112,10 +112,6 @@ Override defaults via environment or MCP config:
 - `QUILT_MULTIUSER_MODE` - Legacy backend selector (true -> platform, false -> quilt3)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 - `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)
-- `MCP_JWT_SECRET` - HS256 shared secret for JWT validation (JWT mode)
-- `MCP_JWT_SECRET_SSM_PARAMETER` - SSM parameter name for JWT secret (JWT mode)
-- `MCP_JWT_ISSUER` - Expected JWT issuer (optional)
-- `MCP_JWT_AUDIENCE` - Expected JWT audience (optional)
 
 ## Architecture
 

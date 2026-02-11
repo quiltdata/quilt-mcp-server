@@ -61,9 +61,8 @@ def print_startup_error(
     elif error_type == "Authentication Error":
         print("Troubleshooting:", file=sys.stderr)
         print("1. Run 'quilt3 login' to authenticate", file=sys.stderr)
-        print("2. Or set MCP_JWT_SECRET for platform backend", file=sys.stderr)
-        print("3. For legacy local development: uvx quilt-mcp --deployment legacy", file=sys.stderr)
-        print("4. Try debug output: FASTMCP_DEBUG=1 uvx quilt-mcp", file=sys.stderr)
+        print("2. For legacy local development: uvx quilt-mcp --deployment legacy", file=sys.stderr)
+        print("3. Try debug output: FASTMCP_DEBUG=1 uvx quilt-mcp", file=sys.stderr)
     else:
         print("Troubleshooting:", file=sys.stderr)
         print("1. Check the error message above for specific issues", file=sys.stderr)
