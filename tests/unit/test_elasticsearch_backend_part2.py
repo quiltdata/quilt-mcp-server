@@ -155,6 +155,23 @@ class TestDependencyInjection:
 
     def test_creates_default_quilt_ops_if_none_provided(self):
         """Backend should create default QuiltOps if none provided."""
-        backend = Quilt3ElasticsearchBackend()
+        # Mock QuiltOpsFactory to avoid JWT authentication in unit test
+        with patch('quilt_mcp.search.backends.elasticsearch.QuiltOpsFactory') as mock_factory_class:
+            mock_quilt_ops = Mock()
+            mock_quilt_ops.get_auth_status.return_value = Mock(
+                is_authenticated=True,
+                logged_in_url="https://example.quiltdata.com",
+                catalog_name="example.quiltdata.com",
+                registry_url="https://example-registry.quiltdata.com",
+            )
+            # Mock the factory instance and its create method
+            mock_factory_instance = Mock()
+            mock_factory_instance.create.return_value = mock_quilt_ops
+            mock_factory_class.return_value = mock_factory_instance
 
-        assert backend.quilt_ops is not None
+            backend = Quilt3ElasticsearchBackend()
+
+            assert backend.quilt_ops is not None
+            # Verify factory was instantiated and create was called
+            mock_factory_class.assert_called_once()
+            mock_factory_instance.create.assert_called_once()
