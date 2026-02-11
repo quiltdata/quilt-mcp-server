@@ -27,7 +27,7 @@ RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-check docker-build docker-push docker-push-dev docker-validate docker-tools
+.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-check docker-build docker-rebuild docker-push docker-push-dev docker-validate docker-tools
 
 # Check for required tools
 check-tools:
@@ -159,10 +159,25 @@ docker-tools: docker-check
 	aws ecr get-login-password --region $$AWS_REGION | docker login --username AWS --password-stdin $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com >/dev/null 2>&1 && \
 	echo "✅ ECR authentication successful"
 
-docker-build: docker-check
-	@echo "🐳 Building Docker image locally for native platform..."
+# Docker image build with dependency tracking
+DOCKER_SENTINEL := $(BUILD_DIR)/.docker-build-test
+DOCKER_DEPS := Dockerfile pyproject.toml uv.lock $(APP_FILES)
+
+$(DOCKER_SENTINEL): $(DOCKER_DEPS) | docker-check
+	@echo "🐳 Building Docker image (source files changed)..."
+	@mkdir -p $(BUILD_DIR)
 	@uv run python scripts/docker_manager.py build --version test
+	@touch $(DOCKER_SENTINEL)
 	@echo "✅ Docker build completed"
+
+docker-build: $(DOCKER_SENTINEL)
+	@echo "✅ Docker image up to date (use 'make docker-rebuild' to force rebuild)"
+
+# Force rebuild (bypass cache)
+docker-rebuild: docker-check
+	@echo "🔄 Force rebuilding Docker image..."
+	@rm -f $(DOCKER_SENTINEL)
+	@$(MAKE) docker-build
 
 docker-push: docker-tools
 	@echo "🐳 Building and pushing Docker image..."
