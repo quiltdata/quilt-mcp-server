@@ -1,5 +1,14 @@
 # Local vs Remote Default Configuration
 
+## Update (Deployment Presets)
+
+This behavior is now represented as deployment presets:
+- `--deployment remote` => platform + http
+- `--deployment local` => platform + stdio (default)
+- `--deployment legacy` => quilt3 + stdio
+
+Docker sets `QUILT_DEPLOYMENT=remote` and continues to set `FASTMCP_TRANSPORT=http` for compatibility.
+
 ## Context
 
 After implementing the platform backend as the default ([01-uvx-backend.md](./01-uvx-backend.md)), we identified that the transport default needs adjustment to better serve the two primary deployment contexts:

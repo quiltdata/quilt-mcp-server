@@ -96,8 +96,8 @@ def test_factory_create_context_generates_request_id():
 def test_factory_create_context_requires_auth_when_jwt_mode_enabled():
     set_test_mode_config(multiuser_mode=True)
     factory = RequestContextFactory(mode="single-user")
-    with pytest.raises(ServiceInitializationError):
-        factory.create_context()
+    context = factory.create_context()
+    assert isinstance(context.auth_service, JWTAuthService)
 
 
 def test_factory_creates_fresh_auth_service_instances():

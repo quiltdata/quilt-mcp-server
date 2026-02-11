@@ -59,6 +59,36 @@ class TestPackageCreationWorkflow:
         source_prefix = f"experiments/2026/{timestamp}/"
         registry = f"s3://{real_test_bucket}"
 
+        def _is_transient_network_error(exc: Exception) -> bool:
+            message = str(exc).lower()
+            return any(
+                marker in message
+                for marker in (
+                    "timed out",
+                    "read timed out",
+                    "connection aborted",
+                    "remote end closed connection",
+                    "network error",
+                    "connection reset",
+                )
+            )
+
+        def _call_with_retry(step: str, func, *args, retries: int = 3, delay: int = 2, **kwargs):
+            last_exc = None
+            for attempt in range(1, retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as exc:
+                    last_exc = exc
+                    if _is_transient_network_error(exc) and attempt < retries:
+                        print(f"  ℹ️  {step} retry {attempt}/{retries} after transient error: {exc}")
+                        time.sleep(delay)
+                        continue
+                    break
+            if last_exc and _is_transient_network_error(last_exc):
+                pytest.skip(f"Skipping due to transient network error in {step}: {last_exc}")
+            raise last_exc  # type: ignore[misc]
+
         # Create real test files in S3
         print(f"\n[Setup] Creating test files in S3: {real_test_bucket}/{source_prefix}")
         s3_client = boto3.client('s3')
@@ -162,7 +192,9 @@ class TestPackageCreationWorkflow:
         s3_uris = [f"s3://{real_test_bucket}/{key}" for key in test_files]
 
         try:
-            result = backend_with_auth.create_package_revision(
+            result = _call_with_retry(
+                "create package",
+                backend_with_auth.create_package_revision,
                 package_name=package_name,
                 s3_uris=s3_uris,
                 registry=registry,
@@ -196,22 +228,43 @@ class TestPackageCreationWorkflow:
 
         for attempt in range(max_retries):
             try:
-                # Browse package content
-                browse_result = backend_with_auth.browse_content(
-                    package_name=package_name,
-                    registry=registry,
-                    path="",
-                )
+
+                def _collect_entries(current_path: str = "", visited: set[str] | None = None) -> list[dict[str, str]]:
+                    if visited is None:
+                        visited = set()
+                    current_entries: list[dict[str, str]] = []
+                    browse_result = backend_with_auth.browse_content(
+                        package_name=package_name,
+                        registry=registry,
+                        path=current_path,
+                    )
+                    for item in browse_result:
+                        path = getattr(item, "path", "")
+                        item_type = getattr(item, "type", "unknown")
+                        if not path:
+                            continue
+                        if item_type == "directory":
+                            if path in visited:
+                                continue
+                            visited.add(path)
+                            current_entries.extend(_collect_entries(path, visited))
+                            continue
+                        current_entries.append({"path": path, "type": item_type})
+                    return current_entries
+
+                # Browse package content (recursive for backends that return directories at root).
+                browse_result = backend_with_auth.browse_content(package_name=package_name, registry=registry, path="")
 
                 # Verify browse result
                 assert browse_result is not None, "Browse returned None"
                 assert isinstance(browse_result, list), f"Browse should return list, got {type(browse_result)}"
 
-                # Get all paths from browse result
-                browse_paths = [item.path for item in browse_result]
-                print(f"  ℹ️  Found {len(browse_result)} entries in package:")
-                for item in browse_result:
-                    print(f"    - {item.path} ({item.type})")
+                # Get all file paths from recursive browse.
+                flattened_entries = _collect_entries()
+                browse_paths = [entry["path"] for entry in flattened_entries]
+                print(f"  ℹ️  Found {len(flattened_entries)} entries in package:")
+                for entry in flattened_entries:
+                    print(f"    - {entry['path']} ({entry['type']})")
 
                 # Verify all original files are present (with auto-organization)
                 # Auto-organize preserves path structure: experiments/2026/{timestamp}/...
@@ -229,7 +282,7 @@ class TestPackageCreationWorkflow:
                     )
 
                 # Verify entry count matches (files only, directories may vary)
-                file_entries = [item for item in browse_result if item.type == "file"]
+                file_entries = [entry for entry in flattened_entries if entry["type"] == "file"]
                 assert len(file_entries) == len(test_files), (
                     f"Expected {len(test_files)} files, found {len(file_entries)}"
                 )

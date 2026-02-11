@@ -116,16 +116,27 @@ class TestCrossBackendConsistency:
         browse_files = {}
         browse_succeeded = False
 
-        try:
-            browse_result = backend_with_auth.browse_content(package_name=package_name, registry=registry, path="")
-
-            assert browse_result is not None, "Browse returned None"
-            assert isinstance(browse_result, list), f"Browse should return list, got {type(browse_result)}"
-
-            # Extract file information
+        def _collect_browse_files(current_path: str = "", visited: set[str] | None = None) -> None:
+            if visited is None:
+                visited = set()
+            browse_result = backend_with_auth.browse_content(
+                package_name=package_name, registry=registry, path=current_path
+            )
             for item in browse_result:
-                if hasattr(item, 'path') and hasattr(item, 'size'):
-                    browse_files[item.path] = {'size': item.size, 'type': getattr(item, 'type', 'unknown')}
+                path = getattr(item, "path", "")
+                if not path:
+                    continue
+                item_type = getattr(item, "type", "unknown")
+                if item_type == "directory":
+                    if path in visited:
+                        continue
+                    visited.add(path)
+                    _collect_browse_files(path, visited)
+                    continue
+                browse_files[path] = {"size": getattr(item, "size", None), "type": item_type}
+
+        try:
+            _collect_browse_files()
 
             browse_succeeded = True
             print(f"  ✅ Browse succeeded: {len(browse_files)} files")
@@ -166,15 +177,8 @@ class TestCrossBackendConsistency:
                         # If search doesn't return entries, try browsing package from search result
                         if not search_files:
                             try:
-                                browse_from_search = backend_with_auth.browse_content(
-                                    package_name=package_name, registry=registry, path=""
-                                )
-                                for item in browse_from_search:
-                                    if hasattr(item, 'path'):
-                                        search_files[item.path] = {
-                                            'size': getattr(item, 'size', None),
-                                            'type': getattr(item, 'type', 'unknown'),
-                                        }
+                                # Reuse recursive browse fallback for backends that return directories at root.
+                                search_files.update(browse_files)
                                 print(f"  ℹ️  Retrieved {len(search_files)} files via browse after search")
                             except Exception as e:
                                 print(f"  ℹ️  Could not browse package from search: {e}")

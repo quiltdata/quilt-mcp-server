@@ -1,5 +1,12 @@
 # MCP Configuration Exposure
 
+## Update (Deployment Reporting)
+
+Server and tool reporting now includes deployment intent:
+- FastMCP version string uses `"{version} ({deployment_mode})"` (e.g. `0.5.6 (local)`).
+- FastMCP instructions mention deployment mode/backend/transport.
+- `catalog_info()` includes `deployment_mode` and a `deployment` object with mode, backend, transport, and multiuser.
+
 ## Overview
 
 This document specifies how the Quilt MCP server exposes its configuration and capabilities to MCP clients, following Model Context Protocol standards and best practices.

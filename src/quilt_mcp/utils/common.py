@@ -236,7 +236,16 @@ def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
 
 def create_mcp_server() -> FastMCP:
     """Create and configure the FastMCP server instance."""
-    return FastMCP("quilt-mcp-server")
+    from quilt_mcp import __version__
+    from quilt_mcp.config import get_mode_config
+
+    mode_config = get_mode_config()
+    deployment = mode_config.deployment_mode.value
+    instructions = (
+        f"{deployment.capitalize()} deployment using {mode_config.backend_name} backend "
+        f"with default {mode_config.default_transport} transport."
+    )
+    return FastMCP("quilt-mcp-server", version=f"{__version__} ({deployment})", instructions=instructions)
 
 
 def get_tool_modules() -> list[Any]:

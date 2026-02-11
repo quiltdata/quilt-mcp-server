@@ -8,7 +8,7 @@ import sys
 import traceback
 from dotenv import load_dotenv
 from quilt_mcp.utils.common import run_server
-from quilt_mcp.config import get_mode_config, ConfigurationError
+from quilt_mcp.config import ConfigurationError, get_mode_config
 from quilt_mcp.ops.exceptions import AuthenticationError
 
 
@@ -16,6 +16,7 @@ def print_startup_error(
     error: Exception,
     error_type: str = "Startup Error",
     selected_backend: str | None = None,
+    selected_deployment: str | None = None,
 ) -> None:
     """Print formatted startup error diagnostic to stderr.
 
@@ -29,6 +30,8 @@ def print_startup_error(
     print(file=sys.stderr)
     print(f"Error Type: {error_type}", file=sys.stderr)
     print(f"Details: {error}", file=sys.stderr)
+    if selected_deployment:
+        print(f"Selected deployment: {selected_deployment}", file=sys.stderr)
     if selected_backend:
         print(f"Selected backend: {selected_backend}", file=sys.stderr)
     print(file=sys.stderr)
@@ -54,12 +57,12 @@ def print_startup_error(
         print("Troubleshooting:", file=sys.stderr)
         print("Check the error message above for missing configuration.", file=sys.stderr)
         print("Platform backend needs QUILT_CATALOG_URL and QUILT_REGISTRY_URL.", file=sys.stderr)
-        print("For local development, try: uvx quilt-mcp --backend quilt3", file=sys.stderr)
+        print("For legacy local development, try: uvx quilt-mcp --deployment legacy", file=sys.stderr)
     elif error_type == "Authentication Error":
         print("Troubleshooting:", file=sys.stderr)
         print("1. Run 'quilt3 login' to authenticate", file=sys.stderr)
         print("2. Or set MCP_JWT_SECRET for platform backend", file=sys.stderr)
-        print("3. For local development: uvx quilt-mcp --backend quilt3", file=sys.stderr)
+        print("3. For legacy local development: uvx quilt-mcp --deployment legacy", file=sys.stderr)
         print("4. Try debug output: FASTMCP_DEBUG=1 uvx quilt-mcp", file=sys.stderr)
     else:
         print("Troubleshooting:", file=sys.stderr)
@@ -94,8 +97,15 @@ def main() -> None:
         parser.add_argument(
             "--backend",
             choices=["quilt3", "platform"],
+            help=("Override backend implementation: quilt3 or platform. Prefer --deployment for standard setups."),
+        )
+        parser.add_argument(
+            "--deployment",
+            choices=["remote", "local", "legacy"],
             help=(
-                "Select backend implementation: quilt3 (local dev) or platform (GraphQL + JWT auth). Default: platform"
+                "Deployment preset: remote (platform + http), "
+                "local (platform + stdio, default), legacy (quilt3 + stdio). "
+                "Can also be set via QUILT_DEPLOYMENT."
             ),
         )
         args = parser.parse_args()
@@ -107,12 +117,19 @@ def main() -> None:
 
         # Validate configuration early in startup before accepting requests
         try:
-            mode_config = get_mode_config(backend_override=args.backend)
+            mode_config = get_mode_config(
+                backend_override=args.backend,
+                deployment_mode=args.deployment,
+            )
             mode_config.validate()
 
             # Log successful validation and current mode
             mode_name = "multiuser" if mode_config.is_multiuser else "local development"
             print(f"Quilt MCP Server starting in {mode_name} mode", file=sys.stderr)
+            print(
+                f"Deployment mode: {mode_config.deployment_mode.value} ({mode_config.deployment_selection_source})",
+                file=sys.stderr,
+            )
             print(
                 f"Backend selection: {mode_config.backend_name} ({mode_config.backend_selection_source})",
                 file=sys.stderr,
@@ -122,7 +139,12 @@ def main() -> None:
             print(f"Default transport: {mode_config.default_transport}", file=sys.stderr)
 
         except ConfigurationError as e:
-            print_startup_error(e, "Configuration Error", selected_backend=args.backend or "platform")
+            print_startup_error(
+                e,
+                "Configuration Error",
+                selected_backend=args.backend or mode_config.backend_name if "mode_config" in locals() else "platform",
+                selected_deployment=(args.deployment or os.getenv("QUILT_DEPLOYMENT") or "local"),
+            )
             sys.exit(1)
 
         # Set transport protocol (defaults to stdio for MCP protocol standard)

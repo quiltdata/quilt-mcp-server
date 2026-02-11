@@ -154,6 +154,8 @@ class TestCatalogInfoIntegration:
 
         result = catalog_info()
 
+        assert result["deployment_mode"] in {"local", "remote", "legacy"}
+        assert "deployment" in result
         assert "search_backend_status" in result
         assert result["search_backend_status"]["available"] is True
         assert result["search_backend_status"]["backend"] == "elasticsearch"
@@ -180,6 +182,8 @@ class TestCatalogInfoIntegration:
 
         result = catalog_info()
 
+        assert result["deployment_mode"] in {"local", "remote", "legacy"}
+        assert "deployment" in result
         # Should still have search_backend_status field with error info
         assert "search_backend_status" in result
         assert result["search_backend_status"]["available"] is False

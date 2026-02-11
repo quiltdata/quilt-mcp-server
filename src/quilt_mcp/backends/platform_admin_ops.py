@@ -250,15 +250,19 @@ class Platform_Admin_Ops(AdminOps):
 
             result = self._backend.execute_graphql_query(mutation, variables={"input": user_input})
             create_result = result.get("data", {}).get("admin", {}).get("user", {}).get("create", {})
+            user_payload = self._extract_user_payload(create_result)
 
             error_message = self._extract_result_error(create_result)
             if error_message:
                 raise ValidationError(f"Failed to create user: {error_message}")
 
-            if create_result.get("__typename") != "User":
+            if not user_payload:
                 raise BackendError("Failed to create user: No user data returned")
 
-            domain_user = self._transform_graphql_user(create_result)
+            if create_result.get("__typename") and create_result.get("__typename") != "User":
+                raise BackendError("Failed to create user: No user data returned")
+
+            domain_user = self._transform_graphql_user(user_payload)
 
             logger.debug(f"Successfully created user: {name}")
             return domain_user
@@ -378,6 +382,7 @@ class Platform_Admin_Ops(AdminOps):
             set_email_result = (
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("setEmail", {})
             )
+            user_payload = self._extract_user_payload(set_email_result)
 
             error_message = self._extract_result_error(set_email_result)
             if error_message:
@@ -385,10 +390,13 @@ class Platform_Admin_Ops(AdminOps):
                     raise NotFoundError(f"User not found: {name}")
                 raise ValidationError(f"Failed to set email: {error_message}")
 
-            if set_email_result.get("__typename") != "User":
+            if not user_payload:
                 raise BackendError("Failed to set email: No user data returned")
 
-            domain_user = self._transform_graphql_user(set_email_result)
+            if set_email_result.get("__typename") and set_email_result.get("__typename") != "User":
+                raise BackendError("Failed to set email: No user data returned")
+
+            domain_user = self._transform_graphql_user(user_payload)
 
             logger.debug(f"Successfully set email for user: {name}")
             return domain_user
@@ -443,6 +451,7 @@ class Platform_Admin_Ops(AdminOps):
             set_admin_result = (
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("setAdmin", {})
             )
+            user_payload = self._extract_user_payload(set_admin_result)
 
             error_message = self._extract_result_error(set_admin_result)
             if error_message:
@@ -450,10 +459,13 @@ class Platform_Admin_Ops(AdminOps):
                     raise NotFoundError(f"User not found: {name}")
                 raise ValidationError(f"Failed to set admin status: {error_message}")
 
-            if set_admin_result.get("__typename") != "User":
+            if not user_payload:
                 raise BackendError("Failed to set admin status: No user data returned")
 
-            domain_user = self._transform_graphql_user(set_admin_result)
+            if set_admin_result.get("__typename") and set_admin_result.get("__typename") != "User":
+                raise BackendError("Failed to set admin status: No user data returned")
+
+            domain_user = self._transform_graphql_user(user_payload)
 
             logger.debug(f"Successfully set admin status for user: {name}")
             return domain_user
@@ -508,6 +520,7 @@ class Platform_Admin_Ops(AdminOps):
             set_active_result = (
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("setActive", {})
             )
+            user_payload = self._extract_user_payload(set_active_result)
 
             error_message = self._extract_result_error(set_active_result)
             if error_message:
@@ -515,10 +528,13 @@ class Platform_Admin_Ops(AdminOps):
                     raise NotFoundError(f"User not found: {name}")
                 raise ValidationError(f"Failed to set active status: {error_message}")
 
-            if set_active_result.get("__typename") != "User":
+            if not user_payload:
                 raise BackendError("Failed to set active status: No user data returned")
 
-            domain_user = self._transform_graphql_user(set_active_result)
+            if set_active_result.get("__typename") and set_active_result.get("__typename") != "User":
+                raise BackendError("Failed to set active status: No user data returned")
+
+            domain_user = self._transform_graphql_user(user_payload)
 
             logger.debug(f"Successfully set active status for user: {name}")
             return domain_user
@@ -651,6 +667,7 @@ class Platform_Admin_Ops(AdminOps):
             set_role_result = (
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("setRole", {})
             )
+            user_payload = self._extract_user_payload(set_role_result)
 
             error_message = self._extract_result_error(set_role_result)
             if error_message:
@@ -658,10 +675,13 @@ class Platform_Admin_Ops(AdminOps):
                     raise NotFoundError(f"User or role not found: {error_message}")
                 raise ValidationError(f"Failed to set role: {error_message}")
 
-            if set_role_result.get("__typename") != "User":
+            if not user_payload:
                 raise BackendError("Failed to set role: No user data returned")
 
-            domain_user = self._transform_graphql_user(set_role_result)
+            if set_role_result.get("__typename") and set_role_result.get("__typename") != "User":
+                raise BackendError("Failed to set role: No user data returned")
+
+            domain_user = self._transform_graphql_user(user_payload)
 
             logger.debug(f"Successfully set role for user: {name}")
             return domain_user
@@ -718,6 +738,7 @@ class Platform_Admin_Ops(AdminOps):
             add_roles_result = (
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("addRoles", {})
             )
+            user_payload = self._extract_user_payload(add_roles_result)
 
             error_message = self._extract_result_error(add_roles_result)
             if error_message:
@@ -725,10 +746,13 @@ class Platform_Admin_Ops(AdminOps):
                     raise NotFoundError(f"User or role not found: {error_message}")
                 raise ValidationError(f"Failed to add roles: {error_message}")
 
-            if add_roles_result.get("__typename") != "User":
+            if not user_payload:
                 raise BackendError("Failed to add roles: No user data returned")
 
-            domain_user = self._transform_graphql_user(add_roles_result)
+            if add_roles_result.get("__typename") and add_roles_result.get("__typename") != "User":
+                raise BackendError("Failed to add roles: No user data returned")
+
+            domain_user = self._transform_graphql_user(user_payload)
 
             logger.debug(f"Successfully added roles to user: {name}")
             return domain_user
@@ -790,6 +814,7 @@ class Platform_Admin_Ops(AdminOps):
             remove_roles_result = (
                 result.get("data", {}).get("admin", {}).get("user", {}).get("mutate", {}).get("removeRoles", {})
             )
+            user_payload = self._extract_user_payload(remove_roles_result)
 
             error_message = self._extract_result_error(remove_roles_result)
             if error_message:
@@ -797,10 +822,13 @@ class Platform_Admin_Ops(AdminOps):
                     raise NotFoundError(f"User or role not found: {error_message}")
                 raise ValidationError(f"Failed to remove roles: {error_message}")
 
-            if remove_roles_result.get("__typename") != "User":
+            if not user_payload:
                 raise BackendError("Failed to remove roles: No user data returned")
 
-            domain_user = self._transform_graphql_user(remove_roles_result)
+            if remove_roles_result.get("__typename") and remove_roles_result.get("__typename") != "User":
+                raise BackendError("Failed to remove roles: No user data returned")
+
+            domain_user = self._transform_graphql_user(user_payload)
 
             logger.debug(f"Successfully removed roles from user: {name}")
             return domain_user
@@ -961,6 +989,7 @@ class Platform_Admin_Ops(AdminOps):
 
             result = self._backend.execute_graphql_query(mutation, variables={"config": config_str})
             set_sso_result = result.get("data", {}).get("admin", {}).get("setSsoConfig", {})
+            sso_payload = self._extract_sso_payload(set_sso_result)
 
             if config is None:
                 if set_sso_result is None:
@@ -976,10 +1005,13 @@ class Platform_Admin_Ops(AdminOps):
             if error_message:
                 raise ValidationError(f"Failed to set SSO config: {error_message}")
 
-            if set_sso_result.get("__typename") != "SsoConfig":
+            if not sso_payload:
                 raise BackendError("Failed to set SSO config: No config data returned")
 
-            domain_sso_config = self._transform_graphql_sso_config(set_sso_result)
+            if set_sso_result.get("__typename") and set_sso_result.get("__typename") != "SsoConfig":
+                raise BackendError("Failed to set SSO config: No config data returned")
+
+            domain_sso_config = self._transform_graphql_sso_config(sso_payload)
 
             logger.debug("Successfully set SSO configuration")
             return domain_sso_config
@@ -1074,7 +1106,42 @@ class Platform_Admin_Ops(AdminOps):
         # Backward compatibility for older response wrappers.
         message = result.get("message")
         if isinstance(message, str):
-            return message
+            lowered = message.lower()
+            if any(
+                marker in lowered
+                for marker in (
+                    "error",
+                    "failed",
+                    "invalid",
+                    "not found",
+                    "already exists",
+                    "denied",
+                    "unauthorized",
+                )
+            ):
+                return message
+        return None
+
+    def _extract_user_payload(self, result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Return a User payload from either direct or wrapped GraphQL result shapes."""
+        if not isinstance(result, dict):
+            return None
+        user = result.get("user")
+        if isinstance(user, dict):
+            return user
+        if result.get("name"):
+            return result
+        return None
+
+    def _extract_sso_payload(self, result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Return an SSO payload from either direct or wrapped GraphQL result shapes."""
+        if not isinstance(result, dict):
+            return None
+        sso_config = result.get("ssoConfig")
+        if isinstance(sso_config, dict):
+            return sso_config
+        if result.get("text"):
+            return result
         return None
 
     def _transform_graphql_sso_config(self, sso_config_data: Dict[str, Any]) -> SSOConfig:

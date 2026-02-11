@@ -12,11 +12,12 @@ MCP server for Quilt data catalog - search, analyze, and manage data packages wi
 
 ```bash
 # Run directly with uvx (requires uv: https://docs.astral.sh/uv/)
-# Default backend is "platform" (requires auth + catalog URLs)
+# Default deployment is "local" (platform + stdio)
 uvx quilt-mcp
 
-# Local development backend (no JWT required)
-uvx quilt-mcp --backend quilt3
+# Other deployment modes
+uvx quilt-mcp --deployment remote  # platform + http
+uvx quilt-mcp --deployment legacy  # quilt3 + stdio
 
 # Or install globally
 uv tool install quilt-mcp
@@ -73,26 +74,31 @@ quilt3 config https://your-stack.your-company.com
 quilt3 login
 ```
 
-By default, quilt-mcp uses the **platform backend** (`--backend platform`), which requires:
+By default, quilt-mcp uses the **local deployment mode** (`--deployment local`), which uses the platform backend and requires:
 
 - `QUILT_CATALOG_URL`
 - `QUILT_REGISTRY_URL`
 - authentication (`quilt3 login` session or `MCP_JWT_SECRET`)
 
-Use the local backend for development:
+Use deployment presets:
 
 ```bash
-uvx quilt-mcp --backend quilt3
+uvx quilt-mcp --deployment remote  # platform + http
+uvx quilt-mcp --deployment local   # platform + stdio (default)
+uvx quilt-mcp --deployment legacy  # quilt3 + stdio
 ```
 
-Legacy mode selection via `QUILT_MULTIUSER_MODE` is still supported for backward compatibility:
+`QUILT_DEPLOYMENT` env var can set the same modes:
 
 ```bash
-QUILT_MULTIUSER_MODE=true uvx quilt-mcp   # platform backend
-QUILT_MULTIUSER_MODE=false uvx quilt-mcp  # quilt3 backend
+QUILT_DEPLOYMENT=remote uvx quilt-mcp
+QUILT_DEPLOYMENT=local uvx quilt-mcp
+QUILT_DEPLOYMENT=legacy uvx quilt-mcp
 ```
 
-When both are provided, `--backend` takes precedence.
+Backward compatibility:
+- `--backend` still works as an explicit backend override.
+- `QUILT_MULTIUSER_MODE` is still supported as a legacy selector.
 
 See `docs/AUTHENTICATION.md` for full configuration details and examples.
 
@@ -102,6 +108,7 @@ Override defaults via environment or MCP config:
 
 - `QUILT_CATALOG_URL` - Your Quilt catalog URL (e.g., `https://your-catalog.quiltdata.com`)
 - `QUILT_REGISTRY_URL` - Your Quilt registry URL (e.g., `https://registry.your-catalog.quiltdata.com`)
+- `QUILT_DEPLOYMENT` - Deployment mode (`remote`, `local`, `legacy`)
 - `QUILT_MULTIUSER_MODE` - Legacy backend selector (true -> platform, false -> quilt3)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 - `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)

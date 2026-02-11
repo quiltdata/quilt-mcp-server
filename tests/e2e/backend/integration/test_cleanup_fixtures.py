@@ -69,6 +69,7 @@ class TestCleanupFixtures:
         # Cleanup will happen automatically
 
     @pytest.mark.manual
+    @pytest.mark.skip(reason="Manual validation test; intentionally fails when run.")
     def test_MANUAL_cleanup_on_failure(self, real_test_bucket, cleanup_s3_objects):
         """MANUAL TEST: Verify cleanup works when test fails.
 

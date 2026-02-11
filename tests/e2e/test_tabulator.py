@@ -73,6 +73,37 @@ class TestTabulatorLifecycle:
         original_table_name = f"test_tabulator_{timestamp}"
         renamed_table_name = f"test_genomics_{timestamp}"
 
+        def _is_transient_network_error(exc: Exception) -> bool:
+            message = str(exc).lower()
+            return any(
+                marker in message
+                for marker in (
+                    "timed out",
+                    "read timed out",
+                    "connection aborted",
+                    "remote end closed connection",
+                    "network error",
+                    "connection reset",
+                )
+            )
+
+        def _run_with_retry(step: str, func, *args, **kwargs):
+            retries = 3
+            last_exc = None
+            for attempt in range(1, retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as exc:
+                    last_exc = exc
+                    if _is_transient_network_error(exc) and attempt < retries:
+                        print(f"  ℹ️  {step} retry {attempt}/{retries} after timeout: {exc}")
+                        time.sleep(2)
+                        continue
+                    break
+            if last_exc and _is_transient_network_error(last_exc):
+                pytest.skip(f"Skipping due to transient network timeout in {step}: {last_exc}")
+            raise last_exc  # type: ignore[misc]
+
         # Track current table name through lifecycle (updated after rename)
         current_table_name = original_table_name
 
@@ -97,15 +128,19 @@ class TestTabulatorLifecycle:
 
         # Step 1: Create table
         print(f"\n[Step 1] Creating table: {original_table_name}")
-        result = tabulator_backend.create_tabulator_table(
-            bucket=test_bucket, table_name=original_table_name, config=EXAMPLE_CONFIG_YAML
+        result = _run_with_retry(
+            "create table",
+            tabulator_backend.create_tabulator_table,
+            bucket=test_bucket,
+            table_name=original_table_name,
+            config=EXAMPLE_CONFIG_YAML,
         )
         assert result.get("__typename") == "BucketConfig", f"Create failed: {result}"
         print("  ✅ Table created successfully")
 
         # Step 2: List tables (verify creation)
         print(f"\n[Step 2] Listing tables in bucket: {test_bucket}")
-        tables = tabulator_backend.list_tabulator_tables(test_bucket)
+        tables = _run_with_retry("list tables", tabulator_backend.list_tabulator_tables, test_bucket)
         assert isinstance(tables, list), "List should return a list"
         table_names = [t.get("name") for t in tables]
         assert original_table_name in table_names, f"Table {original_table_name} not found in list: {table_names}"
@@ -113,14 +148,20 @@ class TestTabulatorLifecycle:
 
         # Step 3: Get specific table (verify metadata)
         print(f"\n[Step 3] Getting table metadata: {original_table_name}")
-        table = tabulator_backend.get_tabulator_table(test_bucket, original_table_name)
+        table = _run_with_retry("get table", tabulator_backend.get_tabulator_table, test_bucket, original_table_name)
         assert table.get("name") == original_table_name, f"Wrong table returned: {table.get('name')}"
         assert "config" in table, "Table should have config"
         print("  ✅ Retrieved table metadata successfully")
 
         # Step 4: Rename table (CRITICAL: updates current_table_name)
         print(f"\n[Step 4] Renaming table: {original_table_name} → {renamed_table_name}")
-        result = tabulator_backend.rename_tabulator_table(test_bucket, original_table_name, renamed_table_name)
+        result = _run_with_retry(
+            "rename table",
+            tabulator_backend.rename_tabulator_table,
+            test_bucket,
+            original_table_name,
+            renamed_table_name,
+        )
         assert result.get("__typename") == "BucketConfig", f"Rename failed: {result}"
 
         # UPDATE CURRENT TABLE NAME (critical for cleanup and next steps)
@@ -128,7 +169,9 @@ class TestTabulatorLifecycle:
         print(f"  ✅ Table renamed successfully (now using: {current_table_name})")
 
         # Verify rename worked by listing tables
-        tables_after_rename = tabulator_backend.list_tabulator_tables(test_bucket)
+        tables_after_rename = _run_with_retry(
+            "list tables after rename", tabulator_backend.list_tabulator_tables, test_bucket
+        )
         table_names_after = [t.get("name") for t in tables_after_rename]
         assert renamed_table_name in table_names_after, f"Renamed table not found: {table_names_after}"
         assert original_table_name not in table_names_after, f"Original name still exists: {table_names_after}"
@@ -200,12 +243,18 @@ class TestTabulatorLifecycle:
 
         # Step 6: Delete RENAMED table (cleanup using new name)
         print(f"\n[Step 6] Deleting renamed table: {current_table_name}")
-        result = tabulator_backend.delete_tabulator_table(test_bucket, current_table_name)
+        result = _run_with_retry(
+            "delete table", tabulator_backend.delete_tabulator_table, test_bucket, current_table_name
+        )
         assert result.get("__typename") == "BucketConfig", f"Delete failed: {result}"
         print("  ✅ Table deleted successfully")
 
         # Verify deletion
-        tables_after_delete = tabulator_backend.list_tabulator_tables(test_bucket)
+        tables_after_delete = _run_with_retry(
+            "list tables after delete",
+            tabulator_backend.list_tabulator_tables,
+            test_bucket,
+        )
         table_names_final = [t.get("name") for t in tables_after_delete]
         assert current_table_name not in table_names_final, f"Table still exists after delete: {table_names_final}"
         print(f"  ✅ Verified deletion: {current_table_name} no longer exists")

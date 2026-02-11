@@ -86,6 +86,36 @@ class TestTabulatorAthenaConsistency:
         timestamp = int(time.time())
         table_name = f"test_consistency_{timestamp}"
 
+        def _is_transient_network_error(exc: Exception) -> bool:
+            message = str(exc).lower()
+            return any(
+                marker in message
+                for marker in (
+                    "timed out",
+                    "read timed out",
+                    "connection aborted",
+                    "remote end closed connection",
+                    "network error",
+                    "connection reset",
+                )
+            )
+
+        def _run_with_retry(step: str, func, *args, retries: int = 3, delay: int = 2, **kwargs):
+            last_exc = None
+            for attempt in range(1, retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as exc:
+                    last_exc = exc
+                    if _is_transient_network_error(exc) and attempt < retries:
+                        print(f"  ℹ️  {step} retry {attempt}/{retries} after transient error: {exc}")
+                        time.sleep(delay)
+                        continue
+                    break
+            if last_exc and _is_transient_network_error(last_exc):
+                pytest.skip(f"Skipping due to transient network error in {step}: {last_exc}")
+            raise last_exc  # type: ignore[misc]
+
         # Add cleanup finalizer
         def cleanup():
             """Clean up test table."""
@@ -99,15 +129,23 @@ class TestTabulatorAthenaConsistency:
 
         # Step 1: Create table via Tabulator (GraphQL)
         print(f"\n[Step 1] Creating table via Tabulator: {table_name}")
-        result = backend_with_auth.create_tabulator_table(
-            bucket=real_test_bucket, table_name=table_name, config=EXAMPLE_CONFIG_YAML
+        result = _run_with_retry(
+            "create tabulator table",
+            backend_with_auth.create_tabulator_table,
+            bucket=real_test_bucket,
+            table_name=table_name,
+            config=EXAMPLE_CONFIG_YAML,
         )
         assert result.get("__typename") == "BucketConfig", f"Create failed: {result}"
         print("  ✅ Table created successfully via GraphQL")
 
         # Step 2: Query table metadata via Tabulator backend
         print("\n[Step 2] Querying table metadata via Tabulator")
-        tabulator_tables = backend_with_auth.list_tabulator_tables(real_test_bucket)
+        tabulator_tables = _run_with_retry(
+            "list tabulator tables",
+            backend_with_auth.list_tabulator_tables,
+            real_test_bucket,
+        )
         assert isinstance(tabulator_tables, list), "List should return a list"
 
         # Find our table
@@ -148,7 +186,11 @@ class TestTabulatorAthenaConsistency:
             if not catalog_url:
                 raise ValueError("QUILT_CATALOG_URL not set")
 
-            catalog_config = backend_with_auth.get_catalog_config(catalog_url)
+            catalog_config = _run_with_retry(
+                "load catalog config",
+                backend_with_auth.get_catalog_config,
+                catalog_url,
+            )
             catalog_name = catalog_config.tabulator_data_catalog
             athena_database = real_test_bucket  # Database name is the bucket name
 

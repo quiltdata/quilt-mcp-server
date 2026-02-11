@@ -1,5 +1,19 @@
 # Configuration System Overview
 
+## Update (Deployment Mode)
+
+Primary configuration now uses `deployment_mode` (`--deployment` / `QUILT_DEPLOYMENT`) with presets:
+- `remote` => platform + http + multiuser
+- `local` => platform + stdio + multiuser (default)
+- `legacy` => quilt3 + stdio + single-user
+
+Precedence is:
+1. `--deployment`
+2. `QUILT_DEPLOYMENT`
+3. explicit overrides (`--backend`, `FASTMCP_TRANSPORT`)
+4. `QUILT_MULTIUSER_MODE` (legacy)
+5. default `local`
+
 ## Quick Reference: Defaults
 
 | Parameter | Default Value | Set In |

@@ -82,6 +82,9 @@ def _get_catalog_host_from_config() -> str | None:
 def catalog_info() -> Dict[str, Any]:
     """Summarize catalog configuration for discovery and troubleshooting."""
     try:
+        from quilt_mcp.config import get_mode_config
+
+        mode_config = get_mode_config()
         info = _get_catalog_info()
 
         # Determine detection method
@@ -99,6 +102,13 @@ def catalog_info() -> Dict[str, Any]:
             "is_authenticated": info["is_authenticated"],
             "detection_method": detection_method,
             "status": "success",
+            "deployment_mode": mode_config.deployment_mode.value,
+            "deployment": {
+                "mode": mode_config.deployment_mode.value,
+                "backend": mode_config.backend_name,
+                "transport": mode_config.default_transport,
+                "multiuser": mode_config.is_multiuser,
+            },
         }
 
         if info["navigator_url"]:
@@ -142,6 +152,7 @@ def catalog_info() -> Dict[str, Any]:
             "error": f"Failed to get catalog info: {exc}",
             "catalog_name": "unknown",
             "detection_method": "error",
+            "deployment_mode": "unknown",
         }
 
 
