@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Production Docker Build**: Fixed Python version compatibility issue
+  - Changed GitHub Actions workflow from Python 3.14 to 3.13
+  - PyO3 (required by pydantic-core) only supports up to Python 3.13
+  - Aligns with project's Python 3.11-3.13 specification in pyproject.toml
 - **AWS Authentication**: Centralized auth logic in backend implementations
   - Removed redundant `use_quilt_auth` parameter from AWS client creation
   - More consistent and reliable AWS credential handling
