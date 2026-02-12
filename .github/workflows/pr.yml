@@ -118,6 +118,7 @@ jobs:
       uses: ./.github/actions/create-release
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
+        git-sha: ${{ github.sha }}
         pypi-repository-url: https://test.pypi.org/legacy/
         build-docker: 'true'
         skip-existing: true

@@ -117,6 +117,41 @@ Backward compatibility:
 
 See `docs/AUTHENTICATION.md` for full configuration details and examples.
 
+### Docker Deployment
+
+Docker images are published to AWS ECR (account `730278974607`) with multiple tags for flexibility:
+
+**Available tags per release:**
+
+- **Semver tag**: `0.17.3` - Human-readable version
+- **Git SHA tag**: `abc12345` - Git commit hash (8 chars) for traceability
+- **Latest tag**: `latest` - Points to most recent production release
+
+**Example usage:**
+
+```bash
+# Pull by version (recommended for production)
+docker pull 730278974607.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:0.17.3
+
+# Pull by git commit SHA (for debugging/rollback)
+docker pull 730278974607.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:abc12345
+
+# Pull latest (convenient but not recommended for production)
+docker pull 730278974607.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:latest
+```
+
+**Trace deployed image back to source:**
+
+```bash
+# Get SHA tag from running container (replace CONTAINER_ID with actual container ID)
+docker inspect CONTAINER_ID | grep "quiltdata/mcp:"
+
+# View commit details (replace abc12345 with actual SHA from above)
+git log --oneline abc12345
+```
+
+See [GitHub releases](https://github.com/quiltdata/quilt-mcp-server/releases) for available versions and their git commit SHAs.
+
 ### Environment Variables
 
 Override defaults via environment or MCP config:

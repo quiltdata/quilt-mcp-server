@@ -567,14 +567,55 @@ class DockerManager:
             print("ERROR: Docker is not installed or not in PATH", file=sys.stderr)
             return False
 
-    def generate_tags(self, version: str, include_latest: bool = True) -> list[ImageReference]:
-        """Generate Docker image tags for a given version."""
+    def get_git_sha(self, short: bool = True) -> Optional[str]:
+        """Get the current git commit SHA.
+
+        Args:
+            short: If True, return short SHA (8 chars). If False, return full SHA.
+
+        Returns:
+            Git SHA string or None if not in a git repository
+        """
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=self.project_root,
+                timeout=5,
+            )
+            sha = result.stdout.strip()
+            return sha[:8] if short else sha
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            print(f"WARNING: Could not get git SHA: {exc}", file=sys.stderr)
+            return None
+
+    def generate_tags(self, version: str, git_sha: Optional[str] = None, include_latest: bool = True) -> list[ImageReference]:
+        """Generate Docker image tags for a given version.
+
+        Args:
+            version: Semantic version (e.g., "0.17.3")
+            git_sha: Git commit SHA (short form, 8 chars). If None, auto-detect from current repo.
+            include_latest: Whether to include "latest" tag
+
+        Returns:
+            List of ImageReference objects with version, SHA, and optionally latest tags
+        """
         if not self.registry:
             raise ValueError("registry is required")
         if not version:
             raise ValueError("version is required")
 
+        # Auto-detect git SHA if not provided
+        if git_sha is None:
+            git_sha = self.get_git_sha(short=True)
+
         tags = [ImageReference(registry=self.registry, image=self.image_name, tag=version)]
+
+        # Add SHA tag if available
+        if git_sha:
+            tags.append(ImageReference(registry=self.registry, image=self.image_name, tag=git_sha))
 
         if include_latest:
             tags.append(ImageReference(registry=self.registry, image=self.image_name, tag=LATEST_TAG))
@@ -639,8 +680,13 @@ class DockerManager:
             print(f"ERROR: Failed to push image: {result.stderr}", file=sys.stderr)
             return False
 
-    def build_and_push(self, version: str, include_latest: bool = True) -> bool:
+    def build_and_push(self, version: str, git_sha: Optional[str] = None, include_latest: bool = True) -> bool:
         """Build and push Docker image with all generated tags.
+
+        Args:
+            version: Semantic version (e.g., "0.17.3")
+            git_sha: Git commit SHA (short form, 8 chars). If None, auto-detect from current repo.
+            include_latest: Whether to include "latest" tag
 
         NOTE: Only supports amd64. On arm64, runs in dry-run mode to show what would happen.
         Production images should be built in CI on amd64 runners.
@@ -661,8 +707,8 @@ class DockerManager:
             print("", file=sys.stderr)
             self.dry_run = True
 
-        # Generate tags
-        tags = self.generate_tags(version, include_latest)
+        # Generate tags (with git SHA if provided or auto-detected)
+        tags = self.generate_tags(version, git_sha=git_sha, include_latest=include_latest)
 
         print(f"INFO: Using registry: {self.registry}", file=sys.stderr)
         print(f"INFO: Generated {len(tags)} image tags:", file=sys.stderr)
@@ -1066,6 +1112,7 @@ ENVIRONMENT VARIABLES:
     AWS_ACCOUNT_ID         AWS account ID (used to construct registry)
     AWS_DEFAULT_REGION     AWS region (default: us-east-1)
     VERSION                Version tag (can override --version)
+    GIT_SHA                Git commit SHA (can override --git-sha)
     QUILT_CATALOG_URL      Quilt catalog URL (for container start)
     QUILT_REGISTRY_URL     Quilt registry URL (for container start)
         """,
@@ -1077,6 +1124,7 @@ ENVIRONMENT VARIABLES:
     tags_parser = subparsers.add_parser("tags", help="Generate Docker image tags")
     tags_parser.add_argument("--version", required=True, help="Version tag for the image")
     tags_parser.add_argument("--registry", help="ECR registry URL")
+    tags_parser.add_argument("--git-sha", help="Git commit SHA (short form, 8 chars). Auto-detected if not provided.")
     tags_parser.add_argument("--output", choices=["text", "json"], default="text", help="Output format")
     tags_parser.add_argument("--no-latest", action="store_true", help="Don't include latest tag")
 
@@ -1090,6 +1138,7 @@ ENVIRONMENT VARIABLES:
     push_parser.add_argument("--version", required=True, help="Version tag for the image")
     push_parser.add_argument("--registry", help="ECR registry URL")
     push_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
+    push_parser.add_argument("--git-sha", help="Git commit SHA (short form, 8 chars). Auto-detected if not provided.")
     push_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     push_parser.add_argument("--no-latest", action="store_true", help="Don't tag as latest")
 
@@ -1149,7 +1198,9 @@ def cmd_tags(args: argparse.Namespace) -> int:
     """Generate and display Docker image tags."""
     try:
         manager = DockerManager(registry=args.registry)
-        references = manager.generate_tags(args.version, include_latest=not args.no_latest)
+        # Use provided git_sha or auto-detect
+        git_sha = getattr(args, 'git_sha', None)
+        references = manager.generate_tags(args.version, git_sha=git_sha, include_latest=not args.no_latest)
 
         if args.output == "json":
             payload = {
@@ -1184,12 +1235,15 @@ def cmd_push(args: argparse.Namespace) -> int:
     # Allow VERSION env var to override
     version = os.getenv("VERSION", args.version)
 
+    # Allow GIT_SHA env var to override, or use command-line arg
+    git_sha = os.getenv("GIT_SHA") or getattr(args, 'git_sha', None)
+
     manager = DockerManager(
         registry=args.registry,
         region=args.region,
         dry_run=args.dry_run,
     )
-    success = manager.build_and_push(version, include_latest=not args.no_latest)
+    success = manager.build_and_push(version, git_sha=git_sha, include_latest=not args.no_latest)
     return 0 if success else 1
 
 
