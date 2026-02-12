@@ -43,7 +43,7 @@ runs:
       run: make python-dist
 
     - name: Publish to PyPI/TestPyPI
-      uses: pypa/gh-action-pypi-publish@03f86fee9ac21f854951f5c6e2a02c2a1324aec7
+      uses: pypa/gh-action-pypi-publish@e2bab26859796ee5c3bf97b8f394ce1e6570e906
       with:
         repository-url: ${{ inputs.pypi-repository-url }}
         packages-dir: dist/
