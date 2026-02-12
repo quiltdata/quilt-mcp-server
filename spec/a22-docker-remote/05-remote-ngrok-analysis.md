@@ -37,6 +37,7 @@
 **The auth server (OAuth flow) is not yet enabled.**
 
 Without OAuth:
+
 - Claude.ai cannot obtain JWTs through standard OAuth flow
 - Claude.ai cannot send `Authorization: Bearer` headers
 - Current middleware (`JwtExtractionMiddleware`) **requires** JWT and rejects unauthenticated requests with 401
@@ -61,6 +62,7 @@ Without OAuth:
 **File**: `src/quilt_mcp/middleware/jwt_extraction.py`
 
 Current behavior:
+
 1. Extracts JWT from `Authorization: Bearer <token>` header
 2. **NO local validation** - passes token through to GraphQL backend
 3. Injects token into runtime context via `push_runtime_context()`
@@ -105,6 +107,7 @@ class JwtExtractionMiddleware(BaseHTTPMiddleware):
 ```
 
 **Key Observations**:
+
 - `require_jwt` parameter exists but is currently `True` for remote mode
 - Middleware only **extracts** JWT, never validates it
 - All validation happens at GraphQL backend (`/api/auth/get_credentials`)
@@ -143,6 +146,7 @@ class JWTAuthService:
 ```
 
 **Key Observations**:
+
 - Service checks runtime context **first**, then falls back to discovery
 - JWT is passed to GraphQL backend at `/api/auth/get_credentials`
 - Backend validates JWT and returns temporary AWS credentials
@@ -175,6 +179,7 @@ _runtime_context_var: ContextVar[RuntimeContextState] = ContextVar(
 ```
 
 **Key Observations**:
+
 - Uses Python `ContextVar` for request isolation
 - Middleware pushes auth state at request start
 - Middleware pops auth state at request end
@@ -199,6 +204,7 @@ ENV PYTHONUNBUFFERED=1 \
 ```
 
 **Deployment Mode Resolution** (`config.py`):
+
 - `QUILT_DEPLOYMENT=remote` → `DeploymentMode.REMOTE`
 - Remote mode → backend=`graphql` (platform), transport=`http`
 - Platform backend → requires JWT authentication
@@ -208,6 +214,7 @@ ENV PYTHONUNBUFFERED=1 \
 **File**: `scripts/docker_manager.py`
 
 Current stateless container config:
+
 ```python
 def create_stateless_config(self, ...):
     env_vars = {
@@ -225,6 +232,7 @@ def create_stateless_config(self, ...):
 ```
 
 **Testing Flow** (`scripts/mcp-test.py`):
+
 ```python
 # Docker tests now require REAL JWTs (no fake fallback)
 if args.jwt:
@@ -241,6 +249,7 @@ if args.jwt:
 ```
 
 **Key Observations**:
+
 - Docker tests pass JWT via `Authorization: Bearer` header
 - Tests require **real JWTs** (no generated/fake tokens)
 - Container validates JWT against real GraphQL backend
@@ -252,6 +261,7 @@ if args.jwt:
 ### 4.1 MCP Protocol Over HTTP
 
 Claude.ai Desktop connects to remote MCP servers via:
+
 1. **HTTP POST** to MCP endpoint (e.g., `http://localhost:8000/mcp`)
 2. **JSON-RPC 2.0** protocol over HTTP
 3. **Optional authentication** via headers
@@ -259,16 +269,19 @@ Claude.ai Desktop connects to remote MCP servers via:
 ### 4.2 Current OAuth Gap
 
 **What's Missing**:
+
 - Claude.ai Desktop has no OAuth integration yet
 - Cannot obtain JWT through standard OAuth flow
 - Cannot provide `Authorization: Bearer` headers
 
 **What Claude.ai Can Do**:
+
 - Make HTTP requests to public URLs (via ngrok)
 - Send custom headers (if configured in MCP settings)
 - Store static tokens in configuration
 
 **What Claude.ai Cannot Do** (yet):
+
 - Initiate OAuth flows
 - Refresh expired tokens automatically
 - Handle 401 redirects to authorization endpoints
@@ -302,6 +315,7 @@ ngrok http 8000 --domain=uniformly-alive-halibut.ngrok-free.app
 **Idea**: Pre-inject a valid JWT into the Docker container environment, use it as a fallback when requests arrive without authentication headers.
 
 **Flow**:
+
 ```
 1. Obtain valid JWT (via `quilt3 login`)
 2. Inject JWT into Docker container as environment variable
@@ -313,6 +327,7 @@ ngrok http 8000 --domain=uniformly-alive-halibut.ngrok-free.app
 ### 5.2 Where to Inject JWT
 
 **Option A: Environment Variable**
+
 ```bash
 docker run \
   -e QUILT_FALLBACK_JWT="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." \
@@ -321,6 +336,7 @@ docker run \
 ```
 
 **Option B: Docker Secret (more secure)**
+
 ```bash
 echo "eyJhbGciOi..." | docker secret create quilt_jwt -
 docker service create \
@@ -329,6 +345,7 @@ docker service create \
 ```
 
 **Option C: Mounted Volume**
+
 ```bash
 echo "eyJhbGciOi..." > /tmp/jwt-token
 docker run \
@@ -339,6 +356,7 @@ docker run \
 ### 5.3 Where to Use Pre-Injected JWT
 
 **Current Middleware** (`jwt_extraction.py`):
+
 ```python
 async def dispatch(self, request: Request, call_next):
     auth_header = request.headers.get("authorization")
@@ -349,6 +367,7 @@ async def dispatch(self, request: Request, call_next):
 ```
 
 **Proposed Modification** (pseudocode):
+
 ```python
 async def dispatch(self, request: Request, call_next):
     auth_header = request.headers.get("authorization")
@@ -400,6 +419,7 @@ async def dispatch(self, request: Request, call_next):
 ```
 
 **Challenges with IP Whitelisting**:
+
 - Claude.ai IP ranges may change
 - Ngrok hides original client IP (proxied)
 - May need ngrok Pro for IP forwarding
@@ -413,6 +433,7 @@ async def dispatch(self, request: Request, call_next):
 **Problem**: JWTs have limited lifespan (typically 1-24 hours)
 
 **Current JWT Structure** (from GraphQL backend):
+
 ```json
 {
   "id": "user-123",
@@ -423,11 +444,13 @@ async def dispatch(self, request: Request, call_next):
 ```
 
 **Implications**:
+
 - Pre-injected JWT will expire within hours
 - Container must be restarted with fresh JWT
 - No automatic refresh mechanism without OAuth
 
 **Possible Mitigations**:
+
 1. **Short-lived testing**: Accept frequent restarts for development
 2. **Long-lived JWTs**: Request special JWT with longer expiration from backend
 3. **Refresh script**: External script periodically updates container JWT
@@ -458,6 +481,7 @@ async def dispatch(self, request: Request, call_next):
    - All clients have same AWS permissions
 
 **Risk Assessment**:
+
 - **High Risk** for production use
 - **Acceptable Risk** for local development/testing with short-lived JWTs
 - **Medium Risk** with IP whitelisting and ngrok authentication
@@ -467,16 +491,19 @@ async def dispatch(self, request: Request, call_next):
 **Problem**: Runtime context is request-scoped, but fallback JWT is global
 
 **Current Behavior**:
+
 - Each request has isolated runtime context (via `ContextVar`)
 - Middleware pushes auth state at request start
 - Middleware pops auth state at request end
 
 **With Fallback JWT**:
+
 - All unauthenticated requests share same JWT
 - All requests appear to come from same user
 - Cannot distinguish between multiple clients
 
 **Implications**:
+
 - Logging shows same user for all requests
 - Telemetry cannot track individual clients
 - Rate limiting applies to shared identity
@@ -484,6 +511,7 @@ async def dispatch(self, request: Request, call_next):
 ### 6.4 JWT Discovery Interference
 
 **Current JWT Resolution** (`JWTAuthService._resolve_access_token()`):
+
 ```python
 def _resolve_access_token(self) -> Optional[str]:
     # Priority 1: Runtime context (from middleware)
@@ -498,11 +526,13 @@ def _resolve_access_token(self) -> Optional[str]:
 **Question**: How does fallback JWT interact with discovery?
 
 **If fallback JWT is injected via middleware**:
+
 - Runtime context always has token
 - Discovery never runs
 - Quilt3 session credentials ignored
 
 **If fallback JWT is added to discovery**:
+
 - Need to modify `JWTDiscovery.discover()`
 - Changes shared discovery logic across deployments
 - May affect local/legacy modes unintentionally
@@ -510,29 +540,34 @@ def _resolve_access_token(self) -> Optional[str]:
 ### 6.5 Credential Exchange Backend
 
 **Current Flow**:
+
 ```
 JWT → /api/auth/get_credentials → AWS Credentials
 ```
 
 **Backend Validation**:
+
 - GraphQL backend validates JWT signature
 - Checks JWT expiration
 - Verifies user identity
 - Returns temporary AWS credentials (1-hour TTL)
 
 **With Pre-Injected JWT**:
+
 - Backend validation works as normal
 - JWT must be valid (not expired, correct signature)
 - AWS credentials cached by `JWTAuthService`
 - Credentials refreshed automatically on expiration
 
 **Question**: Does backend log JWT reuse?
+
 - If backend tracks JWT usage, repeated use may trigger alerts
 - May appear as suspicious activity (same JWT, multiple IPs)
 
 ### 6.6 QUILT_ALLOW_TEST_JWT Confusion
 
 **Current Test JWT Generation** (`jwt_discovery.py`):
+
 ```python
 def _allow_test_jwt() -> bool:
     return os.getenv("QUILT_ALLOW_TEST_JWT", "false").lower() == "true"
@@ -543,16 +578,19 @@ def _generate_test_jwt() -> str:
 ```
 
 **Test JWTs are FAKE**:
+
 - Signed with local secret, not backend secret
 - Fail validation at GraphQL backend
 - Only work with mocked backends (pytest fixtures)
 
 **Pre-Injected JWT must be REAL**:
+
 - Signed by GraphQL backend
 - Valid signature and expiration
 - Accepted by `/api/auth/get_credentials`
 
 **Critical Distinction**:
+
 - `QUILT_ALLOW_TEST_JWT` enables **fake** JWTs (mocked tests)
 - `QUILT_FALLBACK_JWT` would use **real** JWTs (production backend)
 - These are completely different mechanisms
@@ -602,6 +640,7 @@ def _generate_test_jwt() -> str:
 ### 7.3 Operational Questions
 
 1. **How to restart container with fresh JWT?**
+
    ```bash
    # Option 1: Manual restart
    docker stop mcp-remote
@@ -652,11 +691,13 @@ def _generate_test_jwt() -> str:
 **Scenario**: Local development with ngrok tunnel for Claude.ai testing
 
 **Risks**:
+
 - **Low**: Short-lived JWT (1 hour)
 - **Low**: Private ngrok URL (not easily discoverable)
 - **Low**: Temporary setup (tear down after testing)
 
 **Mitigations**:
+
 - Use short-lived JWTs
 - Regenerate ngrok URL per session
 - Monitor for unexpected access
@@ -668,11 +709,13 @@ def _generate_test_jwt() -> str:
 **Scenario**: Shared staging environment with persistent ngrok tunnel
 
 **Risks**:
+
 - **Medium**: Longer-lived JWT (potential for reuse)
 - **Medium**: Persistent URL (discoverable over time)
 - **High**: Shared staging data (potential for unauthorized access)
 
 **Mitigations**:
+
 - Implement IP whitelisting
 - Use ngrok authentication
 - Monitor access logs
@@ -685,11 +728,13 @@ def _generate_test_jwt() -> str:
 **Scenario**: Production MCP server with public access
 
 **Risks**:
+
 - **HIGH**: Critical data exposure
 - **HIGH**: Persistent JWT reuse
 - **HIGH**: No per-client authentication
 
 **Mitigations**:
+
 - **DO NOT USE** fallback JWT in production
 - **REQUIRE** OAuth implementation first
 - Use proper authentication infrastructure
@@ -703,14 +748,17 @@ def _generate_test_jwt() -> str:
 ### Tier 1: Minimal (MVP for Local Testing)
 
 **Changes**:
+
 1. Modify `JwtExtractionMiddleware` to check `QUILT_FALLBACK_JWT` env var
 2. Use fallback JWT when `Authorization` header is missing
 3. Add logging to indicate fallback JWT usage
 
 **Files Modified**:
+
 - `src/quilt_mcp/middleware/jwt_extraction.py`
 
 **Testing**:
+
 - Manual test with Docker + ngrok
 - Verify Claude.ai can connect without auth headers
 
@@ -720,17 +768,20 @@ def _generate_test_jwt() -> str:
 ### Tier 2: Enhanced (With Monitoring)
 
 **Changes**:
+
 - All Tier 1 changes
 - Add JWT expiration logging at startup
 - Add health check endpoint that validates JWT
 - Log warning when JWT is close to expiration (e.g., <15 minutes)
 
 **Files Modified**:
+
 - `src/quilt_mcp/middleware/jwt_extraction.py`
 - `src/quilt_mcp/main.py` (add health check endpoint)
 - `src/quilt_mcp/utils/common.py` (JWT parsing utilities)
 
 **Testing**:
+
 - Unit tests for JWT expiration detection
 - Integration tests for health check endpoint
 
@@ -740,6 +791,7 @@ def _generate_test_jwt() -> str:
 ### Tier 3: Production-Ready (With Security Controls)
 
 **Changes**:
+
 - All Tier 2 changes
 - Implement IP whitelisting
 - Add runtime JWT refresh endpoint (admin-authenticated)
@@ -747,6 +799,7 @@ def _generate_test_jwt() -> str:
 - Add comprehensive audit logging
 
 **Files Modified**:
+
 - `src/quilt_mcp/middleware/jwt_extraction.py`
 - `src/quilt_mcp/middleware/ip_whitelist.py` (new)
 - `src/quilt_mcp/main.py` (add admin endpoints)
@@ -754,6 +807,7 @@ def _generate_test_jwt() -> str:
 - `src/quilt_mcp/config.py` (add IP whitelist config)
 
 **Testing**:
+
 - Unit tests for IP whitelisting
 - Integration tests for JWT refresh
 - Security tests for admin endpoints
@@ -770,12 +824,14 @@ def _generate_test_jwt() -> str:
 **RECOMMEND**: Implement **Tier 1** (Minimal MVP)
 
 **Rationale**:
+
 - Unblocks Claude.ai testing immediately
 - Minimal code changes (easy to review and revert)
 - Acceptable risk for local development
 - No production use intended
 
 **Next Steps**:
+
 1. Confirm user acceptance of risks
 2. Implement Tier 1 changes
 3. Document setup process (ngrok + JWT injection)
@@ -787,12 +843,14 @@ def _generate_test_jwt() -> str:
 **RECOMMEND**: **Wait for OAuth**
 
 **Rationale**:
+
 - Pre-injected JWT is a hack, not a production solution
 - Security risks too high for production data
 - Proper authentication infrastructure needed
 - Claude.ai OAuth support is coming (roadmap item)
 
 **Alternative (if urgent)**:
+
 - Implement Tier 3 (Production-Ready)
 - Require additional security review
 - Treat as temporary solution with deprecation timeline
@@ -802,15 +860,18 @@ def _generate_test_jwt() -> str:
 ## 11. Related Work
 
 **Completed**:
+
 - ✅ `spec/a22-docker-remote/01-jwt-auth.md` - JWT auth overview
 - ✅ `spec/a22-docker-remote/02-jwt-docker-fix.md` - JWT discovery for Docker tests
 - ✅ `spec/a22-docker-remote/03-jwt-docker-plan.md` - Real JWT requirement plan
 - ✅ `spec/a22-docker-remote/04-jwt-docker-followon.md` - Implementation notes
 
 **This Document**:
+
 - 📝 `spec/a22-docker-remote/05-remote-ngrok-analysis.md` - Analysis only (this file)
 
 **Future Work** (if Tier 1 is approved):
+
 - 📋 `spec/a22-docker-remote/06-fallback-jwt-design.md` - Detailed design
 - 📋 `spec/a22-docker-remote/07-fallback-jwt-impl.md` - Implementation guide
 - 📋 `spec/a22-docker-remote/08-ngrok-setup.md` - Ngrok tunnel setup guide
@@ -820,6 +881,7 @@ def _generate_test_jwt() -> str:
 ## Appendix A: JWT Structure Example
 
 **Typical JWT from GraphQL Backend**:
+
 ```
 Header:
 {
@@ -845,6 +907,7 @@ RSASHA256(
 ```
 
 **How to Extract JWT from quilt3 Session**:
+
 ```python
 import quilt3
 
@@ -860,6 +923,7 @@ if auth_header and auth_header.startswith("Bearer "):
 ## Appendix B: Current Make Targets
 
 **Relevant Make Targets**:
+
 ```bash
 # Build Docker image locally
 make docker-build
@@ -875,6 +939,7 @@ make run-inspector
 ```
 
 **New Make Target Needed** (if Tier 1 implemented):
+
 ```bash
 # Run Docker in remote mode with ngrok
 make run-docker-remote

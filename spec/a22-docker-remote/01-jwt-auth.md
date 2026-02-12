@@ -42,6 +42,7 @@ class ModeConfig:
 ```
 
 **Key Constraint**: Remote mode (`QUILT_DEPLOYMENT=remote`) cannot access filesystem for credentials because:
+
 1. Containers may be stateless with read-only filesystems
 2. Multiple concurrent HTTP clients require isolated authentication
 3. JWT tokens must be passed per-request via HTTP headers
@@ -58,6 +59,7 @@ JWT tokens are discovered in priority order (`src/quilt_mcp/auth/jwt_discovery.p
 ### JWT Authentication Flow
 
 Remote mode (HTTP transport):
+
 ```
 HTTP Request with Authorization: Bearer <jwt>
          ↓
@@ -73,6 +75,7 @@ Cached credentials (5-minute refresh buffer)
 ```
 
 Local mode (stdio transport):
+
 ```
 MCP request over stdio
          ↓
@@ -209,6 +212,7 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
 **Command**: `make test-mcp-docker`
 
 **What it does**:
+
 1. Builds Docker image with `QUILT_DEPLOYMENT=remote`
 2. Starts container with read-only filesystem and security constraints
 3. Generates JWT via `make_test_jwt()`
@@ -216,11 +220,13 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
 5. Validates MCP protocol functionality
 
 **Advantages**:
+
 - Full production constraints
 - Tests actual deployment configuration
 - Validates stateless operation
 
 **Disadvantages**:
+
 - Slow (Docker build + container lifecycle)
 - Not suitable for rapid iteration
 - Complex to debug
@@ -230,6 +236,7 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
 **Command**: `make test-func` or `make test-e2e`
 
 **What it does**:
+
 1. Parametrizes tests for `quilt3` and/or `platform` backends
 2. Auto-discovers or generates JWT for platform tests
 3. Pushes JWT to runtime context
@@ -237,11 +244,13 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
 5. Cleans up context after tests
 
 **Advantages**:
+
 - Fast execution
 - Easy debugging
 - Integrated with pytest ecosystem
 
 **Disadvantages**:
+
 - Uses stdio transport (not HTTP like production)
 - Doesn't test HTTP middleware
 - No stateless constraints
@@ -251,17 +260,20 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
 **Command**: `quilt3 login && uv run quilt-mcp`
 
 **What it does**:
+
 1. Authenticates with quilt3 library
 2. Stores session in `~/.quilt/auth.json`
 3. Server discovers JWT from quilt3 session
 4. Works for local development only
 
 **Advantages**:
+
 - Simple setup
 - Uses real credentials
 - No manual JWT management
 
 **Disadvantages**:
+
 - Only works for legacy mode
 - Requires filesystem access
 - Not suitable for remote mode testing
@@ -287,12 +299,14 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
 **Problem Statement**: How to test remote mode (HTTP + JWT) locally without the overhead of Docker?
 
 **Requirements**:
+
 1. Start HTTP server in remote mode locally (not containerized)
 2. Inject JWT for each HTTP request
 3. Test individual tools/endpoints quickly
 4. Support both manual testing (curl) and automated testing (pytest)
 
 **Constraints**:
+
 - Cannot use filesystem for credentials (simulating stateless container)
 - Must use HTTP transport (not stdio)
 - Must pass JWT via `Authorization: Bearer` header
@@ -306,15 +320,16 @@ Add to `make.dev`:
 
 ```makefile
 run-remote:
-	@echo "Starting HTTP server in remote mode..."
-	@export QUILT_DEPLOYMENT=remote && \
-		export FASTMCP_TRANSPORT=http && \
-		export FASTMCP_HOST=127.0.0.1 && \
-		export FASTMCP_PORT=8003 && \
-		uv run quilt-mcp
+ @echo "Starting HTTP server in remote mode..."
+ @export QUILT_DEPLOYMENT=remote && \
+  export FASTMCP_TRANSPORT=http && \
+  export FASTMCP_HOST=127.0.0.1 && \
+  export FASTMCP_PORT=8003 && \
+  uv run quilt-mcp
 ```
 
 **Manual testing**:
+
 ```bash
 # Terminal 1
 make run-remote
@@ -349,6 +364,7 @@ def http_client_with_jwt():
 ```
 
 **Usage**:
+
 ```python
 def test_remote_endpoint(http_client_with_jwt):
     # Assumes server running on localhost:8003
@@ -389,6 +405,7 @@ curl -H "Authorization: Bearer $JWT" \
 2. **Add `http_client_with_jwt` fixture** - Enable pytest testing with JWT
 
 This provides:
+
 - Quick manual testing: `make run-remote` + curl
 - Automated testing: pytest fixture for integration tests
 - Full Docker testing: existing `make test-mcp-docker` for validation

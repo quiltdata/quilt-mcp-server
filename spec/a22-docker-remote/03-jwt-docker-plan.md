@@ -5,6 +5,7 @@
 The current `make test-mcp-docker` target generates fake test JWTs that fail validation against real GraphQL backends. The JWT middleware passes tokens through to the backend without local validation, so fake JWTs give false confidence - tests may "pass" locally but fail in production.
 
 **Problem**: Spec `spec/a22-docker-remote/02-jwt-docker-fix.md` proposes adding JWT discovery but keeps a fallback to fake JWTs for "backward compatibility". This is problematic because:
+
 - Fake JWTs fail backend validation (false negatives)
 - Developers get no signal that authentication is broken
 - Tests don't match production behavior
@@ -68,6 +69,7 @@ if args.jwt:
 ```
 
 **Key changes from current spec**:
+
 - Remove unconditional fallback to fake JWT (lines 136-139 in current spec)
 - **No escape hatch** - Docker tests require real JWTs, period
 - Add clear error message directing users to pytest for mocked tests
@@ -80,19 +82,23 @@ if args.jwt:
 Update these sections to reflect the stricter JWT requirement:
 
 **Section "Expected Behavior After Fix" (lines 154-191)**:
+
 - Update "Fallback (no real JWT)" scenario to show it **fails** (no escape hatch)
 - Remove any mention of fake JWT fallback
 
 **Section "Edge Cases" (lines 256-278)**:
+
 - Update "No PLATFORM_TEST_JWT_TOKEN" to show failure with clear guidance
 - Direct users to pytest for mocked tests
 
 **Section "Backward Compatibility" (lines 291-295)**:
+
 - **Breaking change**: Docker tests now require real JWTs
 - Users needing mocked tests should use `make test-func` or `make test-e2e` (pytest)
 - This is intentional - Docker tests validate production deployment
 
 **Section "CI/CD Impact" (lines 296-300)**:
+
 - CI **must** set `PLATFORM_TEST_JWT_TOKEN` (real JWT from secrets)
 - Or run `quilt3 login` in CI setup
 - No fake JWTs in CI - ensures tests validate real authentication
@@ -142,6 +148,7 @@ The implementation is **stricter** than `tests/conftest.py` (which allows `ALLOW
 ```
 
 This ensures:
+
 - ✅ Docker tests validate production deployment only
 - ✅ Real JWTs required (no exceptions)
 - ✅ Clear error messages guide developers to pytest for mocked tests

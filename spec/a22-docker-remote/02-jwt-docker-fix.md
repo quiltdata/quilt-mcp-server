@@ -57,6 +57,7 @@ if args.jwt:
 ```
 
 The Docker test script:
+
 - ❌ Never checks `PLATFORM_TEST_JWT_TOKEN` env var
 - ❌ Never tries quilt3 session
 - ❌ Only generates fake test JWT
@@ -65,6 +66,7 @@ The Docker test script:
 ### Why This Matters
 
 The JWT middleware (`src/quilt_mcp/middleware/jwt_extraction.py`) **does NOT validate JWTs locally**. It just:
+
 1. Extracts `Authorization: Bearer <token>` from HTTP header
 2. Stores token in request context
 3. Passes token to GraphQL backend
@@ -84,6 +86,7 @@ The **GraphQL backend validates** the JWT signature. Fake JWTs fail validation.
 Replace the fake JWT generation with real JWT discovery:
 
 **Before**:
+
 ```python
 if args.jwt:
     # Use sample catalog JWT for testing
@@ -104,6 +107,7 @@ if args.jwt:
 ```
 
 **After**:
+
 ```python
 if args.jwt:
     # Discover JWT using same logic as backend_mode fixture
@@ -203,6 +207,7 @@ make test-mcp-docker
 ```
 
 **Expected**:
+
 - Output: `✅ Using JWT from quilt3 session`
 - All tests pass with real backend validation
 
@@ -217,6 +222,7 @@ make test-mcp-docker
 ```
 
 **Expected**:
+
 - Output: `✅ Using JWT from PLATFORM_TEST_JWT_TOKEN`
 - All tests pass with real backend validation
 
@@ -232,6 +238,7 @@ make test-mcp-docker
 ```
 
 **Expected**:
+
 - Output: `⚠️  Using generated test JWT (may not work with real servers)`
 - Tests may fail if hitting real backend (expected behavior)
 - Tests pass if backend is mocked
@@ -247,6 +254,7 @@ uv run python scripts/mcp-test.py http://localhost:8000/mcp \
 ```
 
 **Expected** (with quilt3 login):
+
 ```
 🔐 Discovering JWT token...
 ✅ Using JWT from quilt3 session
@@ -256,21 +264,25 @@ uv run python scripts/mcp-test.py http://localhost:8000/mcp \
 ## Edge Cases
 
 ### No PLATFORM_TEST_JWT_TOKEN
+
 - Falls back to quilt3 session
 - If no quilt3 login, falls back to generated test JWT
 - Generated JWT prints warning: "may not work with real servers"
 
 ### quilt3 not installed
+
 - `import quilt3` fails gracefully (try/except)
 - Falls back to generated test JWT
 - Tests continue (may fail backend validation)
 
 ### Invalid JWT in environment
+
 - Malformed JWT passed to backend
 - Backend validation fails (expected)
 - Error message shows validation failure
 
 ### JWT expires during test
+
 - Real JWTs have expiration times
 - Backend rejects expired JWT
 - User must re-login (`quilt3 login`)
@@ -279,21 +291,26 @@ uv run python scripts/mcp-test.py http://localhost:8000/mcp \
 ## Impact Assessment
 
 ### Files Modified
+
 - ✅ `scripts/mcp-test.py` - Replace ~10 lines (lines 1086-1095)
 
 ### Tests Affected
+
 - ✅ `make test-mcp-docker` - Will use real JWTs when available
 - ✅ Backward compatible - still generates test JWT as fallback
 
 ### Breaking Changes
+
 - ✅ None - Adds JWT discovery, keeps fallback behavior
 
 ### Backward Compatibility
+
 - ✅ Fully backward compatible
 - ✅ Old behavior (generated JWT) still works as fallback
 - ✅ New behavior (real JWT) is opt-in via env var or quilt3 login
 
 ### CI/CD Impact
+
 - ✅ GitHub Actions already sets `PLATFORM_TEST_JWT_SECRET` (see `.github/workflows/`)
 - ✅ Need to verify if `PLATFORM_TEST_JWT_TOKEN` is available
 - ✅ Fallback ensures tests don't break if token unavailable
@@ -301,6 +318,7 @@ uv run python scripts/mcp-test.py http://localhost:8000/mcp \
 ## Related Infrastructure
 
 ### JWT Extraction Middleware
+
 **File**: `src/quilt_mcp/middleware/jwt_extraction.py`
 
 - Extracts JWT from `Authorization: Bearer` headers
@@ -308,6 +326,7 @@ uv run python scripts/mcp-test.py http://localhost:8000/mcp \
 - This is correct: backend validates JWT signatures
 
 ### Backend Mode Fixture
+
 **File**: `tests/conftest.py`, lines 234-265
 
 - Already implements correct JWT discovery
@@ -315,6 +334,7 @@ uv run python scripts/mcp-test.py http://localhost:8000/mcp \
 - Same logic, same behavior
 
 ### Make Target
+
 **File**: `make.dev:163-178`
 
 - No changes needed
@@ -322,6 +342,7 @@ uv run python scripts/mcp-test.py http://localhost:8000/mcp \
 - Fix is internal to `mcp-test.py`
 
 ### CI/CD
+
 **File**: `.github/workflows/push.yml` and `.github/workflows/pr.yml`
 
 - Already sets `PLATFORM_TEST_JWT_SECRET` secret
@@ -331,6 +352,7 @@ uv run python scripts/mcp-test.py http://localhost:8000/mcp \
 ## Conclusion
 
 This is a **~20 line change** that brings Docker tests to parity with other tests. The JWT infrastructure is complete:
+
 - ✅ JWT extraction middleware (passes through to backend)
 - ✅ Backend validation (GraphQL validates JWT signatures)
 - ✅ JWT discovery in other tests (`backend_mode` fixture)

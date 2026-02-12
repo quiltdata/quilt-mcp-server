@@ -141,6 +141,8 @@ class TestIndexPatternBuilder:
             registry_url="https://example-registry.quiltdata.com",
         )
         self.mock_backend.get_auth_status.return_value = mock_auth_status
+        self.mock_backend.get_registry_url.return_value = "https://example-registry.quiltdata.com"
+        self.mock_backend.get_graphql_auth_headers.return_value = {"Authorization": "Bearer test-token"}
         self.backend = Quilt3ElasticsearchBackend(backend=self.mock_backend)
 
     def test_file_scope_with_bucket(self):
@@ -165,9 +167,9 @@ class TestIndexPatternBuilder:
             }
         }
 
-        # Mock search API to return results from multiple buckets
-        mock_search_api = Mock()
-        mock_search_api.return_value = {
+        # Mock search API response
+        mock_response = Mock()
+        mock_response.json.return_value = {
             "hits": {
                 "hits": [
                     {
@@ -193,8 +195,10 @@ class TestIndexPatternBuilder:
                 ]
             }
         }
-        # Mock search_api
-        with patch('quilt_mcp.search.backends.elasticsearch.search_api', mock_search_api):
+        mock_response.raise_for_status = Mock()
+
+        # Mock requests.get to return our mock response
+        with patch('quilt_mcp.search.backends.elasticsearch.requests.get', return_value=mock_response):
             # Execute search with empty bucket
             response = await self.backend.search(query="test", scope="file", bucket="", limit=10)
 
@@ -237,9 +241,9 @@ class TestIndexPatternBuilder:
             }
         }
 
-        # Mock search API to return package entry results from multiple buckets
-        mock_search_api = Mock()
-        mock_search_api.return_value = {
+        # Mock search API response
+        mock_response = Mock()
+        mock_response.json.return_value = {
             "hits": {
                 "hits": [
                     {
@@ -267,8 +271,10 @@ class TestIndexPatternBuilder:
                 ]
             }
         }
-        # Mock search_api
-        with patch('quilt_mcp.search.backends.elasticsearch.search_api', mock_search_api):
+        mock_response.raise_for_status = Mock()
+
+        # Mock requests.get to return our mock response
+        with patch('quilt_mcp.search.backends.elasticsearch.requests.get', return_value=mock_response):
             # Execute search with empty bucket
             response = await self.backend.search(query="test", scope="packageEntry", bucket="", limit=10)
 
@@ -311,9 +317,9 @@ class TestIndexPatternBuilder:
             }
         }
 
-        # Mock search API to return BOTH file and package entry results from multiple buckets
-        mock_search_api = Mock()
-        mock_search_api.return_value = {
+        # Mock search API response
+        mock_response = Mock()
+        mock_response.json.return_value = {
             "hits": {
                 "hits": [
                     {
@@ -350,8 +356,10 @@ class TestIndexPatternBuilder:
                 ]
             }
         }
-        # Mock search_api
-        with patch('quilt_mcp.search.backends.elasticsearch.search_api', mock_search_api):
+        mock_response.raise_for_status = Mock()
+
+        # Mock requests.get to return our mock response
+        with patch('quilt_mcp.search.backends.elasticsearch.requests.get', return_value=mock_response):
             # Execute search with empty bucket
             response = await self.backend.search(query="test", scope="global", bucket="", limit=10)
 

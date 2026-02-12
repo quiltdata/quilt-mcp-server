@@ -114,6 +114,10 @@ class MockQuiltOps(QuiltOps):
     def _backend_get_auth_status(self):
         return self._mock_backend_get_auth_status()
 
+    def get_aws_client(self, service_name, region=None):
+        """Mock implementation of get_aws_client for testing."""
+        return Mock()
+
     # Transformation abstract methods
     def _transform_search_result_to_package_info(self, result, registry):
         from quilt_mcp.domain import Package_Info

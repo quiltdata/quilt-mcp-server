@@ -35,6 +35,8 @@ class TestResultNormalization:
             registry_url="https://example-registry.quiltdata.com",
         )
         self.mock_backend.get_auth_status.return_value = mock_auth_status
+        self.mock_backend.get_registry_url.return_value = "https://example-registry.quiltdata.com"
+        self.mock_backend.get_graphql_auth_headers.return_value = {"Authorization": "Bearer test-token"}
         self.backend = Quilt3ElasticsearchBackend(backend=self.mock_backend)
 
     def test_normalize_file_result(self):

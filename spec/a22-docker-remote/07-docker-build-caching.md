@@ -9,7 +9,7 @@ The `docker-build` target was rebuilding every time, even when source files hadn
 ```make
 # OLD (always rebuilds)
 docker-build: docker-check
-	@uv run python scripts/docker_manager.py build --version test
+ @uv run python scripts/docker_manager.py build --version test
 ```
 
 ## Solution
@@ -22,13 +22,13 @@ DOCKER_SENTINEL := $(BUILD_DIR)/.docker-build-test
 DOCKER_DEPS := Dockerfile pyproject.toml uv.lock $(APP_FILES)
 
 $(DOCKER_SENTINEL): $(DOCKER_DEPS) | docker-check
-	@echo "🐳 Building Docker image (source files changed)..."
-	@mkdir -p $(BUILD_DIR)
-	@uv run python scripts/docker_manager.py build --version test
-	@touch $(DOCKER_SENTINEL)
+ @echo "🐳 Building Docker image (source files changed)..."
+ @mkdir -p $(BUILD_DIR)
+ @uv run python scripts/docker_manager.py build --version test
+ @touch $(DOCKER_SENTINEL)
 
 docker-build: $(DOCKER_SENTINEL)
-	@echo "✅ Docker image up to date"
+ @echo "✅ Docker image up to date"
 ```
 
 ## How It Works
@@ -42,6 +42,7 @@ docker-build: $(DOCKER_SENTINEL)
 ## Dependencies Tracked
 
 Changes to any of these trigger a rebuild:
+
 - `Dockerfile` - Build configuration
 - `pyproject.toml` - Python dependencies
 - `uv.lock` - Locked dependency versions
@@ -50,6 +51,7 @@ Changes to any of these trigger a rebuild:
 ## Performance Impact
 
 ### Before (Always Rebuilds)
+
 ```bash
 make run-docker-remote
 # 🐳 Building Docker image... (2-5 minutes)
@@ -57,6 +59,7 @@ make run-docker-remote
 ```
 
 ### After (Cached)
+
 ```bash
 make run-docker-remote
 # ✅ Docker image up to date (instant)

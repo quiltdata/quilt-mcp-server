@@ -14,11 +14,13 @@ Services and tools bypass the backend abstraction by directly calling `get_s3_cl
 ### 1. Backend Owns All AWS Client Creation
 
 **Decision:** Backends expose a single method for AWS clients:
+
 ```
 backend.get_aws_client(service_name: str) -> boto3.Client
 ```
 
 **Rationale:**
+
 - Backend already handles all auth modes (JWT, quilt3 session, runtime context)
 - Services should be ignorant of auth mechanism
 - Enables credential injection for platform backend (JWT → STS → AWS creds)
@@ -26,11 +28,13 @@ backend.get_aws_client(service_name: str) -> boto3.Client
 ### 2. Three-Tier Credential Priority (Inside Backend Only)
 
 **Priority:**
+
 1. Runtime context (middleware-provided boto3 session or AWS credentials)
 2. Backend-specific auth (platform: JWT→STS, quilt3: quilt3.get_boto3_session())
 3. Default boto3 (environment/IAM role - fallback only)
 
 **Rationale:**
+
 - Runtime context = highest priority (Docker remote mode, ngrok tunneling)
 - Backend-specific = normal operation
 - Default = last resort for unconfigured environments
@@ -40,6 +44,7 @@ backend.get_aws_client(service_name: str) -> boto3.Client
 **Decision:** Delete the parameter from all 30+ locations (services, tools, utils)
 
 **Rationale:**
+
 - Services don't need to know about auth
 - Complexity reduction (one code path, not two)
 - Platform backend can now inject credentials transparently
@@ -49,6 +54,7 @@ backend.get_aws_client(service_name: str) -> boto3.Client
 **Decision:** Services receive backend instance, call `backend.get_aws_client()`
 
 **Rationale:**
+
 - Testable (mock backend.get_aws_client())
 - Backend can switch auth strategies without service changes
 - Aligns with existing backend abstraction pattern
@@ -56,6 +62,7 @@ backend.get_aws_client(service_name: str) -> boto3.Client
 ## High-Level Tasks
 
 ### Phase 1: Backend Implementation
+
 - [ ] Add `get_aws_client(service_name: str)` to backend base class
 - [ ] Implement in `Quilt3Backend` (use quilt3 session → boto3)
 - [ ] Implement in `PlatformBackend` (use JWT → STS → temporary creds → boto3)
@@ -63,24 +70,28 @@ backend.get_aws_client(service_name: str) -> boto3.Client
 - [ ] Add fallback to default boto3 (IAM/environment creds)
 
 ### Phase 2: Service Refactoring
+
 - [ ] Update `AthenaQueryService.__init__()` to accept backend, remove `use_quilt_auth`
 - [ ] Update `GovernanceService.__init__()` to accept backend, remove `use_quilt_auth`
 - [ ] Replace `get_s3_client(use_quilt_auth)` calls with `backend.get_aws_client("s3")`
 - [ ] Replace `get_sts_client(use_quilt_auth)` calls with `backend.get_aws_client("sts")`
 
 ### Phase 3: Tool Refactoring
+
 - [ ] Remove `use_quilt_auth` parameter from all Athena tools (3 tools)
 - [ ] Remove `use_quilt_auth` parameter from `tabulator()` tool
 - [ ] Remove hardcoded `use_quilt_auth=True` from resources.py and resource_access.py
 - [ ] Update tool implementations to pass backend to services
 
 ### Phase 4: Utility Cleanup
+
 - [ ] Delete `use_quilt_auth` parameter from `get_s3_client()` in utils/common.py
 - [ ] Delete `use_quilt_auth` parameter from `get_sts_client()` in utils/common.py
 - [ ] Move credential priority logic into backend implementations
 - [ ] Keep `_runtime_boto3_session()` as internal helper for backends
 
 ### Phase 5: Testing & Validation
+
 - [ ] Update unit tests for services (mock backend.get_aws_client())
 - [ ] Update integration tests (verify credential flow)
 - [ ] Test Docker remote mode (runtime context credentials)
