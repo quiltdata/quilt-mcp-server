@@ -73,12 +73,15 @@ runs:
         fi
 
     - name: Publish to PyPI/TestPyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: ${{ inputs.pypi-repository-url }}
-        packages-dir: dist/
-        skip-existing: ${{ inputs.skip-existing }}
-        verbose: true
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.pypi-repository-url }}" ]; then
+          echo "📦 Publishing to TestPyPI: ${{ inputs.pypi-repository-url }}"
+          uv publish --publish-url "${{ inputs.pypi-repository-url }}"
+        else
+          echo "📦 Publishing to PyPI (using trusted publishing)"
+          uv publish
+        fi
 
     - name: Determine package URLs
       id: package-urls
