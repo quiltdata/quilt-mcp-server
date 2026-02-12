@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed redundant `use_quilt_auth` parameter from AWS client creation
   - More consistent and reliable AWS credential handling
   - Simplified authentication flow across all backends
+- **Package Deletion Backend Gap**: `package_delete` now uses backend abstraction
+  - Added `QuiltOps.delete_package(bucket, name)` to the backend interface
+  - Implemented quilt3 deletion with `Package.browse(...).delete()`
+  - Implemented platform deletion via revision pointer discovery and `packageRevisionDelete`
+  - `package_delete` tool now calls the selected backend instead of direct `quilt3.delete_package`
 
 ### Removed
 

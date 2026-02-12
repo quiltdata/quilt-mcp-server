@@ -1306,6 +1306,20 @@ class QuiltOps(ABC):
         """Backward-compatible alias for get_aws_client()."""
         return self.get_aws_client(service_name=service_name, region=region)
 
+    @abstractmethod
+    def delete_package(self, bucket: str, name: str) -> bool:
+        """Delete all revisions for a package from a bucket.
+
+        Args:
+            bucket: Target registry bucket (bucket name or ``s3://`` URI).
+            name: Package name in ``namespace/name`` format.
+
+        Returns:
+            ``True`` when all targeted revisions were deleted successfully.
+            ``False`` when deletion fails or only partially succeeds.
+        """
+        pass
+
     def create_package_revision(
         self,
         package_name: str,

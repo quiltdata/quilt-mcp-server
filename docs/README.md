@@ -7,6 +7,7 @@ find what you need quickly.
 
 - ['CUSTOMER_PROMPTS.md](./CUSTOMER_PROMPTS.md) - prompts to use
 - [`SEARCH_TROUBLESHOOTING.md`](./SEARCH_TROUBLESHOOTING.md) - Search functionality troubleshooting
+- [`examples/package-delete.md`](./examples/package-delete.md) - Package deletion example
 
 ## 👨‍💻 **For Developers**
 

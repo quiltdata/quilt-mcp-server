@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from types import SimpleNamespace
 import sys
+from unittest.mock import Mock
 
 import pytest
 
@@ -387,6 +388,93 @@ def test_diff_packages_complex_scenario(monkeypatch):
     assert diff["added"] == ["add.txt"]
     assert diff["modified"] == ["modify.txt"]
     assert diff["deleted"] == ["delete.txt"]
+
+
+# ---------------------------------------------------------------------
+# Package Deletion
+# ---------------------------------------------------------------------
+
+
+def test_delete_package_deletes_all_revisions(monkeypatch):
+    """Delete all pointer revisions and return True when all succeed."""
+    backend = _make_backend(monkeypatch)
+
+    def _mock_graphql(query, variables=None, **_kwargs):
+        if "PackageRevisionsForDelete" in query:
+            return {
+                "data": {
+                    "package": {
+                        "revisions": {
+                            "total": 2,
+                            "page": [{"hash": "h1"}, {"hash": "h2"}],
+                        }
+                    }
+                }
+            }
+        return {"data": {"packageRevisionDelete": {"__typename": "PackageRevisionDeleteSuccess"}}}
+
+    backend.execute_graphql_query = Mock(side_effect=_mock_graphql)
+
+    result = backend.delete_package(bucket="s3://test-bucket", name="team/data")
+
+    assert result is True
+    assert backend.execute_graphql_query.call_count == 3
+    mutation_calls = [
+        call for call in backend.execute_graphql_query.call_args_list if "DeleteRevision" in call.args[0]
+    ]
+    hashes = [call.kwargs["variables"]["hash"] for call in mutation_calls]
+    assert sorted(hashes) == ["h1", "h2"]
+
+
+def test_delete_package_continues_on_partial_failure(monkeypatch):
+    """Continue deleting revisions after failures and return False."""
+    backend = _make_backend(monkeypatch)
+
+    def _mock_delete(_query, variables=None, **_kwargs):
+        if "PackageRevisionsForDelete" in _query:
+            return {
+                "data": {
+                    "package": {
+                        "revisions": {
+                            "total": 2,
+                            "page": [{"hash": "h1"}, {"hash": "h2"}],
+                        }
+                    }
+                }
+            }
+        if variables and variables.get("hash") == "h2":
+            return {"data": {"packageRevisionDelete": {"__typename": "OperationError", "message": "denied"}}}
+        return {"data": {"packageRevisionDelete": {"__typename": "PackageRevisionDeleteSuccess"}}}
+
+    backend.execute_graphql_query = Mock(side_effect=_mock_delete)
+
+    result = backend.delete_package(bucket="test-bucket", name="team/data")
+
+    assert result is False
+    assert backend.execute_graphql_query.call_count == 3
+
+
+def test_delete_package_returns_false_when_no_revisions(monkeypatch):
+    """Return False when no revision pointers are found."""
+    backend = _make_backend(monkeypatch)
+
+    backend.execute_graphql_query = Mock(
+        return_value={
+            "data": {
+                "package": {
+                    "revisions": {
+                        "total": 0,
+                        "page": [],
+                    }
+                }
+            }
+        }
+    )
+
+    result = backend.delete_package(bucket="test-bucket", name="team/data")
+
+    assert result is False
+    backend.execute_graphql_query.assert_called_once()
 
 
 # ---------------------------------------------------------------------

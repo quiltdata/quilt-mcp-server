@@ -145,6 +145,14 @@ Local Dev Mode
 - Full feature set, including workflows
 - Single-user development and testing
 
+## Core Package Tools
+
+| Tool | Operation | Backend path |
+|---|---|---|
+| `package_create` | Create package revision from S3 objects | `QuiltOps.create_package_revision()` |
+| `package_update` | Update existing package revision | `QuiltOps.update_package_revision()` |
+| `package_delete` | Delete package revisions | `QuiltOps.delete_package()` |
+
 ## Development
 
 ```bash
