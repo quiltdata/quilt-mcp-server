@@ -12,6 +12,8 @@ import os
 from contextlib import contextmanager
 from typing import List, Optional, Dict, Any, cast
 
+import boto3
+
 from quilt_mcp.ops.quilt_ops import QuiltOps
 from quilt_mcp.ops.tabulator_mixin import TabulatorMixin
 from quilt_mcp.ops.admin_ops import AdminOps
@@ -26,7 +28,8 @@ from quilt_mcp.domain import (
 )
 from quilt_mcp.domain.package_builder import PackageBuilder, PackageEntry
 from quilt_mcp.services.browsing_session_client import BrowsingSessionClient
-from quilt_mcp.utils.common import graphql_endpoint, normalize_url, get_dns_name_from_url
+from quilt_mcp.services.jwt_auth_service import JWTAuthService
+from quilt_mcp.utils.common import graphql_endpoint, normalize_url, get_dns_name_from_url, _runtime_boto3_session
 
 logger = logging.getLogger(__name__)
 
@@ -302,8 +305,22 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # Write operations (quilt3 Package)
     # ---------------------------------------------------------------------
 
+    def get_aws_client(self, service_name: str, region: Optional[str] = None) -> Any:
+        runtime_session = _runtime_boto3_session()
+        if runtime_session is not None:
+            return runtime_session.client(service_name, region_name=region)
+
+        try:
+            jwt_session = JWTAuthService().get_boto3_session()
+            return jwt_session.client(service_name, region_name=region)
+        except Exception:
+            pass
+
+        return boto3.client(service_name, region_name=region)
+
     def get_boto3_client(self, service_name: str, region: Optional[str] = None) -> Any:
-        raise AuthenticationError("AWS client access is not available in Platform backend.")
+        """Backward-compatible alias for get_aws_client()."""
+        return self.get_aws_client(service_name=service_name, region=region)
 
     # HIGH-LEVEL METHODS REMOVED - Now implemented in QuiltOps base class
     # create_package_revision() is now a concrete method in QuiltOps that calls:

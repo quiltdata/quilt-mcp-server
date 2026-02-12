@@ -300,20 +300,20 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
 # Cached Athena service fixtures for better performance across all tests
 
 
-@lru_cache(maxsize=2)
-def _cached_athena_service(use_quilt_auth: bool):
-    """Cache Athena service instances by auth mode."""
+@lru_cache(maxsize=1)
+def _cached_athena_service():
+    """Cache Athena service instances."""
     from quilt_mcp.services.athena_service import AthenaQueryService
 
-    return AthenaQueryService(use_quilt_auth=use_quilt_auth)
+    return AthenaQueryService()
 
 
 @pytest.fixture(scope="session")
 def athena_service_factory() -> Callable:
     """Return a factory that reuses cached Athena service instances."""
 
-    def factory(use_quilt_auth: bool = True):
-        return _cached_athena_service(bool(use_quilt_auth))
+    def factory():
+        return _cached_athena_service()
 
     return factory
 
@@ -321,13 +321,13 @@ def athena_service_factory() -> Callable:
 @pytest.fixture(scope="session")
 def athena_service_quilt(athena_service_factory):
     """Session-scoped Athena service using quilt authentication."""
-    return athena_service_factory(True)
+    return athena_service_factory()
 
 
 @pytest.fixture(scope="session")
 def athena_service_builtin(athena_service_factory):
     """Session-scoped Athena service using default AWS credentials."""
-    return athena_service_factory(False)
+    return athena_service_factory()
 
 
 @pytest.fixture(scope="session")
@@ -344,18 +344,11 @@ def cached_athena_service_constructor(athena_service_factory):
     original_constructor = athena_glue.AthenaQueryService
 
     def cached_constructor(*args, **kwargs):
-        # Fallback to original constructor when extra kwargs are provided
-        extra_kwargs = {k: v for k, v in kwargs.items() if k != "use_quilt_auth"}
-        if extra_kwargs or len(args) > 1:
+        # Fallback to original constructor when arguments are provided
+        if kwargs or args:
             return original_constructor(*args, **kwargs)
 
-        use_quilt_auth = kwargs.get("use_quilt_auth") if kwargs else None
-        if args:
-            use_quilt_auth = args[0]
-        if use_quilt_auth is None:
-            use_quilt_auth = True
-
-        return athena_service_factory(use_quilt_auth=use_quilt_auth)
+        return athena_service_factory()
 
     athena_glue.AthenaQueryService = cached_constructor
     try:

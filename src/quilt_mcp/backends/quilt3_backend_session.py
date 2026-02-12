@@ -13,6 +13,7 @@ from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError, NotFoundError
 from quilt_mcp.domain.auth_status import Auth_Status
 from quilt_mcp.domain.catalog_config import Catalog_Config
+from quilt_mcp.utils.common import _runtime_boto3_session
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -352,17 +353,17 @@ class Quilt3_Backend_Session:
             logger.error(f"Failed to get auth headers: {str(e)}")
             raise BackendError(f"Failed to get auth headers: {str(e)}")
 
-    def get_boto3_client(
+    def get_aws_client(
         self,
         service_name: str,
         region: Optional[str] = None,
     ) -> Any:
-        """Get authenticated boto3 client for AWS services.
+        """Get authenticated AWS client for AWS services.
 
-        Creates and returns a boto3 client for the specified AWS service,
-        configured with the appropriate authentication credentials from the
-        quilt3 session. This provides backend-agnostic access to AWS services
-        needed for Quilt operations.
+        Credential priority:
+        1. Runtime context session/credentials
+        2. quilt3 authenticated session
+        3. Default boto3 environment/role credentials
 
         Args:
             service_name: AWS service name (e.g., 'athena', 's3', 'glue')
@@ -383,21 +384,30 @@ class Quilt3_Backend_Session:
             if self.boto3 is None:
                 raise BackendError("boto3 library is not available")
 
-            # Create botocore session from quilt3
-            botocore_session = self.quilt3.session.create_botocore_session()
+            runtime_session = _runtime_boto3_session()
+            if runtime_session is not None:
+                return runtime_session.client(service_name, region_name=region)
 
-            # Create boto3 session with authenticated botocore session
-            boto3_session = self.boto3.Session(botocore_session=botocore_session)
+            try:
+                botocore_session = self.quilt3.session.create_botocore_session()
+                boto3_session = self.boto3.Session(botocore_session=botocore_session)
+                return boto3_session.client(service_name, region_name=region)
+            except Exception:
+                pass
 
-            # Create client for the specified service
-            client = boto3_session.client(service_name, region_name=region)
-
-            logger.debug(f"Successfully created boto3 client for service: {service_name}")
-            return client
+            return self.boto3.client(service_name, region_name=region)
 
         except Exception as e:
             logger.error(f"Boto3 client creation failed: {str(e)}")
             raise BackendError(f"Failed to create boto3 client for {service_name}: {str(e)}")
+
+    def get_boto3_client(
+        self,
+        service_name: str,
+        region: Optional[str] = None,
+    ) -> Any:
+        """Backward-compatible alias for get_aws_client()."""
+        return self.get_aws_client(service_name=service_name, region=region)
 
     def _get_graphql_endpoint(self, registry_url: str) -> str:
         """Extract GraphQL API endpoint from registry URL.

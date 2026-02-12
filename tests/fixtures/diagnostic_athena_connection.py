@@ -64,7 +64,7 @@ def test_athena_service_creation():
         print("✅ AthenaQueryService imported successfully")
 
         # Test service creation
-        service = AthenaQueryService(use_quilt_auth=True)
+        service = AthenaQueryService()
         print("✅ AthenaQueryService created")
 
         return service

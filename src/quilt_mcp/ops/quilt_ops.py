@@ -1272,12 +1272,12 @@ class QuiltOps(ABC):
         ...
 
     @abstractmethod
-    def get_boto3_client(
+    def get_aws_client(
         self,
         service_name: str,
         region: Optional[str] = None,
     ) -> Any:
-        """Get authenticated boto3 client for AWS services.
+        """Get authenticated AWS client for AWS services.
 
         Creates and returns a boto3 client for the specified AWS service,
         configured with the appropriate authentication credentials from the
@@ -1297,6 +1297,14 @@ class QuiltOps(ABC):
             ValidationError: When service_name is invalid or unsupported
         """
         pass
+
+    def get_boto3_client(
+        self,
+        service_name: str,
+        region: Optional[str] = None,
+    ) -> Any:
+        """Backward-compatible alias for get_aws_client()."""
+        return self.get_aws_client(service_name=service_name, region=region)
 
     def create_package_revision(
         self,

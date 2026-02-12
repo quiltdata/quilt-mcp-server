@@ -244,7 +244,6 @@ async def tabulator_bucket_query(
     workgroup_name: Optional[str] = None,
     max_results: int = 1000,
     output_format: Literal["json", "csv", "parquet", "table"] = "json",
-    use_quilt_auth: bool = True,
 ) -> Dict[str, Any]:
     """Execute a bucket-scoped tabulator query.
 
@@ -254,7 +253,6 @@ async def tabulator_bucket_query(
         workgroup_name: Optional Athena workgroup
         max_results: Maximum number of rows to return
         output_format: Output format (json, csv, parquet, table)
-        use_quilt_auth: Whether to use Quilt authentication
 
     Returns:
         Dict with query results
@@ -268,7 +266,6 @@ async def tabulator_bucket_query(
             workgroup_name=workgroup_name,
             max_results=max_results,
             output_format=output_format,
-            use_quilt_auth=use_quilt_auth,
         )
 
     except Exception as e:
