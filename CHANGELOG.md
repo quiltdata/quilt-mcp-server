@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.5] - 2026-02-12
+
 ### Fixed
 
 - **GitHub Release Creation**: Made release creation conditional on tag pushes only
