@@ -4,6 +4,10 @@ inputs:
   package-version:
     description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
     required: true
+  git-sha:
+    description: 'Git commit SHA for Docker image tagging'
+    required: false
+    default: ''
   pypi-repository-url:
     description: 'PyPI repository URL (empty for PyPI, https://test.pypi.org/legacy/ for TestPyPI)'
     required: false
@@ -77,8 +81,11 @@ runs:
       shell: bash
       env:
         VERSION: ${{ inputs.package-version }}
+        GIT_SHA: ${{ inputs.git-sha }}
       run: |
         echo "🐳 Building and pushing Docker image via Makefile"
+        echo "Version: ${VERSION}"
+        echo "Git SHA: ${GIT_SHA}"
         # Capture the image URI output by docker-push
         DOCKER_OUTPUT=$(make docker-push 2>&1)
         echo "$DOCKER_OUTPUT"

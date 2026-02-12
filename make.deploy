@@ -181,14 +181,18 @@ docker-rebuild: docker-check
 
 docker-push: docker-tools
 	@echo "🐳 Building and pushing Docker image..."
-	@VERSION=$(PACKAGE_VERSION) uv run python scripts/docker_manager.py push --version $(PACKAGE_VERSION)
+	@GIT_SHA=$$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown") && \
+	echo "Using git SHA: $$GIT_SHA" && \
+	VERSION=$(PACKAGE_VERSION) GIT_SHA=$$GIT_SHA uv run python scripts/docker_manager.py push --version $(PACKAGE_VERSION) --git-sha $$GIT_SHA
 	@echo "✅ Docker push completed"
 
 docker-push-dev: docker-tools
 	@echo "🐳 Building and pushing development Docker image..."
-	@DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)" && \
+	@GIT_SHA=$$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown") && \
+	DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)" && \
 	echo "Using development version: $$DEV_VERSION" && \
-	VERSION=$$DEV_VERSION uv run python scripts/docker_manager.py push --version $$DEV_VERSION --no-latest
+	echo "Using git SHA: $$GIT_SHA" && \
+	VERSION=$$DEV_VERSION GIT_SHA=$$GIT_SHA uv run python scripts/docker_manager.py push --version $$DEV_VERSION --git-sha $$GIT_SHA --no-latest
 	@echo "✅ Development Docker push completed"
 
 docker-validate:

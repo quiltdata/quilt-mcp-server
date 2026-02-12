@@ -103,6 +103,7 @@ jobs:
       uses: ./.github/actions/create-release
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
+        git-sha: ${{ github.sha }}
         build-docker: 'true'
         # pypi-repository-url defaults to '' for PyPI
       env:
