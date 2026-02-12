@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-02-11
+
 ### Added
 
 - **Docker Remote Mode**: Auto-start ngrok for seamless remote MCP access
@@ -21,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `make docker-build` now skips rebuild if image is up-to-date
   - Checks source file timestamps against Docker image creation time
   - Dramatically faster development iteration cycles
+- **Deployment Documentation**: Comprehensive updates to deployment guide
+  - Documented JWT pass-through architecture (MCP → Catalog validation)
+  - Clarified pre-configured Docker environment variables
+  - Updated task role permissions (no SSM access required)
+  - Added JWT exchange flow for AWS credentials
+  - Simplified environment variable requirements
 
 ### Fixed
 
@@ -28,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed GitHub Actions workflow from Python 3.14 to 3.13
   - PyO3 (required by pydantic-core) only supports up to Python 3.13
   - Aligns with project's Python 3.11-3.13 specification in pyproject.toml
+- **Production Workflow Validation**: Added ECR registry detection
+  - Workflow now discovers AWS account ID dynamically
+  - Passes account-specific ECR registry to validation script
+  - Fixes image architecture validation in production builds
 - **AWS Authentication**: Centralized auth logic in backend implementations
   - Removed redundant `use_quilt_auth` parameter from AWS client creation
   - More consistent and reliable AWS credential handling
@@ -37,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented quilt3 deletion with `Package.browse(...).delete()`
   - Implemented platform deletion via revision pointer discovery and `packageRevisionDelete`
   - `package_delete` tool now calls the selected backend instead of direct `quilt3.delete_package`
+- **Package Metadata Retrieval**: Fixed `package_browse` to return actual package metadata
+  - Previously always returned `None` for package metadata
+  - Now correctly retrieves metadata using backend primitives
+  - Gracefully handles cases where metadata is unavailable
 
 ### Removed
 
@@ -45,13 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed `PLATFORM_TEST_JWT_SECRET` test environment variable
   - JWT discovery now relies on quilt3 session or runtime context only
   - Test JWT generation now uses fixed secret instead of environment variables
-
-### Fixed (Previous)
-
-- **Package Metadata Retrieval**: Fixed `package_browse` to return actual package metadata
-  - Previously always returned `None` for package metadata
-  - Now correctly retrieves metadata using backend primitives
-  - Gracefully handles cases where metadata is unavailable
 
 ## [0.16.0] - 2026-02-11
 
