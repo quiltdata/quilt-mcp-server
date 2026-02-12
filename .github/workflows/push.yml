@@ -9,6 +9,12 @@ on:
       - '!v*-dev-*'  # Exclude dev tags - those trigger PR workflow only
   merge_group:
     types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      simulate_tag:
+        description: 'Simulate a tag for testing (e.g., v0.17.2). Leave empty to skip release job.'
+        required: false
+        type: string
 
 jobs:
   test:
@@ -61,8 +67,12 @@ jobs:
     permissions:
       contents: write
       id-token: write
-    # Only run for production tags (v* but not v*-dev-*) and only after tests pass
-    if: startsWith(github.ref, 'refs/tags/v') && (!contains(github.ref, '-dev-')) && contains(needs.test.result, 'success')
+    # Only run for production tags (v* but not v*-dev-*) or workflow_dispatch with simulate_tag
+    if: |
+      contains(needs.test.result, 'success') && (
+        (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev-')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.simulate_tag != '')
+      )
 
     steps:
     - name: Checkout code
@@ -74,12 +84,20 @@ jobs:
         python-version: '3.11'
         include-nodejs: 'true'
 
-    - name: Extract version from tag
+    - name: Extract version from tag or input
       id: version
       run: |
-        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          # Use simulated tag from workflow_dispatch input
+          TAG_VERSION="${{ inputs.simulate_tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"  # Remove 'v' prefix if present
+          echo "🧪 Testing with simulated version: $TAG_VERSION"
+        else
+          # Extract from actual git tag
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          echo "🚀 Production Tag Version: $TAG_VERSION"
+        fi
         echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
-        echo "Production Tag Version: $TAG_VERSION"
 
     - name: Create production release
       uses: ./.github/actions/create-release
