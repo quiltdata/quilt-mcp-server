@@ -109,7 +109,9 @@ jobs:
       - name: Validate image architecture
         run: |
           echo "Validating production image architecture..."
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           DOCKER_IMAGE_NAME=quiltdata/mcp \
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com" \
             uv run python scripts/docker_manager.py validate \
             --version ${{ needs.build-and-push.outputs.version }} \
             --region us-east-1
