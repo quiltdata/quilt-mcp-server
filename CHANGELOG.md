@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Docker Remote Mode**: Auto-start ngrok for seamless remote MCP access
+  - Automatically launches ngrok tunnel when running in Docker remote mode
+  - Fallback JWT authentication for Docker environments
+  - Simplified remote debugging and development workflows
+
+### Improved
+
+- **Build Performance**: Instant Docker rebuilds with Makefile gating
+  - `make docker-build` now skips rebuild if image is up-to-date
+  - Checks source file timestamps against Docker image creation time
+  - Dramatically faster development iteration cycles
+
+### Fixed
+
+- **AWS Authentication**: Centralized auth logic in backend implementations
+  - Removed redundant `use_quilt_auth` parameter from AWS client creation
+  - More consistent and reliable AWS credential handling
+  - Simplified authentication flow across all backends
+
 ### Removed
 
 - **MCP_JWT_SECRET Configuration**: Removed failed experiment with JWT secret environment variables
@@ -16,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - JWT discovery now relies on quilt3 session or runtime context only
   - Test JWT generation now uses fixed secret instead of environment variables
 
-### Fixed
+### Fixed (Previous)
 
 - **Package Metadata Retrieval**: Fixed `package_browse` to return actual package metadata
   - Previously always returned `None` for package metadata
