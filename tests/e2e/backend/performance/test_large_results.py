@@ -234,7 +234,6 @@ class TestLargeResultSetPerformance:
                             query=f'SELECT * FROM "{table_name}" LIMIT 10000',
                             max_results=10000,
                             output_format="json",
-                            use_quilt_auth=True,
                         )
                     )
 

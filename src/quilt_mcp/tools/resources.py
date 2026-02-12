@@ -233,7 +233,6 @@ def register_resources(mcp: "FastMCP") -> None:
             status_filter=None,
             start_time=None,
             end_time=None,
-            use_quilt_auth=True,
             service=None,
         )
         return _serialize_result(result)

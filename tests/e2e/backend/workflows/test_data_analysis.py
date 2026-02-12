@@ -175,9 +175,7 @@ class TestDataAnalysisWorkflow:
                     print(f"  ℹ️  Could not discover Athena catalog: {e}")
 
                 # Create Athena service
-                real_athena = AthenaQueryService(
-                    use_quilt_auth=True, data_catalog_name=catalog_name, backend=backend_with_auth
-                )
+                real_athena = AthenaQueryService(data_catalog_name=catalog_name, backend=backend_with_auth)
 
                 # Discover databases via Athena
                 databases_result = real_athena.discover_databases()

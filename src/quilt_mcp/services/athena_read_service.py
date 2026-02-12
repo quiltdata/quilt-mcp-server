@@ -286,13 +286,6 @@ def athena_table_schema(
 
 
 def athena_workgroups_list(
-    use_quilt_auth: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Use quilt3 assumed role credentials if available",
-        ),
-    ] = True,
     service: Annotated[
         Optional[Any],
         Field(
@@ -304,7 +297,6 @@ def athena_workgroups_list(
     """List available Athena workgroups that the user can access - Athena querying and Glue catalog inspection workflows
 
     Args:
-        use_quilt_auth: Use quilt3 assumed role credentials if available
         service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
@@ -324,13 +316,13 @@ def athena_workgroups_list(
     try:
         # Use consolidated AthenaQueryService for consistent authentication patterns
         if service is None:
-            service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
+            service = AthenaQueryService()
 
         # Get workgroups using the service's consolidated method
         workgroups_list = service.list_workgroups()
 
         # Determine region for response metadata
-        region = "us-east-1" if use_quilt_auth else os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+        region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
         # Convert to Pydantic models
         workgroups = [WorkgroupInfo(**wg) for wg in workgroups_list]
@@ -394,13 +386,6 @@ def athena_query_execute(
             description="Output format for results",
         ),
     ] = "json",
-    use_quilt_auth: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Use Quilt assumed role credentials if available",
-        ),
-    ] = True,
     service: Annotated[
         Optional[Any],
         Field(
@@ -424,7 +409,6 @@ def athena_query_execute(
         data_catalog_name: Data catalog to use (default: AwsDataCatalog)
         max_results: Maximum number of results to return
         output_format: Output format (json, csv, parquet, table)
-        use_quilt_auth: Use quilt3 assumed role credentials if available
         service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
@@ -467,7 +451,6 @@ def athena_query_execute(
         # Execute query
         if service is None:
             service = AthenaQueryService(
-                use_quilt_auth=use_quilt_auth,
                 workgroup_name=workgroup_name,
                 data_catalog_name=data_catalog_name,
             )
@@ -561,13 +544,6 @@ def athena_query_history(
             examples=["2024-12-31T23:59:59Z"],
         ),
     ] = None,
-    use_quilt_auth: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Use quilt3 assumed role credentials if available",
-        ),
-    ] = True,
     service: Annotated[
         Optional[Any],
         Field(
@@ -583,7 +559,6 @@ def athena_query_history(
         status_filter: Filter by query status (SUCCEEDED, FAILED, etc.)
         start_time: Start time for query range (ISO format)
         end_time: End time for query range (ISO format)
-        use_quilt_auth: Use quilt3 assumed role credentials if available.
         service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
@@ -601,13 +576,12 @@ def athena_query_history(
         ```
     """
     try:
-        import boto3
         from datetime import datetime, timedelta
 
         # Create Athena client
         if service is None:
-            service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
-        athena_client = boto3.client("athena")
+            service = AthenaQueryService()
+        athena_client = service.backend.get_aws_client("athena")
 
         # Set default time range if not provided
         if not start_time:
@@ -699,7 +673,6 @@ def tabulator_query_execute(
     workgroup_name: Optional[str] = None,
     max_results: int = 1000,
     output_format: Literal["json", "csv", "parquet", "table"] = "json",
-    use_quilt_auth: bool = True,
 ) -> Dict[str, Any]:
     """Execute a query against the Tabulator catalog.
 
@@ -711,7 +684,6 @@ def tabulator_query_execute(
         workgroup_name: Athena workgroup to use (optional)
         max_results: Maximum number of results to return
         output_format: Output format (json, csv, parquet, table)
-        use_quilt_auth: Use quilt3 assumed role credentials if available
 
     Returns:
         Query execution results with data, metadata, and formatting
@@ -734,7 +706,6 @@ def tabulator_query_execute(
             data_catalog_name=data_catalog_name,
             max_results=max_results,
             output_format=output_format,
-            use_quilt_auth=use_quilt_auth,
         )
     except Exception as exc:
         logger.error(f"Failed to execute tabulator query: {exc}")

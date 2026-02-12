@@ -602,3 +602,22 @@ class TestBackendGetPackageMetadata:
 
         # Verify empty dict returned
         assert result == {}
+
+
+class TestDeletePackage:
+    """Test delete_package() quilt3 implementation."""
+
+    def test_delete_package_success(self, backend):
+        backend.quilt3.delete_package = Mock()
+
+        result = backend.delete_package(bucket="test-bucket", name="team/data")
+
+        assert result is True
+        backend.quilt3.delete_package.assert_called_once_with("team/data", registry="s3://test-bucket")
+
+    def test_delete_package_failure_returns_false(self, backend):
+        backend.quilt3.delete_package = Mock(side_effect=RuntimeError("delete failed"))
+
+        result = backend.delete_package(bucket="s3://test-bucket", name="team/data")
+
+        assert result is False

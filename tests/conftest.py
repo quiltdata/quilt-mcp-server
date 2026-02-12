@@ -231,7 +231,10 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
         monkeypatch.setenv("QUILT_CATALOG_URL", quilt_catalog_url)
         monkeypatch.setenv("QUILT_REGISTRY_URL", quilt_registry_url)
 
-        # Use real JWT from environment if available, otherwise try quilt3 session, otherwise generate test JWT
+        # JWT Discovery Priority:
+        # 1. PLATFORM_TEST_JWT_TOKEN env var (explicit test token)
+        # 2. quilt3 session (from `quilt3 login`)
+        # 3. FAIL unless ALLOW_GENERATED_TEST_JWT=true (mocked tests only)
         access_token = os.getenv("PLATFORM_TEST_JWT_TOKEN")
         if not access_token:
             # Try to get JWT from quilt3 session (if authenticated)
@@ -248,21 +251,28 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
                 print(f"⚠️  Could not get JWT from quilt3 session: {e}")
 
         if not access_token:
-            # Generate test JWT for mocked platform tests (only if no real token available)
-            import jwt as pyjwt
-            import time
-            import uuid
+            # Only generate fake JWT if explicitly allowed (for mocked tests)
+            if _is_truthy_env(os.getenv("ALLOW_GENERATED_TEST_JWT")):
+                import jwt as pyjwt
+                import time
+                import uuid
 
-            # Get JWT secret from environment or use default test secret
-            jwt_secret = os.getenv("PLATFORM_TEST_JWT_SECRET", "test-secret-for-jwt-generation")
+                jwt_secret = "test-secret-for-jwt-generation"
 
-            claims = {
-                "id": "test-user-platform",
-                "uuid": str(uuid.uuid4()),
-                "exp": int(time.time()) + 3600,
-            }
-            access_token = pyjwt.encode(claims, jwt_secret, algorithm="HS256")
-            print("⚠️  Using generated test JWT (may not work with real servers)")
+                claims = {
+                    "id": "test-user-platform",
+                    "uuid": str(uuid.uuid4()),
+                    "exp": int(time.time()) + 3600,
+                }
+                access_token = pyjwt.encode(claims, jwt_secret, algorithm="HS256")
+                print("⚠️  Using generated test JWT (ALLOW_GENERATED_TEST_JWT=true)")
+            else:
+                pytest.skip(
+                    "Platform tests require JWT authentication. Options:\n"
+                    "  1. Set PLATFORM_TEST_JWT_TOKEN environment variable\n"
+                    "  2. Run 'quilt3 login' to authenticate\n"
+                    "  3. Set ALLOW_GENERATED_TEST_JWT=true (mocked tests only)"
+                )
 
         # Decode JWT to get claims (works for both real and generated tokens)
         import jwt as pyjwt
@@ -290,20 +300,20 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
 # Cached Athena service fixtures for better performance across all tests
 
 
-@lru_cache(maxsize=2)
-def _cached_athena_service(use_quilt_auth: bool):
-    """Cache Athena service instances by auth mode."""
+@lru_cache(maxsize=1)
+def _cached_athena_service():
+    """Cache Athena service instances."""
     from quilt_mcp.services.athena_service import AthenaQueryService
 
-    return AthenaQueryService(use_quilt_auth=use_quilt_auth)
+    return AthenaQueryService()
 
 
 @pytest.fixture(scope="session")
 def athena_service_factory() -> Callable:
     """Return a factory that reuses cached Athena service instances."""
 
-    def factory(use_quilt_auth: bool = True):
-        return _cached_athena_service(bool(use_quilt_auth))
+    def factory():
+        return _cached_athena_service()
 
     return factory
 
@@ -311,13 +321,13 @@ def athena_service_factory() -> Callable:
 @pytest.fixture(scope="session")
 def athena_service_quilt(athena_service_factory):
     """Session-scoped Athena service using quilt authentication."""
-    return athena_service_factory(True)
+    return athena_service_factory()
 
 
 @pytest.fixture(scope="session")
 def athena_service_builtin(athena_service_factory):
     """Session-scoped Athena service using default AWS credentials."""
-    return athena_service_factory(False)
+    return athena_service_factory()
 
 
 @pytest.fixture(scope="session")
@@ -334,18 +344,11 @@ def cached_athena_service_constructor(athena_service_factory):
     original_constructor = athena_glue.AthenaQueryService
 
     def cached_constructor(*args, **kwargs):
-        # Fallback to original constructor when extra kwargs are provided
-        extra_kwargs = {k: v for k, v in kwargs.items() if k != "use_quilt_auth"}
-        if extra_kwargs or len(args) > 1:
+        # Fallback to original constructor when arguments are provided
+        if kwargs or args:
             return original_constructor(*args, **kwargs)
 
-        use_quilt_auth = kwargs.get("use_quilt_auth") if kwargs else None
-        if args:
-            use_quilt_auth = args[0]
-        if use_quilt_auth is None:
-            use_quilt_auth = True
-
-        return athena_service_factory(use_quilt_auth=use_quilt_auth)
+        return athena_service_factory()
 
     athena_glue.AthenaQueryService = cached_constructor
     try:

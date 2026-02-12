@@ -395,61 +395,73 @@ def _runtime_boto3_session() -> Optional[boto3.Session]:
     return None
 
 
-def get_s3_client(use_quilt_auth: bool = True):
-    """Get an S3 client instance with optional Quilt authentication.
+def get_s3_client():
+    """Get an S3 client instance.
 
-    Args:
-        use_quilt_auth: Whether to use Quilt's STS session if available (default: True)
-
-    Returns:
-        boto3 S3 client instance
+    Credential priority:
+    1. Runtime context session/credentials
+    2. quilt3 authenticated session
+    3. Default boto3 environment/role credentials
     """
     session = _runtime_boto3_session()
     if session:
         return session.client("s3")
 
-    if use_quilt_auth:
-        try:
-            import quilt3
+    try:
+        from quilt_mcp.services.jwt_auth_service import JWTAuthService
 
-            # Check if we have Quilt session available
-            if hasattr(quilt3, "logged_in") and quilt3.logged_in():
-                if hasattr(quilt3, "get_boto3_session"):
-                    session = quilt3.get_boto3_session()
-                    if session is not None:
-                        return session.client("s3")
-        except Exception:
-            pass
+        session = JWTAuthService().get_boto3_session()
+        return session.client("s3")
+    except Exception:
+        pass
+
+    try:
+        import quilt3
+
+        # Check if we have Quilt session available
+        if hasattr(quilt3, "logged_in") and quilt3.logged_in():
+            if hasattr(quilt3, "get_boto3_session"):
+                session = quilt3.get_boto3_session()
+                if session is not None:
+                    return session.client("s3")
+    except Exception:
+        pass
 
     # Fallback to default boto3 client
     return boto3.client("s3")
 
 
-def get_sts_client(use_quilt_auth: bool = True):
-    """Get an STS client instance with optional Quilt authentication.
+def get_sts_client():
+    """Get an STS client instance.
 
-    Args:
-        use_quilt_auth: Whether to use Quilt's STS session if available (default: True)
-
-    Returns:
-        boto3 STS client instance
+    Credential priority:
+    1. Runtime context session/credentials
+    2. quilt3 authenticated session
+    3. Default boto3 environment/role credentials
     """
     session = _runtime_boto3_session()
     if session:
         return session.client("sts")
 
-    if use_quilt_auth:
-        try:
-            import quilt3
+    try:
+        from quilt_mcp.services.jwt_auth_service import JWTAuthService
 
-            # Check if we have Quilt session available
-            if hasattr(quilt3, "logged_in") and quilt3.logged_in():
-                if hasattr(quilt3, "get_boto3_session"):
-                    session = quilt3.get_boto3_session()
-                    if session is not None:
-                        return session.client("sts")
-        except Exception:
-            pass
+        session = JWTAuthService().get_boto3_session()
+        return session.client("sts")
+    except Exception:
+        pass
+
+    try:
+        import quilt3
+
+        # Check if we have Quilt session available
+        if hasattr(quilt3, "logged_in") and quilt3.logged_in():
+            if hasattr(quilt3, "get_boto3_session"):
+                session = quilt3.get_boto3_session()
+                if session is not None:
+                    return session.client("sts")
+    except Exception:
+        pass
 
     # Fallback to default boto3 client
     return boto3.client("sts")

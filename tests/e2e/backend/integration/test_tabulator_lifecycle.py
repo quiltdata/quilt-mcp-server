@@ -151,9 +151,7 @@ class TestTabulatorLifecycle:
                 # Create Athena service with discovered catalog
                 from quilt_mcp.services.athena_service import AthenaQueryService
 
-                athena_with_catalog = AthenaQueryService(
-                    use_quilt_auth=True, data_catalog_name=catalog_name, backend=tabulator_backend
-                )
+                athena_with_catalog = AthenaQueryService(data_catalog_name=catalog_name, backend=tabulator_backend)
 
                 # Execute query against renamed table
                 query = f'SELECT * FROM "{athena_database}"."{current_table_name}" LIMIT 5'
