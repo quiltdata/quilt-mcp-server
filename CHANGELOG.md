@@ -8,6 +8,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.4] - 2026-02-12
+
+### Added
+
+- **Git SHA Docker Tagging**: Enhanced Docker images with commit-based traceability
+  - Docker images now tagged with three identifiers: semantic version, git SHA (8 chars), and latest
+  - Enables tracing deployed images back to exact source commits for debugging and rollback
+  - Auto-detects git SHA during builds with fallback to "unknown"
+  - Added comprehensive Docker deployment documentation to README with tag usage examples
+  - Enhanced docker_manager.py to support git SHA tagging for all push operations
+
+### Changed
+
+- **GitHub Actions Workflows**: Pass git SHA to Docker builds for commit-based tagging
+  - Updated create-release action to accept and forward git-sha input
+  - Modified pr.yml and push.yml workflows to provide github.sha to Docker builds
+  - Removed deprecated prod.yml workflow (consolidated into push.yml)
+
+## [0.17.3] - 2026-02-12
+
+### Fixed
+
+- **GitHub Release Creation**: Resolved PyPI publishing failures preventing GitHub releases
+  - Fixed pypa/gh-action-pypi-publish action Docker image issue
+  - Updated to @release/v1 which doesn't require non-existent GHCR images
+  - GitHub releases now successfully created with MCPB packages
+  - Fixes release failures affecting v0.15.0, v0.16.0, v0.17.1, and v0.17.2
+
+### Added
+
+- **Workflow Testing**: Added workflow_dispatch trigger for safe release testing
+  - Manual workflow trigger with simulate_tag input for testing without pushing tags
+  - Enables verification of release process before creating actual releases
+  - Reduces need for force-pushing tags during troubleshooting
+
 ## [0.17.2] - 2026-02-11
 
 ### Added
