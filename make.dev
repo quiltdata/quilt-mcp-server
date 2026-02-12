@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-catalog test-func test-func-platform test-e2e test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker test-docker-remote run-docker-remote stop-docker-remote test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -70,9 +70,6 @@ $(RESULTS_DIR)/coverage-func.xml: tests/func/test_*.py | $(RESULTS_DIR)
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-func.xml; \
 	fi
 
-test-func-quilt3: test-catalog
-	@$(MAKE) TEST_BACKEND_MODE=quilt3 PLATFORM_TEST_ENABLED=false $(RESULTS_DIR)/coverage-func.xml
-
 test-func-platform: test-catalog
 	@echo "Running platform backend func tests..."
 	@export PYTHONPATH="src" && \
@@ -82,9 +79,6 @@ test-func-platform: test-catalog
 		uv run --group test python -m pytest tests/func/ -v
 
 test-e2e: test-catalog $(RESULTS_DIR)/coverage-e2e.xml
-
-test-e2e-quilt3: test-catalog
-	@$(MAKE) TEST_BACKEND_MODE=quilt3 PLATFORM_TEST_ENABLED=false $(RESULTS_DIR)/coverage-e2e.xml
 
 test-e2e-platform: test-catalog
 	@echo "Running platform backend e2e tests..."
@@ -160,6 +154,10 @@ test-mcp-legacy: scripts/tests/mcp-test.yaml
 		uv run --group test python scripts/mcp-test.py --spawn-local
 
 # Production validation - Platform backend, HTTP+JWT, Docker
+MCP_DOCKER_TOOLS ?= bucket_objects_list,admin_user_get,athena_query_validate,bucket_object_fetch,bucket_object_info,bucket_object_link,bucket_object_text,catalog_configure,catalog_uri,catalog_url,check_bucket_access,discover_permissions,generate_package_visualizations,generate_quilt_summarize_json,get_resource,package_browse,package_diff,search_explain,search_suggest,tabulator_tables_list
+MCP_DOCKER_RESOURCES ?= all
+MCP_DOCKER_LOOPS ?= none
+
 test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
 	@echo "===🧪 Running MCP server tests (platform backend, HTTP+JWT, Docker)..."
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
@@ -172,10 +170,128 @@ test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
 			--jwt-secret "test-secret" && \
 		(uv run --group test python scripts/mcp-test.py http://localhost:8002/mcp \
 			--jwt \
+			--tools "$(MCP_DOCKER_TOOLS)" \
+			--resources "$(MCP_DOCKER_RESOURCES)" \
+			--loops "$(MCP_DOCKER_LOOPS)" \
 			--config scripts/tests/mcp-test.yaml && \
 		uv run --group test python scripts/docker_manager.py stop --name mcp-docker-test) || \
 		(uv run --group test python scripts/docker_manager.py stop --name mcp-docker-test && exit 1)
 	@echo "✅ Docker testing completed"
+
+# Remote Docker + ngrok workflow for Claude.ai testing (no OAuth yet)
+# Usage:
+#   make run-docker-remote              - Start Docker + Inspector + ngrok (DEFAULT)
+#   make run-docker-remote WITH_NGROK=0 - Start Docker + Inspector (local only)
+# Default to WITH_NGROK=1 unless explicitly disabled
+WITH_NGROK ?= 1
+NGROK_DOMAIN ?= uniformly-alive-halibut.ngrok-free.app
+LAUNCH_INSPECTOR ?= 1
+
+run-docker-remote: docker-build
+	@echo "===🚀 Starting remote Docker MCP server with fallback JWT..."
+	@# Validate required environment variables before starting
+	@if [ -z "$(QUILT_CATALOG_URL)" ]; then \
+		echo "❌ ERROR: QUILT_CATALOG_URL is not set"; \
+		echo "   Set it in .env or run: quilt3 login"; \
+		exit 1; \
+	fi
+	@if [ -z "$(QUILT_REGISTRY_URL)" ]; then \
+		echo "❌ ERROR: QUILT_REGISTRY_URL is not set"; \
+		echo "   Set it in .env or run: quilt3 login"; \
+		exit 1; \
+	fi
+	@uv run --group test python scripts/docker_manager.py start \
+		--mode stateless \
+		--image quilt-mcp:test \
+		--name mcp-remote-ngrok \
+		--port 8000 \
+		--inject-fallback-jwt
+	@echo ""
+	@echo "✅ Container running at http://localhost:8000/mcp"
+	@echo ""
+	@if [ "$(WITH_NGROK)" = "1" ]; then \
+		if command -v ngrok >/dev/null 2>&1; then \
+			echo "🌐 Starting ngrok tunnel..."; \
+			pkill -f "ngrok http 8000" 2>/dev/null || true; \
+			ngrok http 8000 --domain=$(NGROK_DOMAIN) --log=stdout > /tmp/ngrok.log 2>&1 & \
+			sleep 3; \
+			echo ""; \
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+			echo "✅ ngrok tunnel active at https://$(NGROK_DOMAIN)/mcp"; \
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+			echo ""; \
+			echo "📋 Configure Inspector UI (opens at http://localhost:6274):"; \
+			echo "  1. Transport Type: Select 'Streamable HTTP'"; \
+			echo "  2. URL: Enter 'https://$(NGROK_DOMAIN)/mcp'"; \
+			echo "  3. Connection Type: 'Direct'"; \
+			echo "  4. Click 'Connect'"; \
+			echo ""; \
+			echo "🔧 For Claude Desktop, add to MCP config:"; \
+			echo "  {"; \
+			echo "    \"mcpServers\": {"; \
+			echo "      \"quilt-remote\": {"; \
+			echo "        \"url\": \"https://$(NGROK_DOMAIN)/mcp\""; \
+			echo "      }"; \
+			echo "    }"; \
+			echo "  }"; \
+			echo ""; \
+		else \
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+			echo "⚠️  ngrok not found - install from https://ngrok.com"; \
+			echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+			echo ""; \
+			echo "Or run manually in another terminal:"; \
+			echo "  ngrok http 8000 --domain=$(NGROK_DOMAIN)"; \
+			echo ""; \
+			echo "📋 Configure Inspector UI (opens at http://localhost:6274):"; \
+			echo "  1. Transport Type: Select 'Streamable HTTP'"; \
+			echo "  2. URL: Enter 'http://localhost:8000/mcp' (local only)"; \
+			echo "  3. Connection Type: 'Direct'"; \
+			echo "  4. Click 'Connect'"; \
+			echo ""; \
+		fi; \
+	else \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		echo "🔍 MCP Inspector Configuration (Local Only Mode)"; \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		echo ""; \
+		echo "📋 Configure Inspector UI (opens at http://localhost:6274):"; \
+		echo "  1. Transport Type: Select 'Streamable HTTP'"; \
+		echo "  2. URL: Enter 'http://localhost:8000/mcp'"; \
+		echo "  3. Connection Type: 'Direct'"; \
+		echo "  4. Click 'Connect'"; \
+		echo ""; \
+		echo "💡 To enable ngrok remote access:"; \
+		echo "  make stop-docker-remote"; \
+		echo "  make run-docker-remote"; \
+		echo ""; \
+	fi
+	@if [ "$(LAUNCH_INSPECTOR)" = "1" ]; then \
+		command -v npx >/dev/null || (echo "Error: npx not found. Please install Node.js first." && exit 1); \
+		echo "⏳ Launching Inspector..."; \
+		echo ""; \
+		npx @modelcontextprotocol/inspector; \
+	else \
+		echo "⏭️  Skipping Inspector launch (LAUNCH_INSPECTOR=0)"; \
+	fi
+
+test-docker-remote: scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running remote Docker MCP test against local endpoint..."
+	@$(MAKE) run-docker-remote WITH_NGROK=0 LAUNCH_INSPECTOR=0 && \
+		(uv run --group test python scripts/mcp-test.py http://localhost:8000/mcp \
+			--config scripts/tests/mcp-test.yaml && \
+		$(MAKE) stop-docker-remote) || \
+		($(MAKE) stop-docker-remote && exit 1)
+	@echo "✅ Remote Docker local endpoint test completed"
+
+stop-docker-remote:
+	@echo "Stopping Docker container..."
+	@uv run --group test python scripts/docker_manager.py stop --name mcp-remote-ngrok
+	@echo "Stopping Inspector..."
+	@pkill -f "@modelcontextprotocol/inspector" 2>/dev/null || echo "No MCP Inspector processes found"
+	@echo "Stopping ngrok..."
+	@pkill -f "ngrok http 8000" 2>/dev/null || echo "No ngrok processes found"
+	@echo "✅ All processes stopped"
 
 # Multiuser platform tests (pytest-based, unchanged)
 test-multiuser:

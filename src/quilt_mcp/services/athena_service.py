@@ -21,14 +21,15 @@ if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient  # type: ignore[import-not-found]
     from mypy_boto3_s3 import S3Client  # type: ignore[import-not-found]
     from mypy_boto3_athena import AthenaClient  # type: ignore[import-not-found]
-    from ..backends.quilt3_backend import Quilt3_Backend
+    from ..ops.quilt_ops import QuiltOps
 else:
     GlueClient = Any
     S3Client = Any
     AthenaClient = Any
-    Quilt3_Backend = Any
+    QuiltOps = Any
 
 from ..utils.common import format_error_response, suppress_stdout
+from ..ops.factory import QuiltOpsFactory
 
 logger = logging.getLogger(__name__)
 
@@ -36,23 +37,22 @@ logger = logging.getLogger(__name__)
 class AthenaQueryService:
     """Core service for Athena query execution and Glue catalog operations."""
 
+    _workgroup_cache: TTLCache[str, str] = TTLCache(maxsize=32, ttl=900)
+
     def __init__(
         self,
-        use_quilt_auth: bool = True,
-        backend: Optional[Quilt3_Backend] = None,
+        backend: Optional[QuiltOps] = None,
         workgroup_name: Optional[str] = None,
         data_catalog_name: Optional[str] = None,
     ):
         """Initialize the Athena service.
 
         Args:
-            use_quilt_auth: Whether to use quilt3 authentication
             backend: Optional Quilt3_Backend instance for proper backend abstraction
             workgroup_name: Optional Athena workgroup name (auto-discovered if not provided)
             data_catalog_name: Optional data catalog name (defaults to "AwsDataCatalog")
         """
-        self.use_quilt_auth = use_quilt_auth
-        self.backend = backend
+        self.backend = backend or QuiltOpsFactory.create()
         self.workgroup_name = workgroup_name
         self.data_catalog_name = data_catalog_name or "AwsDataCatalog"
         self.query_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
@@ -88,70 +88,37 @@ class AthenaQueryService:
     def _create_sqlalchemy_engine(self) -> Engine:
         """Create SQLAlchemy engine with PyAthena driver."""
         try:
-            if self.use_quilt_auth:
-                # Get credentials from quilt3 session
-                # Note: Using quilt3.session directly since we need credentials for connection string
-                import quilt3
+            region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            workgroup = self._get_workgroup(region)
 
-                botocore_session = quilt3.session.create_botocore_session()
-                credentials = botocore_session.get_credentials()
+            from urllib.parse import quote_plus
 
-                # Force region to us-east-1 for Quilt Athena workgroup
-                # The QuiltUserAthena workgroup and permissions are configured in us-east-1
-                region = "us-east-1"
+            credentials = self._get_athena_credentials(region=region)
 
-                # Use provided workgroup or discover available workgroups dynamically
-                workgroup = self.workgroup_name or self._discover_workgroup(credentials, region)
-
-                # Create connection string with explicit credentials
-                # URL encode the credentials to handle special characters
-                from urllib.parse import quote_plus
-
+            if credentials:
                 access_key = quote_plus(credentials.access_key)
                 secret_key = quote_plus(credentials.secret_key)
-
-                # Create connection string without hardcoded schema or workgroup
                 connection_string = (
                     f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/"
                     f"?work_group={workgroup}&catalog_name={quote_plus(self.data_catalog_name)}"
                 )
-
-                # Add session token if available
                 if credentials.token:
                     connection_string += f"&aws_session_token={quote_plus(credentials.token)}"
-
-                # Store base connection string for creating engines with schema_name
-                self._base_connection_string = connection_string
-
-                logger.info(f"Creating Athena engine with workgroup: {workgroup}, catalog: {self.data_catalog_name}")
-                return create_engine(connection_string, echo=False)
-
             else:
-                # Use default AWS credentials
-                region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-
-                # Use provided workgroup, or discover dynamically, or fall back to environment
-                workgroup = (
-                    self.workgroup_name
-                    or self._discover_workgroup(None, region)
-                    or os.environ.get("ATHENA_WORKGROUP", "primary")
+                connection_string = (
+                    f"awsathena+rest://@athena.{region}.amazonaws.com:443/"
+                    f"?work_group={workgroup}&catalog_name={quote_plus(self.data_catalog_name)}"
                 )
 
-                from urllib.parse import quote_plus
-
-                connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}&catalog_name={quote_plus(self.data_catalog_name)}"
-
-                # Store base connection string for creating engines with schema_name
-                self._base_connection_string = connection_string
-
-                logger.info(f"Creating Athena engine with workgroup: {workgroup}, catalog: {self.data_catalog_name}")
-                return create_engine(connection_string, echo=False)
+            self._base_connection_string = connection_string
+            logger.info(f"Creating Athena engine with workgroup: {workgroup}, catalog: {self.data_catalog_name}")
+            return create_engine(connection_string, echo=False)
 
         except Exception as e:
             logger.error(f"Failed to create SQLAlchemy engine: {e}")
             raise
 
-    def _discover_workgroup(self, credentials: Any, region: str) -> str:
+    def _discover_workgroup(self, region: str) -> str:
         """Discover the best available Athena workgroup for the user.
 
         Uses the consolidated list_workgroups method to avoid code duplication.
@@ -187,42 +154,50 @@ class AthenaQueryService:
             fallback: str = os.environ.get("ATHENA_WORKGROUP", "primary")
             return fallback
 
+    def _get_workgroup(self, region: str) -> str:
+        """Resolve workgroup with explicit override, env override, and cached discovery."""
+        if self.workgroup_name:
+            return self.workgroup_name
+
+        env_workgroup = os.environ.get("ATHENA_WORKGROUP")
+        if env_workgroup:
+            return env_workgroup
+
+        cache_key = f"{region}:{self.data_catalog_name}"
+        cached_workgroup = self._workgroup_cache.get(cache_key)
+        if cached_workgroup:
+            return cached_workgroup
+
+        discovered = self._discover_workgroup(region)
+        resolved = discovered or "primary"
+        self._workgroup_cache[cache_key] = resolved
+        return resolved
+
     def _create_glue_client(self) -> GlueClient:
         """Create Glue client for metadata operations."""
-        if self.use_quilt_auth:
-            try:
-                # Prefer backend for proper abstraction
-                if self.backend:
-                    return self.backend.get_boto3_client("glue", region="us-east-1")
-                else:
-                    # Fall back to quilt3 session directly
-                    import quilt3
-
-                    botocore_session = quilt3.session.create_botocore_session()
-                    # Use us-east-1 region for Quilt Athena workgroup resources
-                    return botocore_session.create_client("glue", region_name="us-east-1")
-            except Exception:
-                # Fallback to default credentials
-                pass
-        return boto3.client("glue", region_name="us-east-1")
+        try:
+            return self.backend.get_aws_client("glue", region="us-east-1")
+        except Exception:
+            return boto3.client("glue", region_name="us-east-1")
 
     def _create_s3_client(self) -> S3Client:
         """Create S3 client for result management."""
-        if self.use_quilt_auth:
-            try:
-                # Prefer backend for proper abstraction
-                if self.backend:
-                    return self.backend.get_boto3_client("s3")
-                else:
-                    # Fall back to quilt3 session directly
-                    import quilt3
+        try:
+            return self.backend.get_aws_client("s3")
+        except Exception:
+            return boto3.client("s3")
 
-                    botocore_session = quilt3.session.create_botocore_session()
-                    return botocore_session.create_client("s3")
-            except Exception:
-                # Fallback to default credentials
-                pass
-        return boto3.client("s3")
+    def _get_athena_credentials(self, region: str) -> Any | None:
+        """Extract credentials from backend-provided Athena client."""
+        try:
+            athena_client = self.backend.get_aws_client("athena", region=region)
+            signer = getattr(athena_client, "_request_signer", None)
+            credentials = getattr(signer, "_credentials", None)
+            if credentials and getattr(credentials, "access_key", None) and getattr(credentials, "secret_key", None):
+                return credentials
+        except Exception:
+            pass
+        return None
 
     def _get_s3_staging_dir(self) -> str:
         """Get S3 staging directory for query results."""
@@ -330,16 +305,29 @@ class AthenaQueryService:
         """
         try:
             from pyathena import connect
-            from urllib.parse import quote_plus
 
             # Determine S3 staging location
             # PyAthena will use the workgroup's output location if we don't specify s3_staging_dir
-            region = "us-east-1" if self.use_quilt_auth else os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-            workgroup = self.workgroup_name or os.environ.get("ATHENA_WORKGROUP", "primary")
+            region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            workgroup = self._get_workgroup(region)
 
             # Create PyAthena connection
             # Note: We rely on workgroup configuration for S3 output location
-            cursor = connect(region_name=region, schema_name=database_name, work_group=workgroup).cursor()
+            connect_kwargs: Dict[str, Any] = {
+                "region_name": region,
+                "schema_name": database_name,
+                "work_group": workgroup,
+            }
+            credentials = self._get_athena_credentials(region=region)
+            if credentials:
+                connect_kwargs.update(
+                    {
+                        "aws_access_key_id": credentials.access_key,
+                        "aws_secret_access_key": credentials.secret_key,
+                        "aws_session_token": credentials.token,
+                    }
+                )
+            cursor = connect(**connect_kwargs).cursor()
 
             # Execute DESCRIBE - use backticks for table names with special characters
             query = f'DESCRIBE `{table_name}`'
@@ -516,32 +504,8 @@ class AthenaQueryService:
     def list_workgroups(self) -> List[Dict[str, Any]]:
         """List available Athena workgroups using the service's authentication patterns."""
         try:
-            import boto3
-
-            # Use the same auth pattern as other service methods
-            if self.use_quilt_auth:
-                region = "us-east-1"  # Force region for Quilt Athena workgroups
-
-                # Prefer backend for proper abstraction
-                if self.backend:
-                    athena_client = self.backend.get_boto3_client("athena", region=region)
-                else:
-                    # Fall back to quilt3 session directly
-                    import quilt3
-
-                    botocore_session = quilt3.session.create_botocore_session()
-                    credentials = botocore_session.get_credentials()
-
-                    athena_client = boto3.client(
-                        "athena",
-                        region_name=region,
-                        aws_access_key_id=credentials.access_key,
-                        aws_secret_access_key=credentials.secret_key,
-                        aws_session_token=credentials.token,
-                    )
-            else:
-                region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-                athena_client = boto3.client("athena", region_name=region)
+            region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            athena_client = self.backend.get_aws_client("athena", region=region)
 
             # List all workgroups and filter to ENABLED only
             response = athena_client.list_work_groups()

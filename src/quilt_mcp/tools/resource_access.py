@@ -216,7 +216,6 @@ async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetRes
                 status_filter=None,
                 start_time=None,
                 end_time=None,
-                use_quilt_auth=True,
                 service=None,
             )
 

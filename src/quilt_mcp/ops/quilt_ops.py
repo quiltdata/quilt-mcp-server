@@ -1272,12 +1272,12 @@ class QuiltOps(ABC):
         ...
 
     @abstractmethod
-    def get_boto3_client(
+    def get_aws_client(
         self,
         service_name: str,
         region: Optional[str] = None,
     ) -> Any:
-        """Get authenticated boto3 client for AWS services.
+        """Get authenticated AWS client for AWS services.
 
         Creates and returns a boto3 client for the specified AWS service,
         configured with the appropriate authentication credentials from the
@@ -1295,6 +1295,28 @@ class QuiltOps(ABC):
             AuthenticationError: When AWS credentials are not available or invalid
             BackendError: When boto3 client creation fails
             ValidationError: When service_name is invalid or unsupported
+        """
+        pass
+
+    def get_boto3_client(
+        self,
+        service_name: str,
+        region: Optional[str] = None,
+    ) -> Any:
+        """Backward-compatible alias for get_aws_client()."""
+        return self.get_aws_client(service_name=service_name, region=region)
+
+    @abstractmethod
+    def delete_package(self, bucket: str, name: str) -> bool:
+        """Delete all revisions for a package from a bucket.
+
+        Args:
+            bucket: Target registry bucket (bucket name or ``s3://`` URI).
+            name: Package name in ``namespace/name`` format.
+
+        Returns:
+            ``True`` when all targeted revisions were deleted successfully.
+            ``False`` when deletion fails or only partially succeeds.
         """
         pass
 

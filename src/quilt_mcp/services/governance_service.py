@@ -61,10 +61,9 @@ else:
 class GovernanceService:
     """Service for managing Quilt governance and administration."""
 
-    def __init__(self, quilt_ops: Optional[QuiltOps] = None, use_quilt_auth: bool = True):
+    def __init__(self, quilt_ops: Optional[QuiltOps] = None):
         self.quilt_ops = quilt_ops
-        self.use_quilt_auth = use_quilt_auth
-        self.admin_available = ADMIN_AVAILABLE and use_quilt_auth
+        self.admin_available = ADMIN_AVAILABLE
 
     def _get_quilt_ops(self) -> QuiltOps:
         """Get QuiltOps instance, creating one if not provided."""
@@ -1205,11 +1204,11 @@ async def admin_tabulator_open_query_get(
         if error_check:
             return error_check
 
-        # Note: Tabulator operations are not yet part of AdminOps interface
-        # Using direct import for backward compatibility
-        import quilt3.admin.tabulator as admin_tabulator
-
-        open_query_enabled = admin_tabulator.get_open_query()
+        quilt_ops_instance = service._get_quilt_ops()
+        open_query_result = quilt_ops_instance.get_open_query_status()
+        if not open_query_result.get("success"):
+            return format_error_response(open_query_result.get("message", "Failed to get tabulator open query status"))
+        open_query_enabled = bool(open_query_result.get("open_query_enabled", False))
 
         return {
             "success": True,
@@ -1260,9 +1259,10 @@ async def admin_tabulator_open_query_set(
         if error_check:
             return error_check
 
-        import quilt3.admin.tabulator as admin_tabulator
-
-        admin_tabulator.set_open_query(enabled)
+        quilt_ops_instance = service._get_quilt_ops()
+        set_result = quilt_ops_instance.set_open_query(enabled)
+        if not set_result.get("success"):
+            return format_error_response(set_result.get("message", "Failed to set tabulator open query status"))
 
         return {
             "success": True,

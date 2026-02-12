@@ -30,7 +30,6 @@ Run:
 
 ```bash
 export QUILT_MULTIUSER_MODE=true
-export MCP_JWT_SECRET="dev-secret"
 export QUILT_CATALOG_URL="https://your-catalog.quiltdata.com"
 export QUILT_REGISTRY_URL="https://registry.your-catalog.quiltdata.com"
 uvx quilt-mcp

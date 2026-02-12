@@ -1549,12 +1549,23 @@ def package_delete(
                 suggested_actions=["Check your permissions", "Verify package exists", "Confirm registry access"],
             )
 
-        # Suppress stdout during delete to avoid JSON-RPC interference
         from ..utils.common import suppress_stdout
-        import quilt3
 
+        backend = QuiltOpsFactory.create()
         with suppress_stdout():
-            quilt3.delete_package(package_name, registry=normalized_registry)
+            deleted = backend.delete_package(name=package_name, bucket=normalized_registry)
+
+        if not deleted:
+            return PackageDeleteError(
+                error=f"Failed to delete package '{package_name}'",
+                package_name=package_name,
+                registry=registry,
+                suggested_actions=[
+                    "Verify package exists in the registry",
+                    "Check delete permissions for the registry",
+                    "Ensure package name is correct",
+                ],
+            )
 
         return PackageDeleteSuccess(
             package_name=package_name,

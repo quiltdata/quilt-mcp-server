@@ -11,9 +11,12 @@ This backend simply:
 """
 
 import asyncio
+import json
 import logging
 import time
-from typing import Dict, List, Any, Optional, TYPE_CHECKING
+from typing import Dict, List, Any, Optional, TYPE_CHECKING, cast
+
+import requests
 
 if TYPE_CHECKING:
     from ...backends.quilt3_backend import Quilt3_Backend
@@ -38,6 +41,7 @@ from ..exceptions import (
     AuthenticationRequired,
     BackendError,
 )
+from ...utils.common import normalize_url
 
 # Import search_api at module level for better testability and performance
 from quilt3.search_util import search_api
@@ -411,6 +415,35 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         # If we hit a 403 error, the caller should implement retry logic
         return self.build_index_pattern_for_scope(scope, available_buckets)
 
+    def _execute_search_api(self, dsl_query: Dict[str, Any], index_pattern: str, limit: int) -> Dict[str, Any]:
+        """Execute search API request with backend-authenticated path when available."""
+        backend = self.backend if self.backend is not None else self.quilt_ops
+        if backend is not None:
+            registry_url = backend.get_registry_url()
+            if registry_url:
+                params: Dict[str, str] = {
+                    "index": index_pattern,
+                    "action": "freeform",
+                    "body": json.dumps(dsl_query),
+                    "size": str(limit),
+                }
+                headers: Dict[str, str] = {}
+                try:
+                    headers = backend.get_graphql_auth_headers()
+                except Exception:
+                    headers = {}
+                response = requests.get(
+                    f"{normalize_url(registry_url)}/api/search",
+                    params=params,
+                    headers=headers,
+                    timeout=60,
+                )
+                response.raise_for_status()
+                return cast(Dict[str, Any], response.json())
+
+        # Fallback to quilt3's search utility (requires quilt3 session context).
+        return cast(Dict[str, Any], search_api(query=dsl_query, index=index_pattern, limit=limit))
+
     async def search(
         self,
         query: str,
@@ -442,6 +475,16 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         try:
             # Build index pattern
             index_pattern = self._build_index_pattern(scope, bucket)
+            if not index_pattern:
+                logger.info("No searchable buckets available for scope=%s bucket=%s", scope, bucket)
+                query_time = (time.time() - start_time) * 1000
+                return BackendResponse(
+                    backend_type=self.backend_type,
+                    status=BackendStatus.AVAILABLE,
+                    results=[],
+                    total=0,
+                    query_time_ms=query_time,
+                )
 
             # Get scope handler
             handler = self.scope_handlers.get(scope)
@@ -509,7 +552,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             # Try search with full index pattern first
             try:
                 # Run synchronous search_api in thread pool to avoid blocking event loop
-                response = await asyncio.to_thread(search_api, query=dsl_query, index=index_pattern, limit=limit)
+                response = await asyncio.to_thread(self._execute_search_api, dsl_query, index_pattern, limit)
             except Exception as search_error:
                 # Check if error is 403 and we're searching multiple buckets
                 if "403" in str(search_error) and "," in index_pattern and not bucket:
@@ -533,7 +576,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                             )
                             # Run synchronous search_api in thread pool to avoid blocking event loop
                             response = await asyncio.to_thread(
-                                search_api, query=dsl_query, index=reduced_pattern, limit=limit
+                                self._execute_search_api, dsl_query, reduced_pattern, limit
                             )
                             logger.info(f"✅ Search succeeded with {max_buckets} buckets")
                             break

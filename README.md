@@ -78,7 +78,7 @@ By default, quilt-mcp uses the **local deployment mode** (`--deployment local`),
 
 - `QUILT_CATALOG_URL`
 - `QUILT_REGISTRY_URL`
-- authentication (`quilt3 login` session or `MCP_JWT_SECRET`)
+- authentication (`quilt3 login` session)
 
 Use deployment presets:
 
@@ -96,6 +96,21 @@ QUILT_DEPLOYMENT=local uvx quilt-mcp
 QUILT_DEPLOYMENT=legacy uvx quilt-mcp
 ```
 
+Remote Docker + ngrok testing hack (for Claude.ai without OAuth):
+
+```bash
+make run-docker-remote
+# Starts Docker container on localhost:8000 with auto-injected real JWT fallback
+# Launches MCP Inspector at http://127.0.0.1:6274 for testing
+# JWT discovery priority: PLATFORM_TEST_JWT_TOKEN -> quilt3 login session
+#
+# In another terminal, expose via ngrok:
+ngrok http 8000 --domain=$NGROK_DOMAIN
+```
+
+Set `NGROK_DOMAIN` in `.env`, and configure Claude MCP URL as `https://<your-ngrok-domain>/mcp`.
+Use this only for local development/testing.
+
 Backward compatibility:
 - `--backend` still works as an explicit backend override.
 - `QUILT_MULTIUSER_MODE` is still supported as a legacy selector.
@@ -112,10 +127,6 @@ Override defaults via environment or MCP config:
 - `QUILT_MULTIUSER_MODE` - Legacy backend selector (true -> platform, false -> quilt3)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 - `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)
-- `MCP_JWT_SECRET` - HS256 shared secret for JWT validation (JWT mode)
-- `MCP_JWT_SECRET_SSM_PARAMETER` - SSM parameter name for JWT secret (JWT mode)
-- `MCP_JWT_ISSUER` - Expected JWT issuer (optional)
-- `MCP_JWT_AUDIENCE` - Expected JWT audience (optional)
 
 ## Architecture
 
@@ -133,6 +144,14 @@ Local Dev Mode
 - IAM auth: Uses AWS credentials or quilt3 session
 - Full feature set, including workflows
 - Single-user development and testing
+
+## Core Package Tools
+
+| Tool | Operation | Backend path |
+|---|---|---|
+| `package_create` | Create package revision from S3 objects | `QuiltOps.create_package_revision()` |
+| `package_update` | Update existing package revision | `QuiltOps.update_package_revision()` |
+| `package_delete` | Delete package revisions | `QuiltOps.delete_package()` |
 
 ## Development
 

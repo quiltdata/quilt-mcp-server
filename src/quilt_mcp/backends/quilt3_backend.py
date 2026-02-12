@@ -442,6 +442,16 @@ class Quilt3_Backend(
         # For now, use default session - quilt3 manages credentials
         return boto3.Session()
 
+    def delete_package(self, bucket: str, name: str) -> bool:
+        """Delete a package using quilt3 package delete API."""
+        registry = bucket if bucket.startswith("s3://") else f"s3://{bucket}"
+        try:
+            self.quilt3.delete_package(name, registry=registry)
+            return True
+        except Exception:
+            logger.exception("Failed to delete package via quilt3", extra={"bucket": bucket, "package_name": name})
+            return False
+
     def _transform_search_result_to_package_info(self, result: Dict[str, Any], registry: str) -> Package_Info:
         """Transform quilt3 search result to Package_Info (backend primitive).
 

@@ -24,17 +24,12 @@ class JWTDiscovery:
 
         Priority order:
         1. Runtime context (middleware-provided)
-        2. Environment secret (MCP_JWT_SECRET / PLATFORM_TEST_JWT_SECRET)
-        3. quilt3 session
-        4. Auto-generation (if QUILT_ALLOW_TEST_JWT=true)
+        2. quilt3 session
+        3. Auto-generation (if QUILT_ALLOW_TEST_JWT=true)
         """
         runtime_token = _get_runtime_token()
         if runtime_token:
             return runtime_token
-
-        env_token = _get_token_from_env_secret()
-        if env_token:
-            return env_token
 
         session_token = _get_token_from_quilt3_session()
         if session_token:
@@ -54,8 +49,7 @@ class JWTDiscovery:
         raise AuthenticationError(
             "JWT token not found. Options:\n"
             "1. Run 'quilt3 login' to authenticate\n"
-            "2. Set MCP_JWT_SECRET environment variable\n"
-            "3. For development: set QUILT_ALLOW_TEST_JWT=true"
+            "2. For development: set QUILT_ALLOW_TEST_JWT=true"
         )
 
     @staticmethod
@@ -69,20 +63,6 @@ def _get_runtime_token() -> Optional[str]:
     if runtime_auth and runtime_auth.access_token:
         return runtime_auth.access_token
     return None
-
-
-def _get_token_from_env_secret() -> Optional[str]:
-    jwt_secret = _get_env_jwt_secret()
-    if not jwt_secret:
-        return None
-    return _generate_jwt_from_secret(jwt_secret)
-
-
-def _get_env_jwt_secret() -> Optional[str]:
-    jwt_secret = os.getenv("MCP_JWT_SECRET")
-    if jwt_secret:
-        return jwt_secret
-    return os.getenv("PLATFORM_TEST_JWT_SECRET")
 
 
 def _get_token_from_quilt3_session() -> Optional[str]:
@@ -115,12 +95,8 @@ def _allow_test_jwt() -> bool:
     return os.getenv("QUILT_ALLOW_TEST_JWT", "false").lower() == "true"
 
 
-def _generate_jwt_from_secret(secret: str) -> str:
-    return _generate_jwt(secret, subject_prefix="secret")
-
-
 def _generate_test_jwt() -> str:
-    secret = _get_env_jwt_secret() or "test-secret-for-jwt-generation"
+    secret = "test-secret-for-jwt-generation"
     return _generate_jwt(secret, subject_prefix="test")
 
 

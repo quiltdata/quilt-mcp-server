@@ -30,17 +30,10 @@ JWT mode requires a valid JWT on every request and will return `401/403` for mis
 
 ### Required Configuration
 
-Set one of the following:
+Set the following:
 
-- `MCP_JWT_SECRET` (recommended for local/dev): HS256 shared secret
-- `MCP_JWT_SECRET_SSM_PARAMETER` (recommended for production): SSM parameter name containing the secret
 - `QUILT_CATALOG_URL`: Platform catalog URL
 - `QUILT_REGISTRY_URL`: Platform registry URL
-
-Optional validation:
-
-- `MCP_JWT_ISSUER` - expected `iss` claim
-- `MCP_JWT_AUDIENCE` - expected `aud` claim
 
 ### JWT Claims
 
@@ -73,7 +66,6 @@ Example payload:
 
 ## Migration Guide (IAM → JWT)
 
-1. Configure `MCP_JWT_SECRET` (or SSM parameter) and optional issuer/audience.
-2. Set `QUILT_MULTIUSER_MODE=true`.
-3. Ensure clients send `Authorization: Bearer <token>` on every request.
-4. Verify Platform authorization and browsing session access paths.
+1. Set `QUILT_MULTIUSER_MODE=true`.
+2. Ensure clients send `Authorization: Bearer <token>` on every request.
+3. Verify Platform authorization and browsing session access paths.

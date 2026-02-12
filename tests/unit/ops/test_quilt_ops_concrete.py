@@ -56,6 +56,7 @@ class MockQuiltOps(QuiltOps):
         )
         self._mock_list_buckets = Mock(return_value=[])
         self._mock_get_boto3_session = Mock(return_value=Mock())
+        self._mock_delete_package = Mock(return_value=True)
         self._mock_backend_get_auth_status = Mock(
             return_value=Auth_Status(
                 is_authenticated=True,
@@ -113,6 +114,13 @@ class MockQuiltOps(QuiltOps):
 
     def _backend_get_auth_status(self):
         return self._mock_backend_get_auth_status()
+
+    def get_aws_client(self, service_name, region=None):
+        """Mock implementation of get_aws_client for testing."""
+        return Mock()
+
+    def delete_package(self, bucket, name):
+        return self._mock_delete_package(bucket, name)
 
     # Transformation abstract methods
     def _transform_search_result_to_package_info(self, result, registry):

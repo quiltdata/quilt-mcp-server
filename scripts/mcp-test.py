@@ -28,8 +28,6 @@ import yaml
 from jsonschema import validate
 
 # JWT generation for testing
-import jwt as pyjwt
-
 # Import testing framework modules
 from quilt_mcp.testing import (
     MCPTester,
@@ -54,26 +52,6 @@ from quilt_mcp.testing import (
 # Script paths for local server spawning
 SCRIPT_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPT_DIR.parent
-
-
-def generate_test_jwt(secret: str = "test-secret", expires_in: int = 3600) -> str:
-    """Generate a test JWT token for testing.
-
-    Args:
-        secret: HS256 shared secret for signing
-        expires_in: Expiration time in seconds from now
-
-    Returns:
-        Signed JWT token string
-    """
-    payload = {
-        "id": "test-user-mcp-test",
-        "uuid": str(uuid_module.uuid4()),
-        "exp": int(time.time()) + expires_in,
-    }
-    return pyjwt.encode(payload, secret, algorithm="HS256")
-
-
 class LocalMCPServer:
     """Manages local MCP server process lifecycle for testing."""
 
@@ -992,7 +970,7 @@ Examples:
   mcp-test.py --list-tools
 
 JWT Authentication (HTTP only):
-  # Use bundled sample catalog JWT token
+  # Discover real JWT (PLATFORM_TEST_JWT_TOKEN or quilt3 login session)
   mcp-test.py http://localhost:8000/mcp --jwt
 
   # Using environment variable
@@ -1036,7 +1014,9 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
         "⚠️  Prefer env var for production use to avoid token exposure in logs.",
     )
     jwt_group.add_argument(
-        "--jwt", action="store_true", help="Use bundled sample catalog JWT token (HTTP transport only)."
+        "--jwt",
+        action="store_true",
+        help="Discover real JWT from PLATFORM_TEST_JWT_TOKEN or quilt3 session (HTTP transport only).",
     )
     parser.add_argument(
         "-t", "--tools", metavar="SELECTOR", help="Select tools to test: 'all', 'none', or 'name1,name2,...' (default: 'all' if no selectors specified, 'none' if other selectors specified)"
@@ -1084,21 +1064,47 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
     jwt_token = None
 
     if args.jwt:
-        # Use sample catalog JWT for testing
+        # Discover JWT using same logic as backend_mode fixture
         if transport != "http":
             print("❌ --jwt only supported for HTTP transport")
             sys.exit(1)
 
-        print("🔐 Generating test JWT token...")
+        print("🔐 Discovering JWT token...")
 
-        try:
-            jwt_token = generate_test_jwt(secret="test-secret")
-            if args.verbose:
-                masked = f"{jwt_token[:8]}...{jwt_token[-8:]}" if len(jwt_token) > 16 else "***"
-                print(f"   Token preview: {masked}")
-        except Exception as e:
-            print(f"❌ Failed to load sample JWT token: {e}")
+        # JWT Discovery Priority:
+        # 1. PLATFORM_TEST_JWT_TOKEN env var (explicit test token)
+        # 2. quilt3 session (from `quilt3 login`)
+        # 3. FAIL - Docker tests require real JWTs
+        jwt_token = os.getenv("PLATFORM_TEST_JWT_TOKEN")
+        if jwt_token:
+            print("✅ Using JWT from PLATFORM_TEST_JWT_TOKEN")
+
+        if not jwt_token:
+            try:
+                import quilt3
+
+                quilt_session = quilt3.session.get_session()
+                if hasattr(quilt_session, "headers") and "Authorization" in quilt_session.headers:
+                    auth_header = quilt_session.headers["Authorization"]
+                    if auth_header.startswith("Bearer "):
+                        jwt_token = auth_header[7:]  # Strip "Bearer " prefix
+                        print("✅ Using JWT from quilt3 session")
+            except Exception as e:
+                if args.verbose:
+                    print(f"⚠️  Could not get JWT from quilt3 session: {e}")
+
+        if not jwt_token:
+            print("❌ Docker tests require real JWT authentication.")
+            print("   Options:")
+            print("     1. Set PLATFORM_TEST_JWT_TOKEN environment variable")
+            print("     2. Run 'quilt3 login' to authenticate")
+            print()
+            print("   For mocked tests, use pytest (make test-func or make test-e2e)")
             sys.exit(1)
+
+        if args.verbose:
+            masked = f"{jwt_token[:8]}...{jwt_token[-8:]}" if len(jwt_token) > 16 else "***"
+            print(f"   Token preview: {masked}")
     else:
         # Use provided token (command line takes precedence over env var)
         jwt_token = args.jwt_token or os.environ.get('MCP_JWT_TOKEN')

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional, cast
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,6 +18,7 @@ from quilt_mcp.context.runtime_context import (
 )
 
 logger = logging.getLogger(__name__)
+FALLBACK_JWT_ENV_VAR = "QUILT_FALLBACK_JWT"
 
 
 class JwtExtractionMiddleware(BaseHTTPMiddleware):
@@ -47,6 +49,16 @@ class JwtExtractionMiddleware(BaseHTTPMiddleware):
         auth_header = request.headers.get("authorization")
 
         if not auth_header:
+            fallback_token = os.getenv(FALLBACK_JWT_ENV_VAR, "").strip()
+            if fallback_token:
+                logger.warning(
+                    "Using %s fallback token for unauthenticated request (request_id=%s, path=%s)",
+                    FALLBACK_JWT_ENV_VAR,
+                    request_id,
+                    request.url.path,
+                )
+                return await self._run_with_token(request, call_next, token=fallback_token)
+
             logger.warning("JWT required but missing Authorization header (request_id=%s)", request_id)
             return _error_response(
                 401,
@@ -62,6 +74,9 @@ class JwtExtractionMiddleware(BaseHTTPMiddleware):
             logger.warning("Empty Bearer token provided (request_id=%s)", request_id)
             return _error_response(401, "JWT authentication required. Provide Authorization: Bearer header.")
 
+        return await self._run_with_token(request, call_next, token=token)
+
+    async def _run_with_token(self, request: Request, call_next, *, token: str) -> Response:
         # Extract token WITHOUT validation - GraphQL will validate
         # Claims are empty because we don't validate locally
         auth_state = RuntimeAuthState(scheme="Bearer", access_token=token, claims={})

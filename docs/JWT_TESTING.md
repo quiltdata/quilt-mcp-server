@@ -85,7 +85,6 @@ For production testing, generate tokens using your auth system. Ensure tokens in
 
    ```bash
    export QUILT_MULTIUSER_MODE=true
-   export MCP_JWT_SECRET="your-secret-key"
    python -m quilt_mcp.main
    ```
 

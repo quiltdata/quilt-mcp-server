@@ -127,7 +127,8 @@ class MCPTester:
             self._log(f"Params: {json.dumps(params, indent=2)}", "DEBUG")
 
         try:
-            response = self.session.post(self.endpoint, json=request_data, timeout=10)
+            # Timeout increased to 60s to accommodate long-running operations like Athena queries
+            response = self.session.post(self.endpoint, json=request_data, timeout=60)
 
             # Special handling for auth errors
             if response.status_code == 401:
@@ -136,7 +137,7 @@ class MCPTester:
                         "Authentication failed: JWT token rejected (invalid or expired)\n"
                         f"Token preview: {self._mask_token(self.jwt_token)}\n"
                         "Troubleshooting:\n"
-                        "  - Verify token signature matches server JWT_SECRET\n"
+                        "  - Verify token is signed correctly for the server\n"
                         "  - Check token expiration (exp claim)\n"
                         "  - Ensure token includes required claims (id, uuid, exp)"
                     )

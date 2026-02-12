@@ -329,13 +329,14 @@ class TestPackageLifecycle:
         # Step 5: Delete from real registry
         print(f"\n[Step 5] Deleting package: {package_name}")
 
-        # Use quilt3.delete_package directly (as backend doesn't expose this)
-        import quilt3
-        from quilt_mcp.utils.common import suppress_stdout
-
         try:
-            with suppress_stdout():
-                _call_with_retry("delete package", quilt3.delete_package, package_name, registry=registry)
+            deleted = _call_with_retry(
+                "delete package",
+                backend_with_auth.delete_package,
+                bucket=registry,
+                name=package_name,
+            )
+            assert deleted is True, "Backend reported package deletion failure"
 
             print("  ✅ Package deleted successfully")
 

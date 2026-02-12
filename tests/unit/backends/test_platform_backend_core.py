@@ -51,8 +51,6 @@ def test_platform_backend_requires_access_token(monkeypatch):
     monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com")
     monkeypatch.setenv("QUILT_GRAPHQL_ENDPOINT", "https://registry.example.com/graphql")
     # Ensure no JWT sources are available
-    monkeypatch.delenv("MCP_JWT_SECRET", raising=False)
-    monkeypatch.delenv("PLATFORM_TEST_JWT_SECRET", raising=False)
     monkeypatch.delenv("QUILT_ALLOW_TEST_JWT", raising=False)
     # Prevent finding token from quilt3 session
     monkeypatch.setattr(

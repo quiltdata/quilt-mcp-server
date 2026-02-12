@@ -392,7 +392,7 @@ def real_athena(backend_with_auth, real_test_bucket, backend_mode):
 
     # Create Athena service
     try:
-        athena = AthenaQueryService(use_quilt_auth=True, data_catalog_name=catalog_name, backend=backend_with_auth)
+        athena = AthenaQueryService(data_catalog_name=catalog_name, backend=backend_with_auth)
     except Exception as e:
         pytest.skip(f"Cannot create Athena service: {e}")
 
