@@ -127,7 +127,8 @@ class MCPTester:
             self._log(f"Params: {json.dumps(params, indent=2)}", "DEBUG")
 
         try:
-            response = self.session.post(self.endpoint, json=request_data, timeout=10)
+            # Timeout increased to 60s to accommodate long-running operations like Athena queries
+            response = self.session.post(self.endpoint, json=request_data, timeout=60)
 
             # Special handling for auth errors
             if response.status_code == 401:

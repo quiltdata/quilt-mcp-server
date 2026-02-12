@@ -309,15 +309,17 @@ class TestFormatTabulatorResultsAsTable:
         assert "tables_table" not in enhanced
 
 
-class TestIntegrationWithAthenaService:
-    """Integration tests with AthenaQueryService."""
+class TestAthenaServiceFormatting:
+    """Test AthenaQueryService formatting methods."""
 
     @patch("quilt_mcp.utils.formatting.logger")
     def test_athena_service_table_format_integration(self, mock_logger):
         """Test integration with AthenaQueryService format_results method."""
         from quilt_mcp.services.athena_service import AthenaQueryService
 
-        service = AthenaQueryService()
+        # Mock the backend to avoid authentication requirement
+        mock_backend = Mock()
+        service = AthenaQueryService(backend=mock_backend)
 
         # Create test DataFrame
         df = pd.DataFrame(
@@ -342,7 +344,9 @@ class TestIntegrationWithAthenaService:
         """Test auto table detection in AthenaQueryService."""
         from quilt_mcp.services.athena_service import AthenaQueryService
 
-        service = AthenaQueryService()
+        # Mock the backend to avoid authentication requirement
+        mock_backend = Mock()
+        service = AthenaQueryService(backend=mock_backend)
 
         # Create test DataFrame that should trigger table formatting
         df = pd.DataFrame(
