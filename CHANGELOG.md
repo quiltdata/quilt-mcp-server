@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **GitHub Release Creation**: Made release creation conditional on tag pushes only
+  - Added `startsWith(github.ref, 'refs/tags/')` condition to prevent unintended releases
+  - Post-release status script now handles empty release URLs/IDs gracefully
+  - Prevents release creation failures for non-tag workflow runs
+
 ## [0.17.4] - 2026-02-12
 
 ### Added
