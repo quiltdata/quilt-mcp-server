@@ -32,6 +32,7 @@ help:
 	@echo "  make test-mcp         - Run MCP server tests (auto-regen via Make deps)"
 	@echo "  make run-docker-remote - Start Docker + Inspector + ngrok (DEFAULT for remote access)"
 	@echo "  make run-docker-remote WITH_NGROK=0 - Start Docker + Inspector only (local testing)"
+	@echo "  make test-docker-remote - Start Docker (no Inspector), run mcp-test.py on http://localhost:8000/mcp, then stop"
 	@echo "  make stop-docker-remote - Stop Docker container, Inspector, and ngrok"
 	@echo "  make test-multiuser    - Run multiuser platform tests (JWT/Platform)"
 	@echo "  make test-multiuser-fake - Test multiuser JWT auth with fake roles (local dev)"

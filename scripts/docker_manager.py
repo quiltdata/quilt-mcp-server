@@ -274,13 +274,22 @@ class DockerManager:
         Returns:
             ContainerConfig instance or None if validation fails
         """
-        # Validate Quilt configuration
-        if not self.validate_quilt_config():
-            return None
+        # Stateless containers require explicit environment configuration
+        # Do NOT fall back to quiltx auto-discovery for production-like deployments
+        catalog_url = os.getenv("QUILT_CATALOG_URL")
+        registry_url = os.getenv("QUILT_REGISTRY_URL")
 
-        catalog_url, registry_url = self.get_quilt_config()
-        # After validation, these are guaranteed to be non-None
-        assert catalog_url is not None and registry_url is not None
+        if not catalog_url or not registry_url:
+            print("", file=sys.stderr)
+            print("ERROR: Stateless container requires explicit environment configuration", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Set these environment variables:", file=sys.stderr)
+            print("  export QUILT_CATALOG_URL=https://your-catalog.quiltdata.com", file=sys.stderr)
+            print("  export QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Or add them to your .env file (loaded by Makefile)", file=sys.stderr)
+            print("", file=sys.stderr)
+            return None
 
         # Default JWT secret for testing
         if not jwt_secret:
@@ -338,13 +347,22 @@ class DockerManager:
         Returns:
             ContainerConfig instance or None if validation fails
         """
-        # Validate Quilt configuration
-        if not self.validate_quilt_config():
-            return None
+        # Multiuser containers require explicit environment configuration
+        # Do NOT fall back to quiltx auto-discovery for production-like deployments
+        catalog_url = os.getenv("QUILT_CATALOG_URL")
+        registry_url = os.getenv("QUILT_REGISTRY_URL")
 
-        catalog_url, registry_url = self.get_quilt_config()
-        # After validation, these are guaranteed to be non-None
-        assert catalog_url is not None and registry_url is not None
+        if not catalog_url or not registry_url:
+            print("", file=sys.stderr)
+            print("ERROR: Multiuser container requires explicit environment configuration", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Set these environment variables:", file=sys.stderr)
+            print("  export QUILT_CATALOG_URL=https://your-catalog.quiltdata.com", file=sys.stderr)
+            print("  export QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("Or add them to your .env file (loaded by Makefile)", file=sys.stderr)
+            print("", file=sys.stderr)
+            return None
 
         # Default JWT secret for multiuser testing
         if not jwt_secret:

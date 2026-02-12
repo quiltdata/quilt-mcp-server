@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker run-docker-remote stop-docker-remote test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-catalog test-func test-func-quilt3 test-func-platform test-e2e test-e2e-quilt3 test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker test-docker-remote run-docker-remote stop-docker-remote test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -191,9 +191,21 @@ test-mcp-docker: docker-build scripts/tests/mcp-test.yaml
 # Default to WITH_NGROK=1 unless explicitly disabled
 WITH_NGROK ?= 1
 NGROK_DOMAIN ?= uniformly-alive-halibut.ngrok-free.app
+LAUNCH_INSPECTOR ?= 1
 
 run-docker-remote: docker-build
 	@echo "===🚀 Starting remote Docker MCP server with fallback JWT..."
+	@# Validate required environment variables before starting
+	@if [ -z "$(QUILT_CATALOG_URL)" ]; then \
+		echo "❌ ERROR: QUILT_CATALOG_URL is not set"; \
+		echo "   Set it in .env or run: quilt3 login"; \
+		exit 1; \
+	fi
+	@if [ -z "$(QUILT_REGISTRY_URL)" ]; then \
+		echo "❌ ERROR: QUILT_REGISTRY_URL is not set"; \
+		echo "   Set it in .env or run: quilt3 login"; \
+		exit 1; \
+	fi
 	@uv run --group test python scripts/docker_manager.py start \
 		--mode stateless \
 		--image quilt-mcp:test \
@@ -220,7 +232,7 @@ run-docker-remote: docker-build
 			echo "  3. Connection Type: 'Direct'"; \
 			echo "  4. Click 'Connect'"; \
 			echo ""; \
-			echo "🔧 For Claude.ai Desktop, add to MCP config:"; \
+			echo "🔧 For Claude Desktop, add to MCP config:"; \
 			echo "  {"; \
 			echo "    \"mcpServers\": {"; \
 			echo "      \"quilt-remote\": {"; \
@@ -260,10 +272,23 @@ run-docker-remote: docker-build
 		echo "  make run-docker-remote"; \
 		echo ""; \
 	fi
-	@command -v npx >/dev/null || (echo "Error: npx not found. Please install Node.js first." && exit 1)
-	@echo "⏳ Launching Inspector..."
-	@echo ""
-	@npx @modelcontextprotocol/inspector
+	@if [ "$(LAUNCH_INSPECTOR)" = "1" ]; then \
+		command -v npx >/dev/null || (echo "Error: npx not found. Please install Node.js first." && exit 1); \
+		echo "⏳ Launching Inspector..."; \
+		echo ""; \
+		npx @modelcontextprotocol/inspector; \
+	else \
+		echo "⏭️  Skipping Inspector launch (LAUNCH_INSPECTOR=0)"; \
+	fi
+
+test-docker-remote: scripts/tests/mcp-test.yaml
+	@echo "===🧪 Running remote Docker MCP test against local endpoint..."
+	@$(MAKE) run-docker-remote WITH_NGROK=0 LAUNCH_INSPECTOR=0 && \
+		(uv run --group test python scripts/mcp-test.py http://localhost:8000/mcp \
+			--config scripts/tests/mcp-test.yaml && \
+		$(MAKE) stop-docker-remote) || \
+		($(MAKE) stop-docker-remote && exit 1)
+	@echo "✅ Remote Docker local endpoint test completed"
 
 stop-docker-remote:
 	@echo "Stopping Docker container..."
