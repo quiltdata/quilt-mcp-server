@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Docs Search Tool**: Added `search_docs_quilt_bio` for dedicated `docs.quilt.bio` lookup
+  - New sitemap-backed search flow for Quilt documentation pages
+  - Supports optional inclusion of archived versioned documentation paths
+  - Returns ranked docs URLs with matched terms and best-effort page snippets
+  - Enables MCP clients to retrieve configuration and API references from official docs
+
 ## [0.17.6] - 2026-02-12
 
 ### Fixed
