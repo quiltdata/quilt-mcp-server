@@ -201,10 +201,12 @@ class DataProcessor:
 
                 # Fill missing values with appropriate defaults
                 for col in data.columns:
-                    if data[col].dtype == "object":
+                    # Use is_string_dtype to handle both object and StringDtype (pandas 2.0+)
+                    if pd.api.types.is_string_dtype(data[col].dtype):
                         data[col] = data[col].fillna("Unknown")
-                    else:
+                    elif pd.api.types.is_numeric_dtype(data[col].dtype):
                         data[col] = data[col].fillna(data[col].median())
+                    # For other types (e.g., datetime), leave as-is or fill with appropriate method
 
                 # Remove rows that are still completely empty after filling
                 data = data.dropna(how="all")
