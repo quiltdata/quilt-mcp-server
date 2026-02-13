@@ -109,7 +109,7 @@ runs:
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       uses: softprops/action-gh-release@v2
       with:
-        name: "Quilt MCP MCPB v${{ inputs.package-version }}"
+        name: "quilt-mcp v${{ inputs.package-version }}"
         files: |
           dist/*.mcpb
           dist/*-release.zip
