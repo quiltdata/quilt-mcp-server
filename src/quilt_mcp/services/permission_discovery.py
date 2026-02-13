@@ -5,7 +5,7 @@ including bucket access level detection, user identity discovery, and
 intelligent permission caching.
 """
 
-from typing import Dict, List, Any, Optional, NamedTuple, Set
+from typing import Dict, List, Any, Optional, NamedTuple, Set, Callable
 from enum import Enum
 import logging
 from datetime import datetime, timezone
@@ -94,37 +94,52 @@ class AWSPermissionDiscovery:
                 except Exception:
                     session = None
 
-            if session is not None:
-                logger.info("Using provided boto3 session for permission discovery")
-                self.sts_client = session.client("sts")
-                self.iam_client = session.client("iam")
-                self.s3_client = session.client("s3")
-                # Optional clients used for fallback discovery paths
-                try:
-                    self.glue_client = session.client("glue")
-                except Exception:
-                    self.glue_client = None
-                try:
-                    self.athena_client = session.client("athena")
-                except Exception:
-                    self.athena_client = None
-            else:
-                logger.info("Using default boto3 clients for permission discovery")
-                self.sts_client = boto3.client("sts")
-                self.iam_client = boto3.client("iam")
-                self.s3_client = boto3.client("s3")
-                # Optional clients used for fallback discovery paths
-                try:
-                    self.glue_client = boto3.client("glue")
-                except Exception:
-                    self.glue_client = None
-                try:
-                    self.athena_client = boto3.client("athena")
-                except Exception:
-                    self.athena_client = None
+            self._initialize_aws_clients(session)
         except NoCredentialsError:
             logger.error("AWS credentials not found")
             raise
+
+    def _initialize_aws_clients(self, session: Optional[boto3.Session]) -> None:
+        """Initialize required and optional AWS clients from session or default boto3."""
+        if session is not None:
+            logger.info("Using provided boto3 session for permission discovery")
+            client_factory: Callable[[str], Any] = session.client
+        else:
+            logger.info("Using default boto3 clients for permission discovery")
+            client_factory = boto3.client
+
+        self.sts_client = client_factory("sts")
+        self.iam_client = client_factory("iam")
+        self.s3_client = client_factory("s3")
+        self.glue_client = self._create_optional_client(client_factory, "glue")
+        self.athena_client = self._create_optional_client(client_factory, "athena")
+
+    def _create_optional_client(self, factory: Callable[[str], Any], service_name: str) -> Any | None:
+        """Create optional AWS client and gracefully return None when unavailable."""
+        try:
+            return factory(service_name)
+        except Exception:
+            return None
+
+    def _build_no_access_bucket(self, bucket_name: str, error: Exception | str) -> BucketInfo:
+        """Create a no-access bucket record used across fallback/error paths."""
+        return BucketInfo(
+            name=bucket_name,
+            region="unknown",
+            permission_level=PermissionLevel.NO_ACCESS,
+            can_read=False,
+            can_write=False,
+            can_list=False,
+            last_checked=datetime.now(timezone.utc),
+            error_message=str(error),
+        )
+
+    def _append_bucket_permission_result(self, buckets: List[BucketInfo], bucket_name: str) -> None:
+        """Append discovered permission record, falling back to no-access on errors."""
+        try:
+            buckets.append(self.discover_bucket_permissions(bucket_name))
+        except Exception as error:
+            buckets.append(self._build_no_access_bucket(bucket_name, error))
 
     def discover_user_identity(self) -> UserIdentity:
         """Discover current AWS identity and basic info."""
@@ -194,23 +209,10 @@ class AWSPermissionDiscovery:
                 bucket_name = bucket_info["Name"]
                 discovered_bucket_names.add(bucket_name)
                 try:
-                    bucket_detail = self.discover_bucket_permissions(bucket_name)
-                    buckets.append(bucket_detail)
+                    self._append_bucket_permission_result(buckets, bucket_name)
                 except Exception as e:
+                    # Defensive guard - _append_bucket_permission_result should not raise.
                     logger.warning(f"Failed to check permissions for owned bucket {bucket_name}: {e}")
-                    # Add with unknown permissions
-                    buckets.append(
-                        BucketInfo(
-                            name=bucket_name,
-                            region="unknown",
-                            permission_level=PermissionLevel.NO_ACCESS,
-                            can_read=False,
-                            can_write=False,
-                            can_list=False,
-                            last_checked=datetime.now(timezone.utc),
-                            error_message=str(e),
-                        )
-                    )
 
             # TODO: If include_cross_account, attempt to discover cross-account buckets
             # This would require additional logic to infer bucket names from policies
@@ -233,21 +235,7 @@ class AWSPermissionDiscovery:
                     for bkt in graphql_buckets:
                         if bkt not in discovered_bucket_names:
                             discovered_bucket_names.add(bkt)
-                            try:
-                                buckets.append(self.discover_bucket_permissions(bkt))
-                            except Exception as e:
-                                buckets.append(
-                                    BucketInfo(
-                                        name=bkt,
-                                        region="unknown",
-                                        permission_level=PermissionLevel.NO_ACCESS,
-                                        can_read=False,
-                                        can_write=False,
-                                        can_list=False,
-                                        last_checked=datetime.now(timezone.utc),
-                                        error_message=str(e),
-                                    )
-                                )
+                            self._append_bucket_permission_result(buckets, bkt)
             except Exception as e:
                 logger.debug(f"GraphQL discovery skipped/failed: {e}")
 
@@ -258,21 +246,7 @@ class AWSPermissionDiscovery:
                     for bkt in glue_buckets:
                         if bkt not in discovered_bucket_names:
                             discovered_bucket_names.add(bkt)
-                            try:
-                                buckets.append(self.discover_bucket_permissions(bkt))
-                            except Exception as e:
-                                buckets.append(
-                                    BucketInfo(
-                                        name=bkt,
-                                        region="unknown",
-                                        permission_level=PermissionLevel.NO_ACCESS,
-                                        can_read=False,
-                                        can_write=False,
-                                        can_list=False,
-                                        last_checked=datetime.now(timezone.utc),
-                                        error_message=str(e),
-                                    )
-                                )
+                            self._append_bucket_permission_result(buckets, bkt)
                 except Exception as e:
                     logger.debug(f"Glue discovery skipped/failed: {e}")
 
@@ -281,21 +255,7 @@ class AWSPermissionDiscovery:
                 for bkt in athena_buckets:
                     if bkt not in discovered_bucket_names:
                         discovered_bucket_names.add(bkt)
-                        try:
-                            buckets.append(self.discover_bucket_permissions(bkt))
-                        except Exception as e:
-                            buckets.append(
-                                BucketInfo(
-                                    name=bkt,
-                                    region="unknown",
-                                    permission_level=PermissionLevel.NO_ACCESS,
-                                    can_read=False,
-                                    can_write=False,
-                                    can_list=False,
-                                    last_checked=datetime.now(timezone.utc),
-                                    error_message=str(e),
-                                )
-                            )
+                        self._append_bucket_permission_result(buckets, bkt)
             except Exception as e:
                 logger.debug(f"Athena discovery skipped/failed: {e}")
 
@@ -315,21 +275,7 @@ class AWSPermissionDiscovery:
             for bkt in candidates:
                 if bkt and bkt not in discovered_bucket_names:
                     discovered_bucket_names.add(bkt)
-                    try:
-                        buckets.append(self.discover_bucket_permissions(bkt))
-                    except Exception as e:
-                        buckets.append(
-                            BucketInfo(
-                                name=bkt,
-                                region="unknown",
-                                permission_level=PermissionLevel.NO_ACCESS,
-                                can_read=False,
-                                can_write=False,
-                                can_list=False,
-                                last_checked=datetime.now(timezone.utc),
-                                error_message=str(e),
-                            )
-                        )
+                    self._append_bucket_permission_result(buckets, bkt)
 
         self.bucket_list_cache[cache_key] = buckets
         return buckets
