@@ -212,3 +212,151 @@ class TestQuilt3BackendAdminErrorHandling:
         assert "Failed to list users" in str(exc_info.value)
         assert exc_info.value.context["operation"] == "list users"
         assert exc_info.value.context["error_type"] == "unknown"
+
+
+class TestQuilt3BackendAdminCoverageBoost:
+    """Targeted branch coverage tests for admin mixin."""
+
+    @pytest.fixture
+    def backend(self):
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+
+        with patch('quilt_mcp.backends.quilt3_backend_base.quilt3'):
+            return Quilt3_Backend()
+
+    @staticmethod
+    def _mock_user(name: str = "user1") -> Mock:
+        user = Mock()
+        user.name = name
+        user.email = f"{name}@example.com"
+        user.is_active = True
+        user.is_admin = False
+        user.is_sso_only = False
+        user.is_service = False
+        user.date_joined = None
+        user.last_login = None
+        user.role = None
+        user.extra_roles = []
+        return user
+
+    @patch('quilt3.admin.users')
+    def test_user_mutation_validation_branches(self, _mock_admin_users, backend):
+        with pytest.raises(ValidationError):
+            backend.admin.create_user("", "a@example.com", "reader")
+        with pytest.raises(ValidationError):
+            backend.admin.create_user("alice", "", "reader")
+        with pytest.raises(ValidationError):
+            backend.admin.create_user("alice", "a@example.com", "")
+        with pytest.raises(ValidationError):
+            backend.admin.delete_user("   ")
+        with pytest.raises(ValidationError):
+            backend.admin.set_user_email("", "a@example.com")
+        with pytest.raises(ValidationError):
+            backend.admin.set_user_email("alice", " ")
+        with pytest.raises(ValidationError):
+            backend.admin.set_user_admin("", True)
+        with pytest.raises(ValidationError):
+            backend.admin.set_user_active("", True)
+        with pytest.raises(ValidationError):
+            backend.admin.reset_user_password("")
+        with pytest.raises(ValidationError):
+            backend.admin.set_user_role("", "reader")
+        with pytest.raises(ValidationError):
+            backend.admin.set_user_role("alice", "")
+        with pytest.raises(ValidationError):
+            backend.admin.add_user_roles("alice", [])
+        with pytest.raises(ValidationError):
+            backend.admin.remove_user_roles("alice", [])
+
+    @patch('quilt3.admin.users')
+    def test_create_and_role_calls_use_expected_payloads(self, mock_admin_users, backend):
+        mock_admin_users.create.return_value = self._mock_user("alice")
+        mock_admin_users.set_role.return_value = self._mock_user("alice")
+        mock_admin_users.add_roles.return_value = self._mock_user("alice")
+        mock_admin_users.remove_roles.return_value = self._mock_user("alice")
+
+        backend.admin.create_user("alice", "alice@example.com", "reader")
+        backend.admin.set_user_role("alice", "writer", extra_roles=["admin"], append=True)
+        backend.admin.add_user_roles("alice", ["x", "y"])
+        backend.admin.remove_user_roles("alice", ["x"], fallback="reader")
+
+        mock_admin_users.create.assert_called_once_with(
+            name="alice",
+            email="alice@example.com",
+            role="reader",
+            extra_roles=[],
+        )
+        mock_admin_users.set_role.assert_called_once_with(
+            name="alice",
+            role="writer",
+            extra_roles=["admin"],
+            append=True,
+        )
+        mock_admin_users.add_roles.assert_called_once_with("alice", ["x", "y"])
+        mock_admin_users.remove_roles.assert_called_once_with("alice", ["x"], "reader")
+
+    @patch('quilt3.admin.roles')
+    def test_list_roles_import_error_maps_to_authentication(self, _mock_roles, backend):
+        with patch('builtins.__import__', side_effect=ImportError("missing")):
+            with pytest.raises(AuthenticationError):
+                backend.admin.list_roles()
+
+    @patch('quilt3.admin.sso_config')
+    def test_get_sso_config_none_and_set_remove_paths(self, mock_sso_config, backend):
+        mock_sso_config.get.return_value = None
+        assert backend.admin.get_sso_config() is None
+
+        mock_sso_config.set.return_value = None
+        assert backend.admin.set_sso_config(None) is None
+        mock_sso_config.set.assert_called_once_with(None)
+
+    @patch('quilt3.admin.sso_config')
+    def test_set_sso_config_validation_and_backend_none(self, mock_sso_config, backend):
+        with pytest.raises(ValidationError):
+            backend.admin.set_sso_config({})
+
+        mock_sso_config.set.return_value = None
+        with pytest.raises(BackendError):
+            backend.admin.set_sso_config({"enabled": True})
+
+    @patch('quilt3.admin.sso_config')
+    def test_set_sso_config_success_with_uploader_transform(self, mock_sso_config, backend):
+        uploader = self._mock_user("uploader")
+        sso = Mock()
+        sso.text = '{"enabled": true}'
+        sso.timestamp = None
+        sso.uploader = uploader
+        mock_sso_config.set.return_value = sso
+
+        result = backend.admin.set_sso_config({"enabled": True})
+        assert isinstance(result, SSOConfig)
+        assert result.uploader is not None
+        assert result.uploader.name == "uploader"
+
+    @patch('quilt3.admin.exceptions')
+    def test_handle_admin_error_maps_known_exception_types(self, mock_admin_exceptions, backend):
+        mock_admin_exceptions.UserNotFoundError = type("UserNotFoundError", (Exception,), {})
+        mock_admin_exceptions.BucketNotFoundError = type("BucketNotFoundError", (Exception,), {})
+        mock_admin_exceptions.Quilt3AdminError = type("Quilt3AdminError", (Exception,), {})
+
+        with pytest.raises(NotFoundError):
+            backend.admin._handle_admin_error(mock_admin_exceptions.BucketNotFoundError("b"), "op")
+        with pytest.raises(BackendError):
+            backend.admin._handle_admin_error(mock_admin_exceptions.Quilt3AdminError("x"), "op")
+        with pytest.raises(PermissionError):
+            backend.admin._handle_admin_error(PermissionError("nope"), "op")
+        with pytest.raises(ValidationError):
+            backend.admin._handle_admin_error(ValueError("bad"), "op")
+
+    def test_handle_admin_error_fallback_when_exception_module_unavailable(self, backend):
+        original_import = __import__
+
+        def import_side_effect(name, *args, **kwargs):
+            if name == "quilt3.admin.exceptions":
+                raise ImportError("missing")
+            return original_import(name, *args, **kwargs)
+
+        with patch('builtins.__import__', side_effect=import_side_effect):
+            with pytest.raises(BackendError) as exc:
+                backend.admin._handle_admin_error(Exception("boom"), "list users")
+        assert exc.value.context["error_type"] == "unknown"
