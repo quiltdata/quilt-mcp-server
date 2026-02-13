@@ -277,7 +277,10 @@ class DataProcessor:
                     "memory_usage": data.memory_usage(deep=True).sum(),
                     "missing_values": data.isnull().sum().to_dict(),
                     "numeric_columns": list(data.select_dtypes(include=["number"]).columns),
-                    "categorical_columns": list(data.select_dtypes(include=["object", "category"]).columns),
+                    # Include "string" for pandas 3.0+ StringDtype compatibility
+                    "categorical_columns": list(
+                        data.select_dtypes(include=["object", "category", "string"]).columns
+                    ),
                     "datetime_columns": list(data.select_dtypes(include=["datetime"]).columns),
                 }
 
