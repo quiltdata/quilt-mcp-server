@@ -346,7 +346,8 @@ class DataProcessor:
                 # Check for mixed data types
                 mixed_types = []
                 for col in data.columns:
-                    if data[col].dtype == "object":
+                    # Use is_string_dtype to handle both object and StringDtype (pandas 2.0+)
+                    if pd.api.types.is_string_dtype(data[col].dtype):
                         # Check if column contains mixed types
                         unique_types = set(type(val) for val in data[col].dropna())
                         if len(unique_types) > 1:
