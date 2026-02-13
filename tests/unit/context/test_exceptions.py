@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from quilt_mcp.context.exceptions import (
     ContextNotAvailableError,
+    OperationNotSupportedError,
     ServiceInitializationError,
+    TenantValidationError,
 )
 
 
@@ -27,3 +29,19 @@ def test_service_initialization_error_includes_service_and_reason():
     message = str(error).lower()
     assert "auth_service" in message
     assert "missing credentials" in message
+
+
+def test_tenant_validation_error_unknown_mode_uses_generic_message():
+    error = TenantValidationError("custom-mode")
+    message = str(error).lower()
+
+    assert "custom-mode mode" in message
+    assert "required or forbidden" in message
+
+
+def test_operation_not_supported_error_has_error_code_and_mode():
+    error = OperationNotSupportedError("feature unavailable", mode="single-user")
+
+    assert "feature unavailable" in str(error).lower()
+    assert "single-user" in str(error).lower()
+    assert error.error_code == "OPERATION_NOT_SUPPORTED"
