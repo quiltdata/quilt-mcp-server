@@ -278,9 +278,7 @@ class DataProcessor:
                     "missing_values": data.isnull().sum().to_dict(),
                     "numeric_columns": list(data.select_dtypes(include=["number"]).columns),
                     # Include "string" for pandas 3.0+ StringDtype compatibility
-                    "categorical_columns": list(
-                        data.select_dtypes(include=["object", "category", "string"]).columns
-                    ),
+                    "categorical_columns": list(data.select_dtypes(include=["object", "category", "string"]).columns),
                     "datetime_columns": list(data.select_dtypes(include=["datetime"]).columns),
                 }
 
