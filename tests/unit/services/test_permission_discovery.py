@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+from unittest.mock import Mock
 from botocore.exceptions import ClientError
 from cachetools import TTLCache
 
@@ -233,3 +234,158 @@ def test_small_helpers_and_cache_stats():
 
     stats = discovery.get_cache_stats()
     assert stats["cache_ttl"] == 3600
+
+
+def test_discover_buckets_via_glue_and_athena_paths():
+    discovery = _fresh_discovery()
+
+    class _GluePaginator:
+        def __init__(self, pages):
+            self._pages = pages
+
+        def paginate(self, **_kwargs):
+            return self._pages
+
+    class _GlueClient:
+        def get_paginator(self, name):
+            if name == "get_databases":
+                return _GluePaginator([{"DatabaseList": [{"Name": "db1"}, {"Name": "db2"}]}])
+            if name == "get_tables":
+                return _GluePaginator(
+                    [
+                        {
+                            "TableList": [
+                                {"StorageDescriptor": {"Location": "s3://bucket-a/path"}},
+                                {"StorageDescriptor": {"Location": "s3://bucket-b/path"}},
+                            ]
+                        }
+                    ]
+                )
+            raise RuntimeError(name)
+
+    discovery.glue_client = _GlueClient()
+    buckets = set(discovery._discover_buckets_via_glue())
+    assert {"bucket-a", "bucket-b"} <= buckets
+
+    class _AthenaPaginator:
+        def paginate(self):
+            return [{"WorkGroups": [{"Name": "wg1"}, {"Name": "wg2"}]}]
+
+    class _AthenaClient:
+        def get_paginator(self, name):
+            assert name == "list_work_groups"
+            return _AthenaPaginator()
+
+        def get_work_group(self, WorkGroup):
+            if WorkGroup == "wg1":
+                return {"WorkGroup": {"Configuration": {"ResultConfiguration": {"OutputLocation": "s3://bucket-c/out"}}}}
+            raise RuntimeError("skip wg2")
+
+    discovery.athena_client = _AthenaClient()
+    assert "bucket-c" in set(discovery._discover_buckets_via_athena())
+
+
+def test_discover_buckets_via_graphql_error_branches(monkeypatch):
+    discovery = _fresh_discovery()
+
+    # quilt3 logged out
+    monkeypatch.setattr("quilt_mcp.services.permission_discovery.quilt3.logged_in", lambda: None, raising=False)
+    assert discovery._discover_buckets_via_graphql() == set()
+
+    # logged in but no session object
+    monkeypatch.setattr("quilt_mcp.services.permission_discovery.quilt3.logged_in", lambda: "https://cat")
+    monkeypatch.setattr("quilt_mcp.services.permission_discovery.quilt3", object(), raising=False)
+    assert discovery._discover_buckets_via_graphql() == set()
+
+
+def test_bucket_operation_checks_and_cache_clear(monkeypatch):
+    discovery = _fresh_discovery()
+
+    class _S3Ops:
+        def list_objects_v2(self, **_kwargs):
+            return {}
+
+        def head_object(self, **_kwargs):
+            raise _client_error("NotFound", "HeadObject")
+
+        def get_bucket_policy(self, **_kwargs):
+            return {"Policy": '{"Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"s3:PutObject"}]}'}
+
+        def get_bucket_versioning(self, **_kwargs):
+            return {}
+
+        def get_bucket_notification_configuration(self, **_kwargs):
+            return {}
+
+    discovery.s3_client = _S3Ops()
+    discovery.discover_user_identity = lambda: UserIdentity("id", "arn:aws:iam::123:user/alice", "123", "user", "alice")
+    discovery.sts_client = Mock()
+
+    ops = discovery.test_bucket_operations("bucket-a", ["list", "read", "write", "unknown"])
+    assert ops["list"] is True
+    assert ops["read"] is True
+    assert ops["write"] is True
+    assert ops["unknown"] is False
+
+    discovery.permission_cache["x"] = "y"
+    discovery.identity_cache["x"] = "y"
+    discovery.bucket_list_cache["x"] = "y"
+    discovery.clear_cache()
+    assert len(discovery.permission_cache) == 0
+
+
+def test_policy_and_write_access_fallback_branches(monkeypatch):
+    discovery = _fresh_discovery()
+    discovery.discover_user_identity = lambda: UserIdentity("id", "arn:aws:iam::123:user/alice", "123", "user", "alice")
+
+    assert discovery._analyze_bucket_policy_for_write_access(
+        '{"Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":["s3:PutObjectAcl"]}]}',
+        "bucket-a",
+    )
+    assert not discovery._analyze_bucket_policy_for_write_access("not-json", "bucket-a")
+
+    class _STS:
+        def simulate_principal_policy(self, **_kwargs):
+            return {"EvaluationResults": [{"EvalDecision": "allowed"}]}
+
+    discovery.sts_client = _STS()
+    assert discovery._check_iam_write_permissions("bucket-a") is True
+
+    class _STSFail:
+        def simulate_principal_policy(self, **_kwargs):
+            raise RuntimeError("nope")
+
+    discovery.sts_client = _STSFail()
+    assert discovery._check_iam_write_permissions("bucket-a") is False
+
+    class _S3Fallback:
+        def list_buckets(self):
+            return {"Buckets": [{"Name": "bucket-a"}]}
+
+        def get_bucket_policy(self, **_kwargs):
+            raise _client_error("NoSuchBucketPolicy", "GetBucketPolicy")
+
+        def get_bucket_versioning(self, **_kwargs):
+            raise _client_error("AccessDenied", "GetBucketVersioning")
+
+        def get_bucket_notification_configuration(self, **_kwargs):
+            return {}
+
+        def list_objects_v2(self, **_kwargs):
+            return {}
+
+    discovery.s3_client = _S3Fallback()
+    assert discovery._determine_write_access_fallback("bucket-a") is True
+
+
+def test_discover_bucket_permissions_non_access_denied_error_path():
+    discovery = _fresh_discovery()
+
+    class _S3Weird:
+        def list_objects_v2(self, **_kwargs):
+            raise _client_error("Throttling", "ListObjectsV2")
+
+    discovery.s3_client = _S3Weird()
+    result = discovery.discover_bucket_permissions("bucket-z")
+    assert result.permission_level == PermissionLevel.NO_ACCESS
+    assert result.error_message is not None
