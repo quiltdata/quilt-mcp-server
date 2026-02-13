@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Returns ranked docs URLs with matched terms and best-effort page snippets
   - Enables MCP clients to retrieve configuration and API references from official docs
 
+### Improved
+
+- **Test Coverage**: Expanded test coverage from 74.7% to 86.0%
+  - Added 18 new test files covering backend, tools, visualization, ops, and functional testing
+  - Enhanced edge case validation and error path coverage in services (governance, permission discovery, workflows)
+  - Added comprehensive tests for platform admin, primitives, elasticsearch, error recovery, and IGV visualization
+  - Improved mock usage to use public QuiltOps metadata API instead of private methods
+
 ## [0.17.6] - 2026-02-12
 
 ### Fixed
