@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.6] - 2026-02-12
+
+### Fixed
+
+- **Pandas 3.0 Compatibility**: Updated string type detection for pandas 3.0 StringDtype
+  - Replaced `dtype == "object"` checks with `pd.api.types.is_string_dtype()` for better compatibility
+  - Added "string" to `select_dtypes()` calls to handle pandas 3.0 StringDtype
+  - Updated visualization modules (data_analyzer, data_processing) for robust string handling
+  - Fixed formatting utilities to properly detect string columns across pandas versions
+
+- **JWT Auth Service**: Removed redundant type cast in JWT decoding
+  - Simplified JWT claims extraction by removing unnecessary cast operation
+  - PyJWT already returns Dict[str, Any] from decode operation
+
 ## [0.17.5] - 2026-02-12
 
 ### Fixed
