@@ -139,8 +139,8 @@ class DataAnalyzer:
         for col in df.columns:
             col_type = df[col].dtype
 
-            # Check for categorical data
-            if col_type == "object" or col_type == "category":
+            # Check for categorical/string data (handles both object and StringDtype in pandas 2.0+)
+            if pd.api.types.is_string_dtype(col_type) or isinstance(col_type, pd.CategoricalDtype):
                 unique_count = df[col].nunique()
                 analysis["unique_counts"][col] = unique_count
 

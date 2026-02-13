@@ -255,8 +255,8 @@ def test_get_content_url_presigned_s3(monkeypatch):
         "data": {"package": {"revision": {"hash": "abc123", "file": {"path": "file.txt"}}}}
     }
 
-    backend._browse_client.get_presigned_url = (
-        lambda **kwargs: "https://test-bucket.s3.amazonaws.com/path/to/file.txt?signature=abc"
+    backend._browse_client.get_presigned_url = lambda **kwargs: (
+        "https://test-bucket.s3.amazonaws.com/path/to/file.txt?signature=abc"
     )
 
     url = backend.get_content_url("user/pkg", "s3://test-bucket", "file.txt")

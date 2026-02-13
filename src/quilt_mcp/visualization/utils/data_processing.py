@@ -201,10 +201,12 @@ class DataProcessor:
 
                 # Fill missing values with appropriate defaults
                 for col in data.columns:
-                    if data[col].dtype == "object":
+                    # Use is_string_dtype to handle both object and StringDtype (pandas 2.0+)
+                    if pd.api.types.is_string_dtype(data[col].dtype):
                         data[col] = data[col].fillna("Unknown")
-                    else:
+                    elif pd.api.types.is_numeric_dtype(data[col].dtype):
                         data[col] = data[col].fillna(data[col].median())
+                    # For other types (e.g., datetime), leave as-is or fill with appropriate method
 
                 # Remove rows that are still completely empty after filling
                 data = data.dropna(how="all")
@@ -275,7 +277,8 @@ class DataProcessor:
                     "memory_usage": data.memory_usage(deep=True).sum(),
                     "missing_values": data.isnull().sum().to_dict(),
                     "numeric_columns": list(data.select_dtypes(include=["number"]).columns),
-                    "categorical_columns": list(data.select_dtypes(include=["object", "category"]).columns),
+                    # Include "string" for pandas 3.0+ StringDtype compatibility
+                    "categorical_columns": list(data.select_dtypes(include=["object", "category", "string"]).columns),
                     "datetime_columns": list(data.select_dtypes(include=["datetime"]).columns),
                 }
 
@@ -344,7 +347,8 @@ class DataProcessor:
                 # Check for mixed data types
                 mixed_types = []
                 for col in data.columns:
-                    if data[col].dtype == "object":
+                    # Use is_string_dtype to handle both object and StringDtype (pandas 2.0+)
+                    if pd.api.types.is_string_dtype(data[col].dtype):
                         # Check if column contains mixed types
                         unique_types = set(type(val) for val in data[col].dropna())
                         if len(unique_types) > 1:

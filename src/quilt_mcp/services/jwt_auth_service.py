@@ -223,7 +223,7 @@ class JWTAuthService:
                 try:
                     import jwt as pyjwt
 
-                    claims = cast(Dict[str, Any], pyjwt.decode(token, options={"verify_signature": False}))
+                    claims = pyjwt.decode(token, options={"verify_signature": False})
                 except Exception:
                     claims = {}
 

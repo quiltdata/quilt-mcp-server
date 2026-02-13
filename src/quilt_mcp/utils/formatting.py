@@ -61,7 +61,8 @@ def format_as_table(
             # Create a copy of the dataframe and sanitize string values
             df_safe = df_display.copy()
             for col in df_safe.columns:
-                if df_safe[col].dtype == "object":  # String columns
+                # Use is_string_dtype to handle both object and StringDtype (pandas 2.0+)
+                if pd.api.types.is_string_dtype(df_safe[col].dtype):
                     df_safe[col] = df_safe[col].astype(str).str.replace("%", "%%", regex=False)
 
             table_str = df_safe.to_string(index=False, max_cols=None, max_colwidth=30, justify="left")
