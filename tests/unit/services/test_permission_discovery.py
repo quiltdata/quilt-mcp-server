@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from botocore.exceptions import ClientError
@@ -178,7 +178,7 @@ def test_discover_accessible_buckets_with_owned_and_error_bucket(monkeypatch):
     def _discover(name: str):
         if name == "bad-bucket":
             raise RuntimeError("boom")
-        return BucketInfo(name, "us-east-1", PermissionLevel.READ_ONLY, True, False, True, datetime.utcnow(), None)
+        return BucketInfo(name, "us-east-1", PermissionLevel.READ_ONLY, True, False, True, datetime.now(timezone.utc), None)
 
     monkeypatch.setattr(discovery, "discover_bucket_permissions", _discover)
     result = discovery.discover_accessible_buckets()
@@ -202,7 +202,7 @@ def test_discover_accessible_buckets_fallback_env_candidates(monkeypatch):
     monkeypatch.setattr(
         discovery,
         "discover_bucket_permissions",
-        lambda n: BucketInfo(n, "us-east-1", PermissionLevel.LIST_ONLY, False, False, True, datetime.utcnow(), None),
+        lambda n: BucketInfo(n, "us-east-1", PermissionLevel.LIST_ONLY, False, False, True, datetime.now(timezone.utc), None),
     )
 
     result = discovery.discover_accessible_buckets()

@@ -141,6 +141,64 @@ class AWSPermissionDiscovery:
         except Exception as error:
             buckets.append(self._build_no_access_bucket(bucket_name, error))
 
+    def _add_bucket_if_new(self, buckets: List[BucketInfo], discovered_bucket_names: Set[str], bucket_name: str) -> None:
+        """Track and append bucket permission details only once per bucket name."""
+        if bucket_name and bucket_name not in discovered_bucket_names:
+            discovered_bucket_names.add(bucket_name)
+            self._append_bucket_permission_result(buckets, bucket_name)
+
+    def _discover_from_owned_buckets(self, buckets: List[BucketInfo], discovered_bucket_names: Set[str]) -> bool:
+        """Discover buckets from ListBuckets. Returns True when access is denied."""
+        try:
+            response = self.s3_client.list_buckets()
+            owned_buckets = response.get("Buckets", [])
+            logger.info(f"Found {len(owned_buckets)} owned buckets")
+            for bucket_info in owned_buckets:
+                self._add_bucket_if_new(buckets, discovered_bucket_names, bucket_info["Name"])
+            return False
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "AccessDenied":
+                logger.warning("No permission to list buckets, will work with explicitly provided bucket names")
+                return True
+            logger.error(f"Error listing buckets: {e}")
+            return False
+
+    def _discover_from_fallback_sources(self, buckets: List[BucketInfo], discovered_bucket_names: Set[str]) -> None:
+        """Discover bucket candidates from GraphQL, Glue, and Athena when list-buckets is unavailable."""
+        try:
+            graphql_buckets = self._discover_buckets_via_graphql()
+            if graphql_buckets:
+                logger.info(f"GraphQL discovered {len(graphql_buckets)} buckets")
+                for bkt in graphql_buckets:
+                    self._add_bucket_if_new(buckets, discovered_bucket_names, bkt)
+        except Exception as e:
+            logger.debug(f"GraphQL discovery skipped/failed: {e}")
+
+        if len(discovered_bucket_names) < 5:
+            try:
+                glue_buckets = self._discover_buckets_via_glue()
+                for bkt in glue_buckets:
+                    self._add_bucket_if_new(buckets, discovered_bucket_names, bkt)
+            except Exception as e:
+                logger.debug(f"Glue discovery skipped/failed: {e}")
+
+        try:
+            athena_buckets = self._discover_buckets_via_athena()
+            for bkt in athena_buckets:
+                self._add_bucket_if_new(buckets, discovered_bucket_names, bkt)
+        except Exception as e:
+            logger.debug(f"Athena discovery skipped/failed: {e}")
+
+    def _discover_from_env_candidates(self, buckets: List[BucketInfo], discovered_bucket_names: Set[str]) -> None:
+        """Discover buckets from QUILT_KNOWN_BUCKETS env var hints."""
+        known_env = os.getenv("QUILT_KNOWN_BUCKETS", "")
+        for raw in known_env.split(","):
+            raw = raw.strip()
+            if not raw:
+                continue
+            bucket_name = self._extract_bucket_from_s3_uri(raw) if raw.startswith("s3://") else raw
+            self._add_bucket_if_new(buckets, discovered_bucket_names, bucket_name)
+
     def discover_user_identity(self) -> UserIdentity:
         """Discover current AWS identity and basic info."""
         cache_key = "user_identity"
@@ -196,86 +254,17 @@ class AWSPermissionDiscovery:
         buckets: List[BucketInfo] = []
         discovered_bucket_names: Set[str] = set()
 
-        list_buckets_denied = False
-        try:
-            # First, try to list buckets the user owns
-            response = self.s3_client.list_buckets()
-            owned_buckets = response.get("Buckets", [])
+        list_buckets_denied = self._discover_from_owned_buckets(buckets, discovered_bucket_names)
 
-            logger.info(f"Found {len(owned_buckets)} owned buckets")
-
-            # Check permissions for owned buckets
-            for bucket_info in owned_buckets:
-                bucket_name = bucket_info["Name"]
-                discovered_bucket_names.add(bucket_name)
-                try:
-                    self._append_bucket_permission_result(buckets, bucket_name)
-                except Exception as e:
-                    # Defensive guard - _append_bucket_permission_result should not raise.
-                    logger.warning(f"Failed to check permissions for owned bucket {bucket_name}: {e}")
-
-            # TODO: If include_cross_account, attempt to discover cross-account buckets
-            # This would require additional logic to infer bucket names from policies
-
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "AccessDenied":
-                logger.warning("No permission to list buckets, will work with explicitly provided bucket names")
-                list_buckets_denied = True
-            else:
-                logger.error(f"Error listing buckets: {e}")
+        # TODO: If include_cross_account, attempt to discover cross-account buckets
+        # This would require additional logic to infer bucket names from policies
 
         # Fallback discovery paths only when ListBuckets is explicitly denied, or when enabled via env flag
         fallback_enabled = bool(os.getenv("QUILT_ENABLE_FALLBACK_DISCOVERY"))
         if (list_buckets_denied or fallback_enabled) and not discovered_bucket_names:
-            # Try GraphQL discovery first (most reliable for Quilt catalogs)
-            try:
-                graphql_buckets = self._discover_buckets_via_graphql()
-                if graphql_buckets:
-                    logger.info(f"GraphQL discovered {len(graphql_buckets)} buckets")
-                    for bkt in graphql_buckets:
-                        if bkt not in discovered_bucket_names:
-                            discovered_bucket_names.add(bkt)
-                            self._append_bucket_permission_result(buckets, bkt)
-            except Exception as e:
-                logger.debug(f"GraphQL discovery skipped/failed: {e}")
-
-            # Try Glue-based discovery if GraphQL didn't find enough
-            if len(discovered_bucket_names) < 5:
-                try:
-                    glue_buckets = self._discover_buckets_via_glue()
-                    for bkt in glue_buckets:
-                        if bkt not in discovered_bucket_names:
-                            discovered_bucket_names.add(bkt)
-                            self._append_bucket_permission_result(buckets, bkt)
-                except Exception as e:
-                    logger.debug(f"Glue discovery skipped/failed: {e}")
-
-            try:
-                athena_buckets = self._discover_buckets_via_athena()
-                for bkt in athena_buckets:
-                    if bkt not in discovered_bucket_names:
-                        discovered_bucket_names.add(bkt)
-                        self._append_bucket_permission_result(buckets, bkt)
-            except Exception as e:
-                logger.debug(f"Athena discovery skipped/failed: {e}")
-
-            # Environment-provided hints (e.g., known buckets list from env var)
-            candidates: List[str] = []
+            self._discover_from_fallback_sources(buckets, discovered_bucket_names)
             # Note: DEFAULT_BUCKET was removed in v0.10.0 - no longer checked
-            known_env = os.getenv("QUILT_KNOWN_BUCKETS", "")
-            if known_env:
-                for raw in known_env.split(","):
-                    raw = raw.strip()
-                    if not raw:
-                        continue
-                    if raw.startswith("s3://"):
-                        candidates.append(self._extract_bucket_from_s3_uri(raw))
-                    else:
-                        candidates.append(raw)
-            for bkt in candidates:
-                if bkt and bkt not in discovered_bucket_names:
-                    discovered_bucket_names.add(bkt)
-                    self._append_bucket_permission_result(buckets, bkt)
+            self._discover_from_env_candidates(buckets, discovered_bucket_names)
 
         self.bucket_list_cache[cache_key] = buckets
         return buckets

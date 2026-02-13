@@ -194,17 +194,6 @@ async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetRes
                 possible_fixes=["Report this issue - static resource handler missing"],
             )
 
-        # Import and invoke the service function (module_path and function_name are guaranteed non-None here)
-        module = import_module(module_path)
-        service_func = getattr(module, function_name)
-
-        # Handle async vs sync
-        if is_async:
-            result = await service_func()
-        else:
-            # Run sync functions in thread pool to avoid blocking
-            result = await asyncio.to_thread(service_func)
-
         # Handle special cases with parameters
         if uri == "athena://query/history":
             # This function needs default parameters
@@ -218,6 +207,17 @@ async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetRes
                 end_time=None,
                 service=None,
             )
+        else:
+            # Import and invoke the service function (module_path and function_name are guaranteed non-None here)
+            module = import_module(module_path)
+            service_func = getattr(module, function_name)
+
+            # Handle async vs sync
+            if is_async:
+                result = await service_func()
+            else:
+                # Run sync functions in thread pool to avoid blocking
+                result = await asyncio.to_thread(service_func)
 
         # Serialize result
         if hasattr(result, 'model_dump'):
