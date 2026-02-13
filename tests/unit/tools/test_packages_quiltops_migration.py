@@ -156,9 +156,7 @@ class TestPackageBrowseQuiltOpsMigration:
     def test_package_browse_transforms_content_info_to_entries(self, mock_quilt_ops, sample_content_info_list):
         """Test that Content_Info objects are transformed to entry format."""
         mock_quilt_ops.browse_content.return_value = sample_content_info_list
-        # Mock metadata retrieval methods to return proper types
-        mock_quilt_ops._backend_get_package.return_value = Mock()
-        mock_quilt_ops._backend_get_package_metadata.return_value = {"description": "Test package"}
+        mock_quilt_ops.get_package_metadata.return_value = {"description": "Test package"}
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
@@ -196,9 +194,7 @@ class TestPackageBrowseQuiltOpsMigration:
     def test_package_browse_maintains_response_format(self, mock_quilt_ops, sample_content_info_list):
         """Test that package_browse maintains the same response format after migration."""
         mock_quilt_ops.browse_content.return_value = sample_content_info_list
-        # Mock metadata retrieval methods to return proper types
-        mock_quilt_ops._backend_get_package.return_value = Mock()
-        mock_quilt_ops._backend_get_package_metadata.return_value = None
+        mock_quilt_ops.get_package_metadata.return_value = None
 
         with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops

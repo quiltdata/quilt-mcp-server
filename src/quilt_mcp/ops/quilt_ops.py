@@ -851,6 +851,33 @@ class QuiltOps(ABC):
                 context={"package_name": package_name, "registry": registry, "path": path},
             ) from e
 
+    def get_package_metadata(self, package_name: str, registry: str) -> Dict[str, Any]:
+        """Get package metadata via public QuiltOps API (concrete method).
+
+        Workflow:
+            1. Validate inputs
+            2. Load package (backend primitive)
+            3. Extract metadata (backend primitive)
+            4. Return metadata dictionary
+        """
+        from .exceptions import ValidationError, BackendError
+
+        try:
+            self._validate_package_name(package_name)
+            self._validate_registry(registry)
+
+            package = self._backend_get_package(package_name, registry)
+            metadata = self._backend_get_package_metadata(package)
+            return metadata if isinstance(metadata, dict) else {}
+
+        except ValidationError:
+            raise
+        except Exception as e:
+            raise BackendError(
+                f"Get package metadata failed: {str(e)}",
+                context={"package_name": package_name, "registry": registry},
+            ) from e
+
     def list_buckets(self) -> List[Bucket_Info]:
         """List accessible S3 buckets for Quilt operations (concrete method).
 

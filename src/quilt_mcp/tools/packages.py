@@ -794,18 +794,15 @@ def package_browse(
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils.common import suppress_stdout
         from ..ops.factory import QuiltOpsFactory
-        from dataclasses import asdict
 
         quilt_ops = QuiltOpsFactory.create()
         with suppress_stdout():
             # Use QuiltOps.browse_content() to get Content_Info objects directly
             content_infos = quilt_ops.browse_content(package_name, registry=normalized_registry, path="")
 
-            # Also get package metadata using backend primitive
-            # We need to get the package object first, then extract metadata
+            # Also get package metadata through public QuiltOps API
             try:
-                package_obj = quilt_ops._backend_get_package(package_name, registry=normalized_registry)
-                pkg_metadata = quilt_ops._backend_get_package_metadata(package_obj)
+                pkg_metadata = quilt_ops.get_package_metadata(package_name, registry=normalized_registry)
             except Exception as meta_error:
                 logger.warning(f"Could not retrieve package metadata: {meta_error}")
                 pkg_metadata = None
