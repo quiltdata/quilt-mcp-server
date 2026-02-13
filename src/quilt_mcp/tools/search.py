@@ -4,8 +4,11 @@ This module exposes the unified search functionality as MCP tools.
 """
 
 import asyncio
+import re
 from typing import Annotated, Any, Dict, List, Literal, Optional
+from urllib.parse import urlparse
 
+import requests
 from pydantic import Field
 
 from .responses import (
@@ -20,6 +23,92 @@ from .responses import (
 from ..search.tools.search_explain import search_explain as _search_explain
 from ..search.tools.search_suggest import search_suggest as _search_suggest
 from ..search.tools.unified_search import UnifiedSearchEngine
+
+_DOCS_SITEMAP_URL = "https://docs.quilt.bio/sitemap.xml"
+_DOCS_VERSION_PREFIX = "/version-"
+
+
+def _extract_query_terms(query: str) -> list[str]:
+    """Normalize query into lowercase alphanumeric terms."""
+    return [term for term in re.findall(r"[a-z0-9]+", query.lower()) if len(term) > 1]
+
+
+def _extract_url_terms(url: str) -> set[str]:
+    """Extract lowercase terms from URL host and path."""
+    parsed = urlparse(url)
+    raw = f"{parsed.netloc} {parsed.path}".replace("-", " ").replace("_", " ").replace(".", " ")
+    return set(re.findall(r"[a-z0-9]+", raw.lower()))
+
+
+def _score_docs_url(url: str, query_terms: list[str]) -> tuple[int, list[str]]:
+    """Score URL relevance by term overlap and path specificity."""
+    if not query_terms:
+        return 0, []
+
+    parsed = urlparse(url)
+    path_lower = parsed.path.lower()
+    url_terms = _extract_url_terms(url)
+    matched: list[str] = []
+    score = 0
+
+    for term in query_terms:
+        if term in url_terms:
+            matched.append(term)
+            score += 3
+        if f"/{term}" in path_lower:
+            score += 2
+        if term in path_lower:
+            score += 1
+
+    return score, matched
+
+
+def _parse_docs_sitemap_xml(xml_text: str) -> tuple[bool, list[dict[str, str]]]:
+    """Parse sitemap XML into either sitemap links or URL entries."""
+    if "<sitemapindex" in xml_text:
+        return True, [
+            {"loc": match.group(1).strip()} for match in re.finditer(r"<loc>(.*?)</loc>", xml_text, re.DOTALL)
+        ]
+
+    urls: list[dict[str, str]] = []
+    for url_block in re.finditer(r"<url>(.*?)</url>", xml_text, re.DOTALL):
+        block = url_block.group(1)
+        loc_match = re.search(r"<loc>(.*?)</loc>", block, re.DOTALL)
+        if not loc_match:
+            continue
+        lastmod_match = re.search(r"<lastmod>(.*?)</lastmod>", block, re.DOTALL)
+        urls.append(
+            {
+                "loc": loc_match.group(1).strip(),
+                "lastmod": lastmod_match.group(1).strip() if lastmod_match else "",
+            }
+        )
+    return False, urls
+
+
+def _extract_page_title_and_snippet(url: str, timeout_seconds: float = 8.0) -> tuple[str, str]:
+    """Fetch page title/snippet from HTML (best effort)."""
+    response = requests.get(url, timeout=timeout_seconds)
+    response.raise_for_status()
+
+    html = response.text
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
+    title = re.sub(r"\s+", " ", title_match.group(1)).strip() if title_match else ""
+
+    meta_match = re.search(
+        r'<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']',
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    snippet = re.sub(r"\s+", " ", meta_match.group(1)).strip() if meta_match else ""
+
+    if not snippet:
+        p_match = re.search(r"<p[^>]*>(.*?)</p>", html, flags=re.IGNORECASE | re.DOTALL)
+        if p_match:
+            paragraph = re.sub(r"<[^>]+>", " ", p_match.group(1))
+            snippet = re.sub(r"\s+", " ", paragraph).strip()
+
+    return title, snippet[:220]
 
 
 def search_catalog(
@@ -355,6 +444,138 @@ def search_explain(
             error=f"Search explanation failed: {e}",
             query=query,
         )
+
+
+def search_docs_quilt_bio(
+    query: Annotated[
+        str,
+        Field(
+            description="Natural language query for Quilt docs pages (for example: jwt auth, tabulator, package delete)",
+        ),
+    ],
+    limit: Annotated[
+        int,
+        Field(
+            default=8,
+            ge=1,
+            le=25,
+            description="Maximum number of docs results to return (1-25, default 8)",
+        ),
+    ] = 8,
+    include_versioned_docs: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Include archived versioned docs paths such as /version-5.0.x/ when True",
+        ),
+    ] = False,
+) -> Dict[str, Any]:
+    """Search Quilt docs pages from docs.quilt.bio using sitemap-backed ranking - Configuration and API documentation lookup
+
+    Args:
+        query: Natural language query for Quilt docs pages (for example: jwt auth, tabulator, package delete)
+        limit: Maximum number of docs results to return (1-25, default 8)
+        include_versioned_docs: Include archived versioned docs paths such as /version-5.0.x/ when True
+
+    Returns:
+        Dict containing ranked docs links, match metadata, and best-effort snippets.
+
+    Next step:
+        Open the top result URL and continue with tool calls for the selected workflow.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import search
+
+        result = search.search_docs_quilt_bio(
+            query="jwt authentication platform backend",
+            limit=5,
+        )
+        # Next step: Open the top result URL and continue with tool calls for the selected workflow.
+        ```
+    """
+    try:
+        query_terms = _extract_query_terms(query)
+        if not query_terms:
+            return {
+                "success": False,
+                "error": "Query must contain at least one alphanumeric term.",
+                "query": query,
+            }
+
+        top_level_response = requests.get(_DOCS_SITEMAP_URL, timeout=12.0)
+        top_level_response.raise_for_status()
+        is_index, entries = _parse_docs_sitemap_xml(top_level_response.text)
+
+        page_entries: list[dict[str, str]] = []
+        if is_index:
+            for sitemap in entries:
+                sitemap_url = sitemap["loc"]
+                if not include_versioned_docs and _DOCS_VERSION_PREFIX in sitemap_url:
+                    continue
+                try:
+                    nested_response = requests.get(sitemap_url, timeout=12.0)
+                    nested_response.raise_for_status()
+                    _, nested_urls = _parse_docs_sitemap_xml(nested_response.text)
+                    page_entries.extend(nested_urls)
+                except requests.RequestException:
+                    continue
+        else:
+            page_entries = entries
+
+        scored_results: list[dict[str, Any]] = []
+        for item in page_entries:
+            url = item.get("loc", "")
+            if not url:
+                continue
+
+            parsed = urlparse(url)
+            if parsed.netloc != "docs.quilt.bio":
+                continue
+
+            if not include_versioned_docs and parsed.path.startswith(_DOCS_VERSION_PREFIX):
+                continue
+
+            score, matched_terms = _score_docs_url(url, query_terms)
+            if score <= 0:
+                continue
+
+            scored_results.append(
+                {
+                    "url": url,
+                    "last_modified": item.get("lastmod", ""),
+                    "score": score,
+                    "matched_terms": sorted(set(matched_terms)),
+                }
+            )
+
+        scored_results.sort(key=lambda item: (-item["score"], item["url"]))
+        trimmed_results = scored_results[:limit]
+
+        for item in trimmed_results[: min(len(trimmed_results), 5)]:
+            try:
+                title, snippet = _extract_page_title_and_snippet(item["url"])
+                if title:
+                    item["title"] = title
+                if snippet:
+                    item["snippet"] = snippet
+            except requests.RequestException:
+                continue
+
+        return {
+            "success": True,
+            "query": query,
+            "source": _DOCS_SITEMAP_URL,
+            "include_versioned_docs": include_versioned_docs,
+            "total_matches": len(scored_results),
+            "results": trimmed_results,
+        }
+    except requests.RequestException as e:
+        return {
+            "success": False,
+            "query": query,
+            "error": f"Failed to fetch docs sitemap: {e}",
+        }
 
 
 # GraphQL search functions (previously in separate graphql module)
