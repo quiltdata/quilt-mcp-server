@@ -49,7 +49,10 @@ def test_suggest_alternatives_for_global_without_filters():
     alternatives = explainer._suggest_alternatives(analysis)
 
     assert len(alternatives) >= 1
-    assert any("faster" in alt["expected_benefit"].lower() or "relevant" in alt["expected_benefit"].lower() for alt in alternatives)
+    assert any(
+        "faster" in alt["expected_benefit"].lower() or "relevant" in alt["expected_benefit"].lower()
+        for alt in alternatives
+    )
 
 
 def test_helper_methods_cover_reasoning_and_fallbacks():

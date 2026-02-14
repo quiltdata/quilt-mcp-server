@@ -233,7 +233,15 @@ def test_search_graphql_and_search_objects_graphql_paths():
             "data": {
                 "objects": {
                     "edges": [
-                        {"node": {"key": "a.csv", "size": 1, "updated": "t", "contentType": "text/csv", "extension": "csv"}},
+                        {
+                            "node": {
+                                "key": "a.csv",
+                                "size": 1,
+                                "updated": "t",
+                                "contentType": "text/csv",
+                                "extension": "csv",
+                            }
+                        },
                         "not-a-dict",
                     ],
                     "pageInfo": {"endCursor": "cur", "hasNextPage": True},

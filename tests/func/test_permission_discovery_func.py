@@ -68,7 +68,9 @@ def test_func_discover_accessible_with_fallback_sources(monkeypatch):
     monkeypatch.setattr(
         d,
         "discover_bucket_permissions",
-        lambda n: BucketInfo(n, "us-east-1", PermissionLevel.LIST_ONLY, False, False, True, datetime.now(timezone.utc), None),
+        lambda n: BucketInfo(
+            n, "us-east-1", PermissionLevel.LIST_ONLY, False, False, True, datetime.now(timezone.utc), None
+        ),
     )
 
     result = d.discover_accessible_buckets()
@@ -104,7 +106,9 @@ def test_func_glue_athena_graphql_helpers(monkeypatch):
             return AthenaPaginator()
 
         def get_work_group(self, **_kwargs):
-            return {"WorkGroup": {"Configuration": {"ResultConfiguration": {"OutputLocation": "s3://athena-bucket/out"}}}}
+            return {
+                "WorkGroup": {"Configuration": {"ResultConfiguration": {"OutputLocation": "s3://athena-bucket/out"}}}
+            }
 
     d.athena_client = Athena()
     assert "athena-bucket" in d._discover_buckets_via_athena()

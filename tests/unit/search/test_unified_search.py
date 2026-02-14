@@ -137,7 +137,9 @@ def test_process_backend_results_and_post_filters():
 
 def test_generate_explanation_for_error_backend():
     engine = UnifiedSearchEngine.__new__(UnifiedSearchEngine)
-    analysis = SimpleNamespace(query_type=SimpleNamespace(value="file_search"), confidence=0.7, keywords=["csv"], filters={})
+    analysis = SimpleNamespace(
+        query_type=SimpleNamespace(value="file_search"), confidence=0.7, keywords=["csv"], filters={}
+    )
     backend_response = BackendResponse(
         backend_type=BackendType.ELASTICSEARCH,
         status=BackendStatus.ERROR,

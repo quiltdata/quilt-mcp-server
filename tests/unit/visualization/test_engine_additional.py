@@ -23,7 +23,7 @@ def _analysis(package_path: Path) -> PackageAnalysis:
 
 def test_analyze_package_contents_missing_path_raises():
     engine = VisualizationEngine()
-    missing = "/tmp/this-path-should-not-exist-for-quilt-tests"
+    missing = "/tmp/this-path-should-not-exist-for-quilt-tests"  # noqa: S108
     try:
         engine.analyze_package_contents(missing)
     except ValueError as exc:
@@ -196,7 +196,9 @@ def test_generate_genomic_visualizations_and_error(monkeypatch, tmp_path):
     assert any(x.type == "coverage_plot" for x in v)
     assert (viz_dir / "genomics" / "igv_session.json").exists()
 
-    monkeypatch.setattr(engine.igv_generator, "create_igv_session", lambda *_: (_ for _ in ()).throw(RuntimeError("x")))
+    monkeypatch.setattr(
+        engine.igv_generator, "create_igv_session", lambda *_: (_ for _ in ()).throw(RuntimeError("x"))
+    )
     assert engine._generate_genomic_visualizations(["reads.bam"], viz_dir, {}) == []
 
 

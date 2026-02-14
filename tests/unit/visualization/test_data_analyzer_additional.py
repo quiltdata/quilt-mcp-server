@@ -39,7 +39,7 @@ def test_analyze_package_metadata_error_path():
         name = "broken"
 
         def __str__(self):
-            return "/tmp/broken"
+            return "/tmp/broken"  # noqa: S108
 
         def rglob(self, _pattern):
             raise RuntimeError("no access")
@@ -89,7 +89,7 @@ def test_analyze_dataframe_correlation_exception(monkeypatch):
 
 def test_analyze_csv_file_error():
     analyzer = DataAnalyzer()
-    result = analyzer.analyze_csv_file("/tmp/does-not-exist.csv")
+    result = analyzer.analyze_csv_file("/tmp/does-not-exist.csv")  # noqa: S108
     assert result is not None
     assert "error" in result
 

@@ -141,7 +141,9 @@ class AWSPermissionDiscovery:
         except Exception as error:
             buckets.append(self._build_no_access_bucket(bucket_name, error))
 
-    def _add_bucket_if_new(self, buckets: List[BucketInfo], discovered_bucket_names: Set[str], bucket_name: str) -> None:
+    def _add_bucket_if_new(
+        self, buckets: List[BucketInfo], discovered_bucket_names: Set[str], bucket_name: str
+    ) -> None:
         """Track and append bucket permission details only once per bucket name."""
         if bucket_name and bucket_name not in discovered_bucket_names:
             discovered_bucket_names.add(bucket_name)
@@ -465,17 +467,18 @@ class AWSPermissionDiscovery:
         Returns a list of bucket names referenced by Glue table storage locations.
         """
         buckets: Set[str] = set()
-        if not getattr(self, "glue_client", None):
+        glue_client = getattr(self, "glue_client", None)
+        if not glue_client:
             return []
         try:
-            paginator = self.glue_client.get_paginator("get_databases")
+            paginator = glue_client.get_paginator("get_databases")
             for page in paginator.paginate():
                 for db in page.get("DatabaseList", []) or []:
                     db_name = db.get("Name")
                     if not db_name:
                         continue
                     try:
-                        tp = self.glue_client.get_paginator("get_tables")
+                        tp = glue_client.get_paginator("get_tables")
                         for tpage in tp.paginate(DatabaseName=db_name):
                             for tbl in tpage.get("TableList", []) or []:
                                 sd = (tbl or {}).get("StorageDescriptor", {}) or {}
@@ -495,17 +498,18 @@ class AWSPermissionDiscovery:
         Returns a list of bucket names used by Athena workgroup output locations.
         """
         buckets: Set[str] = set()
-        if not getattr(self, "athena_client", None):
+        athena_client = getattr(self, "athena_client", None)
+        if not athena_client:
             return []
         try:
-            wg_p = self.athena_client.get_paginator("list_work_groups")
+            wg_p = athena_client.get_paginator("list_work_groups")
             for page in wg_p.paginate():
                 for summary in page.get("WorkGroups", []) or []:
                     name = (summary or {}).get("Name")
                     if not name:
                         continue
                     try:
-                        desc = self.athena_client.get_work_group(WorkGroup=name)
+                        desc = athena_client.get_work_group(WorkGroup=name)
                         cfg = ((desc or {}).get("WorkGroup", {}) or {}).get("Configuration", {}) or {}
                         out = (cfg.get("ResultConfiguration", {}) or {}).get("OutputLocation")
                         if isinstance(out, str) and out.startswith("s3://"):

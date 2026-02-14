@@ -104,7 +104,9 @@ def test_cloudwatch_transport_marks_transport(monkeypatch: pytest.MonkeyPatch):
     assert payload["transport"] == "cloudwatch"
 
 
-def test_local_file_transport_batch_read_and_availability_failures(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path):
+def test_local_file_transport_batch_read_and_availability_failures(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+):
     target = tmp_path / "telemetry.jsonl"
     t = telemetry_transport.LocalFileTransport(file_path=str(target))
     assert t.send_batch([{"a": 1}, {"b": 2}]) is True
@@ -159,7 +161,9 @@ def test_http_transport_pending_and_wait(monkeypatch: pytest.MonkeyPatch):
     http.cleanup_completed_requests()
     assert len(http.pending_reqs) == 1
 
-    monkeypatch.setattr("quilt_mcp.telemetry.transport.wait", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("wait-fail")))
+    monkeypatch.setattr(
+        "quilt_mcp.telemetry.transport.wait", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("wait-fail"))
+    )
     http.wait_for_pending(timeout=1)  # should not raise
 
 

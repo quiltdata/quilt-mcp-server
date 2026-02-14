@@ -78,7 +78,9 @@ def test_create_sqlalchemy_engine_with_and_without_credentials(monkeypatch: pyte
     svc = _service_with_backend()
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-2")
     svc._get_workgroup = lambda _region: "wg"  # type: ignore[method-assign]
-    monkeypatch.setattr("quilt_mcp.services.athena_service.create_engine", lambda cs, echo=False: {"cs": cs, "echo": echo})
+    monkeypatch.setattr(
+        "quilt_mcp.services.athena_service.create_engine", lambda cs, echo=False: {"cs": cs, "echo": echo}
+    )
 
     svc._get_athena_credentials = lambda **_k: None  # type: ignore[method-assign]
     e1 = svc._create_sqlalchemy_engine()
@@ -140,7 +142,9 @@ def test_get_table_metadata_parsing_and_error(monkeypatch: pytest.MonkeyPatch):
     assert any(c["name"] == "id" for c in meta["columns"])
     assert any(p["name"] == "partition_date" for p in meta["partitions"])
 
-    monkeypatch.setitem(sys.modules, "pyathena", SimpleNamespace(connect=lambda **_k: (_ for _ in ()).throw(RuntimeError("x"))))
+    monkeypatch.setitem(
+        sys.modules, "pyathena", SimpleNamespace(connect=lambda **_k: (_ for _ in ()).throw(RuntimeError("x")))
+    )
     err = svc.get_table_metadata("db", "tbl")
     assert err["success"] is False
 
@@ -234,7 +238,12 @@ def test_list_workgroups_success_and_error(monkeypatch: pytest.MonkeyPatch):
         ]
     }
     client.get_work_group.side_effect = [
-        {"WorkGroup": {"Description": "z-desc", "Configuration": {"ResultConfiguration": {"OutputLocation": "s3://z"}}}},
+        {
+            "WorkGroup": {
+                "Description": "z-desc",
+                "Configuration": {"ResultConfiguration": {"OutputLocation": "s3://z"}},
+            }
+        },
         RuntimeError("detail-fail"),
     ]
 

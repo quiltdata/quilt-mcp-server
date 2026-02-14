@@ -47,7 +47,9 @@ def test_create_metadata_from_template_success_and_error(monkeypatch):
     assert success["metadata"]["description"] == "my package"
     assert success["metadata"]["x"] == 1
 
-    monkeypatch.setattr(ms, "get_metadata_template", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")))
+    monkeypatch.setattr(
+        ms, "get_metadata_template", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
     failure = ms.create_metadata_from_template("standard")
     assert failure["success"] is False
     assert "failed to create metadata" in failure["error"].lower()

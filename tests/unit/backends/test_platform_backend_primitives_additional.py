@@ -167,7 +167,9 @@ def test_backend_browse_package_content_file_fallback(monkeypatch):
 
 def test_backend_browse_package_content_path_not_found(monkeypatch):
     backend = _make_backend(monkeypatch)
-    backend.execute_graphql_query = lambda *args, **kwargs: {"data": {"package": {"revision": {"dir": None, "file": None}}}}
+    backend.execute_graphql_query = lambda *args, **kwargs: {
+        "data": {"package": {"revision": {"dir": None, "file": None}}}
+    }
 
     with pytest.raises(NotFoundError, match="Path not found"):
         backend._backend_browse_package_content({"name": "team/pkg", "bucket": "bucket"}, "missing")
@@ -218,5 +220,8 @@ def test_extract_bucket_from_registry_variants(monkeypatch):
 
     assert backend._extract_bucket_from_registry("") == ""
     assert backend._extract_bucket_from_registry("s3://my-bucket/path") == "my-bucket"
-    assert backend._extract_bucket_from_registry("https://my-bucket.s3.amazonaws.com/path") == "my-bucket.s3.amazonaws.com"
+    assert (
+        backend._extract_bucket_from_registry("https://my-bucket.s3.amazonaws.com/path")
+        == "my-bucket.s3.amazonaws.com"
+    )
     assert backend._extract_bucket_from_registry("plain-bucket/path") == "plain-bucket"

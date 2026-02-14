@@ -493,7 +493,9 @@ async def test_additional_user_validation_paths(mock_admin_available, mock_quilt
     assert result["success"] is False
     assert "Username cannot be empty" in result["error"]
 
-    result = await governance.admin_user_set_email("", "user@example.com", quilt_ops=mock_quilt_ops, context=mock_context)
+    result = await governance.admin_user_set_email(
+        "", "user@example.com", quilt_ops=mock_quilt_ops, context=mock_context
+    )
     assert result["success"] is False
     result = await governance.admin_user_set_email("u", "", quilt_ops=mock_quilt_ops, context=mock_context)
     assert result["success"] is False
@@ -524,7 +526,9 @@ async def test_additional_user_validation_paths(mock_admin_available, mock_quilt
 async def test_additional_admin_exception_paths(mock_admin_available, sample_users, mock_quilt_ops, mock_context):
     """Cover exception handlers for admin functions."""
     mock_quilt_ops.admin.set_user_email.side_effect = BackendError("email failed")
-    result = await governance.admin_user_set_email("u", "u@example.com", quilt_ops=mock_quilt_ops, context=mock_context)
+    result = await governance.admin_user_set_email(
+        "u", "u@example.com", quilt_ops=mock_quilt_ops, context=mock_context
+    )
     assert result["success"] is False
 
     mock_quilt_ops.admin.set_user_admin.side_effect = BackendError("admin failed")
@@ -560,7 +564,9 @@ async def test_additional_admin_exception_paths(mock_admin_available, sample_use
     assert result["success"] is False
 
     mock_quilt_ops.admin.set_sso_config.side_effect = BackendError("sso set failed")
-    result = await governance.admin_sso_config_set({"provider": "okta"}, quilt_ops=mock_quilt_ops, context=mock_context)
+    result = await governance.admin_sso_config_set(
+        {"provider": "okta"}, quilt_ops=mock_quilt_ops, context=mock_context
+    )
     assert result["success"] is False
 
     # Ensure happy-path role rendering still works with missing extra roles

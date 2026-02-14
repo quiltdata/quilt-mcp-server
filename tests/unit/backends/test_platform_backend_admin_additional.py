@@ -26,7 +26,9 @@ def test_create_user_errors_on_missing_payload_and_invalid_typename(monkeypatch)
 def test_delete_user_not_found_and_validation_error(monkeypatch):
     backend = _make_backend(monkeypatch)
 
-    with patch.object(backend, "execute_graphql_query", return_value={"data": {"admin": {"user": {"mutate": {"delete": {}}}}}}):
+    with patch.object(
+        backend, "execute_graphql_query", return_value={"data": {"admin": {"user": {"mutate": {"delete": {}}}}}}
+    ):
         with pytest.raises(NotFoundError):
             backend.admin.delete_user("missing")
 
@@ -34,9 +36,7 @@ def test_delete_user_not_found_and_validation_error(monkeypatch):
         "data": {
             "admin": {
                 "user": {
-                    "mutate": {
-                        "delete": {"__typename": "InvalidInput", "errors": [{"message": "invalid delete"}]}
-                    }
+                    "mutate": {"delete": {"__typename": "InvalidInput", "errors": [{"message": "invalid delete"}]}}
                 }
             }
         }
@@ -56,9 +56,7 @@ def test_set_user_active_validation_and_backend_error_paths(monkeypatch):
         "data": {
             "admin": {
                 "user": {
-                    "mutate": {
-                        "setActive": {"__typename": "InvalidInput", "errors": [{"message": "user not found"}]}
-                    }
+                    "mutate": {"setActive": {"__typename": "InvalidInput", "errors": [{"message": "user not found"}]}}
                 }
             }
         }
@@ -103,9 +101,7 @@ def test_add_remove_roles_validation_and_not_found(monkeypatch):
         "data": {
             "admin": {
                 "user": {
-                    "mutate": {
-                        "addRoles": {"__typename": "InvalidInput", "errors": [{"message": "user not found"}]}
-                    }
+                    "mutate": {"addRoles": {"__typename": "InvalidInput", "errors": [{"message": "user not found"}]}}
                 }
             }
         }
@@ -159,7 +155,10 @@ def test_admin_helper_extractors_and_transform_error_paths(monkeypatch):
 
     assert admin._extract_result_error("bad") == "Invalid GraphQL response"
     assert admin._extract_result_error({"__typename": "OperationError", "message": "oops"}) == "oops"
-    assert admin._extract_result_error({"__typename": "InvalidInput", "errors": [{"message": "a"}, {"message": "b"}]}) == "a; b"
+    assert (
+        admin._extract_result_error({"__typename": "InvalidInput", "errors": [{"message": "a"}, {"message": "b"}]})
+        == "a; b"
+    )
     assert admin._extract_result_error({"message": "permission denied"}) == "permission denied"
     assert admin._extract_result_error({"message": "ok"}) is None
 
@@ -204,14 +203,22 @@ def test_set_user_email_and_admin_edge_paths(monkeypatch):
         backend.admin.set_user_admin("", True)
 
     email_nf = {
-        "data": {"admin": {"user": {"mutate": {"setEmail": {"__typename": "InvalidInput", "errors": [{"message": "not found"}]}}}}}
+        "data": {
+            "admin": {
+                "user": {"mutate": {"setEmail": {"__typename": "InvalidInput", "errors": [{"message": "not found"}]}}}
+            }
+        }
     }
     with patch.object(backend, "execute_graphql_query", return_value=email_nf):
         with pytest.raises(NotFoundError):
             backend.admin.set_user_email("u", "u@example.com")
 
     email_bad = {
-        "data": {"admin": {"user": {"mutate": {"setEmail": {"__typename": "InvalidInput", "errors": [{"message": "bad email"}]}}}}}
+        "data": {
+            "admin": {
+                "user": {"mutate": {"setEmail": {"__typename": "InvalidInput", "errors": [{"message": "bad email"}]}}}
+            }
+        }
     }
     with patch.object(backend, "execute_graphql_query", return_value=email_bad):
         with pytest.raises(ValidationError):
@@ -223,7 +230,11 @@ def test_set_user_email_and_admin_edge_paths(monkeypatch):
             backend.admin.set_user_email("u", "u@example.com")
 
     admin_nf = {
-        "data": {"admin": {"user": {"mutate": {"setAdmin": {"__typename": "InvalidInput", "errors": [{"message": "not found"}]}}}}}
+        "data": {
+            "admin": {
+                "user": {"mutate": {"setAdmin": {"__typename": "InvalidInput", "errors": [{"message": "not found"}]}}}
+            }
+        }
     }
     with patch.object(backend, "execute_graphql_query", return_value=admin_nf):
         with pytest.raises(NotFoundError):
@@ -239,7 +250,11 @@ def test_set_user_admin_and_active_more_backend_paths(monkeypatch):
             backend.admin.set_user_admin("u", True)
 
     active_invalid = {
-        "data": {"admin": {"user": {"mutate": {"setActive": {"__typename": "InvalidInput", "errors": [{"message": "bad state"}]}}}}}
+        "data": {
+            "admin": {
+                "user": {"mutate": {"setActive": {"__typename": "InvalidInput", "errors": [{"message": "bad state"}]}}}
+            }
+        }
     }
     with patch.object(backend, "execute_graphql_query", return_value=active_invalid):
         with pytest.raises(ValidationError):
@@ -262,7 +277,9 @@ def test_reset_password_set_role_and_add_roles_branches(monkeypatch):
 
     reset_invalid = {
         "data": {
-            "admin": {"user": {"mutate": {"resetPassword": {"__typename": "InvalidInput", "errors": [{"message": "bad"}]}}}}
+            "admin": {
+                "user": {"mutate": {"resetPassword": {"__typename": "InvalidInput", "errors": [{"message": "bad"}]}}}
+            }
         }
     }
     with patch.object(backend, "execute_graphql_query", return_value=reset_invalid):
@@ -273,7 +290,13 @@ def test_reset_password_set_role_and_add_roles_branches(monkeypatch):
             backend.admin.reset_user_password("u")
 
     set_role_nf = {
-        "data": {"admin": {"user": {"mutate": {"setRole": {"__typename": "InvalidInput", "errors": [{"message": "role not found"}]}}}}}
+        "data": {
+            "admin": {
+                "user": {
+                    "mutate": {"setRole": {"__typename": "InvalidInput", "errors": [{"message": "role not found"}]}}
+                }
+            }
+        }
     }
     with patch.object(backend, "execute_graphql_query", return_value=set_role_nf):
         with pytest.raises(NotFoundError):
@@ -289,7 +312,9 @@ def test_reset_password_set_role_and_add_roles_branches(monkeypatch):
     with pytest.raises(ValidationError):
         backend.admin.add_user_roles("", ["Reader"])
     add_invalid = {
-        "data": {"admin": {"user": {"mutate": {"addRoles": {"__typename": "InvalidInput", "errors": [{"message": "bad"}]}}}}}
+        "data": {
+            "admin": {"user": {"mutate": {"addRoles": {"__typename": "InvalidInput", "errors": [{"message": "bad"}]}}}}
+        }
     }
     with patch.object(backend, "execute_graphql_query", return_value=add_invalid):
         with pytest.raises(ValidationError):
@@ -338,7 +363,11 @@ def test_remove_roles_list_roles_sso_and_role_fallback(monkeypatch):
         assert mock_exec.call_args.kwargs["variables"]["fallback"] == "User"
 
     remove_invalid = {
-        "data": {"admin": {"user": {"mutate": {"removeRoles": {"__typename": "InvalidInput", "errors": [{"message": "bad"}]}}}}}
+        "data": {
+            "admin": {
+                "user": {"mutate": {"removeRoles": {"__typename": "InvalidInput", "errors": [{"message": "bad"}]}}}
+            }
+        }
     }
     with patch.object(backend, "execute_graphql_query", return_value=remove_invalid):
         with pytest.raises(ValidationError):
@@ -370,5 +399,7 @@ def test_remove_roles_list_roles_sso_and_role_fallback(monkeypatch):
         with pytest.raises(BackendError):
             backend.admin.set_sso_config({"k": "v"})
 
-    role = backend.admin._transform_graphql_role({"id": "1", "name": "Reader", "arn": "a", "__typename": "ManagedRole"})
+    role = backend.admin._transform_graphql_role(
+        {"id": "1", "name": "Reader", "arn": "a", "__typename": "ManagedRole"}
+    )
     assert role.type == "ManagedRole"

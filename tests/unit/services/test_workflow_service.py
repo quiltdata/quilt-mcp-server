@@ -259,18 +259,12 @@ def test_template_helpers_and_recommendations():
     validation = workflow_service_module._create_validation_template({})
     assert "Data Validation Workflow" == validation["name"]
 
-    rec_created = workflow_service_module._get_workflow_recommendations(
-        {"status": "created", "failed_steps": 0}
-    )
+    rec_created = workflow_service_module._get_workflow_recommendations({"status": "created", "failed_steps": 0})
     rec_in_progress_failed = workflow_service_module._get_workflow_recommendations(
         {"status": "in_progress", "failed_steps": 1}
     )
-    rec_completed = workflow_service_module._get_workflow_recommendations(
-        {"status": "completed", "failed_steps": 0}
-    )
-    rec_failed = workflow_service_module._get_workflow_recommendations(
-        {"status": "failed", "failed_steps": 2}
-    )
+    rec_completed = workflow_service_module._get_workflow_recommendations({"status": "completed", "failed_steps": 0})
+    rec_failed = workflow_service_module._get_workflow_recommendations({"status": "failed", "failed_steps": 2})
     assert rec_created
     assert rec_in_progress_failed
     assert rec_completed

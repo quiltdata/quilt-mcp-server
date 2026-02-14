@@ -18,7 +18,9 @@ def test_validate_package_naming_collects_best_practice_suggestions():
     valid, errors, suggestions = nv.validate_package_naming("data/v1")
     assert valid is True
     assert errors == []
-    assert any("more descriptive package name" in s.lower() or "avoid version numbers" in s.lower() for s in suggestions)
+    assert any(
+        "more descriptive package name" in s.lower() or "avoid version numbers" in s.lower() for s in suggestions
+    )
 
 
 def test_validate_name_component_edge_cases():

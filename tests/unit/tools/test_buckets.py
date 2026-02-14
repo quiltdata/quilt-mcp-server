@@ -73,7 +73,9 @@ def test_bucket_object_info_paths(monkeypatch):
             assert kwargs["VersionId"] == "v1"
             return {"ContentLength": 10, "ETag": "e", "Metadata": {"m": "1"}}
 
-    monkeypatch.setattr("quilt_mcp.tools.buckets.check_s3_authorization", lambda *_a, **_k: _authorized_ctx(OkClient()))
+    monkeypatch.setattr(
+        "quilt_mcp.tools.buckets.check_s3_authorization", lambda *_a, **_k: _authorized_ctx(OkClient())
+    )
     ok = buckets.bucket_object_info("s3://b/k?versionId=v1")
     assert ok.success is True
     assert ok.object.version_id == "v1"
@@ -164,7 +166,9 @@ def test_bucket_object_fetch_base64_text_and_fallback(monkeypatch):
         def get_object(self, **_kwargs):
             return {"Body": Body(self.payload), "ContentType": "application/octet-stream"}
 
-    monkeypatch.setattr("quilt_mcp.tools.buckets.check_s3_authorization", lambda *_a, **_k: _authorized_ctx(Client(b"abc")))
+    monkeypatch.setattr(
+        "quilt_mcp.tools.buckets.check_s3_authorization", lambda *_a, **_k: _authorized_ctx(Client(b"abc"))
+    )
     b64 = buckets.bucket_object_fetch("s3://b/k", base64_encode=True)
     assert b64.success is True
     assert b64.is_base64 is True
@@ -172,14 +176,16 @@ def test_bucket_object_fetch_base64_text_and_fallback(monkeypatch):
 
     monkeypatch.setattr(
         "quilt_mcp.tools.buckets.check_s3_authorization",
-        lambda *_a, **_k: _authorized_ctx(Client("hello".encode("utf-8"))),
+        lambda *_a, **_k: _authorized_ctx(Client(b"hello")),
     )
     txt = buckets.bucket_object_fetch("s3://b/k", base64_encode=False)
     assert txt.success is True
     assert txt.is_base64 is False
     assert txt.data == "hello"
 
-    monkeypatch.setattr("quilt_mcp.tools.buckets.check_s3_authorization", lambda *_a, **_k: _authorized_ctx(Client(b"\xff\xfe")))
+    monkeypatch.setattr(
+        "quilt_mcp.tools.buckets.check_s3_authorization", lambda *_a, **_k: _authorized_ctx(Client(b"\xff\xfe"))
+    )
     fb = buckets.bucket_object_fetch("s3://b/k", base64_encode=False)
     assert fb.success is True
     assert fb.is_base64 is True

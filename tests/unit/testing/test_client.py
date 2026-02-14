@@ -112,7 +112,9 @@ def test_make_request_switches_transport(monkeypatch):
     monkeypatch.setattr(tester_http, "_make_http_request", lambda *_args, **_kwargs: {"via": "http"})
     assert tester_http._make_request("tools/list") == {"via": "http"}
 
-    tester_stdio = MCPTester(transport="stdio", process=Mock(stdin=io.StringIO(), stdout=io.StringIO('{"result":{}}\n')))
+    tester_stdio = MCPTester(
+        transport="stdio", process=Mock(stdin=io.StringIO(), stdout=io.StringIO('{"result":{}}\n'))
+    )
     monkeypatch.setattr(tester_stdio, "_make_stdio_request", lambda *_args, **_kwargs: {"via": "stdio"})
     assert tester_stdio._make_request("tools/list") == {"via": "stdio"}
 
@@ -121,7 +123,9 @@ def test_initialize_and_tool_helpers(monkeypatch):
     tester = MCPTester(transport="stdio", process=Mock(stdin=io.StringIO(), stdout=io.StringIO('{"result":{}}\n')))
 
     calls = []
-    monkeypatch.setattr(tester, "_make_request", lambda method, params=None: calls.append((method, params)) or {"tools": []})
+    monkeypatch.setattr(
+        tester, "_make_request", lambda method, params=None: calls.append((method, params)) or {"tools": []}
+    )
     monkeypatch.setattr(tester, "_send_notification", lambda method, params=None: calls.append((method, params)))
 
     tester.initialize()

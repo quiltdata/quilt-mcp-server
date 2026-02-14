@@ -16,7 +16,7 @@ def _jwt(payload: dict) -> str:
         raw = json.dumps(obj).encode("utf-8")
         return base64.urlsafe_b64encode(raw).decode("utf-8").rstrip("=")
 
-    return f"{enc({'alg':'none','typ':'JWT'})}.{enc(payload)}."
+    return f"{enc({'alg': 'none', 'typ': 'JWT'})}.{enc(payload)}."
 
 
 def test_runtime_boto3_session_paths(monkeypatch):
@@ -25,7 +25,9 @@ def test_runtime_boto3_session_paths(monkeypatch):
     assert common._runtime_boto3_session() is None
 
     session = boto3.Session()
-    runtime_module2 = types.SimpleNamespace(get_runtime_auth=lambda: types.SimpleNamespace(extras={"boto3_session": session}))
+    runtime_module2 = types.SimpleNamespace(
+        get_runtime_auth=lambda: types.SimpleNamespace(extras={"boto3_session": session})
+    )
     monkeypatch.setitem(__import__("sys").modules, "quilt_mcp.context.runtime_context", runtime_module2)
     assert common._runtime_boto3_session() is session
 
@@ -54,7 +56,9 @@ def test_s3_and_sts_client_priority(monkeypatch):
 
     monkeypatch.setattr(common, "_runtime_boto3_session", lambda: None)
     jwt_module = types.SimpleNamespace(
-        JWTAuthService=lambda: types.SimpleNamespace(get_boto3_session=lambda: types.SimpleNamespace(client=lambda n: f"jwt-{n}"))
+        JWTAuthService=lambda: types.SimpleNamespace(
+            get_boto3_session=lambda: types.SimpleNamespace(client=lambda n: f"jwt-{n}")
+        )
     )
     monkeypatch.setitem(__import__("sys").modules, "quilt_mcp.services.jwt_auth_service", jwt_module)
     assert common.get_s3_client() == "jwt-s3"

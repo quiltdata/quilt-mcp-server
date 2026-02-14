@@ -112,7 +112,9 @@ def test_initialize_aws_clients_uses_session_and_optional_failures(monkeypatch):
 
     # default boto3 path
     created = {}
-    monkeypatch.setattr("quilt_mcp.services.permission_discovery.boto3.client", lambda name: created.setdefault(name, object()))
+    monkeypatch.setattr(
+        "quilt_mcp.services.permission_discovery.boto3.client", lambda name: created.setdefault(name, object())
+    )
     discovery2 = _fresh_discovery()
     discovery2._initialize_aws_clients(None)
     assert discovery2.sts_client is created["sts"]
@@ -179,7 +181,9 @@ def test_discover_accessible_buckets_with_owned_and_error_bucket(monkeypatch):
     def _discover(name: str):
         if name == "bad-bucket":
             raise RuntimeError("boom")
-        return BucketInfo(name, "us-east-1", PermissionLevel.READ_ONLY, True, False, True, datetime.now(timezone.utc), None)
+        return BucketInfo(
+            name, "us-east-1", PermissionLevel.READ_ONLY, True, False, True, datetime.now(timezone.utc), None
+        )
 
     monkeypatch.setattr(discovery, "discover_bucket_permissions", _discover)
     result = discovery.discover_accessible_buckets()
@@ -203,7 +207,9 @@ def test_discover_accessible_buckets_fallback_env_candidates(monkeypatch):
     monkeypatch.setattr(
         discovery,
         "discover_bucket_permissions",
-        lambda n: BucketInfo(n, "us-east-1", PermissionLevel.LIST_ONLY, False, False, True, datetime.now(timezone.utc), None),
+        lambda n: BucketInfo(
+            n, "us-east-1", PermissionLevel.LIST_ONLY, False, False, True, datetime.now(timezone.utc), None
+        ),
     )
 
     result = discovery.discover_accessible_buckets()
@@ -278,7 +284,9 @@ def test_discover_buckets_via_glue_and_athena_paths():
 
         def get_work_group(self, WorkGroup):
             if WorkGroup == "wg1":
-                return {"WorkGroup": {"Configuration": {"ResultConfiguration": {"OutputLocation": "s3://bucket-c/out"}}}}
+                return {
+                    "WorkGroup": {"Configuration": {"ResultConfiguration": {"OutputLocation": "s3://bucket-c/out"}}}
+                }
             raise RuntimeError("skip wg2")
 
     discovery.athena_client = _AthenaClient()
@@ -318,7 +326,9 @@ def test_bucket_operation_checks_and_cache_clear(monkeypatch):
             return {}
 
     discovery.s3_client = _S3Ops()
-    discovery.discover_user_identity = lambda: UserIdentity("id", "arn:aws:iam::123:user/alice", "123", "user", "alice")
+    discovery.discover_user_identity = lambda: UserIdentity(
+        "id", "arn:aws:iam::123:user/alice", "123", "user", "alice"
+    )
     discovery.sts_client = Mock()
 
     ops = discovery.test_bucket_operations("bucket-a", ["list", "read", "write", "unknown"])
@@ -336,7 +346,9 @@ def test_bucket_operation_checks_and_cache_clear(monkeypatch):
 
 def test_policy_and_write_access_fallback_branches(monkeypatch):
     discovery = _fresh_discovery()
-    discovery.discover_user_identity = lambda: UserIdentity("id", "arn:aws:iam::123:user/alice", "123", "user", "alice")
+    discovery.discover_user_identity = lambda: UserIdentity(
+        "id", "arn:aws:iam::123:user/alice", "123", "user", "alice"
+    )
 
     assert discovery._analyze_bucket_policy_for_write_access(
         '{"Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":["s3:PutObjectAcl"]}]}',

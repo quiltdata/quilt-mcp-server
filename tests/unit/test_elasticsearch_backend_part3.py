@@ -64,9 +64,12 @@ async def test_search_unavailable_and_invalid_scope_handler():
     assert response.status == BackendStatus.UNAVAILABLE
 
     backend._session_available = True
-    with patch.object(backend, "_build_index_pattern", return_value="bucket"), patch(
-        "quilt_mcp.search.backends.elasticsearch.asyncio.to_thread",
-        side_effect=lambda fn, *args: fn(*args),
+    with (
+        patch.object(backend, "_build_index_pattern", return_value="bucket"),
+        patch(
+            "quilt_mcp.search.backends.elasticsearch.asyncio.to_thread",
+            side_effect=lambda fn, *args: fn(*args),
+        ),
     ):
         # Remove handler to hit invalid scope path
         backend.scope_handlers.pop("file", None)
@@ -85,9 +88,12 @@ async def test_search_empty_pattern_filters_and_error_response():
     assert empty.total == 0
 
     # Build response error path and BackendError formatting path
-    with patch.object(backend, "_build_index_pattern", return_value="bucket"), patch(
-        "quilt_mcp.search.backends.elasticsearch.asyncio.to_thread",
-        side_effect=lambda fn, *args: {"error": "es failed"},
+    with (
+        patch.object(backend, "_build_index_pattern", return_value="bucket"),
+        patch(
+            "quilt_mcp.search.backends.elasticsearch.asyncio.to_thread",
+            side_effect=lambda fn, *args: {"error": "es failed"},
+        ),
     ):
         errored = await backend.search(
             "query",
@@ -109,8 +115,9 @@ async def test_search_empty_pattern_filters_and_error_response():
 async def test_search_retry_403_then_success(monkeypatch):
     backend, _ = _make_backend()
     backend._session_available = True
-    with patch.object(backend, "_build_index_pattern", return_value="a,b"), patch.object(
-        backend, "_get_available_buckets", return_value=["a", "b", "c"]
+    with (
+        patch.object(backend, "_build_index_pattern", return_value="a,b"),
+        patch.object(backend, "_get_available_buckets", return_value=["a", "b", "c"]),
     ):
         calls = {"n": 0}
 

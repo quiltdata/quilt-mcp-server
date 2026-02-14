@@ -45,8 +45,9 @@ async def test_func_search_retry_on_403_then_success(monkeypatch):
     backend._initialized = True
     backend._session_available = True
 
-    with patch.object(backend, "_build_index_pattern", return_value="a,b,c"), patch.object(
-        backend, "_get_available_buckets", return_value=["a", "b", "c", "d"]
+    with (
+        patch.object(backend, "_build_index_pattern", return_value="a,b,c"),
+        patch.object(backend, "_get_available_buckets", return_value=["a", "b", "c", "d"]),
     ):
         calls = {"n": 0}
 
@@ -69,6 +70,7 @@ async def test_func_search_returns_error_response_on_backend_error(monkeypatch):
     backend._session_available = True
 
     with patch.object(backend, "_build_index_pattern", return_value="bucket"):
+
         async def fake_to_thread(fn, *args):
             return {"error": "functional failure"}
 
