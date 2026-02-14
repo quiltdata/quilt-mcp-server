@@ -8,13 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **Docs Search Tool**: Added `search_docs_quilt_bio` for dedicated `docs.quilt.bio` lookup
-  - New sitemap-backed search flow for Quilt documentation pages
-  - Supports optional inclusion of archived versioned documentation paths
-  - Returns ranked docs URLs with matched terms and best-effort page snippets
-  - Enables MCP clients to retrieve configuration and API references from official docs
+## [0.19.0] - 2026-02-14
 
 ### Improved
 
@@ -24,7 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added comprehensive tests for platform admin, primitives, elasticsearch, error recovery, and IGV visualization
   - Improved mock usage to use public QuiltOps metadata API instead of private methods
 
-## [0.17.6] - 2026-02-12
+## [0.18.0] - 2026-02-13
+
+### Added
+
+- **Docs Search Tool**: Added `search_docs_quilt_bio` for dedicated `docs.quilt.bio` lookup
+  - New sitemap-backed search flow for Quilt documentation pages
+  - Supports optional inclusion of archived versioned documentation paths
+  - Returns ranked docs URLs with matched terms and best-effort page snippets
+  - Enables MCP clients to retrieve configuration and API references from official docs
 
 ### Fixed
 
@@ -33,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added "string" to `select_dtypes()` calls to handle pandas 3.0 StringDtype
   - Updated visualization modules (data_analyzer, data_processing) for robust string handling
   - Fixed formatting utilities to properly detect string columns across pandas versions
+
+## [0.17.6] - 2026-02-12
+
+### Fixed
 
 - **JWT Auth Service**: Removed redundant type cast in JWT decoding
   - Simplified JWT claims extraction by removing unnecessary cast operation
