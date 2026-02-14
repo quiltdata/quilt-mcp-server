@@ -203,6 +203,8 @@ docker-validate:
 
 # Release Tagging Targets
 release-tag:
+	@echo "Pulling latest changes from remote..."
+	@git pull
 	@echo "Creating release tag..."
 	@if [ "${DRY_RUN}" = "1" ]; then \
 		echo "🔍 DRY RUN: Would create release tag"; \
