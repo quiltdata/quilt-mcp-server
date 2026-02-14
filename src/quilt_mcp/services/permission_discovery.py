@@ -5,7 +5,7 @@ including bucket access level detection, user identity discovery, and
 intelligent permission caching.
 """
 
-from typing import Dict, List, Any, Optional, NamedTuple, Set
+from typing import Dict, List, Any, Optional, NamedTuple, Set, Callable
 from enum import Enum
 import logging
 from datetime import datetime, timezone
@@ -94,37 +94,112 @@ class AWSPermissionDiscovery:
                 except Exception:
                     session = None
 
-            if session is not None:
-                logger.info("Using provided boto3 session for permission discovery")
-                self.sts_client = session.client("sts")
-                self.iam_client = session.client("iam")
-                self.s3_client = session.client("s3")
-                # Optional clients used for fallback discovery paths
-                try:
-                    self.glue_client = session.client("glue")
-                except Exception:
-                    self.glue_client = None
-                try:
-                    self.athena_client = session.client("athena")
-                except Exception:
-                    self.athena_client = None
-            else:
-                logger.info("Using default boto3 clients for permission discovery")
-                self.sts_client = boto3.client("sts")
-                self.iam_client = boto3.client("iam")
-                self.s3_client = boto3.client("s3")
-                # Optional clients used for fallback discovery paths
-                try:
-                    self.glue_client = boto3.client("glue")
-                except Exception:
-                    self.glue_client = None
-                try:
-                    self.athena_client = boto3.client("athena")
-                except Exception:
-                    self.athena_client = None
+            self._initialize_aws_clients(session)
         except NoCredentialsError:
             logger.error("AWS credentials not found")
             raise
+
+    def _initialize_aws_clients(self, session: Optional[boto3.Session]) -> None:
+        """Initialize required and optional AWS clients from session or default boto3."""
+        if session is not None:
+            logger.info("Using provided boto3 session for permission discovery")
+            client_factory: Callable[[str], Any] = session.client
+        else:
+            logger.info("Using default boto3 clients for permission discovery")
+            client_factory = boto3.client
+
+        self.sts_client = client_factory("sts")
+        self.iam_client = client_factory("iam")
+        self.s3_client = client_factory("s3")
+        self.glue_client = self._create_optional_client(client_factory, "glue")
+        self.athena_client = self._create_optional_client(client_factory, "athena")
+
+    def _create_optional_client(self, factory: Callable[[str], Any], service_name: str) -> Any | None:
+        """Create optional AWS client and gracefully return None when unavailable."""
+        try:
+            return factory(service_name)
+        except Exception:
+            return None
+
+    def _build_no_access_bucket(self, bucket_name: str, error: Exception | str) -> BucketInfo:
+        """Create a no-access bucket record used across fallback/error paths."""
+        return BucketInfo(
+            name=bucket_name,
+            region="unknown",
+            permission_level=PermissionLevel.NO_ACCESS,
+            can_read=False,
+            can_write=False,
+            can_list=False,
+            last_checked=datetime.now(timezone.utc),
+            error_message=str(error),
+        )
+
+    def _append_bucket_permission_result(self, buckets: List[BucketInfo], bucket_name: str) -> None:
+        """Append discovered permission record, falling back to no-access on errors."""
+        try:
+            buckets.append(self.discover_bucket_permissions(bucket_name))
+        except Exception as error:
+            buckets.append(self._build_no_access_bucket(bucket_name, error))
+
+    def _add_bucket_if_new(
+        self, buckets: List[BucketInfo], discovered_bucket_names: Set[str], bucket_name: str
+    ) -> None:
+        """Track and append bucket permission details only once per bucket name."""
+        if bucket_name and bucket_name not in discovered_bucket_names:
+            discovered_bucket_names.add(bucket_name)
+            self._append_bucket_permission_result(buckets, bucket_name)
+
+    def _discover_from_owned_buckets(self, buckets: List[BucketInfo], discovered_bucket_names: Set[str]) -> bool:
+        """Discover buckets from ListBuckets. Returns True when access is denied."""
+        try:
+            response = self.s3_client.list_buckets()
+            owned_buckets = response.get("Buckets", [])
+            logger.info(f"Found {len(owned_buckets)} owned buckets")
+            for bucket_info in owned_buckets:
+                self._add_bucket_if_new(buckets, discovered_bucket_names, bucket_info["Name"])
+            return False
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "AccessDenied":
+                logger.warning("No permission to list buckets, will work with explicitly provided bucket names")
+                return True
+            logger.error(f"Error listing buckets: {e}")
+            return False
+
+    def _discover_from_fallback_sources(self, buckets: List[BucketInfo], discovered_bucket_names: Set[str]) -> None:
+        """Discover bucket candidates from GraphQL, Glue, and Athena when list-buckets is unavailable."""
+        try:
+            graphql_buckets = self._discover_buckets_via_graphql()
+            if graphql_buckets:
+                logger.info(f"GraphQL discovered {len(graphql_buckets)} buckets")
+                for bkt in graphql_buckets:
+                    self._add_bucket_if_new(buckets, discovered_bucket_names, bkt)
+        except Exception as e:
+            logger.debug(f"GraphQL discovery skipped/failed: {e}")
+
+        if len(discovered_bucket_names) < 5:
+            try:
+                glue_buckets = self._discover_buckets_via_glue()
+                for bkt in glue_buckets:
+                    self._add_bucket_if_new(buckets, discovered_bucket_names, bkt)
+            except Exception as e:
+                logger.debug(f"Glue discovery skipped/failed: {e}")
+
+        try:
+            athena_buckets = self._discover_buckets_via_athena()
+            for bkt in athena_buckets:
+                self._add_bucket_if_new(buckets, discovered_bucket_names, bkt)
+        except Exception as e:
+            logger.debug(f"Athena discovery skipped/failed: {e}")
+
+    def _discover_from_env_candidates(self, buckets: List[BucketInfo], discovered_bucket_names: Set[str]) -> None:
+        """Discover buckets from QUILT_KNOWN_BUCKETS env var hints."""
+        known_env = os.getenv("QUILT_KNOWN_BUCKETS", "")
+        for raw in known_env.split(","):
+            raw = raw.strip()
+            if not raw:
+                continue
+            bucket_name = self._extract_bucket_from_s3_uri(raw) if raw.startswith("s3://") else raw
+            self._add_bucket_if_new(buckets, discovered_bucket_names, bucket_name)
 
     def discover_user_identity(self) -> UserIdentity:
         """Discover current AWS identity and basic info."""
@@ -181,155 +256,17 @@ class AWSPermissionDiscovery:
         buckets: List[BucketInfo] = []
         discovered_bucket_names: Set[str] = set()
 
-        list_buckets_denied = False
-        try:
-            # First, try to list buckets the user owns
-            response = self.s3_client.list_buckets()
-            owned_buckets = response.get("Buckets", [])
+        list_buckets_denied = self._discover_from_owned_buckets(buckets, discovered_bucket_names)
 
-            logger.info(f"Found {len(owned_buckets)} owned buckets")
-
-            # Check permissions for owned buckets
-            for bucket_info in owned_buckets:
-                bucket_name = bucket_info["Name"]
-                discovered_bucket_names.add(bucket_name)
-                try:
-                    bucket_detail = self.discover_bucket_permissions(bucket_name)
-                    buckets.append(bucket_detail)
-                except Exception as e:
-                    logger.warning(f"Failed to check permissions for owned bucket {bucket_name}: {e}")
-                    # Add with unknown permissions
-                    buckets.append(
-                        BucketInfo(
-                            name=bucket_name,
-                            region="unknown",
-                            permission_level=PermissionLevel.NO_ACCESS,
-                            can_read=False,
-                            can_write=False,
-                            can_list=False,
-                            last_checked=datetime.now(timezone.utc),
-                            error_message=str(e),
-                        )
-                    )
-
-            # TODO: If include_cross_account, attempt to discover cross-account buckets
-            # This would require additional logic to infer bucket names from policies
-
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "AccessDenied":
-                logger.warning("No permission to list buckets, will work with explicitly provided bucket names")
-                list_buckets_denied = True
-            else:
-                logger.error(f"Error listing buckets: {e}")
+        # TODO: If include_cross_account, attempt to discover cross-account buckets
+        # This would require additional logic to infer bucket names from policies
 
         # Fallback discovery paths only when ListBuckets is explicitly denied, or when enabled via env flag
         fallback_enabled = bool(os.getenv("QUILT_ENABLE_FALLBACK_DISCOVERY"))
         if (list_buckets_denied or fallback_enabled) and not discovered_bucket_names:
-            # Try GraphQL discovery first (most reliable for Quilt catalogs)
-            try:
-                graphql_buckets = self._discover_buckets_via_graphql()
-                if graphql_buckets:
-                    logger.info(f"GraphQL discovered {len(graphql_buckets)} buckets")
-                    for bkt in graphql_buckets:
-                        if bkt not in discovered_bucket_names:
-                            discovered_bucket_names.add(bkt)
-                            try:
-                                buckets.append(self.discover_bucket_permissions(bkt))
-                            except Exception as e:
-                                buckets.append(
-                                    BucketInfo(
-                                        name=bkt,
-                                        region="unknown",
-                                        permission_level=PermissionLevel.NO_ACCESS,
-                                        can_read=False,
-                                        can_write=False,
-                                        can_list=False,
-                                        last_checked=datetime.now(timezone.utc),
-                                        error_message=str(e),
-                                    )
-                                )
-            except Exception as e:
-                logger.debug(f"GraphQL discovery skipped/failed: {e}")
-
-            # Try Glue-based discovery if GraphQL didn't find enough
-            if len(discovered_bucket_names) < 5:
-                try:
-                    glue_buckets = self._discover_buckets_via_glue()
-                    for bkt in glue_buckets:
-                        if bkt not in discovered_bucket_names:
-                            discovered_bucket_names.add(bkt)
-                            try:
-                                buckets.append(self.discover_bucket_permissions(bkt))
-                            except Exception as e:
-                                buckets.append(
-                                    BucketInfo(
-                                        name=bkt,
-                                        region="unknown",
-                                        permission_level=PermissionLevel.NO_ACCESS,
-                                        can_read=False,
-                                        can_write=False,
-                                        can_list=False,
-                                        last_checked=datetime.now(timezone.utc),
-                                        error_message=str(e),
-                                    )
-                                )
-                except Exception as e:
-                    logger.debug(f"Glue discovery skipped/failed: {e}")
-
-            try:
-                athena_buckets = self._discover_buckets_via_athena()
-                for bkt in athena_buckets:
-                    if bkt not in discovered_bucket_names:
-                        discovered_bucket_names.add(bkt)
-                        try:
-                            buckets.append(self.discover_bucket_permissions(bkt))
-                        except Exception as e:
-                            buckets.append(
-                                BucketInfo(
-                                    name=bkt,
-                                    region="unknown",
-                                    permission_level=PermissionLevel.NO_ACCESS,
-                                    can_read=False,
-                                    can_write=False,
-                                    can_list=False,
-                                    last_checked=datetime.now(timezone.utc),
-                                    error_message=str(e),
-                                )
-                            )
-            except Exception as e:
-                logger.debug(f"Athena discovery skipped/failed: {e}")
-
-            # Environment-provided hints (e.g., known buckets list from env var)
-            candidates: List[str] = []
+            self._discover_from_fallback_sources(buckets, discovered_bucket_names)
             # Note: DEFAULT_BUCKET was removed in v0.10.0 - no longer checked
-            known_env = os.getenv("QUILT_KNOWN_BUCKETS", "")
-            if known_env:
-                for raw in known_env.split(","):
-                    raw = raw.strip()
-                    if not raw:
-                        continue
-                    if raw.startswith("s3://"):
-                        candidates.append(self._extract_bucket_from_s3_uri(raw))
-                    else:
-                        candidates.append(raw)
-            for bkt in candidates:
-                if bkt and bkt not in discovered_bucket_names:
-                    discovered_bucket_names.add(bkt)
-                    try:
-                        buckets.append(self.discover_bucket_permissions(bkt))
-                    except Exception as e:
-                        buckets.append(
-                            BucketInfo(
-                                name=bkt,
-                                region="unknown",
-                                permission_level=PermissionLevel.NO_ACCESS,
-                                can_read=False,
-                                can_write=False,
-                                can_list=False,
-                                last_checked=datetime.now(timezone.utc),
-                                error_message=str(e),
-                            )
-                        )
+            self._discover_from_env_candidates(buckets, discovered_bucket_names)
 
         self.bucket_list_cache[cache_key] = buckets
         return buckets
@@ -530,17 +467,18 @@ class AWSPermissionDiscovery:
         Returns a list of bucket names referenced by Glue table storage locations.
         """
         buckets: Set[str] = set()
-        if not getattr(self, "glue_client", None):
+        glue_client = getattr(self, "glue_client", None)
+        if not glue_client:
             return []
         try:
-            paginator = self.glue_client.get_paginator("get_databases")
+            paginator = glue_client.get_paginator("get_databases")
             for page in paginator.paginate():
                 for db in page.get("DatabaseList", []) or []:
                     db_name = db.get("Name")
                     if not db_name:
                         continue
                     try:
-                        tp = self.glue_client.get_paginator("get_tables")
+                        tp = glue_client.get_paginator("get_tables")
                         for tpage in tp.paginate(DatabaseName=db_name):
                             for tbl in tpage.get("TableList", []) or []:
                                 sd = (tbl or {}).get("StorageDescriptor", {}) or {}
@@ -560,17 +498,18 @@ class AWSPermissionDiscovery:
         Returns a list of bucket names used by Athena workgroup output locations.
         """
         buckets: Set[str] = set()
-        if not getattr(self, "athena_client", None):
+        athena_client = getattr(self, "athena_client", None)
+        if not athena_client:
             return []
         try:
-            wg_p = self.athena_client.get_paginator("list_work_groups")
+            wg_p = athena_client.get_paginator("list_work_groups")
             for page in wg_p.paginate():
                 for summary in page.get("WorkGroups", []) or []:
                     name = (summary or {}).get("Name")
                     if not name:
                         continue
                     try:
-                        desc = self.athena_client.get_work_group(WorkGroup=name)
+                        desc = athena_client.get_work_group(WorkGroup=name)
                         cfg = ((desc or {}).get("WorkGroup", {}) or {}).get("Configuration", {}) or {}
                         out = (cfg.get("ResultConfiguration", {}) or {}).get("OutputLocation")
                         if isinstance(out, str) and out.startswith("s3://"):

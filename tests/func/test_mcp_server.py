@@ -28,9 +28,8 @@ def test_quilt_tools(mock_browse, mock_search, mock_quilt3, mock_search_ops_crea
     mock_quilt_ops.browse_content.return_value = [
         Mock(path="README.md", size=123, type="file", download_url=None, modified_date=None)
     ]
-    # Mock metadata retrieval methods to return proper types
-    mock_quilt_ops._backend_get_package.return_value = Mock()
-    mock_quilt_ops._backend_get_package_metadata.return_value = None
+    # package_browse now uses QuiltOps public metadata API
+    mock_quilt_ops.get_package_metadata.return_value = {}
     mock_search_ops_create.return_value = mock_quilt_ops
     mock_packages_ops_create.return_value = mock_quilt_ops
 

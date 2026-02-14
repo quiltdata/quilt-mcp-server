@@ -79,3 +79,85 @@ class TestGetResourceSimple:
         missing = await get_resource(uri="workflow://workflows")
         assert isinstance(missing, GetResourceError)
         assert "not found" in missing.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_permission_error_path(self, monkeypatch):
+        class _BoomModule:
+            @staticmethod
+            def denied():
+                raise RuntimeError("403 permission denied")
+
+        monkeypatch.setattr(
+            "quilt_mcp.tools.resource_access._get_resource_service_map",
+            lambda: {"auth://boom": ("boom.module", "denied", False)},
+        )
+        monkeypatch.setattr("importlib.import_module", lambda _name: _BoomModule)
+        result = await get_resource(uri="auth://boom")
+        assert isinstance(result, GetResourceError)
+        assert result.suggested_actions is not None
+        assert "required privileges" in " ".join(result.suggested_actions).lower()
+
+    @pytest.mark.asyncio
+    async def test_static_not_implemented_path(self, monkeypatch):
+        monkeypatch.setattr(
+            "quilt_mcp.tools.resource_access._get_resource_service_map",
+            lambda: {"static://missing": (None, None, False)},
+        )
+
+        result = await get_resource(uri="static://missing")
+        assert isinstance(result, GetResourceError)
+        assert "not implemented" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_async_service_and_model_dump_serialization(self, monkeypatch):
+        class _Model:
+            def model_dump(self):
+                return {"k": "v"}
+
+        class _AsyncModule:
+            @staticmethod
+            async def a_func():
+                return _Model()
+
+        monkeypatch.setattr(
+            "quilt_mcp.tools.resource_access._get_resource_service_map",
+            lambda: {"auth://async": ("any.module", "a_func", True)},
+        )
+        monkeypatch.setattr("importlib.import_module", lambda _name: _AsyncModule)
+        result = await get_resource(uri="auth://async")
+        assert isinstance(result, GetResourceSuccess)
+        assert result.data == {"k": "v"}
+
+    @pytest.mark.asyncio
+    async def test_athena_history_special_case_and_generic_error_path(self, monkeypatch):
+        class _SyncModule:
+            @staticmethod
+            def history():
+                return {"unexpected": "ignored-by-special-case"}
+
+        monkeypatch.setattr(
+            "quilt_mcp.tools.resource_access._get_resource_service_map",
+            lambda: {"athena://query/history": ("any.module", "history", False)},
+        )
+        monkeypatch.setattr("importlib.import_module", lambda _name: _SyncModule)
+        monkeypatch.setattr(
+            "quilt_mcp.services.athena_read_service.athena_query_history",
+            lambda **_kwargs: 123,
+        )
+        ok = await get_resource(uri="athena://query/history")
+        assert isinstance(ok, GetResourceSuccess)
+        assert ok.data == {"result": "123"}
+
+        class _BoomModule:
+            @staticmethod
+            def boom():
+                raise RuntimeError("plain failure")
+
+        monkeypatch.setattr(
+            "quilt_mcp.tools.resource_access._get_resource_service_map",
+            lambda: {"auth://boom2": ("any.module", "boom", False)},
+        )
+        monkeypatch.setattr("importlib.import_module", lambda _name: _BoomModule)
+        err = await get_resource(uri="auth://boom2")
+        assert isinstance(err, GetResourceError)
+        assert err.possible_fixes is not None

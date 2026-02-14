@@ -480,3 +480,147 @@ class TestErrorHandling:
 
         assert result["success"] is False
         assert "Admin functionality not available" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_additional_user_validation_paths(mock_admin_available, mock_quilt_ops, mock_context):
+    """Cover validation and error branches for user admin functions."""
+    result = await governance.admin_user_get("", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    assert "Username cannot be empty" in result["error"]
+
+    result = await governance.admin_user_delete("", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    assert "Username cannot be empty" in result["error"]
+
+    result = await governance.admin_user_set_email(
+        "", "user@example.com", quilt_ops=mock_quilt_ops, context=mock_context
+    )
+    assert result["success"] is False
+    result = await governance.admin_user_set_email("u", "", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_set_email("u", "bad", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    result = await governance.admin_user_set_admin("", True, quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_set_active("", True, quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_reset_password("", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_set_role("", "viewer", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_set_role("u", "", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_add_roles("", ["viewer"], quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_add_roles("u", [], quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_remove_roles("", ["viewer"], quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+    result = await governance.admin_user_remove_roles("u", [], quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_additional_admin_exception_paths(mock_admin_available, sample_users, mock_quilt_ops, mock_context):
+    """Cover exception handlers for admin functions."""
+    mock_quilt_ops.admin.set_user_email.side_effect = BackendError("email failed")
+    result = await governance.admin_user_set_email(
+        "u", "u@example.com", quilt_ops=mock_quilt_ops, context=mock_context
+    )
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.set_user_admin.side_effect = BackendError("admin failed")
+    result = await governance.admin_user_set_admin("u", True, quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.set_user_active.side_effect = BackendError("active failed")
+    result = await governance.admin_user_set_active("u", True, quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.reset_user_password.side_effect = BackendError("reset failed")
+    result = await governance.admin_user_reset_password("u", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.set_user_role.side_effect = BackendError("role failed")
+    result = await governance.admin_user_set_role("u", "viewer", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.add_user_roles.side_effect = BackendError("add roles failed")
+    result = await governance.admin_user_add_roles("u", ["viewer"], quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.remove_user_roles.side_effect = BackendError("remove roles failed")
+    result = await governance.admin_user_remove_roles("u", ["viewer"], quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.list_roles.side_effect = BackendError("list roles failed")
+    result = await governance.admin_roles_list(quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.get_sso_config.side_effect = BackendError("sso get failed")
+    result = await governance.admin_sso_config_get(quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is False
+
+    mock_quilt_ops.admin.set_sso_config.side_effect = BackendError("sso set failed")
+    result = await governance.admin_sso_config_set(
+        {"provider": "okta"}, quilt_ops=mock_quilt_ops, context=mock_context
+    )
+    assert result["success"] is False
+
+    # Ensure happy-path role rendering still works with missing extra roles
+    mock_quilt_ops.admin.set_user_role.side_effect = None
+    mock_quilt_ops.admin.set_user_role.return_value = sample_users[0]
+    result = await governance.admin_user_set_role("u", "admin", quilt_ops=mock_quilt_ops, context=mock_context)
+    assert result["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_sso_and_tabulator_paths(mock_admin_available, mock_context):
+    """Cover SSO empty config and tabulator operations."""
+    mock_ops = MagicMock(spec=QuiltOps)
+    mock_ops.admin = MagicMock()
+
+    sso_empty = await governance.admin_sso_config_set({}, quilt_ops=mock_ops, context=mock_context)
+    assert sso_empty["success"] is False
+
+    # tabulator get success/failure
+    mock_ops.get_open_query_status.return_value = {"success": True, "open_query_enabled": True}
+    result = await governance.admin_tabulator_open_query_get(quilt_ops=mock_ops, context=mock_context)
+    assert result["success"] is True
+    assert result["open_query_enabled"] is True
+
+    mock_ops.get_open_query_status.return_value = {"success": False, "message": "denied"}
+    result = await governance.admin_tabulator_open_query_get(quilt_ops=mock_ops, context=mock_context)
+    assert result["success"] is False
+
+    # tabulator set success/failure via factory-created ops path
+    with patch.object(governance.GovernanceService, "_get_quilt_ops", return_value=mock_ops):
+        mock_ops.set_open_query.return_value = {"success": True}
+        set_ok = await governance.admin_tabulator_open_query_set(True, context=mock_context)
+        assert set_ok["success"] is True
+
+    with patch.object(governance.GovernanceService, "_get_quilt_ops", return_value=mock_ops):
+        mock_ops.set_open_query.return_value = {"success": False, "message": "blocked"}
+        set_fail = await governance.admin_tabulator_open_query_set(False, context=mock_context)
+        assert set_fail["success"] is False
+
+    with patch.object(governance.GovernanceService, "_get_quilt_ops", side_effect=BackendError("tabulator failed")):
+        set_err = await governance.admin_tabulator_open_query_set(True, context=mock_context)
+        assert set_err["success"] is False
+
+
+def test_governance_service_internal_paths(mock_admin_available, mock_quilt_ops):
+    """Cover internal service helper branches."""
+    service = governance.GovernanceService(None)
+    with patch("quilt_mcp.ops.factory.QuiltOpsFactory.create", return_value=mock_quilt_ops):
+        resolved = service._get_quilt_ops()
+        assert resolved is mock_quilt_ops
+
+    service = governance.GovernanceService(mock_quilt_ops)
+    # Explicitly exercise non-primary error-type branches.
+    response = service._handle_admin_error(NotFoundError("x", {"error_type": "bucket_not_found"}), "op")
+    assert response["success"] is False
+    response = service._handle_admin_error(NotFoundError("x", {"error_type": "other"}), "op")
+    assert response["success"] is False
