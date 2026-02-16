@@ -1,5 +1,7 @@
 # Fargate Deployment Reference
 
+> Version 1.0 | February 16, 2026
+
 ## Quick Start
 
 **Image:** `730278974607.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:latest`
@@ -8,6 +10,7 @@
 **Default Mode:** `remote` (container pre-configured for production deployment)
 
 The Docker container is pre-configured with `QUILT_DEPLOYMENT=remote`, which automatically sets:
+
 - Backend: GraphQL (platform)
 - Transport: HTTP
 - JWT: Required (pass-through to catalog for validation)
@@ -223,13 +226,13 @@ JWT token invalid or expired. Please re-authenticate.
 
 ## Troubleshooting
 
-| Symptom                     | Most Common Cause                                                                  |
-| --------------------------- | ---------------------------------------------------------------------------------- |
-| Container exits immediately | Missing `QUILT_CATALOG_URL` or `QUILT_REGISTRY_URL`                               |
-| Health checks fail          | Security group blocking port 8000 (container pre-configured with correct host)    |
-| 401/403 errors              | Invalid/expired JWT or catalog rejecting token                                    |
-| Backend/GraphQL errors      | `QUILT_REGISTRY_URL` not accessible from Fargate (check security groups)          |
-| AWS credential errors       | JWT exchange failing - check catalog `/api/auth/get_credentials` endpoint         |
+| Symptom                     | Most Common Cause                                                               |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| Container exits immediately | Missing `QUILT_CATALOG_URL` or `QUILT_REGISTRY_URL`                             |
+| Health checks fail          | Security group blocking port 8000 (container pre-configured with correct host)  |
+| 401/403 errors              | Invalid/expired JWT or catalog rejecting token                                  |
+| Backend/GraphQL errors      | `QUILT_REGISTRY_URL` not accessible from Fargate (check security groups)        |
+| AWS credential errors       | JWT exchange failing - check catalog `/api/auth/get_credentials` endpoint       |
 
 ## Environment Variables Reference
 

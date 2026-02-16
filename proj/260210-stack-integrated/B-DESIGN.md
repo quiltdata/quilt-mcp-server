@@ -1,8 +1,12 @@
 # Stack-Integrated MCP Server Design
 
+> Version 1.0 | February 16, 2026
+
 ## Purpose
 
-This document captures the key design decisions made to enable a single Quilt MCP codebase that supports both local development and remote multiuser deployment. Each decision addresses a specific problem and documents alternatives considered.
+This document captures the key design decisions made to enable a single Quilt MCP codebase that
+supports both local development and remote multiuser deployment. Each decision addresses a specific
+problem and documents alternatives considered.
 
 ## Context
 
