@@ -48,12 +48,12 @@ from .tools.quilt_summary import (
 from .tools.packages import (
     package_browse,
     package_create,
-    package_create_from_s3,
     package_delete,
     package_diff,
     package_update,
     packages_list,
 )
+from .tools.s3_package_ingestion import package_create_from_s3
 from .tools.tabulator import (
     tabulator_tables_list,
     tabulator_table_create,

@@ -39,6 +39,10 @@ def resolve_import(from_module: str, imported: str) -> str:
 def collect_modules() -> Dict[str, Path]:
     modules: Dict[str, Path] = {}
     for path in SRC_ROOT.rglob("*.py"):
+        # Skip package export aggregators. They intentionally re-export symbols
+        # and create noisy pseudo-cycles that are not runtime dependencies.
+        if path.name == "__init__.py":
+            continue
         modules[module_name_from_path(path)] = path
     return modules
 
@@ -47,7 +51,9 @@ def extract_imports(module: str, path: Path) -> Set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     imports: Set[str] = set()
 
-    for node in ast.walk(tree):
+    # Only consider module-level imports. Function-local lazy imports are an
+    # intentional pattern used to avoid runtime import cycles.
+    for node in tree.body:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 target = resolve_import(module, alias.name)

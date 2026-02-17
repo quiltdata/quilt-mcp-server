@@ -21,6 +21,13 @@ from .s3_discovery import (
     validate_bucket_access,
 )
 from .package_metadata import generate_package_metadata, generate_readme_content
+from .validation import (
+    normalize_registry,
+    validate_metadata_dict,
+    validate_package_name_required,
+    validate_registry_required,
+    validate_s3_uris_required,
+)
 from ..context.request_context import RequestContext
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 
@@ -54,17 +61,8 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_registry(bucket_or_uri: str) -> str:
-    """Normalize registry input to s3:// URI format.
-
-    Args:
-        bucket_or_uri: Either a bucket name (e.g., "my-bucket") or s3:// URI (e.g., "s3://my-bucket")
-
-    Returns:
-        Full s3:// URI format (e.g., "s3://my-bucket")
-    """
-    if bucket_or_uri.startswith("s3://"):
-        return bucket_or_uri
-    return f"s3://{bucket_or_uri}"
+    """Backward-compatible wrapper around tools.validation.normalize_registry."""
+    return normalize_registry(bucket_or_uri)
 
 
 def _authorize_package(
@@ -488,13 +486,11 @@ def package_browse(
         ```
     """
     # Validate required registry parameter
-    if not registry:
+    ok_registry, registry_error, registry_actions = validate_registry_required(registry, "package_browse")
+    if not ok_registry:
         return ErrorResponse(
-            error="Registry parameter is required for package browsing. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
-            possible_fixes=[
-                "Provide registry parameter",
-                "Example: package_browse(package_name='team/dataset', registry='s3://my-bucket')",
-            ],
+            error=registry_error,
+            possible_fixes=registry_actions,
             suggested_actions=[
                 "Use bucket_recommendations_get() to find accessible buckets",
                 "Check which bucket contains your package",
@@ -869,37 +865,37 @@ def package_create(
     auth_ctx: AuthorizationContext | None = None
 
     # Validate required registry parameter
-    if not registry:
+    ok_registry, registry_error, registry_actions = validate_registry_required(registry, "package_create")
+    if not ok_registry:
         return PackageCreateError(
-            error="Registry parameter is required for package creation. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
+            error=registry_error,
             package_name=package_name,
             registry="",
-            suggested_actions=[
-                "Provide registry parameter",
-                "Example: package_create(package_name='team/dataset', s3_uris=[...], registry='s3://my-bucket')",
-                "Use bucket_recommendations_get() to find writable buckets",
-            ],
+            suggested_actions=registry_actions + ["Use bucket_recommendations_get() to find writable buckets"],
         )
 
     warnings: list[str] = []
-    if not s3_uris:
+    ok_uris, uris_error, uris_actions = validate_s3_uris_required(s3_uris)
+    if not ok_uris:
         return PackageCreateError(
-            error="No S3 URIs provided",
+            error=uris_error,
             package_name=package_name,
-            suggested_actions=["Provide at least one S3 URI", "Example: s3://bucket/path/to/file.csv"],
+            suggested_actions=uris_actions,
         )
-    if not package_name:
+    ok_package, package_error, package_actions = validate_package_name_required(package_name, "package_create")
+    if not ok_package:
         return PackageCreateError(
-            error="Package name is required",
+            error=package_error,
             package_name="",
-            suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
+            suggested_actions=package_actions,
         )
-    if metadata is not None and not isinstance(metadata, dict):
+    ok_meta, meta_error, _, meta_actions = validate_metadata_dict(metadata, package_name=package_name)
+    if not ok_meta:
         return PackageCreateError(
-            error="Metadata must be a dictionary",
+            error=meta_error,
             package_name=package_name,
             provided_type=type(metadata).__name__,
-            suggested_actions=["Provide metadata as a dict", "Example: {'description': 'My dataset'}"],
+            suggested_actions=meta_actions,
         )
 
     # Process metadata to remove README fields (not currently preserved)
@@ -1079,34 +1075,35 @@ def package_update(
     auth_ctx: AuthorizationContext | None = None
 
     # Validate required registry parameter
-    if not registry:
+    ok_registry, registry_error, registry_actions = validate_registry_required(registry, "package_update")
+    if not ok_registry:
         return PackageUpdateError(
-            error="Registry parameter is required for package update. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
+            error=registry_error,
             package_name=package_name,
             registry="",
-            suggested_actions=[
-                "Provide registry parameter",
-                "Example: package_update(package_name='team/dataset', s3_uris=[...], registry='s3://my-bucket')",
-            ],
+            suggested_actions=registry_actions,
         )
 
-    if not s3_uris:
+    ok_uris, uris_error, uris_actions = validate_s3_uris_required(s3_uris)
+    if not ok_uris:
         return PackageUpdateError(
-            error="No S3 URIs provided",
+            error=uris_error,
             package_name=package_name,
-            suggested_actions=["Provide at least one S3 URI", "Example: s3://bucket/path/to/file.csv"],
+            suggested_actions=uris_actions,
         )
-    if not package_name:
+    ok_package, package_error, package_actions = validate_package_name_required(package_name, "package_update")
+    if not ok_package:
         return PackageUpdateError(
-            error="package_name is required for package_update",
+            error=package_error,
             package_name="",
-            suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
+            suggested_actions=package_actions,
         )
-    if metadata is not None and not isinstance(metadata, dict):
+    ok_meta, meta_error, _, meta_actions = validate_metadata_dict(metadata, package_name=package_name)
+    if not ok_meta:
         return PackageUpdateError(
-            error="Metadata must be a dictionary",
+            error=meta_error,
             package_name=package_name,
-            suggested_actions=["Provide metadata as a dict", "Example: {'description': 'Updated dataset'}"],
+            suggested_actions=meta_actions,
         )
     warnings: list[str] = []
     normalized_registry = _normalize_registry(registry)

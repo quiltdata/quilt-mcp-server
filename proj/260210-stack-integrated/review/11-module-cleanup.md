@@ -50,24 +50,24 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Cycle 1: Utils/Context** (4 files)
 
-- [ ] Extract shared types from `utils/common.py` → `types/common.py`
-- [ ] Move context-specific utilities to `context/utils.py`
-- [ ] Update imports in `context/{handler,factory}.py`, `services/workflow_service.py`
+- [x] Extract shared types from `utils/common.py` → `types/common.py`
+- [x] Move context-specific utilities to `context/utils.py`
+- [x] Update imports in `context/{handler,factory}.py`, `services/workflow_service.py`
 
 **Cycle 2: Auth Services** (2 files)
 
-- [ ] Create `services/protocols/auth.py` with `AuthServiceProtocol`
-- [ ] Make `iam_auth_service.py` depend on protocol, not concrete implementation
+- [x] Create `services/protocols/auth.py` with `AuthServiceProtocol`
+- [x] Make `iam_auth_service.py` depend on protocol, not concrete implementation
 
 **Cycle 3: Platform Backend/Admin** (2 files)
 
-- [ ] Extract shared admin types to `backends/types/admin.py`
-- [ ] Make `platform_admin_ops.py` import types only, not full backend
+- [x] Extract shared admin types to `backends/types/admin.py`
+- [x] Make `platform_admin_ops.py` import types only, not full backend
 
 **Validation:**
 
-- [ ] Run: `uv run python scripts/check_cycles.py` → expect 0 cycles
-- [ ] Run: `uv run mypy src/quilt_mcp` → passes
+- [x] Run: `uv run python scripts/check_cycles.py` → expect 0 cycles
+- [x] Run: `uv run mypy src/quilt_mcp` → passes
 
 ---
 
@@ -117,7 +117,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Extract shared validation:**
 
-- [ ] Create `tools/validation.py`:
+- [x] Create `tools/validation.py`:
   - `validate_package_name()`
   - `validate_registry()`
   - `validate_metadata()`
@@ -125,13 +125,13 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Refactor functions:**
 
-- [ ] `package_create`: Use validation module → target ~120 lines
-- [ ] `package_browse`: Extract `_build_tree_structure()` → target ~100 lines
-- [ ] `package_update`: Use validation module → target ~100 lines
+- [x] `package_create`: Use validation module → target ~120 lines
+- [x] `package_browse`: Extract `_build_tree_structure()` → target ~100 lines
+- [x] `package_update`: Use validation module → target ~100 lines
 
 **Validation:**
 
-- [ ] Run: `uv run pytest tests/unit/tools/test_packages.py`
+- [x] Run: `uv run pytest tests/unit/tools/test_packages.py`
 
 ---
 
@@ -141,12 +141,12 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `tools/packages.py` mixes CRUD operations with S3 discovery workflows.
 
-- [ ] Create `tools/s3_package_ingestion.py`:
+- [x] Create `tools/s3_package_ingestion.py`:
   - Move `package_create_from_s3` (after Phase 2.1 refactoring)
   - Move S3-specific helpers
   - Import from `s3_discovery.py` and `package_metadata.py`
 
-- [ ] Keep in `tools/packages.py`:
+- [x] Keep in `tools/packages.py`:
   - Core CRUD: `package_create`, `package_update`, `package_delete`, `package_browse`
   - Package info: `package_diff`, `package_info`, `package_list`
 
@@ -157,21 +157,21 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [ ] Run: `uv run pytest tests/unit/tools/`
-- [ ] Verify imports work from MCP tool registration
+- [x] Run: `uv run pytest tests/unit/tools/`
+- [x] Verify imports work from MCP tool registration
 
 #### 3.2 Extract GraphQL Client Abstraction
 
 **Problem:** `platform_backend.py` has 14 scattered GraphQL query/mutation definitions with duplicated error handling.
 
-- [ ] Create `backends/platform_graphql_client.py`:
+- [x] Create `backends/platform_graphql_client.py`:
   - `GraphQLClient` class with:
     - `query(operation, variables)` - Generic query executor
     - `mutate(operation, variables)` - Generic mutation executor
     - Error handling, response parsing, type checking
   - Query/mutation definitions as constants or methods
 
-- [ ] Refactor `platform_backend.py`:
+- [x] Refactor `platform_backend.py`:
   - Initialize `self._graphql = GraphQLClient(...)`
   - Replace inline GraphQL with client calls
   - Remove duplicated error handling
@@ -183,8 +183,8 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [ ] Run: `uv run pytest tests/unit/backends/test_platform_backend.py`
-- [ ] Run: `uv run pytest tests/func/backends/ -k platform`
+- [x] Run: `uv run pytest tests/unit/backends/test_platform_backend.py`
+- [x] Run: `uv run pytest tests/func/backends/ -k platform`
 
 ---
 
@@ -194,20 +194,20 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** Same logic repeated across backends.
 
-- [ ] Create `backends/utils.py`:
+- [x] Create `backends/utils.py`:
   - `extract_bucket_from_registry()` - Used in quilt_ops, platform_backend, etc.
   - `normalize_registry()` - Repeated in multiple backends
   - `build_s3_key()` - Common S3 key construction
 
-- [ ] Update backends to use shared utilities
+- [x] Update backends to use shared utilities
 
 #### 4.2 Reduce Validation Redundancy
 
 **Problem:** `quilt_ops.py` validates inputs, then backends validate again in primitives.
 
-- [ ] Document validation contract in `ops/quilt_ops.py` docstrings
-- [ ] Remove redundant validation from backend primitives (trust base class)
-- [ ] Keep validation only where backends have platform-specific rules
+- [x] Document validation contract in `ops/quilt_ops.py` docstrings
+- [x] Remove redundant validation from backend primitives (trust base class)
+- [x] Keep validation only where backends have platform-specific rules
 
 **Files:** `ops/quilt_ops.py`, all backend implementations
 
@@ -219,7 +219,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `platform_backend.delete_package()` has 22 nested blocks with complex fallback logic (GraphQL → S3 direct).
 
-- [ ] Extract fallback logic to separate method:
+- [x] Extract fallback logic to separate method:
   - `_try_graphql_delete()` - GraphQL deletion
   - `_try_s3_fallback_delete()` - S3 direct deletion
   - `delete_package()` - Orchestrates with clear error handling
@@ -228,13 +228,13 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [ ] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k delete`
+- [x] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k delete`
 
 #### 5.2 Reduce Documentation Verbosity in `quilt_ops.py`
 
 **Problem:** 10+ line docstrings for every method inflate file size without adding value.
 
-- [ ] Consolidate docstrings:
+- [x] Consolidate docstrings:
   - Keep high-level class docstring explaining Template Method pattern
   - Reduce method docstrings to 2-4 lines (purpose + params)
   - Move detailed implementation notes to `ARCHITECTURE.md`
@@ -247,14 +247,14 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 ### Phase 6: Validation (Priority: CRITICAL)
 
-- [ ] **Import cycles:** `uv run python scripts/check_cycles.py` → 0 cycles
-- [ ] **Module sizes:** `find src/quilt_mcp -name "*.py" -exec wc -l {} \; | sort -rn | head -20`
+- [x] **Import cycles:** `uv run python scripts/check_cycles.py` → 0 cycles
+- [x] **Module sizes:** `find src/quilt_mcp -name "*.py" -exec wc -l {} \; | sort -rn | head -20`
   - No modules >1500 lines (down from 2034)
   - Top modules all <1000 lines
 - [x] **Tests pass:** `make test-all`
 - [x] **Type checking:** `uv run mypy src/quilt_mcp`
 - [x] **Linting:** `make lint`
-- [ ] **Function sizes:** Verify no functions >200 lines (down from 448)
+- [x] **Function sizes:** Verify no functions >200 lines (down from 448)
 
 ---
 

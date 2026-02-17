@@ -13,7 +13,8 @@ from typing import Any, Dict, Literal, Optional
 import boto3
 
 from quilt_mcp.context.request_context import RequestContext
-from quilt_mcp.services.auth_service import AuthServiceError, AuthService, create_auth_service
+from quilt_mcp.services.auth_service import AuthServiceError, create_auth_service
+from quilt_mcp.services.protocols.auth import AuthServiceProtocol
 from quilt_mcp.services.jwt_auth_service import JwtAuthServiceError
 
 logger = logging.getLogger(__name__)
@@ -51,9 +52,9 @@ def _build_s3_client(session: boto3.Session) -> Optional[Any]:
 
 
 def _resolve_auth_service(
-    auth_service: AuthService | None,
+    auth_service: AuthServiceProtocol | None,
     context: Optional[RequestContext] = None,
-) -> AuthService:
+) -> AuthServiceProtocol:
     if auth_service is None:
         if context is not None:
             return context.auth_service  # type: ignore[no-any-return]
@@ -66,7 +67,7 @@ def _base_authorization(
     tool_args: Dict[str, Any],
     *,
     require_s3: bool,
-    auth_service: AuthService | None = None,
+    auth_service: AuthServiceProtocol | None = None,
     context: Optional[RequestContext] = None,
 ) -> AuthorizationContext:
     auth_service = _resolve_auth_service(auth_service, context)
@@ -138,7 +139,7 @@ def check_s3_authorization(
     tool_name: str,
     tool_args: Optional[Dict[str, Any]] = None,
     *,
-    auth_service: AuthService | None = None,
+    auth_service: AuthServiceProtocol | None = None,
     context: Optional[RequestContext] = None,
 ) -> AuthorizationContext:
     """Return S3 authorization context for bucket-oriented tools."""
@@ -158,7 +159,7 @@ def check_package_authorization(
     tool_name: str,
     tool_args: Optional[Dict[str, Any]] = None,
     *,
-    auth_service: AuthService | None = None,
+    auth_service: AuthServiceProtocol | None = None,
     context: Optional[RequestContext] = None,
 ) -> AuthorizationContext:
     """Return authorization context for package/GraphQL tools."""

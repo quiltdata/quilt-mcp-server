@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import List, Optional, Dict, Any, cast
 
 import boto3
@@ -29,8 +30,25 @@ from quilt_mcp.domain.package_builder import PackageBuilder, PackageEntry
 from quilt_mcp.services.browsing_session_client import BrowsingSessionClient
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
 from quilt_mcp.utils.common import graphql_endpoint, normalize_url, get_dns_name_from_url, _runtime_boto3_session
+from quilt_mcp.backends.platform_graphql_client import PlatformGraphQLClient
+from quilt_mcp.backends.graphql_queries import (
+    DELETE_REVISION_MUTATION,
+    GET_PACKAGE_QUERY,
+    PACKAGE_CONSTRUCT_MUTATION,
+    PACKAGE_REVISIONS_FOR_DELETE_QUERY,
+)
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DeletionResult:
+    """Structured result for package deletion attempts."""
+
+    success: bool
+    method: str
+    revision_count: int = 0
+    error: str | None = None
 
 
 class Platform_Backend(TabulatorMixin, QuiltOps):
@@ -69,6 +87,11 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
                 "Accept": "application/json",
             }
         )
+        self._graphql_client = PlatformGraphQLClient(
+            session=self._session,
+            endpoint=self._graphql_endpoint,
+            auth_header=f"Bearer {self._access_token}",
+        )
 
         ttl_seconds = int(os.getenv("QUILT_BROWSING_SESSION_TTL", "180"))
         self._browse_client = BrowsingSessionClient(
@@ -102,17 +125,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         registry: Optional[str] = None,
     ) -> Dict[str, Any]:
         try:
-            endpoint = self.get_graphql_endpoint()
-            headers = self.get_graphql_auth_headers()
-            payload: Dict[str, Any] = {"query": query}
-            if variables:
-                payload["variables"] = variables
-
-            response = self._session.post(endpoint, json=payload, headers=headers, timeout=60)
-            response.raise_for_status()
-            result = response.json()
-            if not isinstance(result, dict):
-                raise BackendError("GraphQL response was not a JSON object")
+            result = self._graphql_client.execute(query=query, variables=variables)
 
             if "errors" in result:
                 error_messages = [err.get("message", str(err)) for err in result.get("errors", [])]
@@ -328,147 +341,154 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # - _backend_set_package_metadata() primitive
     # - _backend_push_package() primitive
 
+    def _try_s3_pointer_delete(self, bucket_name: str, package_name: str) -> DeletionResult:
+        """Attempt fast deletion by removing package pointer files from S3."""
+        prefix = f".quilt/named_packages/{package_name}/"
+        s3_client = self.get_aws_client("s3")
+        pointer_keys: list[str] = []
+        continuation_token: Optional[str] = None
+
+        while True:
+            params: Dict[str, Any] = {"Bucket": bucket_name, "Prefix": prefix, "MaxKeys": 1000}
+            if continuation_token:
+                params["ContinuationToken"] = continuation_token
+            response = s3_client.list_objects_v2(**params)
+            for item in response.get("Contents", []):
+                key = item.get("Key", "")
+                if key and not key.endswith("/"):
+                    pointer_keys.append(key)
+            if not response.get("IsTruncated"):
+                break
+            continuation_token = response.get("NextContinuationToken")
+
+        if not pointer_keys:
+            return DeletionResult(success=False, method="s3-pointer", error="No pointer files found")
+
+        had_delete_errors = False
+        for i in range(0, len(pointer_keys), 1000):
+            batch = pointer_keys[i : i + 1000]
+            delete_response = s3_client.delete_objects(
+                Bucket=bucket_name,
+                Delete={"Objects": [{"Key": key} for key in batch], "Quiet": True},
+            )
+            if delete_response.get("Errors"):
+                had_delete_errors = True
+                logger.error(
+                    "Pointer delete batch had errors",
+                    extra={
+                        "bucket": bucket_name,
+                        "package_name": package_name,
+                        "errors": delete_response["Errors"],
+                    },
+                )
+
+        return DeletionResult(
+            success=not had_delete_errors,
+            method="s3-pointer",
+            revision_count=len(pointer_keys),
+            error=None if not had_delete_errors else "S3 pointer delete returned errors",
+        )
+
+    def _try_graphql_delete(self, bucket_name: str, package_name: str) -> DeletionResult:
+        """Delete all package revisions via GraphQL packageRevisionDelete."""
+        revision_hashes: list[str] = []
+        page_num = 1
+        per_page = 100
+        total_revisions: Optional[int] = None
+        while True:
+            result = self.execute_graphql_query(
+                PACKAGE_REVISIONS_FOR_DELETE_QUERY,
+                variables={"bucket": bucket_name, "name": package_name, "page": page_num, "perPage": per_page},
+            )
+            package_payload = result.get("data", {}).get("package")
+            if not package_payload:
+                break
+            revisions = package_payload.get("revisions", {})
+            if total_revisions is None:
+                total_revisions = revisions.get("total", 0)
+            page_entries = revisions.get("page", []) or []
+            if not page_entries:
+                break
+            for entry in page_entries:
+                hash_value = entry.get("hash")
+                if hash_value:
+                    revision_hashes.append(hash_value)
+            if total_revisions is not None and len(revision_hashes) >= total_revisions:
+                break
+            page_num += 1
+
+        if not revision_hashes:
+            return DeletionResult(success=False, method="graphql", error="No package revisions found")
+
+        had_failure = False
+        for hash_or_tag in sorted(set(revision_hashes), reverse=True):
+            try:
+                result = self.execute_graphql_query(
+                    DELETE_REVISION_MUTATION,
+                    variables={"bucket": bucket_name, "name": package_name, "hash": hash_or_tag},
+                )
+                payload = result.get("data", {}).get("packageRevisionDelete", {})
+                if payload.get("__typename") != "PackageRevisionDeleteSuccess":
+                    had_failure = True
+                    logger.error(
+                        "Package revision delete returned non-success",
+                        extra={
+                            "bucket": bucket_name,
+                            "package_name": package_name,
+                            "hash": hash_or_tag,
+                            "typename": payload.get("__typename"),
+                            "message": payload.get("message"),
+                        },
+                    )
+            except Exception as exc:
+                had_failure = True
+                logger.error(
+                    "Package revision delete failed",
+                    extra={
+                        "bucket": bucket_name,
+                        "package_name": package_name,
+                        "hash": hash_or_tag,
+                        "error": str(exc),
+                    },
+                )
+
+        return DeletionResult(
+            success=not had_failure,
+            method="graphql",
+            revision_count=len(set(revision_hashes)),
+            error=None if not had_failure else "GraphQL revision deletion had failures",
+        )
+
     def delete_package(self, bucket: str, name: str) -> bool:
-        """Delete all known package revisions via GraphQL packageRevisionDelete."""
+        """Delete all known package revisions.
+
+        Prefer fast pointer deletion and fall back to GraphQL revision deletion.
+        """
         try:
             bucket_name = self._extract_bucket_from_registry(bucket)
-            prefix = f".quilt/named_packages/{name}/"
-            pointer_keys: list[str] = []
-            try:
-                s3_client = self.get_aws_client("s3")
-                continuation_token: Optional[str] = None
-                while True:
-                    params: Dict[str, Any] = {"Bucket": bucket_name, "Prefix": prefix, "MaxKeys": 1000}
-                    if continuation_token:
-                        params["ContinuationToken"] = continuation_token
-                    response = s3_client.list_objects_v2(**params)
-                    for item in response.get("Contents", []):
-                        key = item.get("Key", "")
-                        if key and not key.endswith("/"):
-                            pointer_keys.append(key)
-                    if not response.get("IsTruncated"):
-                        break
-                    continuation_token = response.get("NextContinuationToken")
 
-                if pointer_keys:
-                    # Fast path: delete pointer files directly and rely on backend metadata cleanup pipeline.
-                    had_delete_errors = False
-                    for i in range(0, len(pointer_keys), 1000):
-                        batch = pointer_keys[i : i + 1000]
-                        delete_response = s3_client.delete_objects(
-                            Bucket=bucket_name,
-                            Delete={"Objects": [{"Key": key} for key in batch], "Quiet": True},
-                        )
-                        if delete_response.get("Errors"):
-                            had_delete_errors = True
-                            logger.error(
-                                "Pointer delete batch had errors",
-                                extra={
-                                    "bucket": bucket_name,
-                                    "package_name": name,
-                                    "errors": delete_response["Errors"],
-                                },
-                            )
-                    if not had_delete_errors:
-                        return True
+            try:
+                pointer_result = self._try_s3_pointer_delete(bucket_name, name)
+                if pointer_result.success:
+                    return True
             except Exception as exc:
                 logger.warning(
                     "Fast S3 pointer delete path failed, falling back to GraphQL delete",
                     extra={"bucket": bucket_name, "package_name": name, "error": str(exc)},
                 )
 
-            revision_hashes: list[str] = []
-            revisions_query = """
-            query PackageRevisionsForDelete($bucket: String!, $name: String!, $page: Int!, $perPage: Int!) {
-              package(bucket: $bucket, name: $name) {
-                revisions {
-                  total
-                  page(number: $page, perPage: $perPage) {
-                    hash
-                  }
-                }
-              }
-            }
-            """
-            page_num = 1
-            per_page = 100
-            total_revisions: Optional[int] = None
-            while True:
-                result = self.execute_graphql_query(
-                    revisions_query,
-                    variables={"bucket": bucket_name, "name": name, "page": page_num, "perPage": per_page},
-                )
-                package_payload = result.get("data", {}).get("package")
-                if not package_payload:
-                    break
-                revisions = package_payload.get("revisions", {})
-                if total_revisions is None:
-                    total_revisions = revisions.get("total", 0)
-                page_entries = revisions.get("page", []) or []
-                if not page_entries:
-                    break
-                for entry in page_entries:
-                    hash_value = entry.get("hash")
-                    if hash_value:
-                        revision_hashes.append(hash_value)
-                if total_revisions is not None and len(revision_hashes) >= total_revisions:
-                    break
-                page_num += 1
-
-            if not revision_hashes:
+            graphql_result = self._try_graphql_delete(bucket_name, name)
+            if not graphql_result.success and graphql_result.error:
                 logger.warning(
-                    "No package revisions found for deletion", extra={"bucket": bucket_name, "package_name": name}
+                    "GraphQL package delete returned non-success",
+                    extra={
+                        "bucket": bucket_name,
+                        "package_name": name,
+                        "error": graphql_result.error,
+                        "revision_count": graphql_result.revision_count,
+                    },
                 )
-                return False
-
-            mutation = """
-            mutation DeleteRevision($bucket: String!, $name: String!, $hash: String!) {
-              packageRevisionDelete(bucket: $bucket, name: $name, hash: $hash) {
-                __typename
-                ... on PackageRevisionDeleteSuccess {
-                  _
-                }
-                ... on OperationError {
-                  message
-                }
-              }
-            }
-            """
-
-            had_failure = False
-            for hash_or_tag in sorted(set(revision_hashes), reverse=True):
-                try:
-                    result = self.execute_graphql_query(
-                        mutation,
-                        variables={"bucket": bucket_name, "name": name, "hash": hash_or_tag},
-                    )
-                    payload = result.get("data", {}).get("packageRevisionDelete", {})
-                    if payload.get("__typename") != "PackageRevisionDeleteSuccess":
-                        had_failure = True
-                        logger.error(
-                            "Package revision delete returned non-success",
-                            extra={
-                                "bucket": bucket_name,
-                                "package_name": name,
-                                "hash": hash_or_tag,
-                                "typename": payload.get("__typename"),
-                                "message": payload.get("message"),
-                            },
-                        )
-                except Exception as exc:
-                    had_failure = True
-                    logger.error(
-                        "Package revision delete failed",
-                        extra={
-                            "bucket": bucket_name,
-                            "package_name": name,
-                            "hash": hash_or_tag,
-                            "error": str(exc),
-                        },
-                    )
-                    continue
-
-            return not had_failure
+            return graphql_result.success
         except Exception as exc:
             logger.error(
                 "Failed to enumerate package revisions for deletion",
@@ -552,18 +572,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         # Build GraphQL packageConstruct mutation
         # Note: Error types (PackagePushInvalidInputFailure, PackagePushComputeFailure)
         # are not available in current GraphQL schema, so we rely on general error handling
-        mutation = """
-        mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
-          packageConstruct(params: $params, src: $src) {
-            __typename
-            ... on PackagePushSuccess {
-              package { name }
-              revision { hash }
-            }
-          }
-        }
-        """
-
         variables = {
             "params": {
                 "bucket": bucket,
@@ -575,7 +583,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             "src": {"entries": package["entries"]},
         }
 
-        result = self.execute_graphql_query(mutation, variables=variables)
+        result = self.execute_graphql_query(PACKAGE_CONSTRUCT_MUTATION, variables=variables)
         package_construct = result.get("data", {}).get("packageConstruct", {})
         typename = package_construct.get("__typename")
 
@@ -620,25 +628,13 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         """
         bucket = self._extract_bucket_from_registry(registry)
 
-        query = """
-        query GetPackage($bucket: String!, $name: String!, $hash: String!) {
-          package(bucket: $bucket, name: $name) {
-            revision(hashOrTag: $hash) {
-              hash
-              userMeta
-              contentsFlatMap(max: 10000)
-            }
-          }
-        }
-        """
-
         variables = {
             "bucket": bucket,
             "name": package_name,
             "hash": top_hash or "latest",
         }
 
-        result = self.execute_graphql_query(query, variables=variables)
+        result = self.execute_graphql_query(GET_PACKAGE_QUERY, variables=variables)
         package_data = result.get("data", {}).get("package")
 
         if not package_data:

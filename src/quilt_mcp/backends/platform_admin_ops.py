@@ -7,10 +7,7 @@ Platform's admin GraphQL API.
 """
 
 import logging
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .platform_backend import Platform_Backend
+from typing import List, Optional, Dict, Any
 
 from quilt_mcp.ops.admin_ops import AdminOps
 from quilt_mcp.ops.exceptions import (
@@ -23,6 +20,7 @@ from quilt_mcp.ops.exceptions import (
 from quilt_mcp.domain.user import User
 from quilt_mcp.domain.role import Role
 from quilt_mcp.domain.sso_config import SSOConfig
+from quilt_mcp.backends.protocols.admin import AdminBackendProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +90,7 @@ class Platform_Admin_Ops(AdminOps):
     - Provides comprehensive error handling and logging
     """
 
-    def __init__(self, backend: "Platform_Backend"):
+    def __init__(self, backend: AdminBackendProtocol):
         """Initialize Platform admin operations.
 
         Args:
