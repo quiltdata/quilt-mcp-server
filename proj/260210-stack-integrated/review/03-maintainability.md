@@ -3,6 +3,7 @@
 > **Status Note (2026-02-17):** This document is a historical snapshot from 2026-02-16 and is now partially outdated.
 > Current deltas from this branch: `src/quilt_mcp/tools/packages.py` reduced from 2034 to 758 LOC via extraction to `src/quilt_mcp/tools/package_crud.py`, `src/quilt_mcp/tools/responses.py` reduced from 1063 to 987 LOC via extraction to `src/quilt_mcp/tools/responses_base.py` and `src/quilt_mcp/tools/responses_resources.py`, `scripts/detect_cycles.py` reports no import cycles, and no `TODO/FIXME` markers remain under `src/quilt_mcp/{backends,tools,ops}`.
 > Remaining maintainability debt: multiple modules still exceed 1000 LOC (`ops/quilt_ops.py`, `services/governance_service.py`, `backends/platform_admin_ops.py`, `backends/platform_backend.py`, `services/workflow_service.py`).
+> **PR 288 follow-up (2026-02-17):** CI import-breakage caused by stale references to `quilt_mcp.tools.packages` internals was fixed by migrating tests to implementation modules (`tools/package_crud.py`, `tools/s3_package_ingestion.py`) and enforcing `package_update` top-hash typing (reject non-string hashes).
 
 **Date:** 2026-02-16  
 **Reviewer:** Codex

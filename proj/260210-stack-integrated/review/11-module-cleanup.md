@@ -3,6 +3,7 @@
 > **Status Note (2026-02-17):** This workstream is actively in progress on `pr-review-fix`.
 > Recent completion: package CRUD/browse/diff/create/update/delete logic moved out of `tools/packages.py` into `tools/package_crud.py` (now 758 LOC), and response base/resource models were extracted from `tools/responses.py` (now 987 LOC).
 > Remaining debt: several modules are still >1000 lines (`ops/quilt_ops.py`, `services/governance_service.py`, `backends/platform_admin_ops.py`, `backends/platform_backend.py`, `services/workflow_service.py`).
+> **PR 288 fix confirmation (2026-02-17):** post-refactor CI failures were resolved by removing test-level dependencies on `tools/packages.py` internals and targeting extracted modules directly; `make test-ci` is green.
 
 **Date:** 2026-02-16
 **Reviewer:** Codex

@@ -1,9 +1,10 @@
 # Code Quality Review Summary
 
-> **Status Update (2026-02-17, `pr-review-fix`):** The maintainability blocker from this snapshot is still partially remediated.
-> Import-cycle remediation and validation gates are green (`scripts/detect_cycles.py` reports no cycles, `mypy`/`make test-all`/remote docker target pass).
-> `tools/packages.py` was split and reduced below 1000 LOC (758), `tools/responses.py` was reduced below 1000 LOC (987), and the production TODO in `tools/packages.py` was removed.
-> Large-module structural debt still remains in other files (>1000 LOC).
+> **Status Update (2026-02-17, `pr-review-fix`):** PR 288 CI failure was fixed and validated.
+> Root cause was stale test coupling to `quilt_mcp.tools.packages` internals after module extraction.
+> Fixes shipped: tests now patch/import implementation modules directly (`tools/package_crud.py`, `tools/s3_package_ingestion.py`), `packages.package_create_from_s3` docstring contract was updated for style checks, and `package_update` now rejects non-string `top_hash` instead of silently coercing it.
+> Validation: local `make test-ci` passes (`1560 passed, 4 skipped`) and PR check `test (3.11)` is green.
+> Remaining debt is limited to large-module size in other files (>1000 LOC), not the PR 288 breakage.
 
 **Date:** 2026-02-17
 **Reviewer:** Codex
@@ -19,7 +20,7 @@
 |------|--------|-------|
 | Code Coverage & Testing | ⚠️ | Combined coverage strong (85%+), but critical path target (>=90%) not met and skip-heavy execution paths remain. |
 | Build & Deployability | ⚠️ | `make test-all`, `make docker-build`, and `make test-docker-remote` now pass; remaining warning is dependency pinning strategy. |
-| Code Maintainability | ❌ | Multiple oversized modules, circular import cycles, and production TODOs. |
+| Code Maintainability | ⚠️ | Circular import cycles and production TODOs called out in earlier snapshots are resolved; oversized modules remain. |
 | Documentation | ⚠️ | Core docs present, but checklist/file-path drift (`ARCHITECTURE.md`, `DEPLOYMENT.md`, `TOOLS`) reduces consistency. |
 | Security & Credentials | ⚠️ | No obvious hardcoded secrets; warning on fallback JWT path and raw SQL tool risk model. |
 | Observability | ⚠️ | Logging exists, but structure and exception-handling consistency are uneven. |
@@ -28,7 +29,7 @@
 
 ## Critical Issues (Blockers)
 
-1. Maintainability structural debt (oversized modules + circular imports) - **Blocker** - Elevated regression risk and high change cost.
+1. Maintainability structural debt (oversized modules in core backends/services/ops) - **Blocker** - Elevated regression risk and high change cost.
 
 ## Warnings (Non-Blockers)
 
