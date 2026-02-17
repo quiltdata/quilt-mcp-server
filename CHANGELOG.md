@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-02-17
+
+### Added
+
+- **Bucket Discovery Tool**: Added `bucket_list` tool for listing accessible buckets with pagination support.
+- **Stack-Integrated Review Artifacts**: Added comprehensive stack integration documentation and review outputs under `proj/260210-stack-integrated/`.
+
+### Changed
+
+- **Quality Review Tracking**: Executed and updated all sections of `D-REVIEW.md` with per-gate status and final summary.
+- **Build/Deploy Validation Notes**: Refreshed deployability review to reflect successful `make test-all` and `make test-docker-remote` validation runs.
+
 ## [0.19.0] - 2026-02-14
 
 ### Improved
