@@ -278,7 +278,18 @@ run-docker-remote: docker-build
 test-docker-remote: scripts/tests/mcp-test.yaml
 	@echo "===🧪 Running remote Docker MCP test against local endpoint..."
 	@$(MAKE) run-docker-remote WITH_NGROK=0 LAUNCH_INSPECTOR=0 && \
-		(uv run --group test python scripts/mcp-test.py http://localhost:8000/mcp \
+		(echo "⏳ Waiting for HTTP server to be ready..." && \
+		for i in 1 2 3 4 5 6 7 8 9 10; do \
+			if curl -sf http://localhost:8000/ >/dev/null 2>&1; then \
+				echo "✅ Server is ready" && break; \
+			fi; \
+			echo "   Attempt $$i/10: Server not ready yet, waiting..." && sleep 1; \
+			if [ $$i -eq 10 ]; then \
+				echo "❌ Server failed to become ready after 10 attempts" && \
+				$(MAKE) stop-docker-remote && exit 1; \
+			fi; \
+		done && \
+		uv run --group test python scripts/mcp-test.py http://localhost:8000/mcp \
 			--config scripts/tests/mcp-test.yaml && \
 		$(MAKE) stop-docker-remote) || \
 		($(MAKE) stop-docker-remote && exit 1)

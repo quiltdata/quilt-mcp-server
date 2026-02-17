@@ -114,6 +114,7 @@ class PhaseStats:
     tests_total: int = 0
     failures: list[TestFailure] = field(default_factory=list)
     error_lines: list[tuple[int, str]] = field(default_factory=list)  # (subtask_idx, error_line)
+    info_lines: list[tuple[int, str]] = field(default_factory=list)  # (subtask_idx, info_line) - skips, etc
     completed: bool = False
     command_failed: bool = False  # Track if the phase command failed (non-zero exit)
     coverage_pct: Optional[float] = None  # Overall coverage percentage
@@ -256,12 +257,13 @@ class TestRunnerState:
         if completed:
             lines.append(f"{DIM}✅ COMPLETED: {' | '.join(completed)}{RESET}")
 
-        # Section 6: All errors and skipped tests grouped by phase and subtask (expanding list at bottom)
+        # Section 6: Errors (actual failures only)
         has_errors = any(phase.error_lines for phase in self.phases)
+        has_info = any(phase.info_lines for phase in self.phases)
 
         if has_errors:
             lines.append("")
-            lines.append("🔍 ERRORS & SKIPPED:")
+            lines.append("❌ ERRORS:")
             for phase in self.phases:
                 if phase.error_lines:
                     # Group errors by subtask
@@ -277,6 +279,26 @@ class TestRunnerState:
                         lines.append(f"  [{phase.name} → {subtask_name}]")
                         for error_line in errors_by_subtask[subtask_idx]:
                             lines.append(f"    {error_line}")
+
+        # Section 7: Info messages (skipped tests, etc)
+        if has_info:
+            lines.append("")
+            lines.append("ℹ️  INFO:")
+            for phase in self.phases:
+                if phase.info_lines:
+                    # Group info by subtask
+                    info_by_subtask: dict[int, list[str]] = {}
+                    for subtask_idx, info_line in phase.info_lines:
+                        if subtask_idx not in info_by_subtask:
+                            info_by_subtask[subtask_idx] = []
+                        info_by_subtask[subtask_idx].append(info_line)
+
+                    # Display info grouped by subtask
+                    for subtask_idx in sorted(info_by_subtask.keys()):
+                        subtask_name = phase.subtasks[subtask_idx] if subtask_idx < len(phase.subtasks) else "unknown"
+                        lines.append(f"  [{phase.name} → {subtask_name}]")
+                        for info_line in info_by_subtask[subtask_idx]:
+                            lines.append(f"    {info_line}")
 
         return "\n".join(lines)
 
@@ -494,7 +516,7 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
         parse_subtask_transition(line, state)
         parse_pytest_output(line, state)
 
-        # Capture error-related lines
+        # Capture error-related and informational lines
         phase = state.current_phase_stats()
         if phase:
             # Strip ANSI color codes for reliable pattern matching
@@ -507,14 +529,12 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
             # Check for pytest status indicators first (these take precedence)
             is_passing_test = " PASSED " in line_clean or line_clean.endswith(" PASSED") or "PASSED [" in line_clean
             is_skipped_test = " SKIPPED " in line_clean or line_clean.endswith(" SKIPPED") or "SKIPPED [" in line_clean
+            is_skip_summary = "SKIPPED" in line_clean and ("⊘" in line or "skipped" in line_clean.lower())
 
-            # Flag as notable if:
-            # - Contains error keywords AND is not a passing test AND is not an info message, OR
-            # - Is a skipped test (important to see what's being skipped)
+            # Error keywords that indicate actual failures
             error_keywords = [
                 "FAILED",
                 "ERROR",
-                "Error",
                 "Traceback",
                 "AssertionError",
                 "Exception",
@@ -526,11 +546,23 @@ def run_command(cmd: list[str], state: TestRunnerState, live: Optional["Live"] =
                 "fatal:",  # Git and other fatal errors
             ]
             has_error_keyword = any(keyword in line_clean for keyword in error_keywords)
-            is_notable = (has_error_keyword and not is_passing_test and not is_info_message) or is_skipped_test
 
-            if is_notable:
-                # Add to error list with subtask info (no limit - show all errors and skipped tests)
+            # Don't capture test names that happen to contain "Error" (like "test_error_propagation PASSED")
+            # Only capture actual errors (not passing tests, not test names in collection phase)
+            is_actual_error = (
+                has_error_keyword
+                and not is_passing_test
+                and not is_info_message
+                and not line_clean.startswith("tests/")  # Skip test collection lines
+                and "::test_" not in line_clean or "FAILED" in line_clean  # Allow failed test paths
+            )
+
+            if is_actual_error:
+                # Add to error list with subtask info
                 phase.error_lines.append((phase.current_subtask_idx, line))
+            elif is_skipped_test or is_skip_summary:
+                # Add to info list (not errors)
+                phase.info_lines.append((phase.current_subtask_idx, line))
 
         # Display output (only in non-TUI mode)
         if not USE_TUI:
@@ -601,15 +633,28 @@ def print_summary(state: TestRunnerState, exit_code: int) -> None:
                     errors_by_subtask[subtask_idx] = []
                 errors_by_subtask[subtask_idx].append(error_line)
 
+            # Group info by subtask for easy lookup
+            info_by_subtask: dict[int, list[str]] = {}
+            for subtask_idx, info_line in phase.info_lines:
+                if subtask_idx not in info_by_subtask:
+                    info_by_subtask[subtask_idx] = []
+                info_by_subtask[subtask_idx].append(info_line)
+
             for subtask_idx, subtask in enumerate(phase.subtasks):
-                has_errors = subtask_idx in errors_by_subtask
-                status = "❌" if has_errors else "✅"
+                # Only mark as failed if there are actual errors (not just info messages)
+                has_actual_errors = subtask_idx in errors_by_subtask
+                status = "❌" if has_actual_errors else "✅"
                 print(f"           → {subtask:15} {status}")
 
-                # Show errors indented under the failing subtask
-                if has_errors:
+                # Show actual errors indented under the failing subtask
+                if has_actual_errors:
                     for error_line in errors_by_subtask[subtask_idx]:
                         print(f"             {error_line}")
+
+                # Show info messages (like skips) separately, not as errors
+                if subtask_idx in info_by_subtask:
+                    for info_line in info_by_subtask[subtask_idx]:
+                        print(f"             {info_line}")
 
         # Show test failures (from pytest)
         if phase.failures:
