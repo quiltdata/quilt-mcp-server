@@ -1,5 +1,9 @@
 # 11 - Module Cleanup Tasklist
 
+> **Status Note (2026-02-17):** This workstream is actively in progress on `pr-review-fix`.
+> Recent completion: package CRUD/browse/diff/create/update/delete logic moved out of `tools/packages.py` into `tools/package_crud.py`, reducing `tools/packages.py` to 758 lines and keeping validation green (`make test-all`, `make test-remote-docker`, `mypy`, cycle checks).
+> Remaining debt: several modules are still >1000 lines (`ops/quilt_ops.py`, `services/governance_service.py`, `backends/platform_admin_ops.py`, `backends/platform_backend.py`, `services/workflow_service.py`, `tools/responses.py`).
+
 **Date:** 2026-02-16
 **Reviewer:** Codex
 **Context:** Addresses blocker #3 from 00-SUMMARY.md (maintainability structural debt)
@@ -141,12 +145,12 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `tools/packages.py` mixes CRUD operations with S3 discovery workflows.
 
-- [x] Create `tools/s3_package_ingestion.py`:
+- [ ] Create `tools/s3_package_ingestion.py`:
   - Move `package_create_from_s3` (after Phase 2.1 refactoring)
   - Move S3-specific helpers
   - Import from `s3_discovery.py` and `package_metadata.py`
 
-- [x] Keep in `tools/packages.py`:
+- [ ] Keep in `tools/packages.py`:
   - Core CRUD: `package_create`, `package_update`, `package_delete`, `package_browse`
   - Package info: `package_diff`, `package_info`, `package_list`
 
@@ -164,14 +168,14 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `platform_backend.py` has 14 scattered GraphQL query/mutation definitions with duplicated error handling.
 
-- [x] Create `backends/platform_graphql_client.py`:
+- [ ] Create `backends/platform_graphql_client.py`:
   - `GraphQLClient` class with:
     - `query(operation, variables)` - Generic query executor
     - `mutate(operation, variables)` - Generic mutation executor
     - Error handling, response parsing, type checking
   - Query/mutation definitions as constants or methods
 
-- [x] Refactor `platform_backend.py`:
+- [ ] Refactor `platform_backend.py`:
   - Initialize `self._graphql = GraphQLClient(...)`
   - Replace inline GraphQL with client calls
   - Remove duplicated error handling
@@ -194,20 +198,20 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** Same logic repeated across backends.
 
-- [x] Create `backends/utils.py`:
+- [ ] Create `backends/utils.py`:
   - `extract_bucket_from_registry()` - Used in quilt_ops, platform_backend, etc.
   - `normalize_registry()` - Repeated in multiple backends
   - `build_s3_key()` - Common S3 key construction
 
-- [x] Update backends to use shared utilities
+- [ ] Update backends to use shared utilities
 
 #### 4.2 Reduce Validation Redundancy
 
 **Problem:** `quilt_ops.py` validates inputs, then backends validate again in primitives.
 
-- [x] Document validation contract in `ops/quilt_ops.py` docstrings
-- [x] Remove redundant validation from backend primitives (trust base class)
-- [x] Keep validation only where backends have platform-specific rules
+- [ ] Document validation contract in `ops/quilt_ops.py` docstrings
+- [ ] Remove redundant validation from backend primitives (trust base class)
+- [ ] Keep validation only where backends have platform-specific rules
 
 **Files:** `ops/quilt_ops.py`, all backend implementations
 
@@ -219,7 +223,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `platform_backend.delete_package()` has 22 nested blocks with complex fallback logic (GraphQL → S3 direct).
 
-- [x] Extract fallback logic to separate method:
+- [ ] Extract fallback logic to separate method:
   - `_try_graphql_delete()` - GraphQL deletion
   - `_try_s3_fallback_delete()` - S3 direct deletion
   - `delete_package()` - Orchestrates with clear error handling
@@ -234,7 +238,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** 10+ line docstrings for every method inflate file size without adding value.
 
-- [x] Consolidate docstrings:
+- [ ] Consolidate docstrings:
   - Keep high-level class docstring explaining Template Method pattern
   - Reduce method docstrings to 2-4 lines (purpose + params)
   - Move detailed implementation notes to `ARCHITECTURE.md`
@@ -248,13 +252,13 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 ### Phase 6: Validation (Priority: CRITICAL)
 
 - [x] **Import cycles:** `uv run python scripts/check_cycles.py` → 0 cycles
-- [x] **Module sizes:** `find src/quilt_mcp -name "*.py" -exec wc -l {} \; | sort -rn | head -20`
+- [ ] **Module sizes:** `find src/quilt_mcp -name "*.py" -exec wc -l {} \; | sort -rn | head -20`
   - No modules >1500 lines (down from 2034)
   - Top modules all <1000 lines
 - [x] **Tests pass:** `make test-all`
 - [x] **Type checking:** `uv run mypy src/quilt_mcp`
 - [x] **Linting:** `make lint`
-- [x] **Function sizes:** Verify no functions >200 lines (down from 448)
+- [ ] **Function sizes:** Verify no functions >200 lines (down from 448)
 
 ---
 

@@ -1,5 +1,9 @@
 # 12 - Complete Module Refactoring Plan
 
+> **Status Note (2026-02-17):** This refactoring plan is partially executed on `pr-review-fix`.
+> Newly completed in this pass: package CRUD handlers were extracted into `tools/package_crud.py`, bringing `tools/packages.py` below 1000 LOC (758), with `make test-all` and `make test-remote-docker` passing.
+> Still open: "all modules <1000 LOC" is not yet met; remaining oversized modules are `ops/quilt_ops.py`, `services/governance_service.py`, `backends/platform_admin_ops.py`, `backends/platform_backend.py`, `services/workflow_service.py`, and `tools/responses.py`.
+
 **Date:** 2026-02-17
 **Reviewer:** Codex
 **Context:** Comprehensive remediation plan ensuring ALL critical issues are addressed
@@ -607,7 +611,7 @@ platform_backend.Platform_Backend
 - [x] All tests pass: `uv run pytest tests/unit/tools/`
 - [x] No functionality changes
 - [x] MCP tools still register correctly
-- [x] Module sizes all <1000 lines
+- [ ] Module sizes all <1000 lines
 
 ---
 
@@ -1166,7 +1170,7 @@ def update_package_revision(
 - [x] **Linting:** `make lint`
   - Expected: Clean pass
 
-- [x] **Module sizes:** `find src/quilt_mcp -name "*.py" -exec wc -l {} \; | sort -rn | head -20`
+- [ ] **Module sizes:** `find src/quilt_mcp -name "*.py" -exec wc -l {} \; | sort -rn | head -20`
   - Expected: All modules <1500 lines (no 2000+ line modules)
   - Expected: Top modules <1000 lines (most modules)
 
@@ -1174,7 +1178,7 @@ def update_package_revision(
 
 ### 8.3 Function Complexity Audit
 
-- [x] Check function sizes:
+- [ ] Check function sizes:
 
   ```bash
   # Find functions >200 lines
@@ -1194,7 +1198,7 @@ def update_package_revision(
 
   Expected: **No functions >200 lines** (down from 448-line monster)
 
-- [x] Check nesting depth:
+- [ ] Check nesting depth:
 
   ```bash
   # Use radon or similar
@@ -1276,10 +1280,10 @@ def update_package_revision(
 
 ### Critical Issues (ALL must be ✅)
 
-- [x] **448-line function** → Refactored to ~100 lines with extracted modules
+- [ ] **448-line function** → Refactored to ~100 lines with extracted modules
 - [x] **Platform backend orchestration duplication** → Removed, uses base class
 - [x] **15 circular import cycles** → Eliminated, 0 cycles remain
-- [x] **Mixed concerns in tools/packages.py** → Separated by responsibility
+- [ ] **Mixed concerns in tools/packages.py** → Separated by responsibility
 - [x] **Scattered GraphQL operations** → Abstracted into client
 
 ### Code Quality Metrics
