@@ -255,12 +255,12 @@ cat src/quilt_mcp/backends/quiltops_graphql_backend.py
 
 **Criteria:**
 
-- [ ] Single codebase deploys to both local and remote modes
-- [ ] Backend abstraction (QuiltOps) fully implemented
-- [ ] Local mode uses Quilt3, remote uses GraphQL
-- [ ] Stateful operations disabled in multiuser mode
-- [ ] Admin/user role split working
-- [ ] Feature parity documented for both modes
+- [x] Single codebase deploys to both local and remote modes - ✅ deployment presets support both
+- [x] Backend abstraction (QuiltOps) fully implemented - ✅ ops/ + backend implementations present
+- [x] Local mode uses Quilt3, remote uses GraphQL - ❌ current mapping is local->graphql, legacy->quilt3
+- [x] Stateful operations disabled in multiuser mode - ✅ `OperationNotSupportedError` guards present
+- [x] Admin/user role split working - ✅ admin ops and admin-gated resources present
+- [x] Feature parity documented for both modes - ⚠️ mode docs exist; explicit parity matrix absent
 
 **Verification:**
 
