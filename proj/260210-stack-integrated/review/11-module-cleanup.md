@@ -35,10 +35,10 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `platform_backend.py` reimplements `update_package_revision()` (154 lines) instead of using the base class Template Method from `quilt_ops.py`.
 
-- [ ] Remove `platform_backend.update_package_revision()` override
-- [ ] Verify base class `quilt_ops.update_package_revision()` is called
-- [ ] Ensure all required primitives (`_backend_push_package`, etc.) are implemented
-- [ ] Run tests: `uv run pytest tests/unit/backends/test_platform_backend.py -k update_package`
+- [x] Remove `platform_backend.update_package_revision()` override
+- [x] Verify base class `quilt_ops.update_package_revision()` is called
+- [x] Ensure all required primitives (`_backend_push_package`, etc.) are implemented
+- [x] Run tests: `uv run pytest tests/unit/backends/test_platform_backend.py -k update_package`
 
 **Impact:** -154 lines from platform_backend.py by using correct architecture
 
@@ -79,16 +79,16 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Extract helper modules:**
 
-- [ ] Create `tools/s3_discovery.py`:
+- [x] Create `tools/s3_discovery.py`:
   - `discover_s3_objects()` - S3 listing logic (~80 lines)
   - `should_include_object()` - Filtering logic (~30 lines)
   - `organize_file_structure()` - Structure logic (~40 lines)
 
-- [ ] Create `tools/package_metadata.py`:
+- [x] Create `tools/package_metadata.py`:
   - `generate_readme_content()` - README generation (~135 lines)
   - `generate_package_metadata()` - Metadata gen (~50 lines)
 
-- [ ] Refactor `package_create_from_s3()` to orchestrate:
+- [x] Refactor `package_create_from_s3()` to orchestrate:
 
   ```python
   def package_create_from_s3(...):
@@ -102,8 +102,8 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [ ] Run: `uv run pytest tests/unit/tools/test_packages.py -k s3`
-- [ ] Verify no functionality changes
+- [x] Run: `uv run pytest tests/unit/tools/test_packages.py -k s3`
+- [x] Verify no functionality changes
 
 **Files:** `tools/packages.py` → extract to `tools/{s3_discovery,package_metadata}.py`
 
@@ -251,9 +251,9 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 - [ ] **Module sizes:** `find src/quilt_mcp -name "*.py" -exec wc -l {} \; | sort -rn | head -20`
   - No modules >1500 lines (down from 2034)
   - Top modules all <1000 lines
-- [ ] **Tests pass:** `make test-all`
-- [ ] **Type checking:** `uv run mypy src/quilt_mcp`
-- [ ] **Linting:** `make lint`
+- [x] **Tests pass:** `make test-all`
+- [x] **Type checking:** `uv run mypy src/quilt_mcp`
+- [x] **Linting:** `make lint`
 - [ ] **Function sizes:** Verify no functions >200 lines (down from 448)
 
 ---

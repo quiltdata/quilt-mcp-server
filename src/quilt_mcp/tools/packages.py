@@ -14,6 +14,13 @@ from pydantic import Field
 # Rationale: MCP server should not manage default bucket state
 # LLM clients provide explicit bucket parameters based on conversation context
 from .quilt_summary import create_quilt_summary_files
+from .s3_discovery import (
+    discover_s3_objects,
+    organize_file_structure,
+    should_include_object,
+    validate_bucket_access,
+)
+from .package_metadata import generate_package_metadata, generate_readme_content
 from ..context.request_context import RequestContext
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 
@@ -130,39 +137,7 @@ def _build_selector_fn(copy: bool, target_registry: str):
     return selector_all if copy else selector_none
 
 
-# S3-to-package helpers and constants
-
-FOLDER_MAPPING = {
-    # Data files
-    "csv": "data/processed",
-    "tsv": "data/processed",
-    "parquet": "data/processed",
-    "json": "data/processed",
-    "xml": "data/processed",
-    "jsonl": "data/processed",
-    # Raw data
-    "log": "data/raw",
-    "txt": "data/raw",
-    "raw": "data/raw",
-    # Documentation
-    "md": "docs",
-    "rst": "docs",
-    "pdf": "docs",
-    "docx": "docs",
-    # Schema and config
-    "schema": "docs/schemas",
-    "yml": "metadata",
-    "yaml": "metadata",
-    "toml": "metadata",
-    "ini": "metadata",
-    "conf": "metadata",
-    # Media
-    "png": "data/media",
-    "jpg": "data/media",
-    "jpeg": "data/media",
-    "mp4": "data/media",
-    "avi": "data/media",
-}
+# S3-to-package helpers
 
 REGISTRY_PATTERNS = {
     "ml": ["model", "training", "ml", "ai", "neural", "tensorflow", "pytorch"],
@@ -184,36 +159,6 @@ def _suggest_target_registry(source_bucket: str, source_prefix: str) -> str:
     return "s3://data-packages"
 
 
-def _organize_file_structure(objects: list[dict[str, Any]], auto_organize: bool) -> dict[str, list[dict[str, Any]]]:
-    """Organize files into logical folder structure."""
-    if not auto_organize:
-        return {"": objects}  # No organization, flat structure
-
-    organized: dict[str, list[dict[str, Any]]] = {}
-
-    for obj in objects:
-        key = obj["Key"]
-        file_ext = Path(key).suffix.lower().lstrip(".")
-
-        # Determine target folder
-        target_folder = FOLDER_MAPPING.get(file_ext, "data/misc")
-
-        # Special handling for specific patterns
-        if "readme" in key.lower() or "documentation" in key.lower():
-            target_folder = "docs"
-        elif "schema" in key.lower() or "definition" in key.lower():
-            target_folder = "docs/schemas"
-        elif "config" in key.lower() or "settings" in key.lower():
-            target_folder = "metadata"
-
-        if target_folder not in organized:
-            organized[target_folder] = []
-
-        organized[target_folder].append(obj)
-
-    return organized
-
-
 def _generate_readme_content(
     package_name: str,
     description: str,
@@ -222,133 +167,15 @@ def _generate_readme_content(
     source_info: dict[str, str],
     metadata_template: str,
 ) -> str:
-    """Generate comprehensive README.md content."""
-    namespace, name = package_name.split("/")
-
-    # Calculate summary statistics
-    total_files = sum(len(files) for files in organized_structure.values())
-    total_size_mb = total_size / (1024 * 1024)
-
-    file_types = set()
-    for files in organized_structure.values():
-        for file_info in files:
-            ext = Path(file_info["Key"]).suffix.lower().lstrip(".")
-            if ext:
-                file_types.add(ext)
-
-    readme_content = f"""# {package_name}
-
-## Overview
-{description or f"This package contains data sourced from {source_info.get('source_description', 'S3 bucket')}."}
-
-## Contents
-
-This package is organized into the following structure:
-
-"""
-
-    # Add folder structure
-    for folder, files in organized_structure.items():
-        if folder:
-            readme_content += f"### `{folder}/` ({len(files)} files)\n"
-            if folder == "data/processed":
-                readme_content += "Cleaned and processed data files ready for analysis.\n\n"
-            elif folder == "data/raw":
-                readme_content += "Original source data in raw format.\n\n"
-            elif folder == "docs":
-                readme_content += "Documentation, schemas, and supplementary materials.\n\n"
-            elif folder == "metadata":
-                readme_content += "Configuration files and package metadata.\n\n"
-            else:
-                readme_content += f"Files organized in {folder}.\n\n"
-
-    # Add file summary table
-    readme_content += """## File Summary
-
-| Folder | File Count | Primary Types |
-|--------|------------|---------------|
-"""
-
-    for folder, files in organized_structure.items():
-        if files:
-            folder_types = set()
-            for f in files[:5]:  # Sample first 5 files
-                ext = Path(f["Key"]).suffix.lower().lstrip(".")
-                if ext:
-                    folder_types.add(ext)
-            types_str = ", ".join(sorted(folder_types))
-            readme_content += f"| `{folder or 'root'}/` | {len(files)} | {types_str} |\n"
-
-    # Add usage section
-    readme_content += f"""
-## Usage
-
-```python
-# Browse the package using Quilt
-# pkg = Package.browse("{package_name}")
-
-# Access specific data files
-"""
-
-    # Add examples for each folder
-    for folder, files in organized_structure.items():
-        if files and folder:
-            example_file = files[0]["Key"]
-            logical_path = f"{folder}/{Path(example_file).name}"
-            readme_content += f"""
-# Access files in {folder}/
-data = pkg["{logical_path}"]()
-"""
-
-    readme_content += """```
-
-## Package Metadata
-
-"""
-
-    readme_content += f"""- **Created**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC
-- **Source**: {source_info.get('bucket', 'Unknown')}
-- **Total Size**: {total_size_mb:.1f} MB
-- **File Count**: {total_files}
-- **File Types**: {', '.join(sorted(file_types))}
-- **Organization**: Smart folder structure applied
-"""
-
-    if metadata_template == "ml":
-        readme_content += """
-## ML Model Information
-
-This package appears to contain machine learning related data. Key considerations:
-
-- **Training Data**: Located in `data/processed/`
-- **Models**: Check for model files in appropriate folders
-- **Documentation**: Review `docs/` for model specifications and methodology
-"""
-    elif metadata_template == "analytics":
-        readme_content += """
-## Analytics Information
-
-This package contains analytics data. Key features:
-
-- **Processed Data**: Analysis-ready data in `data/processed/`
-- **Reports**: Documentation and analysis reports in `docs/`
-- **Metrics**: Configuration and metadata in `metadata/`
-"""
-
-    readme_content += """
-## Data Quality
-
-- ✅ Files organized into logical structure
-- ✅ Comprehensive metadata included
-- ✅ Source attribution maintained
-- ✅ Documentation generated
-
-## Support
-
-For questions about this package, refer to the metadata or contact the package maintainer.
-"""
-
-    return readme_content
+    """Compatibility wrapper around tools.package_metadata.generate_readme_content."""
+    return generate_readme_content(
+        package_name=package_name,
+        description=description,
+        organized_structure=organized_structure,
+        total_size=total_size,
+        source_info=source_info,
+        metadata_template=metadata_template,
+    )
 
 
 def _generate_package_metadata(
@@ -358,113 +185,28 @@ def _generate_package_metadata(
     metadata_template: str,
     user_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """
-    Generate comprehensive package metadata following Quilt standards.
-
-    NOTE: This function should NEVER include README content in the metadata.
-    README content should only be added as files to the package, not as metadata.
-    """
-    total_objects = sum(len(files) for files in organized_structure.values())
-    total_size = sum(sum(obj.get("Size", 0) for obj in files) for files in organized_structure.values())
-
-    # Extract file types
-    file_types = set()
-    for files in organized_structure.values():
-        for obj in files:
-            ext = Path(obj["Key"]).suffix.lower().lstrip(".")
-            if ext:
-                file_types.add(ext)
-
-    # Build metadata structure
-    metadata = {
-        "quilt": {
-            "created_by": "mcp-s3-package-tool-enhanced",
-            "creation_date": datetime.now(timezone.utc).isoformat() + "Z",
-            "package_version": "1.0.0",
-            "source": {
-                "type": "s3_bucket",
-                "bucket": source_info.get("bucket"),
-                "prefix": source_info.get("prefix", ""),
-                "total_objects": total_objects,
-                "total_size_bytes": total_size,
-            },
-            "organization": {
-                "structure_type": "logical_hierarchy",
-                "auto_organized": True,
-                "folder_mapping": {
-                    folder: f"Contains {len(files)} files" for folder, files in organized_structure.items() if files
-                },
-            },
-            "data_profile": {
-                "file_types": sorted(list(file_types)),
-                "total_files": total_objects,
-                "size_mb": round(total_size / (1024 * 1024), 2),
-            },
-        }
-    }
-
-    # Add template-specific metadata
-    if metadata_template == "ml":
-        metadata["ml"] = {
-            "type": "machine_learning",
-            "data_stage": "processed",
-            "model_ready": True,  # type: ignore[dict-item]
-        }
-    elif metadata_template == "analytics":
-        metadata["analytics"] = {
-            "type": "business_analytics",
-            "analysis_ready": True,  # type: ignore[dict-item]
-            "report_generated": True,  # type: ignore[dict-item]
-        }
-
-    # Add user metadata
-    if user_metadata:
-        metadata["user_metadata"] = user_metadata
-
-    return metadata
+    """Compatibility wrapper around tools.package_metadata.generate_package_metadata."""
+    return generate_package_metadata(
+        package_name=package_name,
+        source_info=source_info,
+        organized_structure=organized_structure,
+        metadata_template=metadata_template,
+        user_metadata=user_metadata,
+    )
 
 
-def _validate_bucket_access(s3_client, bucket_name: str) -> None:
-    """Validate that the user has access to the source bucket."""
-    try:
-        s3_client.head_bucket(Bucket=bucket_name)
-    except ClientError as e:
-        error_code = e.response.get("Error", {}).get("Code")
-        if error_code == "404":
-            raise ValueError(f"Bucket {bucket_name} does not exist or you don't have access")
-        elif error_code == "403":
-            raise ValueError(f"Access denied to bucket {bucket_name}")
-        else:
-            raise
+def _validate_bucket_access(s3_client: Any, bucket_name: str) -> None:
+    validate_bucket_access(s3_client, bucket_name)
 
 
 def _discover_s3_objects(
-    s3_client,
+    s3_client: Any,
     bucket: str,
     prefix: str,
     include_patterns: list[str] | None,
     exclude_patterns: list[str] | None,
 ) -> list[dict[str, Any]]:
-    """Discover and filter S3 objects based on patterns."""
-    objects = []
-
-    try:
-        paginator = s3_client.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-
-        for page in pages:
-            if "Contents" in page:
-                for obj in page["Contents"]:
-                    # Skip S3 directory markers (zero-byte objects with keys ending in '/')
-                    if obj["Key"].endswith('/'):
-                        continue
-                    if _should_include_object(obj["Key"], include_patterns, exclude_patterns):
-                        objects.append(obj)
-    except ClientError as e:
-        logger.error(f"Error listing objects in bucket {bucket}: {str(e)}")
-        raise
-
-    return objects
+    return discover_s3_objects(s3_client, bucket, prefix, include_patterns, exclude_patterns)
 
 
 def _should_include_object(
@@ -472,40 +214,11 @@ def _should_include_object(
     include_patterns: list[str] | None,
     exclude_patterns: list[str] | None,
 ) -> bool:
-    """Determine if an object should be included based on patterns.
+    return should_include_object(key, include_patterns, exclude_patterns)
 
-    Always excludes objects with invalid S3 characters per AWS best practices.
-    https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
-    """
-    import fnmatch
 
-    # Always exclude objects with invalid S3 characters
-    # These characters cause significant issues across applications
-    invalid_chars = r'\{}^%`]">[~<#|'
-    if any(char in key for char in invalid_chars):
-        found_chars = [char for char in invalid_chars if char in key]
-        logger.warning(f"Skipping object with invalid S3 characters {found_chars}: {key}")
-        return False
-
-    # Check for non-printable characters (allows UTF-8, blocks control characters)
-    if not key.isprintable():
-        logger.warning(f"Skipping object with non-printable characters: {key}")
-        return False
-
-    # Check exclude patterns
-    if exclude_patterns:
-        for pattern in exclude_patterns:
-            if fnmatch.fnmatch(key, pattern):
-                return False
-
-    # Check include patterns
-    if include_patterns:
-        for pattern in include_patterns:
-            if fnmatch.fnmatch(key, pattern):
-                return True
-        return False  # If include patterns specified but none match
-
-    return True  # Include by default if no patterns specified
+def _organize_file_structure(objects: list[dict[str, Any]], auto_organize: bool) -> dict[str, list[dict[str, Any]]]:
+    return organize_file_structure(objects, auto_organize)
 
 
 def _create_enhanced_package(

@@ -219,7 +219,7 @@ def test_update_package_revision_adds_files(monkeypatch):
 
     def mock_graphql(query, variables=None):
         call_count[0] += 1
-        if "GetPackageForUpdate" in query:
+        if "query GetPackage(" in query:
             # Query existing package
             return {
                 "data": {
@@ -270,7 +270,7 @@ def test_update_package_revision_updates_metadata(monkeypatch):
     captured_variables = {}
 
     def mock_graphql(query, variables=None):
-        if "GetPackageForUpdate" in query:
+        if "query GetPackage(" in query:
             # Query existing package
             return {
                 "data": {
@@ -321,7 +321,7 @@ def test_update_package_revision_preserves_existing(monkeypatch):
     captured_variables = {}
 
     def mock_graphql(query, variables=None):
-        if "GetPackageForUpdate" in query:
+        if "query GetPackage(" in query:
             # Query existing package with existing file
             return {
                 "data": {
@@ -377,7 +377,7 @@ def test_update_package_revision_copy_mode(monkeypatch):
 
     def mock_graphql(query, variables=None):
         call_count[0] += 1
-        if "GetPackageForUpdate" in query:
+        if "query GetPackage(" in query:
             # Query existing package
             return {
                 "data": {
@@ -426,9 +426,9 @@ def test_update_package_revision_copy_mode(monkeypatch):
     assert result.top_hash == "promoted-updated-hash"
     assert call_count[0] == 3  # Query + Construct + Promote
 
-    # Test copy='new' - should also promote
+    # Test copy='new' - base QuiltOps behavior treats it as non-copy
     call_count[0] = 0
     result = backend.update_package_revision("user/pkg", ["s3://bucket/newer.txt"], registry="s3://bucket", copy="new")
     assert result.success is True
-    assert result.top_hash == "promoted-updated-hash"
-    assert call_count[0] == 3  # Query + Construct + Promote
+    assert result.top_hash == "updated-hash"
+    assert call_count[0] == 2  # Query + Construct
