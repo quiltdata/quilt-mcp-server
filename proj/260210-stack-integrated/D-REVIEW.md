@@ -139,12 +139,12 @@ uv run radon cc src/quilt_mcp -a -nb
 
 **Criteria:**
 
-- [ ] README.md up to date with deployment modes
-- [ ] ARCHITECTURE.md reflects current design
-- [ ] MCP tool descriptions complete and accurate
-- [ ] Configuration variables documented
-- [ ] Deployment guide exists (local + remote)
-- [ ] Troubleshooting section present
+- [x] README.md up to date with deployment modes - ✅ local/remote/legacy documented
+- [x] ARCHITECTURE.md reflects current design - ⚠️ root `ARCHITECTURE.md` missing; `docs/ARCHITECTURE.md` present
+- [x] MCP tool descriptions complete and accurate - ⚠️ checklist command references non-exported `TOOLS` symbol
+- [x] Configuration variables documented - ✅ `QUILT_*` vars documented across README/docs
+- [x] Deployment guide exists (local + remote) - ⚠️ covered in README; `docs/DEPLOYMENT.md` missing
+- [x] Troubleshooting section present - ✅ `docs/SEARCH_TROUBLESHOOTING.md` present
 
 **Verification:**
 
