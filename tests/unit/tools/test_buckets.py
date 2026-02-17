@@ -231,3 +231,117 @@ def test_internal_helpers():
     payload = {}
     enriched = buckets._attach_auth_metadata(payload, SimpleNamespace(auth_type="iam"))
     assert enriched["auth_type"] == "iam"
+
+
+def test_bucket_list_success(monkeypatch):
+    """Test successful bucket list with GraphQL response."""
+
+    class MockOps:
+        def execute_graphql_query(self, query: str):
+            # Verify the query structure
+            assert "bucketConfigs" in query
+            assert "name" in query
+            assert "title" in query
+
+            # Return mock GraphQL response
+            return {
+                "data": {
+                    "bucketConfigs": [
+                        {
+                            "name": "bucket1",
+                            "title": "My First Bucket",
+                            "description": "Test bucket 1",
+                            "iconUrl": "https://example.com/icon1.png",
+                            "relevanceScore": 100,
+                            "browsable": True,
+                            "tags": ["data", "prod"],
+                        },
+                        {
+                            "name": "bucket2",
+                            "title": "My Second Bucket",
+                            "description": None,
+                            "iconUrl": None,
+                            "relevanceScore": 50,
+                            "browsable": False,
+                            "tags": None,
+                        },
+                    ]
+                }
+            }
+
+    monkeypatch.setattr("quilt_mcp.ops.factory.QuiltOpsFactory.create", lambda: MockOps())
+
+    result = buckets.bucket_list()
+
+    assert result.success is True
+    assert result.count == 2
+    assert len(result.buckets) == 2
+
+    # Check first bucket
+    bucket1 = result.buckets[0]
+    assert bucket1.name == "bucket1"
+    assert bucket1.title == "My First Bucket"
+    assert bucket1.description == "Test bucket 1"
+    assert bucket1.iconUrl == "https://example.com/icon1.png"
+    assert bucket1.relevanceScore == 100
+    assert bucket1.browsable is True
+    assert bucket1.tags == ["data", "prod"]
+
+    # Check second bucket (with optional fields)
+    bucket2 = result.buckets[1]
+    assert bucket2.name == "bucket2"
+    assert bucket2.title == "My Second Bucket"
+    assert bucket2.description is None
+    assert bucket2.iconUrl is None
+    assert bucket2.relevanceScore == 50
+    assert bucket2.browsable is False
+    assert bucket2.tags is None
+
+
+def test_bucket_list_empty(monkeypatch):
+    """Test bucket list with no buckets."""
+
+    class MockOps:
+        def execute_graphql_query(self, query: str):
+            return {"data": {"bucketConfigs": []}}
+
+    monkeypatch.setattr("quilt_mcp.ops.factory.QuiltOpsFactory.create", lambda: MockOps())
+
+    result = buckets.bucket_list()
+
+    assert result.success is True
+    assert result.count == 0
+    assert len(result.buckets) == 0
+
+
+def test_bucket_list_graphql_error(monkeypatch):
+    """Test bucket list with GraphQL error."""
+
+    class MockOps:
+        def execute_graphql_query(self, query: str):
+            raise Exception("GraphQL query failed: unauthorized")
+
+    monkeypatch.setattr("quilt_mcp.ops.factory.QuiltOpsFactory.create", lambda: MockOps())
+
+    result = buckets.bucket_list()
+
+    assert result.success is False
+    assert "Failed to list buckets" in result.error
+    assert "unauthorized" in result.error
+
+
+def test_bucket_list_missing_data(monkeypatch):
+    """Test bucket list with missing data field in response."""
+
+    class MockOps:
+        def execute_graphql_query(self, query: str):
+            return {"errors": [{"message": "Some error"}]}
+
+    monkeypatch.setattr("quilt_mcp.ops.factory.QuiltOpsFactory.create", lambda: MockOps())
+
+    result = buckets.bucket_list()
+
+    # Should handle missing data gracefully and return empty list
+    assert result.success is True
+    assert result.count == 0
+    assert len(result.buckets) == 0
