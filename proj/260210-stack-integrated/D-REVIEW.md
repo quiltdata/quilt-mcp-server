@@ -219,12 +219,12 @@ concerns such as alerting, dashboards, and SLOs are intentionally out of scope.
 
 **Criteria:**
 
-- [ ] Structured logging in place
-- [ ] Error messages actionable (not just stack traces)
-- [ ] Critical operations logged (auth, backend selection)
-- [ ] No sensitive data in logs
-- [ ] Exception handling consistent
-- [ ] Timeout/retry logic present
+- [x] Structured logging in place - ⚠️ logging exists but structured format is inconsistent
+- [x] Error messages actionable (not just stack traces) - ✅ generally contextualized
+- [x] Critical operations logged (auth, backend selection) - ⚠️ auth paths logged; backend selection logging less explicit
+- [x] No sensitive data in logs - ✅ no direct token/secret value logging observed
+- [x] Exception handling consistent - ❌ many broad `except Exception` handlers across modules
+- [x] Timeout/retry logic present - ✅ timeouts and retry/backoff helpers present
 
 **Verification:**
 
