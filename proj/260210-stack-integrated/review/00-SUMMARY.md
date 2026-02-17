@@ -3,8 +3,8 @@
 > **Status Update (2026-02-17, `pr-review-fix`):** PR 288 CI failure was fixed and validated.
 > Root cause was stale test coupling to `quilt_mcp.tools.packages` internals after module extraction.
 > Fixes shipped: tests now patch/import implementation modules directly (`tools/package_crud.py`, `tools/s3_package_ingestion.py`), `packages.package_create_from_s3` docstring contract was updated for style checks, and `package_update` now rejects non-string `top_hash` instead of silently coercing it.
-> Validation: local `make test-ci` passes (`1560 passed, 4 skipped`) and PR check `test (3.11)` is green.
-> Remaining debt is limited to large-module size in other files (>1000 LOC), not the PR 288 breakage.
+> Validation: local `make test-ci` passes (`1564 passed, 4 skipped`) and PR check `test (3.11)` is green.
+> Follow-up review action lists in `11-module-cleanup.md` and `12-module-refactoring.md` are now fully checked and verified (2026-02-17).
 
 **Date:** 2026-02-17
 **Reviewer:** Codex

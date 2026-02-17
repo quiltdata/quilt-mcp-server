@@ -342,8 +342,8 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
     # - _backend_set_package_metadata() primitive
     # - _backend_push_package() primitive
 
-    def _try_s3_pointer_delete(self, bucket_name: str, package_name: str) -> DeletionResult:
-        """Attempt fast deletion by removing package pointer files from S3."""
+    def _try_s3_fallback_delete(self, bucket_name: str, package_name: str) -> DeletionResult:
+        """Fallback deletion path by removing package pointer files from S3."""
         prefix = f".quilt/named_packages/{package_name}/"
         s3_client = self.get_aws_client("s3")
         pointer_keys: list[str] = []
@@ -469,7 +469,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             bucket_name = self._extract_bucket_from_registry(bucket)
 
             try:
-                pointer_result = self._try_s3_pointer_delete(bucket_name, name)
+                pointer_result = self._try_s3_fallback_delete(bucket_name, name)
                 if pointer_result.success:
                     return True
             except Exception as exc:
@@ -1115,70 +1115,6 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
             raise BackendError(f"Package promotion error: {message_text}")
         else:
             raise BackendError(f"Unexpected packagePromote response type: {typename}")
-
-    # =========================================================================
-    # VALIDATION METHODS REMOVED - Now in QuiltOps base class
-    # =========================================================================
-    # The following methods have been removed as they are now in QuiltOps base class:
-    #
-    # - _validate_package_creation_inputs()   -> Now in QuiltOps._validate_package_creation_inputs()
-    # - _validate_package_update_inputs()     -> Now in QuiltOps._validate_package_update_inputs()
-
-    def _validate_package_creation_inputs_REMOVED(self, package_name: str, s3_uris: List[str]) -> None:
-        import re
-
-        if not package_name or not isinstance(package_name, str):
-            raise ValidationError("Package name must be a non-empty string", {"field": "package_name"})
-
-        if not re.match(r"^[^/]+/[^/]+$", package_name):
-            raise ValidationError("Package name must be in 'user/package' format", {"field": "package_name"})
-
-        if not s3_uris or not isinstance(s3_uris, list):
-            raise ValidationError("S3 URIs must be a non-empty list", {"field": "s3_uris"})
-
-        for i, s3_uri in enumerate(s3_uris):
-            if not isinstance(s3_uri, str) or not s3_uri.startswith("s3://"):
-                raise ValidationError(
-                    f"Invalid S3 URI at index {i}: must start with 's3://'",
-                    {"field": "s3_uris", "index": i, "uri": s3_uri},
-                )
-            parts = s3_uri[5:].split("/", 1)
-            if len(parts) < 2 or not parts[0] or not parts[1]:
-                raise ValidationError(
-                    f"Invalid S3 URI at index {i}: must include bucket and key",
-                    {"field": "s3_uris", "index": i, "uri": s3_uri},
-                )
-
-    def _validate_package_update_inputs(self, package_name: str, s3_uris: List[str], registry: str) -> None:
-        import re
-
-        if not package_name or not isinstance(package_name, str):
-            raise ValidationError("Package name must be a non-empty string", {"field": "package_name"})
-
-        if not re.match(r"^[^/]+/[^/]+$", package_name):
-            raise ValidationError("Package name must be in 'user/package' format", {"field": "package_name"})
-
-        if not registry or not isinstance(registry, str):
-            raise ValidationError("Registry must be a non-empty string", {"field": "registry"})
-
-        if not registry.startswith("s3://"):
-            raise ValidationError("Registry must be an S3 URI starting with 's3://'", {"field": "registry"})
-
-        if not s3_uris or not isinstance(s3_uris, list):
-            raise ValidationError("S3 URIs must be a non-empty list", {"field": "s3_uris"})
-
-        has_valid_uri = any(
-            isinstance(uri, str) and uri.startswith("s3://") and "/" in uri[5:] and not uri.endswith("/")
-            for uri in s3_uris
-        )
-        if not has_valid_uri:
-            raise ValidationError(
-                "No potentially valid S3 URIs found in list",
-                {
-                    "field": "s3_uris",
-                    "note": "URIs must be strings starting with 's3://' and include bucket and key",
-                },
-            )
 
     # =========================================================================
     # TRANSFORMATION METHODS REMOVED - Now in QuiltOps base class

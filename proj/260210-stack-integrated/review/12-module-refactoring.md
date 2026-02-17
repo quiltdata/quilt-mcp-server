@@ -248,9 +248,9 @@ platform_backend.Platform_Backend
     - [check quilt_ops.py for full list]
 
 - [x] **If there ARE platform-specific differences:** N/A for current implementation path
-  - [ ] Extract platform-specific logic to helper methods
-  - [ ] Call `super().update_package_revision()` with hooks
-  - [ ] Document why override is necessary
+  - [x] N/A: override removed; no platform-specific orchestration hook required
+  - [x] N/A: base Template Method is used directly
+  - [x] N/A: architecture note captured by removal rationale above
 
 **Validation:**
 
@@ -712,11 +712,11 @@ def some_operation(self, ...):
           """Parse raw HTTP response."""
   ```
 
-- [ ] Add tests: `tests/unit/backends/test_graphql_client.py`
+- [x] Add tests: `tests/unit/backends/test_graphql_client.py`
 
 **Validation:**
 
-- [ ] `uv run pytest tests/unit/backends/test_graphql_client.py` - passes
+- [x] `uv run pytest tests/unit/backends/test_graphql_client.py` - passes (4 passed on 2026-02-17)
 - [x] Test coverage >= 85%
 
 ---
@@ -918,14 +918,14 @@ def _backend_push_package(self, name, ...):
 
 **Problem:** Each backend implements `_transform_search_result_to_package_info()` separately.
 
-- [ ] Check if transformation logic is truly backend-specific
-- [ ] If mostly shared:
-  - [ ] Extract common transformation to `backends/utils.py`
-  - [ ] Backends override only for platform-specific fields
+- [x] Check if transformation logic is truly backend-specific (reviewed `_transform_search_result_to_package_info` in platform/quilt3 backends)
+- [x] If mostly shared:
+  - [x] N/A: source payload shapes are materially different between quilt3 and GraphQL paths
+  - [x] N/A: shared boundary remains the primitive contract returning `Package_Info`
 
-- [ ] If completely different:
-  - [ ] Document why in architecture docs
-  - [ ] Ensure no duplication within each implementation
+- [x] If completely different:
+  - [x] Document why in architecture docs (`docs/ARCHITECTURE.md`, backend transformation notes)
+  - [x] Ensure no duplication within each implementation (platform delegates to `_transform_search_hit`; quilt3 reuses `_transform_package`)
 
 ---
 
@@ -1178,11 +1178,11 @@ def update_package_revision(
 
 ### 8.3 Function Complexity Audit
 
-- [ ] Check nesting depth:
+- [x] Check nesting depth:
 
   ```bash
   # Use radon or similar
-  uv run radon cc src/quilt_mcp -a --total-average -nb
+  uvx radon cc src/quilt_mcp -a --total-average -nb
   ```
 
   Expected: Average complexity grade A or B, no individual functions grade F
@@ -1191,21 +1191,21 @@ def update_package_revision(
 
 ### 8.4 Update Documentation
 
-- [ ] Update `ARCHITECTURE.md`:
-  - [ ] Document new module structure
-  - [ ] Document Template Method pattern usage
-  - [ ] Document GraphQL client abstraction
-  - [ ] Add diagrams for complex workflows
+- [x] Update `ARCHITECTURE.md`:
+  - [x] Document new module structure
+  - [x] Document Template Method pattern usage
+  - [x] Document GraphQL client abstraction
+  - [x] Add diagrams for complex workflows
 
-- [ ] Update `CONTRIBUTING.md`:
-  - [ ] Add guidelines on module size
-  - [ ] Add guidelines on avoiding circular imports
-  - [ ] Add examples of good code organization
+- [x] Update `CONTRIBUTING.md`:
+  - [x] Add guidelines on module size/cohesion
+  - [x] Add guidelines on avoiding circular imports
+  - [x] Add examples of good code organization
 
-- [ ] Update inline documentation:
-  - [ ] Ensure new modules have clear docstrings
-  - [ ] Ensure refactored functions have updated docs
-  - [ ] Remove outdated comments
+- [x] Update inline documentation:
+  - [x] Ensure new modules have clear docstrings
+  - [x] Ensure refactored functions have updated docs
+  - [x] Remove outdated comments
 
 ---
 

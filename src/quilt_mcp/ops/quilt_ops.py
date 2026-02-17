@@ -289,6 +289,13 @@ class QuiltOps(ABC):
     # These abstract methods define the backend-specific operations that
     # concrete backend implementations must provide. The base class orchestrates
     # these primitives to implement high-level workflows.
+    #
+    # Validation contract:
+    # - Public Template Methods in QuiltOps validate package names, registries,
+    #   and S3 URI shapes before calling backend primitives.
+    # - Backend primitives should not re-validate those shared preconditions.
+    # - Backends should validate only backend-specific constraints (quota, API
+    #   feature support, backend permission model nuances, etc.).
 
     @abstractmethod
     def _backend_create_empty_package(self) -> PackageBuilder:
@@ -344,6 +351,8 @@ class QuiltOps(ABC):
         """Push a package to the registry (backend primitive).
 
         Converts the PackageBuilder to backend-specific format and pushes to the registry.
+        Shared preconditions (package_name/registry validity) are already validated by
+        QuiltOps Template Methods before this primitive is called.
 
         Args:
             package: PackageBuilder to push
@@ -365,6 +374,7 @@ class QuiltOps(ABC):
         """Retrieve an existing package from the registry (backend primitive).
 
         Fetches the package with the given name from the registry.
+        Shared preconditions are validated in the caller Template Method.
 
         Args:
             package_name: Full package name in "user/package" format
@@ -416,6 +426,7 @@ class QuiltOps(ABC):
         """Execute backend-specific package search (backend primitive).
 
         Searches for packages matching the query in the registry.
+        Shared registry validation is performed by the caller Template Method.
 
         Args:
             query: Search query string (empty string returns all packages)

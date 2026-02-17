@@ -37,6 +37,15 @@ Backends should implement primitives and avoid re-implementing high-level orches
 The Platform backend executes GraphQL through `PlatformGraphQLClient` and imports query/mutation text from `graphql_queries.py`.
 This centralizes request handling and reduces duplicated inline GraphQL + error-parsing logic.
 
+## Backend Transformation Boundaries
+
+Search-result transformation remains backend-specific by design:
+- `Platform_Backend` consumes GraphQL payloads (`meta`, GraphQL hash/typing variants) and normalizes them via `_transform_search_hit`.
+- `Quilt3_Backend` consumes quilt3/native search payloads and reuses `_transform_package`.
+
+Both paths converge at the same primitive contract: `_transform_search_result_to_package_info(...) -> Package_Info`.
+This keeps shared orchestration in `QuiltOps` while avoiding forced coupling between incompatible source payload schemas.
+
 ## Workflow Diagram
 
 ```mermaid

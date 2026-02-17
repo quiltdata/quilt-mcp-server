@@ -210,9 +210,9 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `quilt_ops.py` validates inputs, then backends validate again in primitives.
 
-- [ ] Document validation contract in `ops/quilt_ops.py` docstrings
-- [ ] Remove redundant validation from backend primitives (trust base class)
-- [ ] Keep validation only where backends have platform-specific rules
+- [x] Document validation contract in `ops/quilt_ops.py` docstrings (added explicit contract block + primitive doc updates on 2026-02-17)
+- [x] Remove redundant validation from backend primitives (trust base class) (removed stale `Platform_Backend` validation overrides on 2026-02-17)
+- [x] Keep validation only where backends have platform-specific rules (backend-specific auth/API constraints retained)
 
 **Files:** `ops/quilt_ops.py`, all backend implementations
 
@@ -224,7 +224,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `platform_backend.delete_package()` has 22 nested blocks with complex fallback logic (GraphQL → S3 direct).
 
-- [ ] Extract fallback logic to separate method:
+- [x] Extract fallback logic to separate method:
   - `_try_graphql_delete()` - GraphQL deletion
   - `_try_s3_fallback_delete()` - S3 direct deletion
   - `delete_package()` - Orchestrates with clear error handling
@@ -233,16 +233,16 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [ ] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k delete`
+- [x] Run: `uv run pytest tests/unit/backends/ -k delete` (8 passed on 2026-02-17; legacy path `test_platform_backend.py` no longer exists)
 
 #### 5.2 Reduce Documentation Verbosity in `quilt_ops.py`
 
 **Problem:** 10+ line docstrings for every method inflate file size without adding value.
 
-- [ ] Consolidate docstrings:
+- [x] Consolidate docstrings:
   - Keep high-level class docstring explaining Template Method pattern
   - Reduce method docstrings to 2-4 lines (purpose + params)
-  - Move detailed implementation notes to `ARCHITECTURE.md`
+  - Move detailed implementation notes to `docs/ARCHITECTURE.md`
 
 **Target:** -200 to -300 lines from documentation reduction
 

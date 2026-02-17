@@ -423,8 +423,7 @@ def package_update(
         if not isinstance(result.top_hash, str):
             return PackageUpdateError(
                 error=(
-                    "Package update failed: backend returned non-string top_hash "
-                    f"({type(result.top_hash).__name__})"
+                    f"Package update failed: backend returned non-string top_hash ({type(result.top_hash).__name__})"
                 ),
                 package_name=package_name,
                 registry=registry,
