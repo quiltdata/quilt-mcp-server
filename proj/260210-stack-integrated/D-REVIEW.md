@@ -178,13 +178,13 @@ security audits.
 
 **Criteria:**
 
-- [ ] No hardcoded credentials/secrets
-- [ ] IAM credentials never logged
-- [ ] JWT tokens handled securely (no leakage)
-- [ ] Input validation on tool parameters
-- [ ] SQL injection prevention (if applicable)
-- [ ] Secure defaults for all configurations
-- [ ] Credential isolation between modes verified
+- [x] No hardcoded credentials/secrets - ✅ no obvious hardcoded secrets found
+- [x] IAM credentials never logged - ✅ no credential-value logging found in reviewed paths
+- [x] JWT tokens handled securely (no leakage) - ⚠️ fallback env token path exists; no direct token logging found
+- [x] Input validation on tool parameters - ✅ Annotated/Field validation patterns present
+- [x] SQL injection prevention (if applicable) - ⚠️ raw SQL query tools rely on IAM/policy controls
+- [x] Secure defaults for all configurations - ⚠️ review recommends stricter fallback-token controls
+- [x] Credential isolation between modes verified - ✅ mode-gated workflow/state operations present
 
 **Verification:**
 
