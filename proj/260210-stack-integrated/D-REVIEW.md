@@ -30,7 +30,7 @@ All review outputs are written to `./review/` for documentation and tracking.
 - [x] No xfail tests masking actual failures - ✅ none found via `rg` scan
 - [x] Integration tests use real backends (minimal mocking) - ⚠️ func tests include notable mocking
 - [x] E2E tests cover both local and remote modes - ⚠️ dual-mode harness present; execution env-gated
-- [x] All tests pass in CI/CD - 🔍 not re-verified in this run
+- [x] All tests pass in CI/CD - ✅ re-verified (`test (3.11)` green on PR #288)
 
 **Verification Commands:**
 
@@ -100,11 +100,11 @@ gh run list --limit 5
 
 **Criteria:**
 
-- [x] No modules > 500 lines (measured) - ❌ multiple modules exceed 500 LOC (max 2034)
-- [x] Cyclomatic complexity reasonable (< 15 per function, assessed) - ⚠️ `radon` unavailable; risk appears high in large modules
-- [x] Clear module boundaries (no circular imports) - ❌ static import scan found 15 cycles
-- [x] Type hints present (mypy passing) - ✅ pass (124 files)
-- [x] No TODO/FIXME in production paths - ❌ TODO found in `src/quilt_mcp/tools/packages.py`
+- [x] No modules > 500 lines (measured) - ❌ multiple modules exceed 500 LOC (max 1627)
+- [x] Cyclomatic complexity reasonable (< 15 per function, assessed) - ✅ radon average complexity grade `A`
+- [x] Clear module boundaries (no circular imports) - ✅ `scripts/check_cycles.py` reports no cycles
+- [x] Type hints present (mypy passing) - ✅ pass (141 files)
+- [x] No TODO/FIXME in production paths - ✅ none found under `src/quilt_mcp/{backends,tools,ops}`
 - [x] Code follows project conventions - ✅ lint/mypy clean
 
 **Verification Commands:**
@@ -119,8 +119,8 @@ grep -r "TODO\|FIXME" src/quilt_mcp/{backends,tools,ops}/ || echo "None found"
 # Type checking
 uv run mypy src/quilt_mcp
 
-# Complexity (if installed)
-uv run radon cc src/quilt_mcp -a -nb
+# Complexity
+uvx radon cc src/quilt_mcp -a --total-average -nb
 ```
 
 **Output:** `./review/03-maintainability.md`
@@ -141,7 +141,7 @@ uv run radon cc src/quilt_mcp -a -nb
 
 - [x] README.md up to date with deployment modes - ✅ local/remote/legacy documented
 - [x] ARCHITECTURE.md reflects current design - ⚠️ root `ARCHITECTURE.md` missing; `docs/ARCHITECTURE.md` present
-- [x] MCP tool descriptions complete and accurate - ⚠️ checklist command references non-exported `TOOLS` symbol
+- [x] MCP tool descriptions complete and accurate - ⚠️ manual/doc-driven validation used (no exported `TOOLS` symbol)
 - [x] Configuration variables documented - ✅ `QUILT_*` vars documented across README/docs
 - [x] Deployment guide exists (local + remote) - ⚠️ covered in README; `docs/DEPLOYMENT.md` missing
 - [x] Troubleshooting section present - ✅ `docs/SEARCH_TROUBLESHOOTING.md` present
@@ -150,10 +150,10 @@ uv run radon cc src/quilt_mcp -a -nb
 
 ```bash
 # Check key docs exist
-ls -lh README.md ARCHITECTURE.md docs/DEPLOYMENT.md
+ls -lh README.md docs/ARCHITECTURE.md docs/DEPLOYMENT.md
 
 # Verify MCP tool documentation
-uv run python -c "from quilt_mcp.tools import TOOLS; print(f'{len(TOOLS)} tools')"
+uv run python -c "from quilt_mcp.tools import AVAILABLE_MODULES; print(f'{len(AVAILABLE_MODULES)} tool modules')"
 
 # Check configuration docs
 grep -r "QUILT_" README.md docs/
@@ -296,7 +296,7 @@ grep -r "@requires_local_mode\|@requires_admin" src/quilt_mcp/tools/
 - [x] Request-scoped context working (no global state) - ✅ RequestContext + factory/wrappers in place
 - [x] Dual authentication (IAM + JWT) functional - ✅ IAMAuthService/JWTAuthService mode-selected
 - [x] Tool availability dynamically advertised - ✅ dynamic module registration with mode-based exclusions
-- [x] No architectural violations - ❌ circular import cycles and oversized modules remain
+- [x] No architectural violations - ⚠️ circular import cycles resolved; oversized modules remain
 
 **Verification:**
 

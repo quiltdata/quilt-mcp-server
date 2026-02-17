@@ -1,6 +1,7 @@
 # Fargate Deployment Reference
 
 > Version 1.0 | February 16, 2026
+> **Status Note (2026-02-17):** This is a deployment runbook/reference. Checklist items below are environment-execution tasks and are intentionally left unchecked in code-only review updates.
 
 ## Quick Start
 

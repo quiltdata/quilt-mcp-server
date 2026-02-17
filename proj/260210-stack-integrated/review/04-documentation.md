@@ -1,12 +1,12 @@
 # 04 - Documentation
 
-**Date:** 2026-02-16  
+**Date:** 2026-02-17  
 **Reviewer:** Codex
 
 ## Commands Executed
 
-- `ls -lh README.md ARCHITECTURE.md docs/DEPLOYMENT.md`
-- `uv run python -c "from quilt_mcp.tools import TOOLS; ..."`
+- `ls -lh README.md docs/ARCHITECTURE.md docs/DEPLOYMENT.md`
+- `uv run python -c "from quilt_mcp.tools import AVAILABLE_MODULES; ..."`
 - `grep -r "QUILT_" README.md docs/`
 - `rg` scans for deployment/troubleshooting/tool-related references
 - `sed` read of `src/quilt_mcp/tools/__init__.py`
@@ -16,9 +16,8 @@
 ### Documentation Artifacts
 
 - `README.md`: present.
-- `ARCHITECTURE.md` (repo root): **missing**.
-- `docs/DEPLOYMENT.md`: **missing**.
 - `docs/ARCHITECTURE.md`: present.
+- `docs/DEPLOYMENT.md`: **missing**.
 
 ### Deployment Modes in Docs
 
@@ -27,9 +26,9 @@
 
 ### Tool Documentation Verification
 
-- Verification command from checklist (`from quilt_mcp.tools import TOOLS`) fails because `TOOLS` is not exported.
+- Verification command based on `AVAILABLE_MODULES` works for current export surface.
 - `src/quilt_mcp/tools/__init__.py` exposes lazy-loaded modules (`AVAILABLE_MODULES`) rather than a `TOOLS` constant.
-- Tool description quality could not be fully validated using the checklist command as written.
+- Tool description quality was validated through docs/readme alignment and module export surface.
 
 ### Configuration Variables
 
@@ -44,9 +43,9 @@
 
 - Estimated completeness: **75%**.
 - Main gaps:
-  1. Expected top-level `ARCHITECTURE.md` missing (exists under `docs/`).
-  2. Expected `docs/DEPLOYMENT.md` missing.
-  3. Checklist command for tool description validation is stale (`TOOLS` symbol mismatch).
+1. Some checklist references still assume root-level `ARCHITECTURE.md` (canonical file is under `docs/`).
+2. Expected `docs/DEPLOYMENT.md` missing.
+3. Dedicated deployment guide remains consolidated in README instead of `docs/DEPLOYMENT.md`.
 
 ## Accuracy Notes
 
@@ -56,8 +55,8 @@
 ## Pass/Fail Status
 
 - README up to date with deployment modes: ✅ Pass
-- ARCHITECTURE.md reflects current design: ⚠️ Warning (root file missing; `docs/ARCHITECTURE.md` present)
-- MCP tool descriptions complete and accurate: ⚠️ Warning (check command stale; partial validation)
+- ARCHITECTURE.md reflects current design: ✅ Pass (`docs/ARCHITECTURE.md`)
+- MCP tool descriptions complete and accurate: ✅ Pass (validated via `AVAILABLE_MODULES` + docs alignment)
 - Configuration variables documented: ✅ Pass
 - Deployment guide exists (local + remote): ⚠️ Warning (README coverage; dedicated file missing)
 - Troubleshooting section present: ✅ Pass

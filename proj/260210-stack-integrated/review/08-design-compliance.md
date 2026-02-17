@@ -1,6 +1,6 @@
 # 08 - Design Compliance (High-Level)
 
-**Date:** 2026-02-16  
+**Date:** 2026-02-17  
 **Reviewer:** Codex
 
 ## Commands Executed
@@ -21,7 +21,7 @@
 - Request-scoped context working (no global state): **Y** (`RequestContext` + factory/wrapper path present)
 - Dual authentication (IAM + JWT) functional: **Y** (`IAMAuthService` and `JWTAuthService` selected by mode)
 - Tool availability dynamically advertised: **Y** (`get_tool_modules()` excludes mode-incompatible modules)
-- No architectural violations: **N** (circular imports and oversized-module maintainability issues)
+- No architectural violations: **N** (circular imports resolved; oversized-module maintainability issues remain)
 
 ## Architectural Integrity
 
@@ -31,12 +31,12 @@
 
 ## Major Deviations
 
-1. Architectural cleanliness criterion is impacted by circular dependency cycles (see Section 3).
-2. Some checklist references are outdated (e.g., GraphQL backend filename expectation).
+1. Architectural cleanliness criterion is still impacted by oversized-module debt in core files.
+2. Some legacy checklist references still need periodic alignment as module boundaries evolve.
 
 ## Compliance Assessment
 
 - Overall design compliance: **⚠️ Warning**
-- Functional architecture is in place, but structural quality issues remain.
+- Functional architecture is in place; main remaining structural concern is large-module decomposition.
 
 **Section Result:** ⚠️ **Warning**
