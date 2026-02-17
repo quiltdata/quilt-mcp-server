@@ -42,7 +42,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 - [x] Remove `platform_backend.update_package_revision()` override
 - [x] Verify base class `quilt_ops.update_package_revision()` is called
 - [x] Ensure all required primitives (`_backend_push_package`, etc.) are implemented
-- [x] Run tests: `uv run pytest tests/unit/backends/test_platform_backend.py -k update_package`
+- [ ] Run tests: `uv run pytest tests/unit/backends/test_platform_backend.py -k update_package`
 
 **Impact:** -154 lines from platform_backend.py by using correct architecture
 
@@ -54,9 +54,9 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Cycle 1: Utils/Context** (4 files)
 
-- [x] Extract shared types from `utils/common.py` → `types/common.py`
-- [x] Move context-specific utilities to `context/utils.py`
-- [x] Update imports in `context/{handler,factory}.py`, `services/workflow_service.py`
+- [ ] Extract shared types from `utils/common.py` → `types/common.py`
+- [ ] Move context-specific utilities to `context/utils.py`
+- [ ] Update imports in `context/{handler,factory}.py`, `services/workflow_service.py`
 
 **Cycle 2: Auth Services** (2 files)
 
@@ -92,7 +92,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
   - `generate_readme_content()` - README generation (~135 lines)
   - `generate_package_metadata()` - Metadata gen (~50 lines)
 
-- [x] Refactor `package_create_from_s3()` to orchestrate:
+- [ ] Refactor `package_create_from_s3()` to orchestrate:
 
   ```python
   def package_create_from_s3(...):
@@ -106,8 +106,8 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [x] Run: `uv run pytest tests/unit/tools/test_packages.py -k s3`
-- [x] Verify no functionality changes
+- [ ] Run: `uv run pytest tests/unit/tools/test_packages.py -k s3`
+- [ ] Verify no functionality changes
 
 **Files:** `tools/packages.py` → extract to `tools/{s3_discovery,package_metadata}.py`
 
@@ -135,7 +135,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [x] Run: `uv run pytest tests/unit/tools/test_packages.py`
+- [ ] Run: `uv run pytest tests/unit/tools/test_packages.py`
 
 ---
 
@@ -145,7 +145,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `tools/packages.py` mixes CRUD operations with S3 discovery workflows.
 
-- [ ] Create `tools/s3_package_ingestion.py`:
+- [x] Create `tools/s3_package_ingestion.py`:
   - Move `package_create_from_s3` (after Phase 2.1 refactoring)
   - Move S3-specific helpers
   - Import from `s3_discovery.py` and `package_metadata.py`
@@ -168,14 +168,14 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** `platform_backend.py` has 14 scattered GraphQL query/mutation definitions with duplicated error handling.
 
-- [ ] Create `backends/platform_graphql_client.py`:
+- [x] Create `backends/platform_graphql_client.py`:
   - `GraphQLClient` class with:
     - `query(operation, variables)` - Generic query executor
     - `mutate(operation, variables)` - Generic mutation executor
     - Error handling, response parsing, type checking
   - Query/mutation definitions as constants or methods
 
-- [ ] Refactor `platform_backend.py`:
+- [x] Refactor `platform_backend.py`:
   - Initialize `self._graphql = GraphQLClient(...)`
   - Replace inline GraphQL with client calls
   - Remove duplicated error handling
@@ -187,8 +187,8 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [x] Run: `uv run pytest tests/unit/backends/test_platform_backend.py`
-- [x] Run: `uv run pytest tests/func/backends/ -k platform`
+- [ ] Run: `uv run pytest tests/unit/backends/test_platform_backend.py`
+- [ ] Run: `uv run pytest tests/func/backends/ -k platform`
 
 ---
 
@@ -232,7 +232,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Validation:**
 
-- [x] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k delete`
+- [ ] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k delete`
 
 #### 5.2 Reduce Documentation Verbosity in `quilt_ops.py`
 

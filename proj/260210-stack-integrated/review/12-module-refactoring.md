@@ -78,10 +78,10 @@ This plan ensures complete resolution of all 5 critical issues:
 
 **Fix:**
 
-- [x] Create `src/quilt_mcp/types/common.py` with shared type definitions
-- [x] Create `src/quilt_mcp/context/utils.py` for context-specific utilities
-- [x] Move non-context utilities to `src/quilt_mcp/utils/helpers.py`
-- [x] Update imports:
+- [ ] Create `src/quilt_mcp/types/common.py` with shared type definitions
+- [ ] Create `src/quilt_mcp/context/utils.py` for context-specific utilities
+- [ ] Move non-context utilities to `src/quilt_mcp/utils/helpers.py`
+- [ ] Update imports:
   - `context/handler.py`: import from `types.common`
   - `context/factory.py`: import from `types.common`
   - `services/workflow_service.py`: import from `context.utils`
@@ -246,7 +246,7 @@ platform_backend.Platform_Backend
     - `_backend_commit_package()`
     - [check quilt_ops.py for full list]
 
-- [x] **If there ARE platform-specific differences:**
+- [ ] **If there ARE platform-specific differences:**
   - [ ] Extract platform-specific logic to helper methods
   - [ ] Call `super().update_package_revision()` with hooks
   - [ ] Document why override is necessary
@@ -254,7 +254,7 @@ platform_backend.Platform_Backend
 **Validation:**
 
 - [x] `grep -n "def update_package_revision" src/quilt_mcp/backends/platform_backend.py` → should be empty OR clearly justified
-- [x] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k update_package`
+- [ ] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k update_package`
 - [x] Run: `uv run pytest tests/func/backends/ -k "platform and update"`
 - [x] Verify no functionality changes
 
@@ -273,7 +273,7 @@ platform_backend.Platform_Backend
   - Does it also duplicate orchestration methods?
   - Should it use base class Template Methods?
 
-- [x] Verify Template Method pattern is used consistently:
+- [ ] Verify Template Method pattern is used consistently:
   - [ ] `create_package_revision()` - only in base class?
   - [ ] `delete_package()` - only in base class?
   - [ ] Other orchestration methods?
@@ -494,7 +494,7 @@ platform_backend.Platform_Backend
 
 **Validation:**
 
-- [x] `uv run pytest tests/unit/tools/test_packages.py -k s3`
+- [ ] `uv run pytest tests/unit/tools/test_packages.py -k s3`
 - [x] Run integration test with real S3 bucket
 - [x] Verify identical behavior to original function
 - [x] Check function size: `grep -A 500 "def package_create_from_s3" src/quilt_mcp/tools/packages.py | wc -l` → should be ~100-120
@@ -650,7 +650,7 @@ def some_operation(self, ...):
 
 ### 5.2 Create GraphQL Client Module
 
-- [x] Create `src/quilt_mcp/backends/graphql_client.py`:
+- [x] Create `src/quilt_mcp/backends/platform_graphql_client.py`:
 
   ```python
   """GraphQL client abstraction for Platform backend."""
@@ -711,11 +711,11 @@ def some_operation(self, ...):
           """Parse raw HTTP response."""
   ```
 
-- [x] Add tests: `tests/unit/backends/test_graphql_client.py`
+- [ ] Add tests: `tests/unit/backends/test_graphql_client.py`
 
 **Validation:**
 
-- [x] `uv run pytest tests/unit/backends/test_graphql_client.py` - passes
+- [ ] `uv run pytest tests/unit/backends/test_graphql_client.py` - passes
 - [x] Test coverage >= 85%
 
 ---
@@ -813,8 +813,8 @@ def some_operation(self, ...):
 
 **Validation:**
 
-- [x] All tests pass: `uv run pytest tests/unit/backends/test_platform_backend.py`
-- [x] All tests pass: `uv run pytest tests/func/backends/ -k platform`
+- [ ] All tests pass: `uv run pytest tests/unit/backends/test_platform_backend.py`
+- [ ] All tests pass: `uv run pytest tests/func/backends/ -k platform`
 - [x] No functionality changes
 - [x] GraphQL operations still work correctly
 
@@ -826,7 +826,7 @@ def some_operation(self, ...):
 
 **Problem:** Same utility functions repeated across multiple backends.
 
-- [x] Create `src/quilt_mcp/backends/utils.py`:
+- [ ] Create `src/quilt_mcp/backends/utils.py`:
 
   ```python
   """Shared utilities for backend implementations."""
@@ -847,7 +847,7 @@ def some_operation(self, ...):
       # Currently duplicated in backends
   ```
 
-- [x] Find all duplicated utility functions:
+- [ ] Find all duplicated utility functions:
 
   ```bash
   # Search for common patterns
@@ -856,8 +856,8 @@ def some_operation(self, ...):
   grep -rn "def.*build.*s3" src/quilt_mcp/backends/
   ```
 
-- [x] Extract to `backends/utils.py`
-- [x] Update all backends to import from utils
+- [ ] Extract to `backends/utils.py`
+- [ ] Update all backends to import from utils
 
 **Expected Impact:** -50 to -100 lines total across backends
 
@@ -917,12 +917,12 @@ def _backend_push_package(self, name, ...):
 
 **Problem:** Each backend implements `_transform_search_result_to_package_info()` separately.
 
-- [x] Check if transformation logic is truly backend-specific
-- [x] If mostly shared:
+- [ ] Check if transformation logic is truly backend-specific
+- [ ] If mostly shared:
   - [ ] Extract common transformation to `backends/utils.py`
   - [ ] Backends override only for platform-specific fields
 
-- [x] If completely different:
+- [ ] If completely different:
   - [ ] Document why in architecture docs
   - [ ] Ensure no duplication within each implementation
 
@@ -1018,7 +1018,7 @@ async def _try_s3_fallback_delete(self, bucket: str, name: str) -> DeletionResul
 
 **Validation:**
 
-- [x] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k delete`
+- [ ] Run: `uv run pytest tests/unit/backends/test_platform_backend.py -k delete`
 - [x] Test both success paths (GraphQL works, S3 fallback works)
 - [x] Test failure paths (both methods fail)
 - [x] Verify error messages are clear
