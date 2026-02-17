@@ -1,8 +1,8 @@
 # 12 - Complete Module Refactoring Plan
 
 > **Status Note (2026-02-17):** This refactoring plan is partially executed on `pr-review-fix`.
-> Newly completed in this pass: package CRUD handlers were extracted into `tools/package_crud.py`, bringing `tools/packages.py` below 1000 LOC (758), with `make test-all` and `make test-remote-docker` passing.
-> Still open: "all modules <1000 LOC" is not yet met; remaining oversized modules are `ops/quilt_ops.py`, `services/governance_service.py`, `backends/platform_admin_ops.py`, `backends/platform_backend.py`, `services/workflow_service.py`, and `tools/responses.py`.
+> Newly completed in this pass: package CRUD handlers were extracted into `tools/package_crud.py` (reducing `tools/packages.py` to 758 LOC), and response base/resource models were split into `tools/responses_base.py` + `tools/responses_resources.py` (reducing `tools/responses.py` to 987 LOC), with `make test-all` and `make test-remote-docker` passing.
+> Still open: "all modules <1000 LOC" is not yet met; remaining oversized modules are `ops/quilt_ops.py`, `services/governance_service.py`, `backends/platform_admin_ops.py`, `backends/platform_backend.py`, and `services/workflow_service.py`.
 
 **Date:** 2026-02-17
 **Reviewer:** Codex
