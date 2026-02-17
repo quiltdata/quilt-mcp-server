@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.19.0"
+version = "0.20.0"
 description = "Secure MCP server for accessing Quilt data with IAM or JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -111,6 +111,7 @@ markers = [
     "platform: marks tests that require platform authentication (deselect with '-m \"not platform\"')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "e2e: marks tests as end-to-end integration tests",
+    "func: marks tests as functional tests with mocked integration",
     "tabulator: marks tests for tabulator functionality",
     "athena: marks tests that use AWS Athena",
     "admin: marks tests that require admin permissions",
@@ -120,6 +121,9 @@ markers = [
     "performance: marks tests that measure performance metrics",
     "package: marks tests for package operations",
     "consistency: marks tests for data consistency validation",
+    "security: marks tests for security and authentication",
+    "auth: marks tests for authentication scenarios",
+    "buckets: marks tests for bucket operations",
     "manual: marks tests that require manual execution (intentionally fail to test infrastructure)",
 ]
 

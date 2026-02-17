@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-02-16
+
+### Added
+
+- **Bucket Discovery**: New `bucket_list` tool for listing accessible S3 buckets
+  - Query buckets via GraphQL bucketConfigs endpoint
+  - Returns bucket metadata: name, title, description, tags, configuration flags
+  - Respects user permissions and role-based access control
+  - Enables bucket discovery before exploring contents with other bucket tools
+
 ## [0.19.0] - 2026-02-14
 
 ### Improved

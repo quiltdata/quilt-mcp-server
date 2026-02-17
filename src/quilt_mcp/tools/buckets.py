@@ -5,6 +5,10 @@ from typing import Annotated, Any
 from pydantic import Field
 
 from .responses import (
+    BucketConfig,
+    BucketListError,
+    BucketListResponse,
+    BucketListSuccess,
     BucketObjectFetchError,
     BucketObjectFetchResponse,
     BucketObjectFetchSuccess,
@@ -828,3 +832,72 @@ def bucket_object_link(
             bucket=bucket,
             key=key,
         )
+
+
+def bucket_list() -> BucketListResponse:
+    """List S3 buckets accessible to authenticated user - Bucket discovery and access verification
+
+    This tool queries the Quilt platform to retrieve the list of buckets that the
+    authenticated user has permission to access. The list includes bucket metadata
+    such as titles, descriptions, and tags configured in the platform.
+
+    Returns:
+        BucketListSuccess on success with list of bucket configurations,
+        BucketListError on failure with error details.
+
+    Next step:
+        Use the returned bucket names with other bucket tools like bucket_objects_list
+        to explore bucket contents.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_list()
+        if result.success:
+            for bucket in result.buckets:
+                print(f"Bucket: {bucket.name} - {bucket.title}")
+        # Next step: Use bucket names with bucket_objects_list to explore contents
+        ```
+    """
+    from ..ops.factory import QuiltOpsFactory
+
+    try:
+        ops = QuiltOpsFactory.create()
+
+        # GraphQL query to get bucket configurations
+        gql = """
+        query ListBuckets {
+          bucketConfigs {
+            name
+            title
+            description
+            iconUrl
+            relevanceScore
+            browsable
+            tags
+          }
+        }
+        """
+
+        result = ops.execute_graphql_query(gql)
+        bucket_configs_data = result.get("data", {}).get("bucketConfigs") or []
+
+        # Transform GraphQL response to BucketConfig objects
+        buckets = []
+        for bucket_data in bucket_configs_data:
+            bucket_config = BucketConfig(
+                name=bucket_data.get("name", ""),
+                title=bucket_data.get("title"),
+                description=bucket_data.get("description"),
+                iconUrl=bucket_data.get("iconUrl"),
+                relevanceScore=bucket_data.get("relevanceScore"),
+                browsable=bucket_data.get("browsable"),
+                tags=bucket_data.get("tags"),
+            )
+            buckets.append(bucket_config)
+
+        return BucketListSuccess(buckets=buckets, count=len(buckets))
+
+    except Exception as e:
+        return BucketListError(error=f"Failed to list buckets: {e}")
