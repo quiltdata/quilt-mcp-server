@@ -1,8 +1,8 @@
 # 11 - Module Cleanup Tasklist
 
-> **Status Note (2026-02-17):** This workstream is actively in progress on `pr-review-fix`.
+> **Status Note (2026-02-17):** This workstream is completed and verified on `pr-review-fix`.
 > Recent completion: package CRUD/browse/diff/create/update/delete logic moved out of `tools/packages.py` into `tools/package_crud.py` (now 758 LOC), and response base/resource models were extracted from `tools/responses.py` (now 987 LOC).
-> Remaining debt: architecture cleanup is still needed in core modules (`ops/quilt_ops.py`, `services/governance_service.py`, `backends/platform_admin_ops.py`, `backends/platform_backend.py`, `services/workflow_service.py`), focused on separation of concerns and boundary clarity.
+> Remaining debt: deeper architecture decomposition is still recommended in core large modules (`ops/quilt_ops.py`, `services/governance_service.py`, `backends/platform_admin_ops.py`, `backends/platform_backend.py`, `services/workflow_service.py`), focused on separation of concerns and boundary clarity.
 > **PR 288 fix confirmation (2026-02-17):** post-refactor CI failures were resolved by removing test-level dependencies on `tools/packages.py` internals and targeting extracted modules directly; `make test-ci` is green.
 
 **Date:** 2026-02-16

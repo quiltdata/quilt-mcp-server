@@ -8,7 +8,7 @@
 
 **Date:** 2026-02-17
 **Reviewer:** Codex
-**Commit:** c592323
+**Commit:** a0f080a
 
 ## Overall Assessment
 
@@ -20,12 +20,12 @@
 |------|--------|-------|
 | Code Coverage & Testing | ⚠️ | Combined coverage strong (85%+), but critical path target (>=90%) not met and skip-heavy execution paths remain. |
 | Build & Deployability | ⚠️ | `make test-all`, `make docker-build`, and `make test-docker-remote` now pass; remaining warning is dependency pinning strategy. |
-| Code Maintainability | ⚠️ | Circular import cycles and production TODOs called out in earlier snapshots are resolved; oversized modules remain. |
+| Code Maintainability | ⚠️ | Circular import cycles and production TODOs are resolved; oversized core modules and complexity hotspots remain. |
 | Documentation | ⚠️ | Core docs present, but checklist/file-path drift (`ARCHITECTURE.md`, `DEPLOYMENT.md`, `TOOLS`) reduces consistency. |
 | Security & Credentials | ⚠️ | No obvious hardcoded secrets; warning on fallback JWT path and raw SQL tool risk model. |
 | Observability | ⚠️ | Logging exists, but structure and exception-handling consistency are uneven. |
 | Scope Alignment | ⚠️ | Major scope mostly present; deployment semantics differ from criterion wording. |
-| Design Compliance | ⚠️ | Core architecture implemented; structural violations (cycles/large modules) remain. |
+| Design Compliance | ⚠️ | Core architecture implemented; circular dependency violations resolved, but large-module structural debt remains. |
 
 ## Critical Issues (Blockers)
 
@@ -51,9 +51,9 @@
 
 ### Pre-Launch (Required)
 
-1. Reduce circular import cycles in core modules.
-2. Break down oversized modules in backends/tools/ops into maintainable units.
-3. Raise critical-path coverage to documented target and reduce skip-dependent assertions.
+1. Break down oversized modules in backends/tools/ops into maintainable units.
+2. Raise critical-path coverage to documented target and reduce skip-dependent assertions.
+3. Add targeted remediation for highest-complexity functions surfaced by radon.
 
 ### Post-Launch (Improvements)
 
