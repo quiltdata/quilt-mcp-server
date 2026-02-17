@@ -881,7 +881,7 @@ def bucket_list() -> BucketListResponse:
         """
 
         result = ops.execute_graphql_query(gql)
-        bucket_configs_data = result.get("data", {}).get("bucketConfigs", [])
+        bucket_configs_data = result.get("data", {}).get("bucketConfigs") or []
 
         # Transform GraphQL response to BucketConfig objects
         buckets = []
