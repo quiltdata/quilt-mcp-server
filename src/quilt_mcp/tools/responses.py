@@ -248,6 +248,31 @@ class BucketObjectsPutError(BaseModel):
     bucket: str
 
 
+class BucketConfig(BaseModel):
+    """Metadata for a single bucket configuration from the Quilt platform."""
+
+    name: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    iconUrl: Optional[str] = None
+    relevanceScore: Optional[int] = None
+    browsable: Optional[bool] = None
+    tags: Optional[list[str]] = None
+
+
+class BucketListSuccess(SuccessResponse):
+    """Response from bucket_list when successful."""
+
+    buckets: list[BucketConfig]
+    count: int
+
+
+class BucketListError(ErrorResponse):
+    """Response from bucket_list when failed."""
+
+    pass  # Inherits error field from ErrorResponse
+
+
 # ============================================================================
 # Package Tool Responses
 # ============================================================================
@@ -888,6 +913,7 @@ BucketObjectInfoResponse = BucketObjectInfoSuccess | BucketObjectInfoError
 BucketObjectTextResponse = BucketObjectTextSuccess | BucketObjectTextError
 BucketObjectFetchResponse = BucketObjectFetchSuccess | BucketObjectFetchError
 BucketObjectsPutResponse = BucketObjectsPutSuccess | BucketObjectsPutError
+BucketListResponse = BucketListSuccess | BucketListError
 
 # Package responses
 PackageBrowseResponse = PackageBrowseSuccess | ErrorResponse

@@ -8,17 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.20.0] - 2026-02-17
+## [0.20.0] - 2026-02-16
 
 ### Added
 
-- **Bucket Discovery Tool**: Added `bucket_list` tool for listing accessible buckets with pagination support.
-- **Stack-Integrated Review Artifacts**: Added comprehensive stack integration documentation and review outputs under `proj/260210-stack-integrated/`.
-
-### Changed
-
-- **Quality Review Tracking**: Executed and updated all sections of `D-REVIEW.md` with per-gate status and final summary.
-- **Build/Deploy Validation Notes**: Refreshed deployability review to reflect successful `make test-all` and `make test-docker-remote` validation runs.
+- **Bucket Discovery**: New `bucket_list` tool for listing accessible S3 buckets
+  - Query buckets via GraphQL bucketConfigs endpoint
+  - Returns bucket metadata: name, title, description, tags, configuration flags
+  - Respects user permissions and role-based access control
+  - Enables bucket discovery before exploring contents with other bucket tools
 
 ## [0.19.0] - 2026-02-14
 
