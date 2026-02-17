@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from tests.conftest import KNOWN_TEST_PACKAGE
-from quilt_mcp.tools.packages import package_create_from_s3
+from quilt_mcp.tools.s3_package_ingestion import package_create_from_s3
 from quilt_mcp.context.request_context import RequestContext
 
 TEST_BUCKET = "test-bucket"
@@ -48,12 +48,12 @@ class TestPackageCreateFromS3:
         assert result.success is False
         assert "source_bucket is required" in result.error
 
-    @patch("quilt_mcp.tools.packages.get_s3_client")
-    @patch("quilt_mcp.tools.packages._validate_bucket_access")
-    @patch("quilt_mcp.tools.packages._discover_s3_objects")
-    @patch("quilt_mcp.tools.packages._create_enhanced_package")
-    @patch("quilt_mcp.services.permissions_service.bucket_recommendations_get")
-    @patch("quilt_mcp.services.permissions_service.check_bucket_access")
+    @patch("quilt_mcp.tools.s3_package_ingestion.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package_ingestion._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package_ingestion._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package_ingestion._create_enhanced_package")
+    @patch("quilt_mcp.tools.s3_package_ingestion.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package_ingestion.check_bucket_access")
     def test_no_objects_found(
         self,
         mock_access_check,
@@ -95,12 +95,12 @@ class TestPackageCreateFromS3:
 class TestValidation:
     """Test cases for validation functions that exercise the workflow."""
 
-    @patch("quilt_mcp.tools.packages.get_s3_client")
-    @patch("quilt_mcp.tools.packages._discover_s3_objects")
-    @patch("quilt_mcp.tools.packages.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.packages.check_bucket_access")
-    @patch("quilt_mcp.tools.packages._validate_bucket_access")
-    @patch("quilt_mcp.tools.packages._create_enhanced_package")
+    @patch("quilt_mcp.tools.s3_package_ingestion.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package_ingestion._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package_ingestion.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package_ingestion.check_bucket_access")
+    @patch("quilt_mcp.tools.s3_package_ingestion._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package_ingestion._create_enhanced_package")
     def test_dry_run_preview(
         self,
         mock_create,
@@ -137,11 +137,11 @@ class TestValidation:
 class TestREADMEContentExtraction:
     """Test cases for README content extraction from metadata."""
 
-    @patch("quilt_mcp.tools.packages.get_s3_client")
-    @patch("quilt_mcp.tools.packages._discover_s3_objects")
-    @patch("quilt_mcp.tools.packages.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.packages.check_bucket_access")
-    @patch("quilt_mcp.tools.packages._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package_ingestion.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package_ingestion._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package_ingestion.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package_ingestion.check_bucket_access")
+    @patch("quilt_mcp.tools.s3_package_ingestion._validate_bucket_access")
     def test_readme_content_extraction_from_metadata(
         self,
         mock_validate_access,

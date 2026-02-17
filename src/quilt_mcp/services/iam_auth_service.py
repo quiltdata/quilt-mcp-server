@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import os
-from typing import Literal, Optional, TYPE_CHECKING
+from typing import Literal, Optional
 
 import boto3
 
 from quilt_mcp.config import get_mode_config
-
-if TYPE_CHECKING:
-    from quilt_mcp.services.auth_service import AuthService
 
 
 class IAMAuthService:

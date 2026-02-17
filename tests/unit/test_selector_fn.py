@@ -1,74 +1,27 @@
-import pytest
-from unittest.mock import patch, Mock, MagicMock
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from quilt_mcp.config import set_test_mode_config
-from quilt_mcp.tools.packages import package_create, package_create_from_s3
+from quilt_mcp.tools.packages import package_create
 
 
-class MockPackage:
-    """Mock quilt3.Package that can handle set operations and push calls."""
-
-    def __init__(self):
-        self._entries = {}
-        self._metadata = {}
-
-    def set(self, logical_path, source):
-        """Mock set operation."""
-        self._entries[logical_path] = MockEntry(source)
-        return None
-
-    def set_meta(self, metadata):
-        """Mock set_meta operation."""
-        self._metadata.update(metadata)
-        return None
-
-    def __getitem__(self, logical_path):
-        """Mock getitem to return entries."""
-        if logical_path not in self._entries:
-            raise KeyError(logical_path)
-        return self._entries[logical_path]
-
-    def __contains__(self, logical_path):
-        """Mock contains check."""
-        return logical_path in self._entries
-
-    def push(self, name, registry=None, message=None, selector_fn=None, **kwargs):
-        """Mock push operation that tests selector_fn."""
-        if selector_fn:
-            for logical_path, entry in self._entries.items():
-                # Test the selector function and use the result
-                # This simulates how quilt3 actually uses the selector_fn return value
-                should_include = selector_fn(logical_path, entry)
-                # In real quilt3, this boolean result is used to determine file inclusion
-                # For our mock, we just verify it's a boolean
-                if not isinstance(should_include, bool):
-                    raise ValueError(f"selector_fn must return boolean, got {type(should_include)}")
-        return "test_top_hash"
-
-    def build(self, name, registry=None, message=None, **kwargs):
-        """Mock build operation for copy=False scenarios."""
-        return "test_top_hash"
+def _mock_create_result(top_hash: str = "test_top_hash") -> SimpleNamespace:
+    return SimpleNamespace(
+        success=True,
+        top_hash=top_hash,
+        file_count=2,
+        catalog_url="https://example.invalid/catalog/pkg",
+    )
 
 
-class MockEntry:
-    """Mock package entry with physical_key attribute."""
-
-    def __init__(self, source):
-        self.physical_key = source
-
-
-@patch("quilt3.Package")
-@patch("quilt_mcp.tools.packages.get_s3_client")
-def test_package_ops_copy_false(mock_get_s3_client, mock_package_class):
+@patch("quilt_mcp.tools.package_crud._authorize_package")
+@patch("quilt_mcp.tools.package_crud.QuiltOpsFactory.create")
+def test_package_create_copy_false(mock_factory_create, mock_authorize):
     set_test_mode_config(multiuser_mode=False)
-
-    # Configure mock to return our MockPackage
-    mock_package_class.return_value = MockPackage()
-
-    # Mock S3 client to avoid actual S3 calls
-    mock_s3_client = Mock()
-    mock_s3_client.head_object.return_value = {"ContentLength": 100}
-    mock_get_s3_client.return_value = mock_s3_client
+    mock_authorize.return_value = (SimpleNamespace(auth_type="iam"), None)
+    mock_backend = Mock()
+    mock_backend.create_package_revision.return_value = _mock_create_result()
+    mock_factory_create.return_value = mock_backend
 
     result = package_create(
         package_name="team/pkg",
@@ -81,23 +34,27 @@ def test_package_ops_copy_false(mock_get_s3_client, mock_package_class):
         flatten=True,
     )
 
-    # The function should succeed and return status
     assert result.success is True
     assert result.top_hash == "test_top_hash"
+    mock_backend.create_package_revision.assert_called_once_with(
+        package_name="team/pkg",
+        s3_uris=["s3://bucket-a/dir/file1.csv", "s3://bucket-b/file2.json"],
+        metadata={},
+        registry="s3://target-bucket",
+        message="Created via package_create tool",
+        auto_organize=False,
+        copy=False,
+    )
 
 
-@patch("quilt3.Package")
-@patch("quilt_mcp.tools.packages.get_s3_client")
-def test_package_ops_copy_true(mock_get_s3_client, mock_package_class):
+@patch("quilt_mcp.tools.package_crud._authorize_package")
+@patch("quilt_mcp.tools.package_crud.QuiltOpsFactory.create")
+def test_package_create_copy_true(mock_factory_create, mock_authorize):
     set_test_mode_config(multiuser_mode=False)
-
-    # Configure mock to return our MockPackage
-    mock_package_class.return_value = MockPackage()
-
-    # Mock S3 client to avoid actual S3 calls
-    mock_s3_client = Mock()
-    mock_s3_client.head_object.return_value = {"ContentLength": 100}
-    mock_get_s3_client.return_value = mock_s3_client
+    mock_authorize.return_value = (SimpleNamespace(auth_type="iam"), None)
+    mock_backend = Mock()
+    mock_backend.create_package_revision.return_value = _mock_create_result()
+    mock_factory_create.return_value = mock_backend
 
     result = package_create(
         package_name="team/pkg",
@@ -110,6 +67,14 @@ def test_package_ops_copy_true(mock_get_s3_client, mock_package_class):
         flatten=True,
     )
 
-    # The function should succeed and return status
     assert result.success is True
     assert result.top_hash == "test_top_hash"
+    mock_backend.create_package_revision.assert_called_once_with(
+        package_name="team/pkg",
+        s3_uris=["s3://target-bucket/path/file1.csv", "s3://other-bucket/file2.json"],
+        metadata={},
+        registry="s3://target-bucket",
+        message="Created via package_create tool",
+        auto_organize=False,
+        copy=True,
+    )

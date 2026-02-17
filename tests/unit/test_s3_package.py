@@ -1,12 +1,12 @@
 """Tests for S3 package creation utilities and validators."""
 
 from tests.conftest import KNOWN_TEST_PACKAGE
-from quilt_mcp.tools.packages import (
-    _should_include_object,
-    _suggest_target_registry,
-    _organize_file_structure,
-    _generate_readme_content,
+from quilt_mcp.tools.s3_discovery import should_include_object as _should_include_object
+from quilt_mcp.tools.s3_package_ingestion import (
     _generate_package_metadata,
+    _generate_readme_content,
+    _organize_file_structure,
+    _suggest_target_registry,
 )
 from quilt_mcp.utils.common import validate_package_name, format_error_response
 from quilt_mcp.utils.structure_validator import validate_package_structure

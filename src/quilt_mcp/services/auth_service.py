@@ -12,6 +12,7 @@ import boto3
 from quilt_mcp.config import get_mode_config
 from quilt_mcp.services.iam_auth_service import IAMAuthService
 from quilt_mcp.services.auth_metrics import record_auth_mode
+from quilt_mcp.services.protocols.auth import AuthServiceProtocol
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ class AuthService(ABC):
         return self.get_session()
 
 
-def create_auth_service() -> AuthService:
+def create_auth_service() -> AuthServiceProtocol:
     """
     Create a new auth service instance for the configured mode.
 
@@ -60,8 +61,8 @@ def create_auth_service() -> AuthService:
     if mode_config.requires_jwt:
         logger.info("Authentication mode selected: JWT (pass-through to GraphQL)")
         record_auth_mode("jwt")
-        return cast(AuthService, JWTAuthService())
+        return cast(AuthServiceProtocol, JWTAuthService())
 
     logger.info("Authentication mode selected: IAM")
     record_auth_mode("iam")
-    return cast(AuthService, IAMAuthService())
+    return cast(AuthServiceProtocol, IAMAuthService())

@@ -6,53 +6,13 @@ replacing generic Dict[str, Any] with structured, validated responses.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-
-class DictAccessibleModel(BaseModel):
-    """Base model that supports dict-like access for backward compatibility."""
-
-    def __getitem__(self, key: str) -> Any:
-        """Allow dict-like access to model fields."""
-        try:
-            return getattr(self, key)
-        except AttributeError:
-            raise KeyError(key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Support dict.get() method."""
-        try:
-            return getattr(self, key)
-        except AttributeError:
-            return default
-
-    def __contains__(self, key: str) -> bool:
-        """Support 'key in model' checks."""
-        return hasattr(self, key)
-
-
-# ============================================================================
-# Base Response Models
-# ============================================================================
-
-
-class SuccessResponse(DictAccessibleModel):
-    """Base model for successful operations."""
-
-    success: Literal[True] = True
-
-
-class ErrorResponse(DictAccessibleModel):
-    """Base model for error responses."""
-
-    success: Literal[False] = False
-    error: str
-    cause: Optional[str] = None
-    possible_fixes: Optional[list[str]] = None
-    suggested_actions: Optional[list[str]] = None
+from .responses_base import DictAccessibleModel, ErrorResponse, SuccessResponse
+from .responses_resources import GetResourceError, GetResourceSuccess, ResourceMetadata
 
 
 # ============================================================================
@@ -1023,41 +983,3 @@ SearchCatalogResponse = SearchCatalogSuccess | SearchCatalogError
 QuiltSummarizeJsonResponse = QuiltSummarizeJson | QuiltSummarizeJsonError
 PackageVisualizationsResponse = PackageVisualizationsSuccess | PackageVisualizationsError
 QuiltSummaryFilesResponse = QuiltSummaryFilesSuccess | QuiltSummaryFilesError
-
-
-# ============================================================================
-# Resource Access Tool Responses
-# ============================================================================
-
-
-class ResourceMetadata(BaseModel):
-    """Metadata for a single resource in discovery mode."""
-
-    uri: str = Field(..., description="Resource URI pattern (may contain {variables})")
-    name: str = Field(..., description="Human-readable resource name")
-    description: str = Field(..., description="Functional description")
-    is_template: bool = Field(..., description="True if URI contains template variables")
-    template_variables: list[str] = Field(
-        default_factory=list, description="List of variable names in URI (empty if not templated)"
-    )
-    requires_admin: bool = Field(..., description="True if admin privileges required")
-    category: str = Field(..., description="Resource category (auth, admin, etc.)")
-
-
-class GetResourceSuccess(SuccessResponse):
-    """Successful resource access response."""
-
-    uri: str = Field(..., description="The resolved URI (expanded if templated)")
-    resource_name: str = Field(..., description="Human-readable name of the resource")
-    data: dict[str, Any] = Field(..., description="The actual resource data")
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="When the data was retrieved"
-    )
-    mime_type: str = Field(default="application/json", description="Resource MIME type")
-
-
-class GetResourceError(ErrorResponse):
-    """Failed resource access response."""
-
-    # Inherits: success, error, cause, possible_fixes, suggested_actions
-    valid_uris: Optional[list[str]] = Field(default=None, description="Available URIs (for invalid URI errors)")

@@ -10,7 +10,8 @@ from unittest.mock import Mock, patch
 from quilt3 import Package
 
 from quilt_mcp.domain.package_creation import Package_Creation_Result
-from quilt_mcp.tools.packages import package_update, package_create_from_s3
+from quilt_mcp.tools.package_crud import package_update
+from quilt_mcp.tools.s3_package_ingestion import package_create_from_s3
 from quilt_mcp.tools.responses import PackageUpdateSuccess, PackageUpdateError
 
 
@@ -115,8 +116,8 @@ class TestPackageUpdateResponseSerialization:
         mock_auth_ctx.error = None
 
         with (
-            patch('quilt_mcp.tools.packages.QuiltOpsFactory') as mock_factory,
-            patch('quilt_mcp.tools.packages.check_package_authorization', return_value=mock_auth_ctx),
+            patch('quilt_mcp.tools.package_crud.QuiltOpsFactory') as mock_factory,
+            patch('quilt_mcp.tools.package_crud.check_package_authorization', return_value=mock_auth_ctx),
         ):
             mock_factory.create.return_value = mock_quilt_ops
 
@@ -160,10 +161,9 @@ class TestPackageCreateFromS3ResponseSerialization:
         mock_context.registry = None
 
         with (
-            patch('quilt_mcp.tools.packages.create_quilt_summary_files', mock_quilt_summary),
-            patch('quilt_mcp.tools.packages.get_s3_client') as mock_s3_client,
-            patch('quilt_mcp.tools.packages.check_package_authorization') as mock_auth,
-            patch('quilt_mcp.tools.packages.bucket_recommendations_get') as mock_recommendations,
+            patch('quilt_mcp.tools.s3_package_ingestion.create_quilt_summary_files', mock_quilt_summary),
+            patch('quilt_mcp.tools.s3_package_ingestion.get_s3_client') as mock_s3_client,
+            patch('quilt_mcp.tools.s3_package_ingestion.bucket_recommendations_get') as mock_recommendations,
         ):
             # Setup S3 mock
             mock_client = Mock()
@@ -172,12 +172,6 @@ class TestPackageCreateFromS3ResponseSerialization:
                 'IsTruncated': False,
             }
             mock_s3_client.return_value = mock_client
-
-            # Mock auth
-            mock_auth_ctx = Mock()
-            mock_auth_ctx.authorized = True
-            mock_auth_ctx.auth_type = "test"
-            mock_auth.return_value = mock_auth_ctx
 
             # Mock recommendations
             mock_recommendations.return_value = {"registries": ["s3://test-registry"]}
