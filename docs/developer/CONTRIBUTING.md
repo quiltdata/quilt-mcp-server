@@ -107,6 +107,14 @@ git push origin feature/your-feature-name
 
 ## 📋 Contribution Types
 
+## Code Organization Guidelines
+
+- Keep modules focused by responsibility; prefer extraction over adding unrelated concerns to large files.
+- Prefer module sizes under ~1000 lines; if a module grows beyond this, split by domain boundary.
+- Avoid circular imports: move shared contracts/types into dedicated modules (`types/`, `protocols/`, shared helpers).
+- For backend operations, keep orchestration in `QuiltOps` and implement backend-specific behavior in `_backend_*` primitives.
+- Reuse shared helpers (`src/quilt_mcp/utils/helpers.py`, `src/quilt_mcp/backends/utils.py`) instead of duplicating registry/bucket parsing logic.
+
 ### 🐛 Bug Reports
 
 When reporting bugs, please include:

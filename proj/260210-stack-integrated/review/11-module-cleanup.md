@@ -54,9 +54,9 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Cycle 1: Utils/Context** (4 files)
 
-- [ ] Extract shared types from `utils/common.py` → `types/common.py`
-- [ ] Move context-specific utilities to `context/utils.py`
-- [ ] Update imports in `context/{handler,factory}.py`, `services/workflow_service.py`
+- [x] Extract shared types from `utils/common.py` → `types/common.py`
+- [x] Move context-specific utilities to `context/utils.py`
+- [x] Update imports in `context/{handler,factory}.py`, `services/workflow_service.py`
 
 **Cycle 2: Auth Services** (2 files)
 
@@ -150,7 +150,7 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
   - Move S3-specific helpers
   - Import from `s3_discovery.py` and `package_metadata.py`
 
-- [ ] Keep in `tools/packages.py`:
+- [x] Keep in `tools/packages.py`:
   - Core CRUD: `package_create`, `package_update`, `package_delete`, `package_browse`
   - Package info: `package_diff`, `package_info`, `package_list`
 
@@ -198,12 +198,12 @@ The "≤500 lines" criterion is a **code smell detector**, not a target. Randoml
 
 **Problem:** Same logic repeated across backends.
 
-- [ ] Create `backends/utils.py`:
+- [x] Create `backends/utils.py`:
   - `extract_bucket_from_registry()` - Used in quilt_ops, platform_backend, etc.
   - `normalize_registry()` - Repeated in multiple backends
   - `build_s3_key()` - Common S3 key construction
 
-- [ ] Update backends to use shared utilities
+- [x] Update backends to use shared utilities
 
 #### 4.2 Reduce Validation Redundancy
 

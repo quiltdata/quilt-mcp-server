@@ -37,6 +37,7 @@ from quilt_mcp.backends.graphql_queries import (
     PACKAGE_CONSTRUCT_MUTATION,
     PACKAGE_REVISIONS_FOR_DELETE_QUERY,
 )
+from quilt_mcp.utils.helpers import extract_bucket_from_registry
 
 logger = logging.getLogger(__name__)
 
@@ -1057,13 +1058,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         return None
 
     def _extract_bucket_from_registry(self, registry: str) -> str:
-        if not registry:
-            return ""
-        if registry.startswith("s3://"):
-            return registry.replace("s3://", "").split("/")[0]
-        if registry.startswith("http://") or registry.startswith("https://"):
-            return registry.split("//", 1)[-1].split("/")[0]
-        return registry.split("/")[0]
+        return extract_bucket_from_registry(registry)
 
     def _promote_package(self, bucket: str, name: str, hash: str, message: str, user_meta: Dict) -> str:
         """

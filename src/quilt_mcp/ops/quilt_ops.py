@@ -12,6 +12,7 @@ from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config, Package_Creation_Result
 from ..domain.package_builder import PackageBuilder, PackageEntry
+from ..utils.helpers import extract_bucket_from_registry
 from .admin_ops import AdminOps
 
 logger = logging.getLogger(__name__)
@@ -226,30 +227,8 @@ class QuiltOps(ABC):
             return s3_uri.split('/')[-1]
 
     def _extract_bucket_from_registry(self, registry: str) -> str:
-        """Extract bucket name from registry URL.
-
-        Handles various registry URL formats:
-        - s3://bucket-name -> bucket-name
-        - s3://bucket-name/prefix -> bucket-name
-        - https://catalog.example.com -> catalog.example.com
-        - bucket-name -> bucket-name
-
-        Args:
-            registry: Registry URL in various formats
-
-        Returns:
-            Bucket name extracted from registry URL
-        """
-        if not registry:
-            return ""
-
-        if registry.startswith("s3://"):
-            return registry.replace("s3://", "").split("/")[0]
-
-        if registry.startswith("http://") or registry.startswith("https://"):
-            return registry.split("//", 1)[-1].split("/")[0]
-
-        return registry.split("/")[0]
+        """Extract bucket name from registry URL."""
+        return extract_bucket_from_registry(registry)
 
     def _build_catalog_url(self, package_name: str, registry: str) -> Optional[str]:
         """Build catalog URL for package viewing in web UI.

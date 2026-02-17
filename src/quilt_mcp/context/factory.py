@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Literal, Optional
 
 from quilt_mcp.context.exceptions import ServiceInitializationError
-from quilt_mcp.context.user_extraction import extract_user_id
+from quilt_mcp.context.utils import generate_request_id, resolve_user_id_from_auth
 from quilt_mcp.context.request_context import RequestContext
 from quilt_mcp.context.runtime_context import get_runtime_auth
 from quilt_mcp.services.auth_service import AuthService
@@ -38,8 +37,8 @@ class RequestContextFactory:
         request_id: Optional[str] = None,
     ) -> RequestContext:
         auth_state = get_runtime_auth()
-        user_id = extract_user_id(auth_state)
-        resolved_request_id = request_id or str(uuid.uuid4())
+        user_id = resolve_user_id_from_auth(auth_state)
+        resolved_request_id = generate_request_id(request_id)
 
         try:
             auth_service = self._create_auth_service()

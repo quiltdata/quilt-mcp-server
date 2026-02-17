@@ -18,6 +18,36 @@ New backends can be added without changing the interface consumed by MCP tools.
 ### 4. Consistent Error Handling
 All backends provide consistent error handling with domain-appropriate error messages.
 
+## Current Module Boundaries
+
+- `src/quilt_mcp/tools/package_crud.py`: package CRUD/browse/diff operations.
+- `src/quilt_mcp/tools/s3_package_ingestion.py`: S3 discovery-to-package ingestion workflow.
+- `src/quilt_mcp/tools/packages.py`: backward-compatible export surface for package tools.
+- `src/quilt_mcp/tools/responses_base.py` and `src/quilt_mcp/tools/responses_resources.py`: shared response model subsets.
+- `src/quilt_mcp/backends/platform_graphql_client.py`: GraphQL transport and response handling abstraction.
+- `src/quilt_mcp/backends/graphql_queries.py`: GraphQL operation constants.
+
+## Template Method Usage
+
+`QuiltOps` owns orchestration for package lifecycle methods and delegates backend-specific operations through `_backend_*` primitives.
+Backends should implement primitives and avoid re-implementing high-level orchestration methods.
+
+## GraphQL Client Abstraction
+
+The Platform backend executes GraphQL through `PlatformGraphQLClient` and imports query/mutation text from `graphql_queries.py`.
+This centralizes request handling and reduces duplicated inline GraphQL + error-parsing logic.
+
+## Workflow Diagram
+
+```mermaid
+flowchart LR
+  A["MCP Tool"] --> B["QuiltOps Template Method"]
+  B --> C["Backend Primitive (_backend_*)"]
+  C --> D["PlatformGraphQLClient or quilt3"]
+  D --> E["Domain Objects"]
+  E --> A
+```
+
 ## System Architecture
 
 ```
