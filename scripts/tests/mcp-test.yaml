@@ -30,7 +30,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 3900
+      duration_ms: 3500
       response_example:
         success: true
         bucket: quilt-ernest-staging
@@ -42,7 +42,7 @@ test_tools:
           last_modified: '2026-02-09 22:30:08+00:00'
           etag: '"25a7167d188c888c46e718e0eddd0928"'
           storage_class: STANDARD
-          signed_url: https://quilt-ernest-staging.s3.amazonaws.com/test/mcp_create/.timestamp?AWSAccessKeyId=ASIA2LR7MUT62EHXNQLA&Signature=3roD%2BOnvxxChfSD19cQ2fNLLAk8%3D&x-amz-security-token=IQoJb3JpZ2luX2VjECgaCXVzLWVhc3QtMSJHMEUCIFbP1iPsstxVk7b3PZMScVByeoN8CYSlQ8ZpKwdrfLOVAiEA9eXGV8OH50QL8CEoZZtRrhaMnD1CWKqEP%2FGtSDExHBMqmwII8P%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARADGgw3MTIwMjM3Nzg1NTciDHehnmJmzizCdqsJAirvAeD3vzB0xQtnmW25evPuh9GjRhylml9zbXEqXuzLjdXNDaWyJQLEwWnQcqF7WcLyKYBXus72OgptM97QSyzbEiQa3CnUjYwp6ap4aSD%2BoF66CQaNrTWOb4TxB76xILO4AXtGJeZnneh587baMqhVlM2VWyqhr08UCeOhAcjN11iuJwXb7slU%2FYwb3udv09eORXMuX%2BCnyjAq99foaZlQwTLFiXix7Ox4YRXD3PdPtwriHQRBs8ozrGsUviQg0wBiUydOsmQajZX%2F2Fa%2BviSKHPYbVsKAt6UJ1paYhQmsK%2BS2rPbMx3nNXl8VzW7Sf5YmMKWCvcwGOp0BGp0XR%2F0Wamab1vsjbkwTqzY33WazjzKO8BhnsCt15L0ahVZ%2Fw8IZV64am7p1iHwZpl84GmE4Fc248cDvInLw6sOmXuGy5EjUCZee8UiuuLPRGstbpKCkvEDGKTwfb%2Bwj15fXBwmiw8JDfg2TybY9hrk8tyy%2FvQ34ddsZW%2BRBo9Cu8%2FX3ie%2Fi6SFrmDQ4SISyuCwWkRPZTYdR6q1qAg%3D%3D&Expires=1770999605
+          signed_url: https://quilt-ernest-staging.s3.amazonaws.com/test/mcp_create/.timestamp?AWSAccessKeyId=ASIA2LR7MUT66P3UGK56&Signature=DGYeR6Zd4pArMa%2FjXRiqGP2zrdY%3D&x-amz-security-token=IQoJb3JpZ2luX2VjEH0aCXVzLWVhc3QtMSJHMEUCIH%2FRtdVLKZCaOdby7DHrEyQ1fuWOT20utrYpHOgUq9sxAiEAllVnse0%2FVQCKqbNJ99%2BmZ60ctEKlc7LmpDVo81tF2DwqkgIIRhADGgw3MTIwMjM3Nzg1NTciDMYB5Rfp2m4nQ1stzirvAbMSqLpaa8gAonBMlAO92SnmxodehkudQ0RbMS1I9%2FhlcLP4tUv%2B7wCipOekCVBPQQl29oSo8gakLzw%2B6W3vtG45wlHUNgTXlIoJ4C8SCb0T5OU%2Fhecr2nrBbn2RML0IziTpsAoweMxXZ40gaGbaD3RGEn538s0jlZwnLwaPf7GG5PzgXnBcgPbngtWMiGsU8D3KDVu0%2FLNIic9cbc30wqeIXDF9jwT0ZCXx0evOkZ0f%2BiHyd%2BaCY%2BaTIMwF5WgemsXA8nLheqrhr08hVbe%2B3HNgWODl74KiOwpu5vWEiepqoQG1Wr68RKB1JBO%2FLbzPMIDhz8wGOp0BxbODSzw0TdU1WO15qgT0CBNXnGrkcdmfmcVzuT909uedhYzFsKYaLnw7ulGS8cGlKtNttOAgjDWbVicsG93JKsN213c6a5UR5JnLrm%2FkialiFqUsA7FrHf4lcapwfz1%2FC12gCBSxYBUVUnpCmxqey7FJEfzxCabrH0cJebNwIC7ET4IlME5QtSKjubUzrQRMyl%2FBNbiw%2B7hpf09OPA%3D%3D&Expires=1771306640
           signed_url_expiry: null
         - key: test/mcp_create/README.md
           s3_uri: s3://quilt-ernest-staging/test/mcp_create/README.md
@@ -50,7 +50,7 @@ test_tools:
           last_modified: '2026-02-11 15:01:00+00:00'
           etag: '"71bb1b1303d0c8553da8f8b98e4e3c3a"'
           storage_class: STANDARD
-          signed_url: https://quilt-ernest-staging.s3.amazonaws.com/test/mcp_create/README.md?AWSAccessKeyId=ASIA2LR7MUT64YJJFN5B&Signature=lPAgQnNkbxRgFqigs5KOJMKzy9g%3D&x-amz-security-token=IQoJb3JpZ2luX2VjECgaCXVzLWVhc3QtMSJHMEUCIQCcIKVM3lL55TgLNHoB1qrfbjoLgVwK295OTL8zdcezdAIgH0lbdgYQ%2Fd390XnFs0kzixPlWO0hpXovb8IWw6CAy7cqmwII8P%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARADGgw3MTIwMjM3Nzg1NTciDAqFhuscuUoMd%2Bea%2ByrvATnhtg3ec8EZLu9JREsEkzpWxgIiRxBNXVEJCX%2BBpL%2BwqU%2FiFLdBuB2nqJHTOK9SdYM75dHWo2ksq982wEDGRNd87zCl3O%2F58rR%2BoJPyHxRFnozpmSTilIrkT8PXP7tQK3KoqYnYr7c%2FAr%2B16olMF6Balbw6ONlhBC%2Fnuh29Y%2Bwlzh1TDFSI5dIagCfYG0uQOe82JEcBw43gYTfWWYtLDh873ttPsQ8ErCi8lIujMTSZF6B3HAcPS7JrN%2FXdVF2SSHnGLW7Uy9WXr1WOa9iCIZNb9fiWUj6scrLWZREMiZWR5DNmZevLBIWUMI6IDuRMMKaCvcwGOp0BK4jMzePc0bRCcVAFLrqWvozTZlDcGsLSOmdCsVH9jhuMMohT4FUoGjRTJ1fHo2BtIe1bq8Ri%2FMCSMyczFqpGLEJtpeC7lTomOOHmhGDPyo3yWqeXMHmKuWGnrbIoa4xsi%2BDnIcAlAjt89yEy7CevmNIajqz%2BPqT8uHUjN7KC1RivY9jty%2FIUF753jeJTpfbuyvuyi%2FynMTkG2wecUw%3D%3D&Expires=1770999606
+          signed_url: https://quilt-ernest-staging.s3.amazonaws.com/test/mcp_create/README.md?AWSAccessKeyId=ASIA2LR7MUT6RDZPKSXC&Signature=sZGFUZMtANES%2BcUr0E%2BgQ2uq29o%3D&x-amz-security-token=IQoJb3JpZ2luX2VjEH0aCXVzLWVhc3QtMSJHMEUCIQDPd2s3NZvYr6tiz%2B%2BLx%2FocRnyrrkaRkmN%2FxZUIdLQhkwIgGrWq5O4iyJmzZdXhIpmBsAjhL7GRrZqAJ7%2FmBKIcR74qkgIIRhADGgw3MTIwMjM3Nzg1NTciDDnKmbGvnYf3ICHoWSrvAbNHKVwJPFeQxA6771guYXmYsJ5xekjbcJkIKYs4ZWVzjWsZnfSIKx5LZ5rEZlTdykACBfEaGgQoLgYM7mzGPUgICkQf1Qv9rUoFqIx%2BJob0fPBj%2BlQG%2FmIiFMvgWTdHgfc5jRE56JPTZAbITF4t7ic5JZqlLaTaCbrUQxrGgpwMXBj97gteIgvgRaHUlanc1lhJBHy9MpgN5p4lHw5XrXhxBe9dow2Fd2HoWtGkOG%2BkP27fRN9jC4d%2BKHJW9hgrEjIeQPuTvk%2Fz3kniw6toT%2Fqu1SJOB9eeB35SizvsFMeJUfCzXxcH0vYIahljUw1bMIDhz8wGOp0BnBq24mTPeRgVW3C5eOCOyEVc4XqY%2FE7SXNyYzmZNMz7hyuTA6BCaV28sjWjUj7U3HwJYEJ3XmZayX8ZFrGPXYktr9uG34EGWBcRNOR9uIqKsii94%2Fhk8Mnk8DlB9dHlHHONK5fF2lbyr6i%2FeqI8d0LCgDS28xNK%2B85iFgjKPRgsIAjU1qhWFqH5i1bKnyvBxSxfLy%2B%2BjU154oYvvLw%3D%3D&Expires=1771306640
           signed_url_expiry: null
         - key: test/mcp_create/aip_consciousness.pdf
           s3_uri: s3://quilt-ernest-staging/test/mcp_create/aip_consciousness.pdf
@@ -58,12 +58,12 @@ test_tools:
           last_modified: '2026-02-10 06:45:26+00:00'
           etag: '"9e254c343c1db0d0f88bd4eb32b3fdc3-2"'
           storage_class: STANDARD
-          signed_url: https://quilt-ernest-staging.s3.amazonaws.com/test/mcp_create/aip_consciousness.pdf?AWSAccessKeyId=ASIA2LR7MUT64CE2NAZQ&Signature=ZgoPH%2BuRO6%2F8wkCmlA4yWH73%2Bdo%3D&x-amz-security-token=IQoJb3JpZ2luX2VjECgaCXVzLWVhc3QtMSJHMEUCIH6u0Z6f1BOYt6ZIsIpbt3qWqlBrJ01yQBG%2FY%2BfvxTwRAiEA2s6o3FF90C9dP3V%2Bj878sajqtfCjYC3vJRCK1CcSMJIqmwII8P%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARADGgw3MTIwMjM3Nzg1NTciDGjiTHLERYQ99vu9uSrvAeQg5M9qpCdr2HIXicWKBOoUbiyvLWFpBdo%2FEm9APJuTJypqIE8NUgJ6af277968kmDKIUEChQYsYv6xFQ2h861jDeTz4LT6t0LTHTaFDcX%2FyRpkkwNdztfZQPi2AWcBK0OrODrjIqDi0uD6qz8SA1Nc67twicX857qPYt745TbK39Nr8Mw3C4AxDeWctDcrxsRD1VUeH0%2BOEVtypS%2BRDGHfLC5ZFB2fIs9fX3F9jeWhjWnsrorBMDhlGtq3b8ULpcxRg3vb0IIZcJ34VWBhUEcsg%2F3vohQ5v%2BKb9ogjo5Y3OK%2F0mjN%2FreGJp%2F%2BQqhscMKaCvcwGOp0BZ1N7RATeXZawN8H0pM7F7f56gBLZSdI0s0wDdVJ5llEcybu7nEg2fT%2Bz6ZvHF5tJW2X%2Ft1M4d5xdzJl9H8ZcfSSNJPzxsBHZ3Uf%2FDyPFc2gNbukQFG9M3RodLhafQbQCBcfTJRSwou36r7uAwIC5r%2FAwCx3X5HneNy6XKEU6yWUM7k6lCrhXkBi0NbcAbbknFYCjj2RPIaP%2FNkYWog%3D%3D&Expires=1770999606
+          signed_url: https://quilt-ernest-staging.s3.amazonaws.com/test/mcp_create/aip_consciousness.pdf?AWSAccessKeyId=ASIA2LR7MUT6V5IH264I&Signature=zdMFutqFQ6QWn6yxo0rBh0Wy0vI%3D&x-amz-security-token=IQoJb3JpZ2luX2VjEH0aCXVzLWVhc3QtMSJGMEQCICNFynfPwM5RB9nuyEiBsjOnrY0QUzsZYcb7Xwbz8Jd6AiBJh6nLgIDQ9zd%2FXDBhI5oUXyUegsJkCbz5cW%2FsPgsXTiqSAghGEAMaDDcxMjAyMzc3ODU1NyIMK9qK51jWtGEP2Ae4Ku8BJZRmq6mRwJhyLUXwJ3MTMaJldlZ0LJpLQXfoqeIWRNQASyrZHrl8SQfyJkD6V8kEV36%2BNetFzSkAlFdWpw7gTauwvrTWkKZqZrQub2%2FpKc3yIpTDydur6HILFsEh3EvjDDT1L6T71G3y1%2Bu3dQ2yA8si9K7J6LjrU6FnwMYTd5FQ1khLvgZFIJJ1zYAXMA07XI0QSmyfe2hfo4Kcje5g32wDzyJmAsK3uE%2B%2FX29fOliUPpzPcP5z8qTUGsdfDdqoc2hZvqzruf7%2FFj8jWPugGuTVItqYUW80lVheRnxdvGRNa5UV8LTSVPuGpzOtg7IwgeHPzAY6ngEfLo1fI%2B2VSKhToXjh48cdunOHHpNyhE0Q%2F8utWJyNS76rs5%2Btt8VT0sxX%2Fu2rRnzvG2sUcQm84pzJBRv9AzQa1UBDv3ebakpvvkCuCQjhUpm9TINd74f%2B%2BLE8B0Jt9XI0RpTL%2F2luLepGDiH4dQUKRZnsrcTrgaVDNEqKBKaqGo4VW32oclFs1peL5t2wiKPz%2FO%2Begds5as2FMm6PSw%3D%3D&Expires=1771306641
           signed_url_expiry: null
         - _truncated: 2 more items
         count: 5
         is_truncated: true
-        next_continuation_token: 1hT1IoRgSnxzUdM4UpUV+V4AoZKLqZuQQYte18LLRJEh3/FcSpudQWaoP0ofafWHUPi8yf/NBOUA7OAbDLWIEPFiMHAzz0X8H
+        next_continuation_token: 1n0YxxxtWY6kmUN7FHqnPRfjK5BvsDhfxdBNaJP26JyUKz4LL9mX8H7Qdg6sQuyls83d95Ns1HEzhw0AbfOadAKZa4oE+hJ6A
         auth_type: jwt
       discovered_data:
         s3_keys:
@@ -159,7 +159,7 @@ test_tools:
     category: write-effect
     arguments:
       name: test_name
-      email: testcdd593b9@example.com
+      email: testbe3079e7@example.com
       role: ReadQuiltBucket
     response_schema:
       type: object
@@ -210,7 +210,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 400
+      duration_ms: 500
       response_example:
         success: true
         user:
@@ -314,7 +314,7 @@ test_tools:
     category: write-effect
     arguments:
       name: test_name
-      email: testca58f4be@example.com
+      email: test1db4c206@example.com
     response_schema:
       type: object
       properties:
@@ -366,7 +366,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 8400
+      duration_ms: 8700
       response_example:
         success: true
         row_count: 1
@@ -427,7 +427,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 3600
+      duration_ms: 2500
       response_example:
         success: true
         table_name: ai2-semanticscholar-cord-19_manifests
@@ -478,7 +478,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 2600
+      duration_ms: 2700
       response_example:
         success: true
         tables:
@@ -547,7 +547,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 800
+      duration_ms: 1000
       response_example:
         success: true
         bucket: quilt-ernest-staging
@@ -577,7 +577,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 1000
+      duration_ms: 1400
       response_example:
         success: true
         object:
@@ -616,10 +616,9 @@ test_tools:
         bucket: quilt-ernest-staging
         key: test/mcp_create/.timestamp
         s3_uri: s3://quilt-ernest-staging/test/mcp_create/.timestamp
-        signed_url: https://quilt-ernest-staging.s3.amazonaws.com/test/mcp_create/.timestamp?AWSAccessKeyId=ASIA2LR7MUT66BTOTQOU&Signature=gA%2BhT7B7enUzqBrlfhZTPYRC%2BRo%3D&x-amz-security-token=IQoJb3JpZ2luX2VjECgaCXVzLWVhc3QtMSJGMEQCIFBbDH5KcaoeascO6Wdmn4g11Uf6rcVgZV7%2Bytz7kWKDAiBeOuoFFz8O6Mr0Jpl7VGY%2BIO4s5hb8a6iKNoTzXEulkCqbAgjw%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAMaDDcxMjAyMzc3ODU1NyIMntPnBanSIIASJ1sQKu8B3IDyHW1SIH5ciTPmy%2BYjXLdxI%2B6KHbWiONU9A1SzL7AYvweZ6Z02aTlqHvJufq0gEjd%2BjhGSI7juFIyYCJplmIrHr68ZrncEK15zPwFSd99aLD2p%2FV3yW0Z%2F26MachwIaKBHaY%2B8pcqxHodwuEVJUzuLsL7Beh2BsAgmEIYjxaSejkAmthiBRZj64bm2NL0iHAw9VAnBzAMHaZfWab8P%2FnJtcVOrrVJD6uBhacqC0JZBdNHu1upCwLX3UJYQdR%2B5D6aiD3HYbZ5%2FDOEQGsNhyBOlIvRA6YJc%2Boq%2Bo%2FK6tPcd75W6lpjiDBDTMEY%2Fx20wuYK9zAY6ngH9cMUInOxtILnL0i2%2BcVNV5ZI8PouGFfMct%2FS6%2BAdFOB47bwccv4dI9phPQE05kYT99MFCK0x%2BHQk8XsLWAQTkxXRSQB9UlJKDKoUi%2FbmUigS%2FkIZ7qXsGb3IK7KX5Y2YSXfO1RYJoflWsEjr%2BqnI0HIRRuEkFIaH%2F%2FDhGRbQd4yl3lHHoLw14EYdn1upqBxqx1YMWiVndbvfd6nluWg%3D%3D&Expires=17709996...
-          (truncated, 1002 total chars)
+        signed_url: https://quilt-ernest-staging.s3.amazonaws.com/test/mcp_create/.timestamp?AWSAccessKeyId=ASIA2LR7MUT64TIUVOWX&Signature=RWsNjEYDygy2v6APY3Bqn4qzTQw%3D&x-amz-security-token=IQoJb3JpZ2luX2VjEH0aCXVzLWVhc3QtMSJIMEYCIQCJKPcpu4ZZ3BeEfHdbj5F%2FoghMqaammIXj8xvz9iBILQIhAMShgj5kepsgfDz%2BS8DZVAvjnxTu16E4JpiKr4FgT0mWKpICCEYQAxoMNzEyMDIzNzc4NTU3Igy6mmKeD45Zj%2BBFAUkq7wH6ZkU2POutcRjT%2FPrSYa%2BtdZuEkH0m47f6Lks7ro%2Bd4q6Q0keJQP4le3Bh%2FoEPmF4HIFbW%2FMr3Ong7V%2BmhcoOQeePPbXq%2F919MifTSllAQ5n11rNGRKXe%2BcgfkBKPbiFIMrkFN4UxPQnuqMJ0Xy4O2VxFXpPMOkRqdmBochPxje%2FpXiqvBL1ndJFTSpFtOKKDEx7QWnUlNdOw4NhsoIZ5xa6f5pYgmeF6WNBnSM6HvghyrmiIud9MO0Au2B8MhbluD9JdhVZkdzcwC5M%2BVkuoBBtJq9z9t3tialMQTIc9RbteUV35SP3y4IOwkMT1jrzCT4c%2FMBjqcASXJOXPpL8AQXbPRmZH%2F3WHQ8HoI5YS611lNsrdigBjAedNXNZSokdPFirZLwwOH5m3qL9LpOohpuS1szFAqoW4asptgKGkJg4eJmhALlMaH8uvvFchAlDJF%2FTqQALc1xrQRRbgRzKtVMvOx4AdB%2FcXllYCZtfCmbt03KocEXVfzh3r%2BaP79So%2BY0TJsEVgNU2dHwYvuNK9DD9w0mg%3D%3D&Expires=1771306659
         expiration_seconds: 3600
-        expires_at: '2026-02-13T16:20:25.165405+00:00'
+        expires_at: '2026-02-17T05:37:39.277736+00:00'
         auth_type: jwt
   bucket_object_text:
     description: Read text content from an S3 object - S3 bucket exploration and object
@@ -724,7 +723,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 600
+      duration_ms: 700
       response_example:
         success: true
         status: success
@@ -755,7 +754,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 600
+      duration_ms: 700
       response_example:
         success: true
         status: success
@@ -782,7 +781,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 1300
+      duration_ms: 1400
       response_example:
         success: true
         bucket_name: quilt-ernest-staging
@@ -796,7 +795,7 @@ test_tools:
           write: false
           list: true
         bucket_region: unknown
-        last_checked: '2026-02-13T15:20:28.480777+00:00'
+        last_checked: '2026-02-17T04:37:42.739047+00:00'
         error_message: null
         guidance:
         - ✅ This bucket can be used for Quilt package creation.
@@ -878,7 +877,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 1800
+      duration_ms: 2200
       response_example:
         success: true
         user_identity:
@@ -895,7 +894,7 @@ test_tools:
           can_read: true
           can_write: true
           can_list: true
-          last_checked: 2026-02-13 15:20:30.515318+00:00
+          last_checked: 2026-02-17 04:37:45.163972+00:00
           error_message: null
         categorized_buckets:
           full_access:
@@ -913,7 +912,7 @@ test_tools:
           identity_cache_size: 1
           bucket_list_cache_size: 0
           cache_ttl: 3600
-        discovery_timestamp: '2026-02-13T15:20:30.515420+00:00'
+        discovery_timestamp: '2026-02-17T04:37:45.164038+00:00'
         total_buckets_checked: 1
   generate_package_visualizations:
     description: Generate comprehensive visualizations for the package - Quilt summary
@@ -965,14 +964,14 @@ test_tools:
               folder_count: 1
               file_type_count: 1
             image_base64: iVBORw0KGgoAAAANSUhEUgAACVAAAAbqCAYAAAAt3ckBAAAAOnRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjEwLjgsIGh0dHBzOi8vbWF0cGxvdGxpYi5vcmcvwVt1zgAAAAlwSFlzAAAXEgAAFxIBZ5/SUgABAABJREFUeJzs3Qm8VHX9P/4PiIgsguIuAmIoRaIgmUuAmplLbrikZbm1a1qm5obmV03LNDU1NXdzITUXUnIpcA03VJQSEwUUNwxcQATF+T/e5/e4/C+X2e69c9d5Ph+PeQzMmTlz5sw5nzN3zmve7w65XC6XAAAAAAAAAAAAqlDHll4AAAAAAAAAAACAliJABQAAAAAAAAAAVC0BKgAAAAAAAAAAoGoJUAEAAAAAAAAAAFVLgAoAAAAAAAAAAKhaAlQAAAAAAAAAAEDVEqACAAAAAAAAAACqlgAVAAAAAAAAAABQtQSoAAAAAAAAAACAqiVABQAAAAAAAAAAVC0BKgAAAAAAAAAAoGoJUAEAAAAAAAAAAFVLgAoAAAAAAAAAAKhaAlQAAAAAAAAAAEDVEqACAIAirrnmmtShQ4e8l/79+1t3QObggw8uOFbENGirtt1224Lb9q9+9asmec4ZM2YUfM64xHTa//Zl7AQAAACaU6dmfTYAAIB26NNPP00vvPBCmj59epo9e3ZasGBB+uyzz1LXrl3TmmuumYXtNt1009S9e/eWXlQAAAAAAKAOASoAgHYqqjNssMEG9X7cyiuvnHr16pVWW221tMkmm6Thw4enb3zjG2njjTdukuWEturjjz9ON998c/rLX/6SJkyYkP2/mI4dO6Zhw4al0aNHp0MPPTSttdZazbasUA1VbB588MGi91lxxRWzS+fOndMqq6ySVl111exYFwHHDTfcMA0dOjRttdVW2e0AtH9jx45N+++//zK3Pf/88+mLX/xiiy0TAAAALUcLPwAAlrFw4cL05ptvpqlTp2bhkGOO...
-              (truncated, 114700 total chars)
+              (truncated, 114736 total chars)
             mime_type: image/png
         count: 2
         types:
         - folder_structure
         - package_dashboard
         metadata:
-          generated_at: '2026-02-13T15:20:30.690321+00:00'
+          generated_at: '2026-02-17T04:37:45.342930+00:00'
           template_used: standard
           color_scheme:
           - '#1f77b4'
@@ -982,7 +981,7 @@ test_tools:
         visualization_dashboards:
         - id: package-overview
           title: Package Overview - test/mcp_create
-          generated_at: '2026-02-13T15:20:30.690328+00:00'
+          generated_at: '2026-02-17T04:37:45.342936+00:00'
           widgets:
           - type: stats
             title: Summary
@@ -1042,7 +1041,7 @@ test_tools:
           package_name: mcp_create
           version: 1.0.0
           created_by: quilt-mcp-server
-          creation_date: '2026-02-13T15:20:30.690580+00:00'
+          creation_date: '2026-02-17T04:37:45.343193+00:00'
           metadata_template: standard
           description: Data package created via Quilt MCP Server
         data_summary:
@@ -1081,7 +1080,7 @@ test_tools:
           catalog_url: https://open.quiltdata.com/b/unknown/packages/test/mcp_create
           api_access: true
           cli_access: true
-        generated_at: '2026-02-13T15:20:30.690590+00:00'
+        generated_at: '2026-02-17T04:37:45.343204+00:00'
         generator: quilt-mcp-server
         generator_version: 1.0.0
   get_resource:
@@ -1115,7 +1114,7 @@ test_tools:
             description: Check filesystem permissions and writability
           - _truncated: 8 more items
           count: 11
-        timestamp: '2026-02-13 15:20:30.690731+00:00'
+        timestamp: '2026-02-17 04:37:45.343343+00:00'
         mime_type: application/json
   package_browse:
     description: Browse the contents of a Quilt package with enhanced file information
@@ -1139,7 +1138,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 6300
+      duration_ms: 5800
       response_example:
         success: true
         package_name: test/mcp_create
@@ -1292,7 +1291,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 4700
+      duration_ms: 4100
       response_example:
         success: true
         package1: test/mcp_create
@@ -1352,7 +1351,7 @@ test_tools:
         unavailable)
     discovery:
       status: PASSED
-      duration_ms: 3800
+      duration_ms: 4100
       response_example:
         success: true
         query: README.md
@@ -1363,7 +1362,7 @@ test_tools:
           type: file
           title: README.md
           description: Object in data-yaml-spec-tests
-          score: 30.698774
+          score: 30.698769
           backend: elasticsearch
           s3_uri: s3://data-yaml-spec-tests/test/indexing/README.md
           package_name: null
@@ -1434,7 +1433,7 @@ test_tools:
           content_preview: null
         - _truncated: 7 more items
         total_results: 10
-        query_time_ms: 3189.579963684082
+        query_time_ms: 3465.3351306915283
         backend_used: elasticsearch
         analysis:
           query_type: file_search
@@ -1445,7 +1444,7 @@ test_tools:
           filters_applied: {}
         backend_status:
           status: available
-          query_time_ms: 2534.3809127807617
+          query_time_ms: 2761.240005493164
           result_count: 10
           error: null
         backend_info:
@@ -1500,7 +1499,7 @@ test_tools:
         - score
     discovery:
       status: PASSED
-      duration_ms: 2200
+      duration_ms: 2400
       response_example:
         success: true
         query: README.md
@@ -1511,7 +1510,7 @@ test_tools:
           type: file
           title: README.md
           description: Object in data-yaml-spec-tests
-          score: 30.698774
+          score: 30.698769
           backend: elasticsearch
           s3_uri: s3://data-yaml-spec-tests/test/indexing/README.md
           package_name: null
@@ -1582,7 +1581,7 @@ test_tools:
           content_preview: null
         - _truncated: 7 more items
         total_results: 10
-        query_time_ms: 1535.7131958007812
+        query_time_ms: 1456.7770957946777
         backend_used: elasticsearch
         analysis:
           query_type: file_search
@@ -1593,7 +1592,7 @@ test_tools:
           filters_applied: {}
         backend_status:
           status: available
-          query_time_ms: 698.1842517852783
+          query_time_ms: 761.8639469146729
           result_count: 10
           error: null
         backend_info:
@@ -1647,7 +1646,7 @@ test_tools:
         - score
     discovery:
       status: PASSED
-      duration_ms: 2600
+      duration_ms: 3000
       response_example:
         success: true
         query: test/mcp_create
@@ -1658,7 +1657,7 @@ test_tools:
           type: package
           title: test-mcp
           description: 'Package: raw/test-mcp (tag: 1755578018)'
-          score: 7.2754197
+          score: 7.042522
           backend: elasticsearch
           s3_uri: s3://quilt-example/raw/test-mcp
           package_name: null
@@ -1700,7 +1699,7 @@ test_tools:
           type: package
           title: test-mcp
           description: 'Package: raw/test-mcp (tag: 1770674727)'
-          score: 6.9492793
+          score: 6.6160455
           backend: elasticsearch
           s3_uri: s3://quilt-example/raw/test-mcp
           package_name: null
@@ -1719,7 +1718,7 @@ test_tools:
           content_preview: null
         - _truncated: 7 more items
         total_results: 10
-        query_time_ms: 1956.8231105804443
+        query_time_ms: 2237.8389835357666
         backend_used: elasticsearch
         analysis:
           query_type: file_search
@@ -1731,7 +1730,7 @@ test_tools:
           filters_applied: {}
         backend_status:
           status: available
-          query_time_ms: 1305.7479858398438
+          query_time_ms: 1520.6010341644287
           result_count: 10
           error: null
         backend_info:
@@ -1772,7 +1771,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 3200
+      duration_ms: 900
       response_example:
         success: true
         query: README.md
@@ -1909,10 +1908,10 @@ test_tools:
         error: 'Search suggestions failed: argument of type ''RequestContext'' is
           not iterable'
         partial_query: test/
-        context: RequestContext(request_id='c49204b3-720c-4542-89fd-4d2fa5fb0b36',
+        context: RequestContext(request_id='93c27b0a-e086-4d7c-b79e-d95efab400e4',
           user_id='81a35282-0149-4eb3-bb8e-627379db6a1c', auth_service=<quilt_mcp.services.jwt_auth_service.JWTAuthService
-          object at 0x117c0a9f0>, permission_service=<quilt_mcp.services.permissions_service.PermissionDiscoveryService
-          object at 0x117c09550>, workflow_service=None)
+          object at 0x1208b6b70>, permission_service=<quilt_mcp.services.permissions_service.PermissionDiscoveryService
+          object at 0x1208b6ea0>, workflow_service=None)
   tabulator_bucket_query:
     description: Execute a bucket-scoped tabulator query.
     effect: none
@@ -1932,7 +1931,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 10100
+      duration_ms: 10700
       response_example:
         success: true
         row_count: 1
@@ -1962,7 +1961,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 5000
+      duration_ms: 4000
       response_example:
         success: true
         buckets:
@@ -1989,7 +1988,7 @@ test_tools:
       - content
     discovery:
       status: PASSED
-      duration_ms: 3700
+      duration_ms: 4000
       response_example:
         success: true
         row_count: 1
