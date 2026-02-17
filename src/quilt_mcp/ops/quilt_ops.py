@@ -12,7 +12,6 @@ from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from ..domain import Package_Info, Content_Info, Bucket_Info, Auth_Status, Catalog_Config, Package_Creation_Result
 from ..domain.package_builder import PackageBuilder, PackageEntry
-from ..utils.helpers import extract_bucket_from_registry
 from .admin_ops import AdminOps
 
 logger = logging.getLogger(__name__)
@@ -227,8 +226,30 @@ class QuiltOps(ABC):
             return s3_uri.split('/')[-1]
 
     def _extract_bucket_from_registry(self, registry: str) -> str:
-        """Extract bucket name from registry URL."""
-        return extract_bucket_from_registry(registry)
+        """Extract bucket name from registry URL.
+
+        Handles various registry URL formats:
+        - s3://bucket-name -> bucket-name
+        - s3://bucket-name/prefix -> bucket-name
+        - https://catalog.example.com -> catalog.example.com
+        - bucket-name -> bucket-name
+
+        Args:
+            registry: Registry URL in various formats
+
+        Returns:
+            Bucket name extracted from registry URL
+        """
+        if not registry:
+            return ""
+
+        if registry.startswith("s3://"):
+            return registry.replace("s3://", "").split("/")[0]
+
+        if registry.startswith("http://") or registry.startswith("https://"):
+            return registry.split("//", 1)[-1].split("/")[0]
+
+        return registry.split("/")[0]
 
     def _build_catalog_url(self, package_name: str, registry: str) -> Optional[str]:
         """Build catalog URL for package viewing in web UI.
@@ -289,13 +310,6 @@ class QuiltOps(ABC):
     # These abstract methods define the backend-specific operations that
     # concrete backend implementations must provide. The base class orchestrates
     # these primitives to implement high-level workflows.
-    #
-    # Validation contract:
-    # - Public Template Methods in QuiltOps validate package names, registries,
-    #   and S3 URI shapes before calling backend primitives.
-    # - Backend primitives should not re-validate those shared preconditions.
-    # - Backends should validate only backend-specific constraints (quota, API
-    #   feature support, backend permission model nuances, etc.).
 
     @abstractmethod
     def _backend_create_empty_package(self) -> PackageBuilder:
@@ -351,8 +365,6 @@ class QuiltOps(ABC):
         """Push a package to the registry (backend primitive).
 
         Converts the PackageBuilder to backend-specific format and pushes to the registry.
-        Shared preconditions (package_name/registry validity) are already validated by
-        QuiltOps Template Methods before this primitive is called.
 
         Args:
             package: PackageBuilder to push
@@ -374,7 +386,6 @@ class QuiltOps(ABC):
         """Retrieve an existing package from the registry (backend primitive).
 
         Fetches the package with the given name from the registry.
-        Shared preconditions are validated in the caller Template Method.
 
         Args:
             package_name: Full package name in "user/package" format
@@ -426,7 +437,6 @@ class QuiltOps(ABC):
         """Execute backend-specific package search (backend primitive).
 
         Searches for packages matching the query in the registry.
-        Shared registry validation is performed by the caller Template Method.
 
         Args:
             query: Search query string (empty string returns all packages)

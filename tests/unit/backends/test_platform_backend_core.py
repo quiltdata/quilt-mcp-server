@@ -210,7 +210,7 @@ def test_create_and_update_package_revision(monkeypatch):
 
     def mock_graphql(query, variables=None):
         call_count[0] += 1
-        if "query GetPackage(" in query:
+        if "GetPackageForUpdate" in query:
             # Query for update operation
             return {
                 "data": {

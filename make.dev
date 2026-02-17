@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-catalog test-func test-func-platform test-e2e test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker test-docker-remote test-remote-docker run-docker-remote stop-docker-remote test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-catalog test-func test-func-platform test-e2e test-e2e-platform test-ci test-scripts test-mcp test-mcp-legacy test-mcp-docker test-docker-remote run-docker-remote stop-docker-remote test-multiuser lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-check docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -290,13 +290,10 @@ test-docker-remote: scripts/tests/mcp-test.yaml
 			fi; \
 		done && \
 		uv run --group test python scripts/mcp-test.py http://localhost:8000/mcp \
-			--config scripts/tests/mcp-test.yaml \
-			--loops none && \
+			--config scripts/tests/mcp-test.yaml && \
 		$(MAKE) stop-docker-remote) || \
 		($(MAKE) stop-docker-remote && exit 1)
 	@echo "✅ Remote Docker local endpoint test completed"
-
-test-remote-docker: test-docker-remote
 
 stop-docker-remote:
 	@echo "Stopping Docker container..."

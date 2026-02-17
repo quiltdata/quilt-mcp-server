@@ -13,7 +13,7 @@ from quilt_mcp.tools.packages import (
 from quilt_mcp.tools.search import search_catalog
 
 
-@patch("quilt_mcp.tools.package_crud.QuiltOpsFactory.create")
+@patch("quilt_mcp.tools.packages.QuiltOpsFactory.create")
 @patch("quilt_mcp.search.backends.elasticsearch.QuiltOpsFactory.create")
 @patch("quilt_mcp.ops.factory.quilt3")
 @patch("quilt3.search_util.search_api", return_value={"hits": {"hits": []}})

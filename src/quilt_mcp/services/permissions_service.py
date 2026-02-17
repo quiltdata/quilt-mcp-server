@@ -13,8 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from quilt_mcp.services.permission_discovery import AWSPermissionDiscovery, PermissionLevel
-from quilt_mcp.services.auth_service import create_auth_service
-from quilt_mcp.services.protocols.auth import AuthServiceProtocol
+from quilt_mcp.services.auth_service import AuthService, create_auth_service
 from quilt_mcp.context.request_context import RequestContext
 from quilt_mcp.utils.common import format_error_response
 
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 class PermissionDiscoveryService:
     """Request-scoped permission discovery service."""
 
-    def __init__(self, auth_service: AuthServiceProtocol, *, cache_ttl: int = 3600) -> None:
+    def __init__(self, auth_service: AuthService, *, cache_ttl: int = 3600) -> None:
         self._auth_service = auth_service
         self._cache_ttl = cache_ttl
         self._discovery_instance: Optional[AWSPermissionDiscovery] = None

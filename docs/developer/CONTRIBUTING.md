@@ -107,18 +107,6 @@ git push origin feature/your-feature-name
 
 ## 📋 Contribution Types
 
-## Code Organization Guidelines
-
-- Keep modules focused by responsibility; prefer extraction over adding unrelated concerns to large files.
-- Prefer cohesive architecture over hard LOC thresholds; split when a module mixes concerns or has unclear boundaries.
-- Avoid circular imports: move shared contracts/types into dedicated modules (`types/`, `protocols/`, shared helpers).
-- For backend operations, keep orchestration in `QuiltOps` and implement backend-specific behavior in `_backend_*` primitives.
-- Reuse shared helpers (`src/quilt_mcp/utils/helpers.py`, `src/quilt_mcp/backends/utils.py`) instead of duplicating registry/bucket parsing logic.
-
-Good organization examples:
-- Package CRUD APIs in `src/quilt_mcp/tools/package_crud.py`; S3 ingestion workflow in `src/quilt_mcp/tools/s3_package_ingestion.py`.
-- GraphQL transport in `src/quilt_mcp/backends/platform_graphql_client.py`; operation text in `src/quilt_mcp/backends/graphql_queries.py`.
-
 ### 🐛 Bug Reports
 
 When reporting bugs, please include:

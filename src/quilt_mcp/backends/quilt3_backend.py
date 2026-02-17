@@ -16,7 +16,6 @@ import logging
 from typing import List, Dict, Any, Optional
 
 from quilt_mcp.ops.quilt_ops import QuiltOps
-from quilt_mcp.utils.helpers import extract_bucket_from_registry
 from quilt_mcp.ops.exceptions import NotFoundError
 from quilt_mcp.domain.package_info import Package_Info
 from quilt_mcp.domain.content_info import Content_Info
@@ -247,7 +246,7 @@ class Quilt3_Backend(
         from quilt3.search_util import search_api
 
         # Extract bucket name from registry for index pattern
-        bucket_name = extract_bucket_from_registry(registry)
+        bucket_name = registry.replace("s3://", "").split("/")[0]
         index_pattern = f"{bucket_name}_packages"
 
         # Convert string query to Elasticsearch DSL query

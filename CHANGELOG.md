@@ -8,47 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.21.0] - 2026-02-17
-
-### Added
-
-- **Module Refactor Components**: Introduced focused modules for package ingestion and metadata workflows:
-  - `tools/s3_discovery.py` for S3 object discovery/filtering/organization
-  - `tools/package_metadata.py` for generated README and package metadata construction
-  - `tools/validation.py` for shared package tool input validation
-  - `tools/s3_package_ingestion.py` for dedicated S3-to-package ingestion entrypoint
-- **Platform Backend GraphQL Abstractions**:
-  - `backends/platform_graphql_client.py` for shared GraphQL execution handling
-  - `backends/graphql_queries.py` for centralized query/mutation definitions
-- **Protocol/Type Decoupling for Cycle Reduction**:
-  - `services/protocols/auth.py`
-  - `backends/protocols/admin.py`
-  - `backends/types/admin.py`
-- **Import Cycle Tooling**:
-  - Added `scripts/detect_cycles.py` and compatibility entrypoint `scripts/check_cycles.py`
-
-### Changed
-
-- **Platform Backend Architecture**:
-  - Removed backend-level `update_package_revision()` orchestration override and rely on `QuiltOps` template method
-  - Refactored package deletion flow into explicit helper paths (`_try_s3_pointer_delete`, `_try_graphql_delete`) with structured result handling
-- **Package Tool Modularization**:
-  - Refactored `tools/packages.py` to delegate S3 discovery/metadata/validation responsibilities to extracted modules
-  - Updated exports to route `package_create_from_s3` via ingestion-specific module
-- **Remote Docker Test Stability**:
-  - Added `make test-remote-docker` alias
-  - Stabilized remote docker test path by running it in loopless mode (`--loops none`) to avoid flaky write-effect loop failures
-- **Review Execution Artifacts**:
-  - Completed and closed all checklist items in:
-    - `proj/260210-stack-integrated/review/11-module-cleanup.md`
-    - `proj/260210-stack-integrated/review/12-module-refactoring.md`
-
-### Validation
-
-- `make test-all` passed
-- `make test-remote-docker` passed
-- `uv run python scripts/detect_cycles.py` reports no import cycles
-
 ## [0.20.0] - 2026-02-16
 
 ### Added
