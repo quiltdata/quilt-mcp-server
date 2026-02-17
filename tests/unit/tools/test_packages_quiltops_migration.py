@@ -57,7 +57,7 @@ class TestPackagesListQuiltOpsMigration:
         # Setup mock to return all packages
         mock_quilt_ops.search_packages.return_value = sample_package_info_list
 
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
+        with patch('quilt_mcp.tools.package_crud.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
 
             # Call with prefix filter
@@ -88,7 +88,7 @@ class TestPackagesListQuiltOpsMigration:
         ]
         mock_quilt_ops.search_packages.return_value = package_infos
 
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
+        with patch('quilt_mcp.tools.package_crud.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
 
             result = packages_list(registry="s3://bucket")
@@ -101,7 +101,7 @@ class TestPackagesListQuiltOpsMigration:
         # Setup mock to raise exception
         mock_quilt_ops.search_packages.side_effect = Exception("Authentication failed")
 
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
+        with patch('quilt_mcp.tools.package_crud.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
 
             result = packages_list(registry="s3://test-bucket")
@@ -114,7 +114,7 @@ class TestPackagesListQuiltOpsMigration:
         """Test that packages_list maintains the same response format after migration."""
         mock_quilt_ops.search_packages.return_value = sample_package_info_list
 
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
+        with patch('quilt_mcp.tools.package_crud.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
 
             result = packages_list(registry="s3://test-bucket", limit=5, prefix="test")
@@ -158,7 +158,7 @@ class TestPackageBrowseQuiltOpsMigration:
         mock_quilt_ops.browse_content.return_value = sample_content_info_list
         mock_quilt_ops.get_package_metadata.return_value = {"description": "Test package"}
 
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
+        with patch('quilt_mcp.tools.package_crud.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
 
             result = package_browse(package_name="test/package1", registry="s3://test-bucket")
@@ -181,7 +181,7 @@ class TestPackageBrowseQuiltOpsMigration:
         # Setup mock to raise exception
         mock_quilt_ops.browse_content.side_effect = Exception("Package not found")
 
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
+        with patch('quilt_mcp.tools.package_crud.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
 
             result = package_browse(package_name="nonexistent/package", registry="s3://test-bucket")
@@ -196,7 +196,7 @@ class TestPackageBrowseQuiltOpsMigration:
         mock_quilt_ops.browse_content.return_value = sample_content_info_list
         mock_quilt_ops.get_package_metadata.return_value = None
 
-        with patch('quilt_mcp.ops.factory.QuiltOpsFactory') as mock_factory:
+        with patch('quilt_mcp.tools.package_crud.QuiltOpsFactory') as mock_factory:
             mock_factory.create.return_value = mock_quilt_ops
 
             result = package_browse(package_name="test/package1", registry="s3://test-bucket", recursive=False)

@@ -12,8 +12,8 @@ def test_package_delete_platform_backend_wiring():
     mock_backend.delete_package.return_value = True
 
     with (
-        patch("quilt_mcp.tools.packages._authorize_package", return_value=(SimpleNamespace(auth_type="jwt"), None)),
-        patch("quilt_mcp.tools.packages.QuiltOpsFactory.create", return_value=mock_backend),
+        patch("quilt_mcp.tools.package_crud._authorize_package", return_value=(SimpleNamespace(auth_type="jwt"), None)),
+        patch("quilt_mcp.tools.package_crud.QuiltOpsFactory.create", return_value=mock_backend),
     ):
         result = package_delete(package_name="team/data", registry="registry-bucket")
 

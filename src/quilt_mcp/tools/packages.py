@@ -88,7 +88,43 @@ def package_create_from_s3(
     *,
     context: RequestContext,
 ) -> PackageCreateFromS3Success | PackageCreateFromS3Error:
-    """Compatibility wrapper that keeps historical patch points in this module."""
+    """Create a Quilt package from S3 objects - delegates ingestion workflow from the public packages tool module.
+
+    Args:
+        source_bucket: S3 bucket name containing source objects (without the ``s3://`` prefix).
+        package_name: Destination package name in ``namespace/name`` format.
+        source_prefix: Optional source prefix to scope discovered objects.
+        description: Human-readable package description.
+        target_registry: Optional destination registry URI; if omitted, the workflow suggests one.
+        include_patterns: Optional glob patterns for objects to include.
+        exclude_patterns: Optional glob patterns for objects to exclude.
+        metadata_template: Metadata template profile (``standard``, ``ml``, or ``analytics``).
+        copy: Whether to copy source objects to the target registry bucket.
+        auto_organize: Whether to apply automatic directory organization.
+        generate_readme: Whether to generate README content for the created package.
+        confirm_structure: Whether to require user confirmation for discovered structure.
+        dry_run: Whether to return a preview without creating the package revision.
+        force: Whether to bypass confirmation prompts.
+        metadata: Optional user-provided metadata merged into generated metadata.
+        context: Request context injected by the MCP runtime.
+
+    Returns:
+        PackageCreateFromS3Success when the package is created (or previewed in dry run), otherwise
+        PackageCreateFromS3Error with remediation guidance.
+
+    Next step:
+        Open the returned ``package_url`` (or inspect ``structure_preview`` in dry-run mode) and then run
+        follow-up metadata or visualization tools as needed.
+
+    Example:
+        package_create_from_s3(
+            source_bucket="my-data-bucket",
+            package_name="team/training-dataset",
+            source_prefix="raw/2026/",
+            dry_run=True,
+            context=context,
+        )
+    """
     _s3_ingestion.get_s3_client = get_s3_client
     _s3_ingestion.bucket_recommendations_get = bucket_recommendations_get
     _s3_ingestion.check_bucket_access = check_bucket_access

@@ -420,10 +420,19 @@ def package_update(
                 package_name=package_name,
                 registry=registry,
             )
+        if not isinstance(result.top_hash, str):
+            return PackageUpdateError(
+                error=(
+                    "Package update failed: backend returned non-string top_hash "
+                    f"({type(result.top_hash).__name__})"
+                ),
+                package_name=package_name,
+                registry=registry,
+            )
         return PackageUpdateSuccess(
             package_name=package_name,
             registry=registry,
-            top_hash=str(result.top_hash),
+            top_hash=result.top_hash,
             files_added=result.file_count,
             package_url=result.catalog_url or "",
             files=[],
