@@ -10,7 +10,7 @@ from typing import Optional, cast
 
 from quilt_mcp.context.runtime_context import get_runtime_auth
 from quilt_mcp.ops.exceptions import AuthenticationError
-from quilt_mcp.utils.common import get_jwt_from_auth_config
+from quilt_mcp.utils.common import get_jwt_from_auth_config, resolve_registry_url
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,12 @@ def _get_token_from_quilt3_session() -> Optional[str]:
         logger.debug("Failed to get JWT from quilt3 session: %s", exc)
 
     # Fall back to auth.json if registry URL is available
-    registry_url = os.getenv("QUILT_REGISTRY_URL")
+    try:
+        registry_url = resolve_registry_url()
+    except Exception as exc:  # pragma: no cover - environment dependent
+        logger.debug("Failed to resolve registry URL for auth.json lookup: %s", exc)
+        registry_url = None
+
     if registry_url:
         token = get_jwt_from_auth_config(registry_url)
         if token:

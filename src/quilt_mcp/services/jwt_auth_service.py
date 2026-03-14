@@ -12,6 +12,7 @@ from quilt_mcp.context.runtime_context import (
     get_runtime_auth,
 )
 from quilt_mcp.auth.jwt_discovery import JWTDiscovery
+from quilt_mcp.utils.common import resolve_registry_url
 
 
 class JwtAuthServiceError(RuntimeError):
@@ -152,9 +153,18 @@ class JWTAuthService:
         """
         import requests
 
-        registry_url = os.getenv("QUILT_REGISTRY_URL")
+        try:
+            registry_url = resolve_registry_url(timeout=30)
+        except Exception as exc:
+            raise JwtAuthServiceError(
+                f"Failed to resolve registry URL from QUILT_CATALOG_URL: {exc}",
+                code="missing_config",
+            ) from exc
         if not registry_url:
-            raise JwtAuthServiceError("QUILT_REGISTRY_URL environment variable not configured", code="missing_config")
+            raise JwtAuthServiceError(
+                "QUILT_CATALOG_URL environment variable not configured",
+                code="missing_config",
+            )
 
         endpoint = f"{registry_url.rstrip('/')}/api/auth/get_credentials"
         headers = {"Authorization": f"Bearer {access_token}"}

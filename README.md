@@ -36,7 +36,6 @@ quilt-mcp
 # Add to Claude Code CLI with environment variables
 npx @anthropic-ai/claude-code mcp add quilt-mcp uvx quilt-mcp \
   -e QUILT_CATALOG_URL=https://your-catalog.quiltdata.com \
-  -e QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com \
   -e AWS_PROFILE=your-profile
 ```
 
@@ -51,8 +50,7 @@ Add to your `mcp.json`:
       "command": "uvx",
       "args": ["quilt-mcp"],
       "env": {
-        "QUILT_CATALOG_URL": "https://quilt-stack.yourcompany.com",
-        "QUILT_REGISTRY_URL": "https://registry.quilt-stack.yourcompany.com"
+        "QUILT_CATALOG_URL": "https://quilt-stack.yourcompany.com"
       }
     }
   }
@@ -77,7 +75,6 @@ quilt3 login
 By default, quilt-mcp uses the **local deployment mode** (`--deployment local`), which uses the platform backend and requires:
 
 - `QUILT_CATALOG_URL`
-- `QUILT_REGISTRY_URL`
 - authentication (`quilt3 login` session)
 
 Use deployment presets:
@@ -157,7 +154,6 @@ See [GitHub releases](https://github.com/quiltdata/quilt-mcp-server/releases) fo
 Override defaults via environment or MCP config:
 
 - `QUILT_CATALOG_URL` - Your Quilt catalog URL (e.g., `https://your-catalog.quiltdata.com`)
-- `QUILT_REGISTRY_URL` - Your Quilt registry URL (e.g., `https://registry.your-catalog.quiltdata.com`)
 - `QUILT_DEPLOYMENT` - Deployment mode (`remote`, `local`, `legacy`)
 - `QUILT_MULTIUSER_MODE` - Legacy backend selector (true -> platform, false -> quilt3)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)

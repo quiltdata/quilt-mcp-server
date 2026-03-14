@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-03-14
+
+### Changed
+
+- **Registry URL auto-derived from catalog config**: `QUILT_REGISTRY_URL` is no longer required. The registry URL is now resolved automatically by fetching `{QUILT_CATALOG_URL}/config.json` and reading its `registryUrl` field. `QUILT_REGISTRY_URL` is still accepted as an explicit override.
+  - `utils/common.py`: New `resolve_registry_url()` helper centralizes resolution logic across all callers
+  - `backends/platform_backend.py`: Uses `resolve_registry_url()` on init; error messages updated
+  - `services/jwt_auth_service.py`: Uses `resolve_registry_url()` for AWS credential exchange
+  - `auth/jwt_discovery.py`: Uses `resolve_registry_url()` for auth.json fallback lookup
+  - `scripts/docker_manager.py`: Uses `resolve_registry_url()` for Docker container environment setup; quiltx auto-discovery path updated accordingly
+  - `scripts/quilt_config_env.py`: No longer exports `QUILT_REGISTRY_URL`
+  - `config.py`: Removed `QUILT_REGISTRY_URL` validation check for platform mode
+
+### Documentation
+
+- `README.md`: Removed `QUILT_REGISTRY_URL` from install instructions, configuration reference, and deployment examples
+- `docs/AUTHENTICATION.md`: Updated to note registry URL is resolved from `QUILT_CATALOG_URL/config.json`
+- `docs/TESTING_AUTH_MODES.md`: Removed `QUILT_REGISTRY_URL` from setup instructions
+
 ## [0.21.0] - 2026-02-17
 
 ### Added

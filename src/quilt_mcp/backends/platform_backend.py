@@ -29,7 +29,13 @@ from quilt_mcp.domain import (
 from quilt_mcp.domain.package_builder import PackageBuilder, PackageEntry
 from quilt_mcp.services.browsing_session_client import BrowsingSessionClient
 from quilt_mcp.services.jwt_auth_service import JWTAuthService
-from quilt_mcp.utils.common import graphql_endpoint, normalize_url, get_dns_name_from_url, _runtime_boto3_session
+from quilt_mcp.utils.common import (
+    graphql_endpoint,
+    normalize_url,
+    get_dns_name_from_url,
+    resolve_registry_url,
+    _runtime_boto3_session,
+)
 from quilt_mcp.backends.platform_graphql_client import PlatformGraphQLClient
 from quilt_mcp.backends.graphql_queries import (
     DELETE_REVISION_MUTATION,
@@ -62,11 +68,14 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
         self._admin_ops: Optional[AdminOps] = None
 
         self._catalog_url = os.getenv("QUILT_CATALOG_URL")
-        self._registry_url = os.getenv("QUILT_REGISTRY_URL")
-        if not self._catalog_url or not self._registry_url:
-            raise AuthenticationError(
-                "Platform backend requires QUILT_CATALOG_URL and QUILT_REGISTRY_URL environment variables."
-            )
+        if not self._catalog_url:
+            raise AuthenticationError("Platform backend requires QUILT_CATALOG_URL environment variable.")
+        try:
+            self._registry_url = resolve_registry_url(catalog_url=self._catalog_url)
+        except Exception as exc:
+            raise AuthenticationError(f"Failed to resolve registry URL from catalog config: {exc}") from exc
+        if not self._registry_url:
+            raise AuthenticationError("Platform backend could not resolve registry URL from QUILT_CATALOG_URL.")
 
         self._graphql_endpoint = os.getenv("QUILT_GRAPHQL_ENDPOINT")
         if not self._graphql_endpoint and self._registry_url:
@@ -74,7 +83,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
         if not self._graphql_endpoint:
             raise AuthenticationError(
-                "GraphQL endpoint not configured. Set QUILT_GRAPHQL_ENDPOINT or QUILT_REGISTRY_URL."
+                "GraphQL endpoint not configured. Set QUILT_GRAPHQL_ENDPOINT or fix QUILT_CATALOG_URL config."
             )
 
         import requests
@@ -199,8 +208,7 @@ class Platform_Backend(TabulatorMixin, QuiltOps):
 
     def configure_catalog(self, catalog_url: str) -> None:
         raise ValidationError(
-            "Platform backend uses static configuration. "
-            "Set QUILT_CATALOG_URL and QUILT_REGISTRY_URL environment variables instead."
+            "Platform backend uses static configuration. Set QUILT_CATALOG_URL environment variable instead."
         )
 
     def get_registry_url(self) -> Optional[str]:

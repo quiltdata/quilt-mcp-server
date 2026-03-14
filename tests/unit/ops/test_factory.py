@@ -88,13 +88,16 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
         # Set multiuser mode
         set_test_mode_config(multiuser_mode=True)
         os.environ["QUILT_CATALOG_URL"] = "https://example.quiltdata.com"
-        os.environ["QUILT_REGISTRY_URL"] = "https://registry.example.com"
         os.environ["QUILT_GRAPHQL_ENDPOINT"] = "https://registry.example.com/graphql"
 
         token = _push_test_jwt_context()
         try:
-            # Execute
-            result = QuiltOpsFactory.create()
+            with patch(
+                "quilt_mcp.backends.platform_backend.resolve_registry_url",
+                return_value="https://registry.example.com",
+            ):
+                # Execute
+                result = QuiltOpsFactory.create()
         finally:
             reset_runtime_context(token)
 

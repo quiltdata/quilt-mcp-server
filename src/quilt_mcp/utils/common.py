@@ -117,6 +117,43 @@ def graphql_endpoint(registry_url: str) -> str:
     return f"{normalized}/graphql"
 
 
+def resolve_registry_url(
+    catalog_url: str | None = None,
+    *,
+    registry_url: str | None = None,
+    session: Any | None = None,
+    timeout: int = 10,
+) -> str | None:
+    """Resolve the Quilt registry URL.
+
+    Prefers an explicit registry URL when provided, otherwise loads
+    ``{catalog_url}/config.json`` and returns its ``registryUrl`` field.
+    Environment variables are used as fallbacks when arguments are omitted.
+    """
+    explicit_registry = registry_url or os.getenv("QUILT_REGISTRY_URL")
+    if explicit_registry:
+        return normalize_url(explicit_registry)
+
+    explicit_catalog = catalog_url or os.getenv("QUILT_CATALOG_URL")
+    if not explicit_catalog:
+        return None
+    resolved_catalog = normalize_url(explicit_catalog)
+
+    client = session
+    if client is None:
+        import requests
+
+        client = requests.Session()
+
+    response = client.get(f"{resolved_catalog}/config.json", timeout=timeout)
+    response.raise_for_status()
+    config = response.json()
+    configured_registry = config.get("registryUrl")
+    if not configured_registry:
+        return None
+    return normalize_url(str(configured_registry))
+
+
 def get_dns_name_from_url(url: str) -> str:
     """Extract DNS hostname from a URL.
 

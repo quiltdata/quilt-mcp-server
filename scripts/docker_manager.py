@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 from urllib.parse import urlparse
 
+import requests
+
 # Optional quiltx integration for auto-discovery
 try:
     from quiltx import get_catalog_url, get_catalog_region  # type: ignore
@@ -34,6 +36,28 @@ DOCKER_IMAGE_NAME: Optional[str] = os.getenv("DOCKER_IMAGE_NAME")
 DEFAULT_REGION = "us-east-1"
 LATEST_TAG = "latest"
 FALLBACK_JWT_ENV_VAR = "QUILT_FALLBACK_JWT"
+
+
+def _normalize_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    return url.rstrip("/")
+
+
+def _resolve_registry_url(catalog_url: str | None, registry_url: str | None) -> Optional[str]:
+    if registry_url:
+        return _normalize_url(registry_url)
+    normalized_catalog = _normalize_url(catalog_url)
+    if not normalized_catalog:
+        return None
+
+    response = requests.get(f"{normalized_catalog}/config.json", timeout=10)
+    response.raise_for_status()
+    config = response.json()
+    resolved = config.get("registryUrl")
+    if not resolved:
+        return None
+    return _normalize_url(str(resolved))
 
 
 def get_docker_image_name() -> str:
@@ -191,7 +215,7 @@ class DockerManager:
         """Get Quilt catalog and registry URLs.
 
         Priority order:
-        1. Environment variables (QUILT_CATALOG_URL, QUILT_REGISTRY_URL)
+        1. Environment variable (QUILT_CATALOG_URL) with optional QUILT_REGISTRY_URL override
         2. Auto-discovery via quiltx (if available)
         3. None (requires manual configuration)
 
@@ -202,24 +226,26 @@ class DockerManager:
         catalog_url = os.getenv("QUILT_CATALOG_URL")
         registry_url = os.getenv("QUILT_REGISTRY_URL")
 
-        if catalog_url and registry_url:
-            print(f"INFO: Using Quilt config from environment variables", file=sys.stderr)
-            print(f"   Catalog: {catalog_url}", file=sys.stderr)
-            print(f"   Registry: {registry_url}", file=sys.stderr)
-            return (catalog_url, registry_url)
+        if catalog_url:
+            try:
+                resolved_registry = _resolve_registry_url(catalog_url, registry_url)
+            except Exception as e:
+                print(f"WARNING: Could not resolve registry from catalog config: {e}", file=sys.stderr)
+            else:
+                if resolved_registry:
+                    print("INFO: Using Quilt config from environment variables", file=sys.stderr)
+                    print(f"   Catalog: {catalog_url}", file=sys.stderr)
+                    print(f"   Registry: {resolved_registry}", file=sys.stderr)
+                    return (catalog_url, resolved_registry)
 
         # Try quiltx auto-discovery
         if QUILTX_AVAILABLE:
             try:
                 catalog_url = get_catalog_url()
-                # Construct registry URL by adding 'registry.' subdomain
-                # e.g., https://my-catalog.quiltdata.com -> https://registry.my-catalog.quiltdata.com
                 if catalog_url:
-                    parsed = urlparse(catalog_url)
-                    registry_host = f"registry.{parsed.netloc}"
-                    registry_url = f"{parsed.scheme}://{registry_host}"
-
-                    print(f"INFO: Auto-discovered Quilt config via quiltx", file=sys.stderr)
+                    registry_url = _resolve_registry_url(catalog_url, None)
+                if catalog_url and registry_url:
+                    print("INFO: Auto-discovered Quilt config via quiltx", file=sys.stderr)
                     print(f"   Catalog: {catalog_url}", file=sys.stderr)
                     print(f"   Registry: {registry_url}", file=sys.stderr)
                     return (catalog_url, registry_url)
@@ -246,7 +272,6 @@ class DockerManager:
             print("", file=sys.stderr)
             print("1. Set environment variables:", file=sys.stderr)
             print("   export QUILT_CATALOG_URL=https://your-catalog.quiltdata.com", file=sys.stderr)
-            print("   export QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com", file=sys.stderr)
             print("", file=sys.stderr)
             print("2. Run 'quilt3 login' to configure quiltx auto-discovery", file=sys.stderr)
             print("   (requires: pip install quiltx)", file=sys.stderr)
@@ -277,7 +302,11 @@ class DockerManager:
         # Stateless containers require explicit environment configuration
         # Do NOT fall back to quiltx auto-discovery for production-like deployments
         catalog_url = os.getenv("QUILT_CATALOG_URL")
-        registry_url = os.getenv("QUILT_REGISTRY_URL")
+        try:
+            registry_url = _resolve_registry_url(catalog_url, os.getenv("QUILT_REGISTRY_URL"))
+        except Exception as e:
+            print(f"ERROR: Failed to resolve registry URL from catalog config: {e}", file=sys.stderr)
+            return None
 
         if not catalog_url or not registry_url:
             print("", file=sys.stderr)
@@ -285,7 +314,6 @@ class DockerManager:
             print("", file=sys.stderr)
             print("Set these environment variables:", file=sys.stderr)
             print("  export QUILT_CATALOG_URL=https://your-catalog.quiltdata.com", file=sys.stderr)
-            print("  export QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com", file=sys.stderr)
             print("", file=sys.stderr)
             print("Or add them to your .env file (loaded by Makefile)", file=sys.stderr)
             print("", file=sys.stderr)
@@ -350,7 +378,11 @@ class DockerManager:
         # Multiuser containers require explicit environment configuration
         # Do NOT fall back to quiltx auto-discovery for production-like deployments
         catalog_url = os.getenv("QUILT_CATALOG_URL")
-        registry_url = os.getenv("QUILT_REGISTRY_URL")
+        try:
+            registry_url = _resolve_registry_url(catalog_url, os.getenv("QUILT_REGISTRY_URL"))
+        except Exception as e:
+            print(f"ERROR: Failed to resolve registry URL from catalog config: {e}", file=sys.stderr)
+            return None
 
         if not catalog_url or not registry_url:
             print("", file=sys.stderr)
@@ -358,7 +390,6 @@ class DockerManager:
             print("", file=sys.stderr)
             print("Set these environment variables:", file=sys.stderr)
             print("  export QUILT_CATALOG_URL=https://your-catalog.quiltdata.com", file=sys.stderr)
-            print("  export QUILT_REGISTRY_URL=https://registry.your-catalog.quiltdata.com", file=sys.stderr)
             print("", file=sys.stderr)
             print("Or add them to your .env file (loaded by Makefile)", file=sys.stderr)
             print("", file=sys.stderr)
@@ -1114,7 +1145,7 @@ ENVIRONMENT VARIABLES:
     VERSION                Version tag (can override --version)
     GIT_SHA                Git commit SHA (can override --git-sha)
     QUILT_CATALOG_URL      Quilt catalog URL (for container start)
-    QUILT_REGISTRY_URL     Quilt registry URL (for container start)
+    QUILT_REGISTRY_URL     Optional registry URL override (normally derived from catalog)
         """,
     )
 

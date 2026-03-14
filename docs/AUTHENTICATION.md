@@ -33,7 +33,8 @@ JWT mode requires a valid JWT on every request and will return `401/403` for mis
 Set the following:
 
 - `QUILT_CATALOG_URL`: Platform catalog URL
-- `QUILT_REGISTRY_URL`: Platform registry URL
+
+The registry URL is resolved internally from `QUILT_CATALOG_URL/config.json`.
 
 ### JWT Claims
 

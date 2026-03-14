@@ -88,9 +88,7 @@ def _check_auth_available(mode: str) -> bool:
         return config_file.exists()
     elif mode == "platform":
         # Check if platform env vars are set and JWT is discoverable
-        if not (
-            os.getenv("PLATFORM_TEST_ENABLED") and os.getenv("QUILT_CATALOG_URL") and os.getenv("QUILT_REGISTRY_URL")
-        ):
+        if not (os.getenv("PLATFORM_TEST_ENABLED") and os.getenv("QUILT_CATALOG_URL")):
             return False
         from quilt_mcp.auth.jwt_discovery import JWTDiscovery
 

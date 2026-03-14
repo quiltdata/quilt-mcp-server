@@ -78,6 +78,26 @@ def test_platform_backend_uses_env_graphql_endpoint(monkeypatch):
     assert backend.get_graphql_auth_headers() == {"Authorization": "Bearer test-token"}
 
 
+def test_platform_backend_resolves_registry_from_catalog(monkeypatch):
+    from quilt_mcp.backends.platform_backend import Platform_Backend
+
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://example.quiltdata.com")
+    monkeypatch.delenv("QUILT_REGISTRY_URL", raising=False)
+    monkeypatch.delenv("QUILT_GRAPHQL_ENDPOINT", raising=False)
+    monkeypatch.setattr(
+        "quilt_mcp.backends.platform_backend.resolve_registry_url",
+        lambda catalog_url=None: "https://nightly-registry.quilttest.com",
+    )
+    token = _push_jwt_context({"id": "user-1", "uuid": "uuid-1", "exp": 9999999999})
+    try:
+        backend = Platform_Backend()
+    finally:
+        reset_runtime_context(token)
+
+    assert backend.get_registry_url() == "https://nightly-registry.quilttest.com"
+    assert backend.get_graphql_endpoint() == "https://nightly-registry.quilttest.com/graphql"
+
+
 def test_execute_graphql_query_success(monkeypatch):
     from quilt_mcp.backends.platform_backend import Platform_Backend
 

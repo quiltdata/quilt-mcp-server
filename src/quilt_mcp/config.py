@@ -275,9 +275,6 @@ class ModeConfig:
         if not os.getenv("QUILT_CATALOG_URL"):
             errors.append("Platform backend requires QUILT_CATALOG_URL environment variable")
 
-        if not os.getenv("QUILT_REGISTRY_URL"):
-            errors.append("Platform backend requires QUILT_REGISTRY_URL environment variable")
-
         return errors
 
 
