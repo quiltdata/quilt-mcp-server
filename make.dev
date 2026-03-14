@@ -37,7 +37,7 @@ test-catalog:
 			exit 1; \
 		fi; \
 		QUILTX_OUTPUT="$$(uv run --group test python scripts/quilt_config_env.py)" && \
-		QUILT_CATALOG_URL="" && QUILT_REGISTRY_URL="" && \
+		QUILT_CATALOG_URL="" && \
 		eval "$$QUILTX_OUTPUT" && \
 		QUILTX_CATALOG_URL=$$QUILT_CATALOG_URL && \
 		if [ "$$ENV_CATALOG_URL" != "$$QUILTX_CATALOG_URL" ]; then \
@@ -192,11 +192,6 @@ run-docker-remote: docker-build
 	@# Validate required environment variables before starting
 	@if [ -z "$(QUILT_CATALOG_URL)" ]; then \
 		echo "❌ ERROR: QUILT_CATALOG_URL is not set"; \
-		echo "   Set it in .env or run: quilt3 login"; \
-		exit 1; \
-	fi
-	@if [ -z "$(QUILT_REGISTRY_URL)" ]; then \
-		echo "❌ ERROR: QUILT_REGISTRY_URL is not set"; \
 		echo "   Set it in .env or run: quilt3 login"; \
 		exit 1; \
 	fi

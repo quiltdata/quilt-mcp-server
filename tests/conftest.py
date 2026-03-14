@@ -223,13 +223,11 @@ def backend_mode(request, monkeypatch, clean_auth, test_env):
             pytest.skip("Platform functional tests disabled - set PLATFORM_TEST_ENABLED=true")
 
         quilt_catalog_url = os.getenv("QUILT_CATALOG_URL")
-        quilt_registry_url = os.getenv("QUILT_REGISTRY_URL")
-        if not quilt_catalog_url or not quilt_registry_url:
-            pytest.skip("Platform functional tests require QUILT_CATALOG_URL and QUILT_REGISTRY_URL to be set")
+        if not quilt_catalog_url:
+            pytest.skip("Platform functional tests require QUILT_CATALOG_URL to be set")
 
         monkeypatch.setenv("QUILT_MULTIUSER_MODE", "true")
         monkeypatch.setenv("QUILT_CATALOG_URL", quilt_catalog_url)
-        monkeypatch.setenv("QUILT_REGISTRY_URL", quilt_registry_url)
 
         # JWT Discovery Priority:
         # 1. PLATFORM_TEST_JWT_TOKEN env var (explicit test token)
@@ -617,7 +615,6 @@ def stateless_container(
             environment={
                 "QUILT_MULTIUSER_MODE": "true",  # Enable multiuser mode
                 "QUILT_CATALOG_URL": "http://test-catalog.example.com",  # Required for multiuser
-                "QUILT_REGISTRY_URL": "http://test-registry.example.com",  # Required for multiuser
                 "QUILT_DISABLE_CACHE": "true",  # Disable caching
                 "HOME": "/tmp",  # Redirect home directory  # noqa: S108
                 "LOG_LEVEL": "DEBUG",  # Verbose logging

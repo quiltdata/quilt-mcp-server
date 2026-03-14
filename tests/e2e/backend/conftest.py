@@ -173,7 +173,7 @@ def backend_with_auth(backend_mode, real_test_bucket):
     elif backend_mode == "platform":
         if not os.getenv("PLATFORM_TEST_ENABLED"):
             pytest.skip("Platform backend not enabled: PLATFORM_TEST_ENABLED not set")
-        required_vars = ["QUILT_CATALOG_URL", "QUILT_REGISTRY_URL"]
+        required_vars = ["QUILT_CATALOG_URL"]
         missing = [v for v in required_vars if not os.getenv(v)]
         if missing:
             pytest.skip(f"Platform backend config incomplete: {missing} not set")

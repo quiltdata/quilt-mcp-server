@@ -111,6 +111,33 @@ def test_get_jwt_from_auth_config(monkeypatch, tmp_path):
     assert common.get_jwt_from_auth_config("https://registry.example.com") is None
 
 
+def test_resolve_registry_url_prefers_explicit_env(monkeypatch):
+    monkeypatch.setenv("QUILT_REGISTRY_URL", "https://registry.example.com/")
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
+
+    assert common.resolve_registry_url() == "https://registry.example.com"
+
+
+def test_resolve_registry_url_fetches_catalog_config(monkeypatch):
+    monkeypatch.delenv("QUILT_REGISTRY_URL", raising=False)
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com/")
+
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"registryUrl": "https://nightly-registry.quilttest.com/"}
+
+    class _Session:
+        def get(self, url, timeout):
+            assert url == "https://catalog.example.com/config.json"
+            assert timeout == 10
+            return _Response()
+
+    assert common.resolve_registry_url(session=_Session()) == "https://nightly-registry.quilttest.com"
+
+
 def test_extract_jwt_claims_unsafe():
     token = _jwt({"sub": "u1", "exp": 123})
     claims = common.extract_jwt_claims_unsafe(token)

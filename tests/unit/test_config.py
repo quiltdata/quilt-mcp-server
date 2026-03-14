@@ -110,7 +110,7 @@ def test_platform_validation_requires_catalog_and_registry():
     errors = mode_config.get_validation_errors()
 
     assert "Platform backend requires QUILT_CATALOG_URL environment variable" in errors
-    assert "Platform backend requires QUILT_REGISTRY_URL environment variable" in errors
+    assert len(errors) == 1
 
 
 def test_quilt3_validation_does_not_require_catalog_registry():

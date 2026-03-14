@@ -56,7 +56,7 @@ def print_startup_error(
     elif error_type == "Configuration Error":
         print("Troubleshooting:", file=sys.stderr)
         print("Check the error message above for missing configuration.", file=sys.stderr)
-        print("Platform backend needs QUILT_CATALOG_URL and QUILT_REGISTRY_URL.", file=sys.stderr)
+        print("Platform backend needs QUILT_CATALOG_URL.", file=sys.stderr)
         print("For legacy local development, try: uvx quilt-mcp --deployment legacy", file=sys.stderr)
     elif error_type == "Authentication Error":
         print("Troubleshooting:", file=sys.stderr)
