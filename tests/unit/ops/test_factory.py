@@ -92,8 +92,12 @@ class TestQuiltOpsFactoryQuilt3SessionDetection:
 
         token = _push_test_jwt_context()
         try:
-            # Execute
-            result = QuiltOpsFactory.create()
+            with patch(
+                "quilt_mcp.backends.platform_backend.resolve_registry_url",
+                return_value="https://registry.example.com",
+            ):
+                # Execute
+                result = QuiltOpsFactory.create()
         finally:
             reset_runtime_context(token)
 
