@@ -16,6 +16,7 @@ from quilt_mcp.ops.admin_ops import AdminOps
 from quilt_mcp.ops.exceptions import AuthenticationError, BackendError, ValidationError, NotFoundError, PermissionError
 from quilt_mcp.domain.user import User
 from quilt_mcp.domain.role import Role
+from quilt_mcp.domain.policy import Permission, Policy
 from quilt_mcp.domain.sso_config import SSOConfig
 
 logger = logging.getLogger(__name__)
@@ -520,6 +521,267 @@ class Quilt3_Backend_Admin(AdminOps):
             self._handle_admin_error(e, "list roles")
             # This line should never be reached due to exception raising above
             return []  # pragma: no cover
+
+    # ========================================================================
+    # Policy Management
+    # ========================================================================
+
+    def list_policies(self) -> List[Policy]:
+        """List all policies in the registry."""
+        try:
+            import quilt3.admin.policies as admin_policies
+
+            return [self._transform_quilt3_policy_to_domain(p) for p in admin_policies.list()]
+        except ImportError as e:
+            logger.error(f"quilt3.admin.policies not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to list policies: {e}")
+            self._handle_admin_error(e, "list policies")
+            return []  # pragma: no cover
+
+    def get_policy(self, id_or_title: str) -> Optional[Policy]:
+        """Get a policy by ID or title. Returns None when it does not exist."""
+        try:
+            import quilt3.admin.policies as admin_policies
+
+            policy = admin_policies.get(id_or_title)
+            return self._transform_quilt3_policy_to_domain(policy) if policy is not None else None
+        except ImportError as e:
+            logger.error(f"quilt3.admin.policies not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to get policy {id_or_title}: {e}")
+            self._handle_admin_error(e, f"get policy {id_or_title}")
+            raise  # pragma: no cover
+
+    def create_managed_policy(
+        self,
+        title: str,
+        permissions: List[Permission],
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Create a Quilt-managed policy from a set of bucket permissions."""
+        try:
+            import quilt3.admin.policies as admin_policies
+
+            policy = admin_policies.create_managed(
+                title,
+                permissions=[self._to_quilt3_permission(p) for p in permissions],
+                roles=role_ids or [],
+            )
+            return self._transform_quilt3_policy_to_domain(policy)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.policies not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to create managed policy {title}: {e}")
+            self._handle_admin_error(e, f"create managed policy {title}")
+            raise  # pragma: no cover
+
+    def create_unmanaged_policy(self, title: str, arn: str, role_ids: Optional[List[str]] = None) -> Policy:
+        """Create a policy wrapping an existing IAM policy ARN."""
+        try:
+            import quilt3.admin.policies as admin_policies
+
+            policy = admin_policies.create_unmanaged(title, arn=arn, roles=role_ids or [])
+            return self._transform_quilt3_policy_to_domain(policy)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.policies not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to create unmanaged policy {title}: {e}")
+            self._handle_admin_error(e, f"create unmanaged policy {title}")
+            raise  # pragma: no cover
+
+    def patch_managed_policy(
+        self,
+        id_or_title: str,
+        title: Optional[str] = None,
+        permissions: Optional[List[Permission]] = None,
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Partially update a managed policy; unspecified fields keep their values."""
+        try:
+            import quilt3.admin.policies as admin_policies
+
+            # quilt3's patch_* reads the current policy and fills the gaps, so only
+            # the caller's explicit changes are forwarded.
+            kwargs: Dict[str, Any] = {}
+            if title is not None:
+                kwargs["title"] = title
+            if permissions is not None:
+                kwargs["permissions"] = [self._to_quilt3_permission(p) for p in permissions]
+            if role_ids is not None:
+                kwargs["roles"] = role_ids
+            policy = admin_policies.patch_managed(id_or_title, **kwargs)
+            return self._transform_quilt3_policy_to_domain(policy)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.policies not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to patch managed policy {id_or_title}: {e}")
+            self._handle_admin_error(e, f"patch managed policy {id_or_title}")
+            raise  # pragma: no cover
+
+    def patch_unmanaged_policy(
+        self,
+        id_or_title: str,
+        title: Optional[str] = None,
+        arn: Optional[str] = None,
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Partially update an unmanaged policy; unspecified fields keep their values."""
+        try:
+            import quilt3.admin.policies as admin_policies
+
+            kwargs: Dict[str, Any] = {}
+            if title is not None:
+                kwargs["title"] = title
+            if arn is not None:
+                kwargs["arn"] = arn
+            if role_ids is not None:
+                kwargs["roles"] = role_ids
+            policy = admin_policies.patch_unmanaged(id_or_title, **kwargs)
+            return self._transform_quilt3_policy_to_domain(policy)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.policies not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to patch unmanaged policy {id_or_title}: {e}")
+            self._handle_admin_error(e, f"patch unmanaged policy {id_or_title}")
+            raise  # pragma: no cover
+
+    def delete_policy(self, id_or_title: str) -> None:
+        """Delete a policy from the registry."""
+        try:
+            import quilt3.admin.policies as admin_policies
+
+            admin_policies.delete(id_or_title)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.policies not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to delete policy {id_or_title}: {e}")
+            self._handle_admin_error(e, f"delete policy {id_or_title}")
+            raise  # pragma: no cover
+
+    # ========================================================================
+    # Role Mutations
+    # ========================================================================
+
+    def get_role(self, id_or_name: str) -> Optional[Role]:
+        """Get a role by ID or name. Returns None when it does not exist."""
+        try:
+            import quilt3.admin.roles as admin_roles
+
+            role = admin_roles.get(id_or_name)
+            return self._transform_quilt3_role_to_domain(role) if role is not None else None
+        except ImportError as e:
+            logger.error(f"quilt3.admin.roles not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to get role {id_or_name}: {e}")
+            self._handle_admin_error(e, f"get role {id_or_name}")
+            raise  # pragma: no cover
+
+    def create_managed_role(self, name: str, policy_ids: Optional[List[str]] = None) -> Role:
+        """Create a Quilt-managed role from a set of policy IDs."""
+        try:
+            import quilt3.admin.roles as admin_roles
+
+            role = admin_roles.create_managed(name, policies=policy_ids or [])
+            return self._transform_quilt3_role_to_domain(role)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.roles not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to create managed role {name}: {e}")
+            self._handle_admin_error(e, f"create managed role {name}")
+            raise  # pragma: no cover
+
+    def create_unmanaged_role(self, name: str, arn: str) -> Role:
+        """Create a role wrapping an existing IAM role ARN."""
+        try:
+            import quilt3.admin.roles as admin_roles
+
+            role = admin_roles.create_unmanaged(name, arn)
+            return self._transform_quilt3_role_to_domain(role)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.roles not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to create unmanaged role {name}: {e}")
+            self._handle_admin_error(e, f"create unmanaged role {name}")
+            raise  # pragma: no cover
+
+    def delete_role(self, id_or_name: str) -> None:
+        """Delete a role from the registry."""
+        try:
+            import quilt3.admin.roles as admin_roles
+
+            admin_roles.delete(id_or_name)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.roles not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to delete role {id_or_name}: {e}")
+            self._handle_admin_error(e, f"delete role {id_or_name}")
+            raise  # pragma: no cover
+
+    def set_default_role(self, id_or_name: str) -> Role:
+        """Set the role assigned to new users by default."""
+        try:
+            import quilt3.admin.roles as admin_roles
+
+            role = admin_roles.set_default(id_or_name)
+            return self._transform_quilt3_role_to_domain(role)
+        except ImportError as e:
+            logger.error(f"quilt3.admin.roles not available: {e}")
+            raise AuthenticationError("Admin functionality not available - quilt3.admin modules not accessible")
+        except Exception as e:
+            logger.error(f"Failed to set default role {id_or_name}: {e}")
+            self._handle_admin_error(e, f"set default role {id_or_name}")
+            raise  # pragma: no cover
+
+    # ========================================================================
+    # Policy transforms
+    # ========================================================================
+
+    def _to_quilt3_permission(self, permission: Permission):
+        """Convert a domain Permission to a quilt3.admin.types.Permission."""
+        import quilt3.admin.types as admin_types
+
+        return admin_types.Permission(
+            bucket=permission.bucket,
+            level=admin_types.BucketPermissionLevel(permission.level),
+        )
+
+    def _transform_quilt3_policy_to_domain(self, quilt3_policy) -> Policy:
+        """Transform a quilt3 policy object to the domain Policy object."""
+        try:
+            # quilt3 gives an enum here; .value is the wire form the domain object
+            # validates. No "READ" fallback: level is the security-relevant field, so
+            # an unreadable level must fail rather than be reported as read-only and
+            # then written back by a patch that refills from current values.
+            permissions = [
+                Permission(
+                    bucket=getattr(p, "bucket", ""),
+                    level=getattr(p.level, "value", None) or str(p.level),
+                )
+                for p in getattr(quilt3_policy, "permissions", None) or []
+            ]
+            return Policy(
+                id=getattr(quilt3_policy, "id", None),
+                title=getattr(quilt3_policy, "title", ""),
+                arn=getattr(quilt3_policy, "arn", None),
+                managed=bool(getattr(quilt3_policy, "managed", False)),
+                permissions=permissions,
+                role_ids=[r.id for r in (getattr(quilt3_policy, "roles", None) or []) if getattr(r, "id", None)],
+            )
+        except Exception as e:
+            logger.error(f"Failed to transform quilt3 policy to domain object: {e}")
+            raise BackendError(f"Failed to transform policy data: {str(e)}")
 
     def get_sso_config(self) -> Optional[SSOConfig]:
         """Get the current SSO configuration.

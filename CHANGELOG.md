@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Usage telemetry to Mixpanel**: every tool call sends an `MCP` event with the tool name, outcome, duration and calling client, so MCP usage is visible alongside catalog activity. Off unless `MIXPANEL_PROJECT_TOKEN` is set; `QUILT_DISABLE_USAGE_METRICS` turns it off.
+- **Policy administration**: `admin_policies_list`, `admin_policy_get`, `admin_policy_create_managed`, `admin_policy_create_unmanaged`, `admin_policy_patch_managed`, `admin_policy_patch_unmanaged` and `admin_policy_delete` close the gap against `quilt3.admin.policies`. Bucket-level access could previously be read but not changed.
+- **Role administration**: `admin_role_get`, `admin_role_create_managed`, `admin_role_create_unmanaged`, `admin_role_delete` and `admin_role_set_default` extend the previously list-only role surface to match `quilt3.admin.roles`.
+
 ## [0.22.0] - 2026-03-14
 
 ### Changed

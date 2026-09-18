@@ -183,6 +183,17 @@ class GovernanceService:
             "type": role.type,
         }
 
+    def _transform_domain_policy_to_response(self, policy) -> Dict[str, Any]:
+        """Transform domain Policy object to expected response format."""
+        return {
+            "id": policy.id,
+            "title": policy.title,
+            "arn": policy.arn,
+            "managed": policy.managed,
+            "permissions": [{"bucket": p.bucket, "level": p.level} for p in policy.permissions],
+            "role_ids": list(policy.role_ids),
+        }
+
     def _transform_domain_sso_config_to_response(self, sso_config) -> Dict[str, Any]:
         """Transform domain SSOConfig object to expected response format."""
         return {
@@ -1273,3 +1284,481 @@ async def admin_tabulator_open_query_set(
     except Exception as e:
         service = GovernanceService()
         return service._handle_admin_error(e, "set tabulator open query status")
+
+
+# Policy Management Functions
+#
+# Policies carry the bucket-level permissions that roles attach and users inherit.
+# Without these, the admin surface can read the access model but never change it.
+
+
+def _permissions_from_input(permissions: List[Dict[str, Any]]) -> List[Any]:
+    """Build domain Permission objects from tool input.
+
+    Raises ValueError with an actionable message; callers turn that into an error
+    response rather than letting a bare validation error reach the client.
+    """
+    from ..domain.policy import PERMISSION_LEVELS, Permission
+
+    built = []
+    for entry in permissions:
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"each permission must be an object with 'bucket' and 'level', got {type(entry).__name__}"
+            )
+        bucket = entry.get("bucket")
+        level = entry.get("level")
+        if not bucket:
+            raise ValueError("each permission needs a non-empty 'bucket'")
+        if level not in PERMISSION_LEVELS:
+            raise ValueError(f"permission level must be one of {list(PERMISSION_LEVELS)}, got {level!r}")
+        built.append(Permission(bucket=bucket, level=level))
+    return built
+
+
+async def admin_policies_list(*, quilt_ops: Optional[QuiltOps] = None, context: RequestContext) -> Dict[str, Any]:
+    """List all policies in the registry - Quilt governance and administrative operations
+
+    Returns:
+        Dict containing the policy list and count
+
+    Next step:
+        Attach a policy to a role with admin_role_create_managed, or inspect one with admin_policy_get.
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+
+        policies = service._get_quilt_ops().admin.list_policies()
+        policies_data = [service._transform_domain_policy_to_response(p) for p in policies]
+        return {
+            "success": True,
+            "policies": policies_data,
+            "count": len(policies_data),
+            "message": f"Found {len(policies_data)} policies",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, "list policies")
+
+
+async def admin_policy_get(
+    id_or_title: Annotated[
+        str,
+        Field(description="Policy ID or title", examples=["ReadOnlyAnalysts", "1a2b3c4d"]),
+    ],
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Get a policy by ID or title - Quilt governance and administrative operations
+
+    Returns:
+        Dict containing the policy, or an error when it does not exist
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not id_or_title:
+            return format_error_response("Policy ID or title cannot be empty")
+
+        policy = service._get_quilt_ops().admin.get_policy(id_or_title)
+        if policy is None:
+            return format_error_response(f"Policy not found: {id_or_title}")
+        return {
+            "success": True,
+            "policy": service._transform_domain_policy_to_response(policy),
+            "message": f"Found policy '{policy.title}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"get policy '{id_or_title}'")
+
+
+async def admin_policy_create_managed(
+    title: Annotated[
+        str,
+        Field(description="Policy title", examples=["ReadOnlyAnalysts"]),
+    ],
+    permissions: Annotated[
+        List[Dict[str, Any]],
+        Field(
+            description="Bucket permissions, each {'bucket': name, 'level': 'READ' or 'READ_WRITE'}",
+            examples=[[{"bucket": "research-data", "level": "READ"}]],
+        ),
+    ],
+    role_ids: Annotated[
+        Optional[List[str]],
+        Field(default=None, description="Role IDs to attach this policy to"),
+    ] = None,
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Create a Quilt-managed policy from bucket permissions - Quilt governance and administrative operations
+
+    Quilt owns the underlying IAM policy. Use admin_policy_create_unmanaged to wrap
+    an IAM policy that already exists.
+
+    Returns:
+        Dict containing the created policy
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not title:
+            return format_error_response("Policy title cannot be empty")
+        if not permissions:
+            return format_error_response("A managed policy needs at least one bucket permission")
+
+        try:
+            domain_permissions = _permissions_from_input(permissions)
+        except ValueError as ve:
+            return format_error_response(f"Invalid permissions: {ve}")
+
+        policy = service._get_quilt_ops().admin.create_managed_policy(
+            title=title, permissions=domain_permissions, role_ids=role_ids or []
+        )
+        return {
+            "success": True,
+            "policy": service._transform_domain_policy_to_response(policy),
+            "message": f"Successfully created managed policy '{title}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"create managed policy '{title}'")
+
+
+async def admin_policy_create_unmanaged(
+    title: Annotated[str, Field(description="Policy title", examples=["ExistingIAMPolicy"])],
+    arn: Annotated[
+        str,
+        Field(description="Existing IAM policy ARN", examples=["arn:aws:iam::123456789012:policy/MyPolicy"]),
+    ],
+    role_ids: Annotated[
+        Optional[List[str]],
+        Field(default=None, description="Role IDs to attach this policy to"),
+    ] = None,
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Create a policy wrapping an existing IAM policy ARN - Quilt governance and administrative operations
+
+    Returns:
+        Dict containing the created policy
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not title:
+            return format_error_response("Policy title cannot be empty")
+        if not arn:
+            return format_error_response("Policy ARN cannot be empty")
+
+        policy = service._get_quilt_ops().admin.create_unmanaged_policy(title=title, arn=arn, role_ids=role_ids or [])
+        return {
+            "success": True,
+            "policy": service._transform_domain_policy_to_response(policy),
+            "message": f"Successfully created unmanaged policy '{title}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"create unmanaged policy '{title}'")
+
+
+async def admin_policy_patch_managed(
+    id_or_title: Annotated[str, Field(description="Policy ID or title")],
+    title: Annotated[Optional[str], Field(default=None, description="New title (unchanged if omitted)")] = None,
+    permissions: Annotated[
+        Optional[List[Dict[str, Any]]],
+        Field(
+            default=None,
+            description="Replacement bucket permissions (unchanged if omitted)",
+            examples=[[{"bucket": "research-data", "level": "READ_WRITE"}]],
+        ),
+    ] = None,
+    role_ids: Annotated[
+        Optional[List[str]],
+        Field(default=None, description="Replacement role IDs (unchanged if omitted)"),
+    ] = None,
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Partially update a managed policy - Quilt governance and administrative operations
+
+    Only the fields provided change; everything else keeps its current value.
+    Fails if the target policy is unmanaged.
+
+    Returns:
+        Dict containing the updated policy
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not id_or_title:
+            return format_error_response("Policy ID or title cannot be empty")
+        if title is None and permissions is None and role_ids is None:
+            return format_error_response("Nothing to update - provide title, permissions or role_ids")
+
+        domain_permissions = None
+        if permissions is not None:
+            try:
+                domain_permissions = _permissions_from_input(permissions)
+            except ValueError as ve:
+                return format_error_response(f"Invalid permissions: {ve}")
+
+        policy = service._get_quilt_ops().admin.patch_managed_policy(
+            id_or_title=id_or_title, title=title, permissions=domain_permissions, role_ids=role_ids
+        )
+        return {
+            "success": True,
+            "policy": service._transform_domain_policy_to_response(policy),
+            "message": f"Successfully updated managed policy '{id_or_title}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"patch managed policy '{id_or_title}'")
+
+
+async def admin_policy_patch_unmanaged(
+    id_or_title: Annotated[str, Field(description="Policy ID or title")],
+    title: Annotated[Optional[str], Field(default=None, description="New title (unchanged if omitted)")] = None,
+    arn: Annotated[Optional[str], Field(default=None, description="New IAM ARN (unchanged if omitted)")] = None,
+    role_ids: Annotated[
+        Optional[List[str]],
+        Field(default=None, description="Replacement role IDs (unchanged if omitted)"),
+    ] = None,
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Partially update an unmanaged policy - Quilt governance and administrative operations
+
+    Only the fields provided change. Fails if the target policy is managed.
+
+    Returns:
+        Dict containing the updated policy
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not id_or_title:
+            return format_error_response("Policy ID or title cannot be empty")
+        if title is None and arn is None and role_ids is None:
+            return format_error_response("Nothing to update - provide title, arn or role_ids")
+
+        policy = service._get_quilt_ops().admin.patch_unmanaged_policy(
+            id_or_title=id_or_title, title=title, arn=arn, role_ids=role_ids
+        )
+        return {
+            "success": True,
+            "policy": service._transform_domain_policy_to_response(policy),
+            "message": f"Successfully updated unmanaged policy '{id_or_title}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"patch unmanaged policy '{id_or_title}'")
+
+
+async def admin_policy_delete(
+    id_or_title: Annotated[str, Field(description="Policy ID or title")],
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Delete a policy from the registry - Quilt governance and administrative operations
+
+    Removes access the policy granted. Roles referencing it lose those permissions.
+
+    Returns:
+        Dict confirming the deletion
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not id_or_title:
+            return format_error_response("Policy ID or title cannot be empty")
+
+        service._get_quilt_ops().admin.delete_policy(id_or_title)
+        return {
+            "success": True,
+            "message": f"Successfully deleted policy '{id_or_title}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"delete policy '{id_or_title}'")
+
+
+# Role Mutation Functions
+
+
+async def admin_role_get(
+    id_or_name: Annotated[str, Field(description="Role ID or name", examples=["ReadWriteRole"])],
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Get a role by ID or name - Quilt governance and administrative operations
+
+    Returns:
+        Dict containing the role, or an error when it does not exist
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not id_or_name:
+            return format_error_response("Role ID or name cannot be empty")
+
+        role = service._get_quilt_ops().admin.get_role(id_or_name)
+        if role is None:
+            return format_error_response(f"Role not found: {id_or_name}")
+        return {
+            "success": True,
+            "role": service._transform_domain_role_to_response(role),
+            "message": f"Found role '{role.name}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"get role '{id_or_name}'")
+
+
+async def admin_role_create_managed(
+    name: Annotated[str, Field(description="Role name", examples=["Analysts"])],
+    policy_ids: Annotated[
+        Optional[List[str]],
+        Field(default=None, description="Policy IDs to attach to this role"),
+    ] = None,
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Create a Quilt-managed role from policy IDs - Quilt governance and administrative operations
+
+    List candidate policies with admin_policies_list first.
+
+    Returns:
+        Dict containing the created role
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not name:
+            return format_error_response("Role name cannot be empty")
+
+        role = service._get_quilt_ops().admin.create_managed_role(name=name, policy_ids=policy_ids or [])
+        return {
+            "success": True,
+            "role": service._transform_domain_role_to_response(role),
+            "message": f"Successfully created managed role '{name}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"create managed role '{name}'")
+
+
+async def admin_role_create_unmanaged(
+    name: Annotated[str, Field(description="Role name")],
+    arn: Annotated[
+        str,
+        Field(description="Existing IAM role ARN", examples=["arn:aws:iam::123456789012:role/MyRole"]),
+    ],
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Create a role wrapping an existing IAM role ARN - Quilt governance and administrative operations
+
+    Returns:
+        Dict containing the created role
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not name:
+            return format_error_response("Role name cannot be empty")
+        if not arn:
+            return format_error_response("Role ARN cannot be empty")
+
+        role = service._get_quilt_ops().admin.create_unmanaged_role(name=name, arn=arn)
+        return {
+            "success": True,
+            "role": service._transform_domain_role_to_response(role),
+            "message": f"Successfully created unmanaged role '{name}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"create unmanaged role '{name}'")
+
+
+async def admin_role_delete(
+    id_or_name: Annotated[str, Field(description="Role ID or name")],
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Delete a role from the registry - Quilt governance and administrative operations
+
+    Fails when the role is still assigned to users, is reserved, or is referenced
+    by the SSO config.
+
+    Returns:
+        Dict confirming the deletion
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not id_or_name:
+            return format_error_response("Role ID or name cannot be empty")
+
+        service._get_quilt_ops().admin.delete_role(id_or_name)
+        return {
+            "success": True,
+            "message": f"Successfully deleted role '{id_or_name}'",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"delete role '{id_or_name}'")
+
+
+async def admin_role_set_default(
+    id_or_name: Annotated[str, Field(description="Role ID or name to make the default")],
+    *,
+    quilt_ops: Optional[QuiltOps] = None,
+    context: RequestContext,
+) -> Dict[str, Any]:
+    """Set the role assigned to new users by default - Quilt governance and administrative operations
+
+    Affects every user created afterwards, so confirm the intended role first.
+
+    Returns:
+        Dict containing the new default role
+    """
+    service = GovernanceService(quilt_ops)
+    try:
+        error_check = service._check_admin_available()
+        if error_check:
+            return error_check
+        if not id_or_name:
+            return format_error_response("Role ID or name cannot be empty")
+
+        role = service._get_quilt_ops().admin.set_default_role(id_or_name)
+        return {
+            "success": True,
+            "role": service._transform_domain_role_to_response(role),
+            "message": f"Successfully set '{role.name}' as the default role",
+        }
+    except Exception as e:
+        return service._handle_admin_error(e, f"set default role '{id_or_name}'")
