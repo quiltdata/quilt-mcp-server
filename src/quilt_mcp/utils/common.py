@@ -597,6 +597,16 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
     tools_count = register_tools(mcp, verbose=verbose)
 
+    # Usage telemetry: no-op unless MIXPANEL_PROJECT_TOKEN is set.
+    try:
+        from quilt_mcp.middleware.usage_telemetry import install as install_usage_telemetry
+
+        if install_usage_telemetry(mcp) and verbose:
+            print("Usage telemetry enabled (Mixpanel)", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 — telemetry must never block startup
+        if verbose:
+            print(f"Usage telemetry unavailable: {exc}", file=sys.stderr)
+
     # Register health check endpoints for HTTP transport
     transport = os.environ.get("FASTMCP_TRANSPORT", "stdio")
     if transport in ["http", "sse", "streamable-http"]:

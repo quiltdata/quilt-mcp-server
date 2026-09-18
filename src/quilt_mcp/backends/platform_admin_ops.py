@@ -19,6 +19,7 @@ from quilt_mcp.ops.exceptions import (
 )
 from quilt_mcp.domain.user import User
 from quilt_mcp.domain.role import Role
+from quilt_mcp.domain.policy import Permission, Policy
 from quilt_mcp.domain.sso_config import SSOConfig
 from quilt_mcp.backends.protocols.admin import AdminBackendProtocol
 
@@ -74,6 +75,61 @@ __typename
     context
 }}
 """
+
+_INVALID_INPUT_SELECTION = """
+... on InvalidInput {
+    errors {
+        path
+        message
+        name
+        context
+    }
+}
+... on OperationError {
+    message
+    name
+    context
+}
+"""
+
+# Policy.roles is [ManagedRole!]!, a concrete type, so it needs no inline fragment.
+_POLICY_SELECTION = """
+id
+title
+arn
+managed
+permissions {
+    bucket {
+        name
+    }
+    level
+}
+roles {
+    id
+    name
+    arn
+}
+"""
+
+_POLICY_RESULT_SELECTION = f"""
+__typename
+... on Policy {{
+    {_POLICY_SELECTION}
+}}
+{_INVALID_INPUT_SELECTION}
+"""
+
+_ROLE_MUTATION_ERRORS = {
+    "RoleNameExists": "A role with that name already exists",
+    "RoleNameReserved": "That role name is reserved",
+    "RoleNameInvalid": "That role name is invalid",
+    "RoleHasTooManyPoliciesToAttach": "Too many policies to attach to the role",
+    "RoleIsManaged": "Role is managed",
+    "RoleIsUnmanaged": "Role is unmanaged",
+    "RoleNameUsedBySsoConfig": "Role name is used by the SSO configuration",
+    "RoleAssigned": "Role is still assigned to users",
+    "SsoConfigConflict": "Role conflicts with the SSO configuration",
+}
 
 
 class Platform_Admin_Ops(AdminOps):
@@ -875,6 +931,542 @@ class Platform_Admin_Ops(AdminOps):
             logger.error(f"Failed to list roles: {e}")
             self._handle_graphql_error(e, "list roles")
             return []  # pragma: no cover
+
+    # ========================================================================
+    # Policy Management
+    # ========================================================================
+
+    def list_policies(self) -> List[Policy]:
+        """List all policies in the registry."""
+        try:
+            query = (
+                """
+                query PoliciesList {
+                    policies {
+                """
+                + _POLICY_SELECTION
+                + """
+                    }
+                }
+            """
+            )
+
+            result = self._backend.execute_graphql_query(query)
+            policies_data = result.get("data", {}).get("policies", []) or []
+            return [self._transform_graphql_policy(p) for p in policies_data]
+
+        except Exception as e:
+            logger.error(f"Failed to list policies: {e}")
+            self._handle_graphql_error(e, "list policies")
+            return []  # pragma: no cover
+
+    def get_policy(self, id_or_title: str) -> Optional[Policy]:
+        """Get a policy by ID or title. Returns None when it does not exist."""
+        try:
+            if not id_or_title or not id_or_title.strip():
+                raise ValidationError("Policy ID or title cannot be empty")
+
+            query = (
+                """
+                query PolicyGet($id: ID!) {
+                    policy(id: $id) {
+                """
+                + _POLICY_SELECTION
+                + """
+                    }
+                }
+            """
+            )
+
+            # The registry only looks policies up by ID, and `policy(id: ID!)` may
+            # either return null or reject a title outright depending on how strictly
+            # it validates the ID scalar. Both mean "not an ID", so a failed lookup
+            # falls through to the title scan rather than surfacing as an error —
+            # otherwise every title-addressed patch and delete would break.
+            policy_data = None
+            try:
+                result = self._backend.execute_graphql_query(query, variables={"id": id_or_title})
+                policy_data = result.get("data", {}).get("policy")
+            except Exception as e:
+                logger.debug(f"Policy ID lookup failed for {id_or_title!r}, trying title: {e}")
+
+            if policy_data:
+                return self._transform_graphql_policy(policy_data)
+
+            return next((p for p in self.list_policies() if p.title == id_or_title), None)
+
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get policy {id_or_title}: {e}")
+            self._handle_graphql_error(e, f"get policy {id_or_title}")
+            raise  # pragma: no cover
+
+    def create_managed_policy(
+        self,
+        title: str,
+        permissions: List[Permission],
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Create a Quilt-managed policy from a set of bucket permissions."""
+        try:
+            if not title or not title.strip():
+                raise ValidationError("Policy title cannot be empty")
+
+            mutation = (
+                """
+                mutation PolicyCreateManaged($input: ManagedPolicyInput!) {
+                    policyCreateManaged(input: $input) {
+                """
+                + _POLICY_RESULT_SELECTION
+                + """
+                    }
+                }
+            """
+            )
+
+            policy_input = {
+                "title": title,
+                "permissions": [self._to_permission_input(p) for p in permissions],
+                "roles": role_ids or [],
+            }
+
+            result = self._backend.execute_graphql_query(mutation, variables={"input": policy_input})
+            payload = result.get("data", {}).get("policyCreateManaged", {})
+            return self._unwrap_policy_result(payload, f"create managed policy {title}")
+
+        except (ValidationError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to create managed policy {title}: {e}")
+            self._handle_graphql_error(e, f"create managed policy {title}")
+            raise  # pragma: no cover
+
+    def create_unmanaged_policy(self, title: str, arn: str, role_ids: Optional[List[str]] = None) -> Policy:
+        """Create a policy wrapping an existing IAM policy ARN."""
+        try:
+            if not title or not title.strip():
+                raise ValidationError("Policy title cannot be empty")
+            if not arn or not arn.strip():
+                raise ValidationError("Policy ARN cannot be empty")
+
+            mutation = (
+                """
+                mutation PolicyCreateUnmanaged($input: UnmanagedPolicyInput!) {
+                    policyCreateUnmanaged(input: $input) {
+                """
+                + _POLICY_RESULT_SELECTION
+                + """
+                    }
+                }
+            """
+            )
+
+            policy_input = {"title": title, "arn": arn, "roles": role_ids or []}
+
+            result = self._backend.execute_graphql_query(mutation, variables={"input": policy_input})
+            payload = result.get("data", {}).get("policyCreateUnmanaged", {})
+            return self._unwrap_policy_result(payload, f"create unmanaged policy {title}")
+
+        except (ValidationError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to create unmanaged policy {title}: {e}")
+            self._handle_graphql_error(e, f"create unmanaged policy {title}")
+            raise  # pragma: no cover
+
+    def patch_managed_policy(
+        self,
+        id_or_title: str,
+        title: Optional[str] = None,
+        permissions: Optional[List[Permission]] = None,
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Partially update a managed policy; unspecified fields keep their values."""
+        try:
+            current = self._resolve_policy(id_or_title)
+            if not current.managed:
+                raise ValidationError(f"Cannot patch_managed on an unmanaged policy: {id_or_title}")
+
+            mutation = (
+                """
+                mutation PolicyUpdateManaged($id: ID!, $input: ManagedPolicyInput!) {
+                    policyUpdateManaged(id: $id, input: $input) {
+                """
+                + _POLICY_RESULT_SELECTION
+                + """
+                    }
+                }
+            """
+            )
+
+            # policyUpdateManaged replaces the whole policy, so unspecified fields
+            # are refilled from the current one.
+            policy_input = {
+                "title": title if title is not None else current.title,
+                "permissions": [
+                    self._to_permission_input(p)
+                    for p in (permissions if permissions is not None else current.permissions)
+                ],
+                "roles": role_ids if role_ids is not None else list(current.role_ids),
+            }
+
+            result = self._backend.execute_graphql_query(mutation, variables={"id": current.id, "input": policy_input})
+            payload = result.get("data", {}).get("policyUpdateManaged", {})
+            return self._unwrap_policy_result(payload, f"patch managed policy {id_or_title}")
+
+        except (ValidationError, NotFoundError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to patch managed policy {id_or_title}: {e}")
+            self._handle_graphql_error(e, f"patch managed policy {id_or_title}")
+            raise  # pragma: no cover
+
+    def patch_unmanaged_policy(
+        self,
+        id_or_title: str,
+        title: Optional[str] = None,
+        arn: Optional[str] = None,
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Partially update an unmanaged policy; unspecified fields keep their values."""
+        try:
+            current = self._resolve_policy(id_or_title)
+            if current.managed:
+                raise ValidationError(f"Cannot patch_unmanaged on a managed policy: {id_or_title}")
+
+            mutation = (
+                """
+                mutation PolicyUpdateUnmanaged($id: ID!, $input: UnmanagedPolicyInput!) {
+                    policyUpdateUnmanaged(id: $id, input: $input) {
+                """
+                + _POLICY_RESULT_SELECTION
+                + """
+                    }
+                }
+            """
+            )
+
+            policy_input = {
+                "title": title if title is not None else current.title,
+                "arn": arn if arn is not None else current.arn,
+                "roles": role_ids if role_ids is not None else list(current.role_ids),
+            }
+
+            result = self._backend.execute_graphql_query(mutation, variables={"id": current.id, "input": policy_input})
+            payload = result.get("data", {}).get("policyUpdateUnmanaged", {})
+            return self._unwrap_policy_result(payload, f"patch unmanaged policy {id_or_title}")
+
+        except (ValidationError, NotFoundError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to patch unmanaged policy {id_or_title}: {e}")
+            self._handle_graphql_error(e, f"patch unmanaged policy {id_or_title}")
+            raise  # pragma: no cover
+
+    def delete_policy(self, id_or_title: str) -> None:
+        """Delete a policy from the registry."""
+        try:
+            current = self._resolve_policy(id_or_title)
+
+            mutation = (
+                """
+                mutation PolicyDelete($id: ID!) {
+                    policyDelete(id: $id) {
+                        __typename
+                """
+                + _INVALID_INPUT_SELECTION
+                + """
+                    }
+                }
+            """
+            )
+
+            result = self._backend.execute_graphql_query(mutation, variables={"id": current.id})
+            payload = result.get("data", {}).get("policyDelete", {}) or {}
+
+            typename = payload.get("__typename")
+            if typename == "Ok":
+                return
+            error_message = self._extract_result_error(payload)
+            if error_message:
+                if typename == "OperationError":
+                    raise BackendError(f"Failed to delete policy: {error_message}")
+                raise ValidationError(f"Failed to delete policy: {error_message}")
+            # Anything that is not an explicit Ok must raise. Falling through would
+            # report a policy as deleted while it still exists and still grants access.
+            raise BackendError(f"Failed to delete policy: unexpected result {typename or 'no __typename'}")
+
+        except (ValidationError, NotFoundError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to delete policy {id_or_title}: {e}")
+            self._handle_graphql_error(e, f"delete policy {id_or_title}")
+            raise  # pragma: no cover
+
+    # ========================================================================
+    # Role Mutations
+    # ========================================================================
+
+    def get_role(self, id_or_name: str) -> Optional[Role]:
+        """Get a role by ID or name. Returns None when it does not exist."""
+        try:
+            if not id_or_name or not id_or_name.strip():
+                raise ValidationError("Role ID or name cannot be empty")
+
+            query = (
+                """
+                query RoleGet($id: ID!) {
+                    role(id: $id) {
+                """
+                + _ROLE_SELECTION
+                + """
+                    }
+                }
+            """
+            )
+
+            result = self._backend.execute_graphql_query(query, variables={"id": id_or_name})
+            role_data = result.get("data", {}).get("role")
+            if role_data:
+                return self._transform_graphql_role(role_data)
+
+            # role(id:) is ID-only, so a name needs the list.
+            return next((r for r in self.list_roles() if r.name == id_or_name), None)
+
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get role {id_or_name}: {e}")
+            self._handle_graphql_error(e, f"get role {id_or_name}")
+            raise  # pragma: no cover
+
+    def create_managed_role(self, name: str, policy_ids: Optional[List[str]] = None) -> Role:
+        """Create a Quilt-managed role from a set of policy IDs."""
+        try:
+            if not name or not name.strip():
+                raise ValidationError("Role name cannot be empty")
+
+            mutation = (
+                """
+                mutation RoleCreateManaged($input: ManagedRoleInput!) {
+                    roleCreateManaged(input: $input) {
+                        __typename
+                        ... on RoleCreateSuccess {
+                            role {
+                """
+                + _ROLE_SELECTION
+                + """
+                            }
+                        }
+                    }
+                }
+            """
+            )
+
+            role_input = {"name": name, "policies": policy_ids or []}
+
+            result = self._backend.execute_graphql_query(mutation, variables={"input": role_input})
+            payload = result.get("data", {}).get("roleCreateManaged", {})
+            return self._unwrap_role_result(payload, f"create managed role {name}", "RoleCreateSuccess")
+
+        except (ValidationError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to create managed role {name}: {e}")
+            self._handle_graphql_error(e, f"create managed role {name}")
+            raise  # pragma: no cover
+
+    def create_unmanaged_role(self, name: str, arn: str) -> Role:
+        """Create a role wrapping an existing IAM role ARN."""
+        try:
+            if not name or not name.strip():
+                raise ValidationError("Role name cannot be empty")
+            if not arn or not arn.strip():
+                raise ValidationError("Role ARN cannot be empty")
+
+            mutation = (
+                """
+                mutation RoleCreateUnmanaged($input: UnmanagedRoleInput!) {
+                    roleCreateUnmanaged(input: $input) {
+                        __typename
+                        ... on RoleCreateSuccess {
+                            role {
+                """
+                + _ROLE_SELECTION
+                + """
+                            }
+                        }
+                    }
+                }
+            """
+            )
+
+            result = self._backend.execute_graphql_query(mutation, variables={"input": {"name": name, "arn": arn}})
+            payload = result.get("data", {}).get("roleCreateUnmanaged", {})
+            return self._unwrap_role_result(payload, f"create unmanaged role {name}", "RoleCreateSuccess")
+
+        except (ValidationError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to create unmanaged role {name}: {e}")
+            self._handle_graphql_error(e, f"create unmanaged role {name}")
+            raise  # pragma: no cover
+
+    def delete_role(self, id_or_name: str) -> None:
+        """Delete a role from the registry."""
+        try:
+            current = self._resolve_role(id_or_name)
+
+            mutation = """
+                mutation RoleDelete($id: ID!) {
+                    roleDelete(id: $id) {
+                        __typename
+                    }
+                }
+            """
+
+            result = self._backend.execute_graphql_query(mutation, variables={"id": current.id})
+            payload = result.get("data", {}).get("roleDelete", {}) or {}
+
+            typename = payload.get("__typename")
+            if typename == "RoleDeleteSuccess":
+                return
+            if typename == "RoleDoesNotExist":
+                raise NotFoundError(f"Role not found: {id_or_name}")
+            if typename in _ROLE_MUTATION_ERRORS:
+                raise ValidationError(f"Failed to delete role: {_ROLE_MUTATION_ERRORS[typename]}")
+            # Anything that is not an explicit success must raise, or a role that still
+            # exists and still grants access would be reported as deleted.
+            raise BackendError(f"Failed to delete role: unexpected result {typename or 'no __typename'}")
+
+        except (ValidationError, NotFoundError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to delete role {id_or_name}: {e}")
+            self._handle_graphql_error(e, f"delete role {id_or_name}")
+            raise  # pragma: no cover
+
+    def set_default_role(self, id_or_name: str) -> Role:
+        """Set the role assigned to new users by default."""
+        try:
+            current = self._resolve_role(id_or_name)
+
+            mutation = (
+                """
+                mutation RoleSetDefault($id: ID!) {
+                    roleSetDefault(id: $id) {
+                        __typename
+                        ... on RoleSetDefaultSuccess {
+                            role {
+                """
+                + _ROLE_SELECTION
+                + """
+                            }
+                        }
+                    }
+                }
+            """
+            )
+
+            result = self._backend.execute_graphql_query(mutation, variables={"id": current.id})
+            payload = result.get("data", {}).get("roleSetDefault", {})
+            return self._unwrap_role_result(payload, f"set default role {id_or_name}", "RoleSetDefaultSuccess")
+
+        except (ValidationError, NotFoundError, BackendError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to set default role {id_or_name}: {e}")
+            self._handle_graphql_error(e, f"set default role {id_or_name}")
+            raise  # pragma: no cover
+
+    # ========================================================================
+    # Policy / role helpers
+    # ========================================================================
+
+    def _resolve_policy(self, id_or_title: str) -> Policy:
+        """Resolve a policy by ID or title, raising NotFoundError when absent."""
+        policy = self.get_policy(id_or_title)
+        if policy is None:
+            raise NotFoundError(f"Policy not found: {id_or_title}")
+        return policy
+
+    def _resolve_role(self, id_or_name: str) -> Role:
+        """Resolve a role by ID or name, raising NotFoundError when absent."""
+        role = self.get_role(id_or_name)
+        if role is None:
+            raise NotFoundError(f"Role not found: {id_or_name}")
+        return role
+
+    def _to_permission_input(self, permission: Permission) -> Dict[str, Any]:
+        """Convert a domain Permission to a GraphQL PermissionInput."""
+        return {"bucket": permission.bucket, "level": permission.level}
+
+    def _unwrap_policy_result(self, payload: Dict[str, Any], operation: str) -> Policy:
+        """Turn a PolicyResult union into a domain Policy or the matching exception."""
+        if not isinstance(payload, dict) or not payload:
+            raise BackendError(f"Failed to {operation}: No policy data returned")
+
+        typename = payload.get("__typename")
+        error_message = self._extract_result_error(payload)
+        if error_message:
+            if typename == "OperationError":
+                raise BackendError(f"Failed to {operation}: {error_message}")
+            raise ValidationError(f"Failed to {operation}: {error_message}")
+
+        # Require the success typename rather than treating an unknown one as success:
+        # a payload missing __typename would otherwise transform into an empty Policy
+        # and be reported as a policy that was never created.
+        if typename != "Policy":
+            raise BackendError(f"Failed to {operation}: unexpected result {typename or 'no __typename'}")
+
+        return self._transform_graphql_policy(payload)
+
+    def _unwrap_role_result(self, payload: Dict[str, Any], operation: str, success_typename: str) -> Role:
+        """Turn a role mutation union into a domain Role or the matching exception."""
+        if not isinstance(payload, dict) or not payload:
+            raise BackendError(f"Failed to {operation}: No role data returned")
+
+        typename = payload.get("__typename")
+        if typename == "RoleDoesNotExist":
+            raise NotFoundError(f"Failed to {operation}: role does not exist")
+        if typename in _ROLE_MUTATION_ERRORS:
+            raise ValidationError(f"Failed to {operation}: {_ROLE_MUTATION_ERRORS[typename]}")
+
+        role_data = payload.get("role")
+        if not isinstance(role_data, dict):
+            raise BackendError(f"Failed to {operation}: No role data returned")
+        if typename and typename != success_typename:
+            raise BackendError(f"Failed to {operation}: unexpected result {typename}")
+
+        return self._transform_graphql_role(role_data)
+
+    def _transform_graphql_policy(self, policy_data: Dict[str, Any]) -> Policy:
+        """Transform a GraphQL Policy selection into the domain Policy object."""
+        try:
+            # No default for `level`: it is the security-relevant field. A missing or
+            # unrecognized level must fail loudly rather than be reported as READ —
+            # a silent downgrade would tell an admin a policy is read-only, and would
+            # then be written back to the registry by a patch that refills from
+            # current values.
+            permissions = [
+                Permission(
+                    bucket=(p.get("bucket") or {}).get("name", ""),
+                    level=p["level"],
+                )
+                for p in policy_data.get("permissions") or []
+            ]
+            return Policy(
+                id=policy_data.get("id"),
+                title=policy_data.get("title", ""),
+                arn=policy_data.get("arn"),
+                managed=bool(policy_data.get("managed", False)),
+                permissions=permissions,
+                role_ids=[r["id"] for r in policy_data.get("roles") or [] if r.get("id")],
+            )
+        except Exception as e:
+            logger.error(f"Failed to transform GraphQL policy to domain object: {e}")
+            raise BackendError(f"Failed to transform policy data: {str(e)}")
 
     def get_sso_config(self) -> Optional[SSOConfig]:
         """Get the current SSO configuration.

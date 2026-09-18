@@ -11,6 +11,7 @@ from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 from ..domain.user import User
 from ..domain.role import Role
+from ..domain.policy import Permission, Policy
 from ..domain.sso_config import SSOConfig
 
 
@@ -336,3 +337,87 @@ class AdminOps(ABC):
             PermissionError: When user lacks admin privileges to modify SSO configuration
         """
         pass
+
+    # ------------------------------------------------------------------
+    # Policy operations
+    #
+    # Policies carry the bucket-level permissions that roles attach and users
+    # inherit, so these complete the access model the user/role methods above
+    # can otherwise only read.
+    #
+    # Deliberately not @abstractmethod: a backend that cannot reach the policy
+    # API stays instantiable and reports the gap per-call instead of failing to
+    # construct. Callers get OperationNotSupportedError, which surfaces as a
+    # clear tool error.
+    # ------------------------------------------------------------------
+
+    def list_policies(self) -> List[Policy]:
+        """List all policies in the registry."""
+        raise NotImplementedError("list_policies is not supported by this backend")
+
+    def get_policy(self, id_or_title: str) -> Optional[Policy]:
+        """Get a policy by ID or title. Returns None when it does not exist."""
+        raise NotImplementedError("get_policy is not supported by this backend")
+
+    def create_managed_policy(
+        self,
+        title: str,
+        permissions: List[Permission],
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Create a Quilt-managed policy from a set of bucket permissions."""
+        raise NotImplementedError("create_managed_policy is not supported by this backend")
+
+    def create_unmanaged_policy(self, title: str, arn: str, role_ids: Optional[List[str]] = None) -> Policy:
+        """Create a policy wrapping an existing IAM policy ARN."""
+        raise NotImplementedError("create_unmanaged_policy is not supported by this backend")
+
+    def patch_managed_policy(
+        self,
+        id_or_title: str,
+        title: Optional[str] = None,
+        permissions: Optional[List[Permission]] = None,
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Partially update a managed policy; unspecified fields keep their values."""
+        raise NotImplementedError("patch_managed_policy is not supported by this backend")
+
+    def patch_unmanaged_policy(
+        self,
+        id_or_title: str,
+        title: Optional[str] = None,
+        arn: Optional[str] = None,
+        role_ids: Optional[List[str]] = None,
+    ) -> Policy:
+        """Partially update an unmanaged policy; unspecified fields keep their values."""
+        raise NotImplementedError("patch_unmanaged_policy is not supported by this backend")
+
+    def delete_policy(self, id_or_title: str) -> None:
+        """Delete a policy from the registry."""
+        raise NotImplementedError("delete_policy is not supported by this backend")
+
+    # ------------------------------------------------------------------
+    # Role mutations
+    #
+    # list_roles() above is read-only; these make the role set editable.
+    # ------------------------------------------------------------------
+
+    def get_role(self, id_or_name: str) -> Optional[Role]:
+        """Get a role by ID or name. Returns None when it does not exist."""
+        raise NotImplementedError("get_role is not supported by this backend")
+
+    def create_managed_role(self, name: str, policy_ids: Optional[List[str]] = None) -> Role:
+        """Create a Quilt-managed role from a set of policy IDs."""
+        raise NotImplementedError("create_managed_role is not supported by this backend")
+
+    def create_unmanaged_role(self, name: str, arn: str) -> Role:
+        """Create a role wrapping an existing IAM role ARN."""
+        raise NotImplementedError("create_unmanaged_role is not supported by this backend")
+
+    def delete_role(self, id_or_name: str) -> None:
+        """Delete a role from the registry."""
+        raise NotImplementedError("delete_role is not supported by this backend")
+
+    def set_default_role(self, id_or_name: str) -> Role:
+        """Set the role assigned to new users by default."""
+        raise NotImplementedError("set_default_role is not supported by this backend")
