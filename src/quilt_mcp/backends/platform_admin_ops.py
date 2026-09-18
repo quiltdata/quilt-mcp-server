@@ -1226,12 +1226,22 @@ class Platform_Admin_Ops(AdminOps):
             """
             )
 
-            result = self._backend.execute_graphql_query(query, variables={"id": id_or_name})
-            role_data = result.get("data", {}).get("role")
+            # role(id: ID!) is ID-only and may either return null or reject a name
+            # outright, depending on how strictly the registry validates the ID
+            # scalar. Both mean "not an ID", so a failed lookup falls through to the
+            # name scan rather than surfacing as an error — otherwise every
+            # name-addressed get, delete and set_default would break. Same reasoning
+            # as get_policy.
+            role_data = None
+            try:
+                result = self._backend.execute_graphql_query(query, variables={"id": id_or_name})
+                role_data = result.get("data", {}).get("role")
+            except Exception as e:
+                logger.debug(f"Role ID lookup failed for {id_or_name!r}, trying name: {e}")
+
             if role_data:
                 return self._transform_graphql_role(role_data)
 
-            # role(id:) is ID-only, so a name needs the list.
             return next((r for r in self.list_roles() if r.name == id_or_name), None)
 
         except ValidationError:

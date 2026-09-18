@@ -9,6 +9,7 @@ but until now only ever saw synthetic ``auth.*`` entries.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from typing import Any
@@ -22,6 +23,51 @@ try:
 except ImportError:  # pragma: no cover - older fastmcp without middleware
     Middleware = object  # type: ignore[assignment,misc]
     MIDDLEWARE_AVAILABLE = False
+
+
+def _distinct_id() -> str:
+    """The Quilt user this call belongs to, or a stable anonymous stand-in.
+
+    Mixpanel joins MCP events to catalog events on this property, so a literal
+    "anonymous" for every authenticated call would make the whole comparison
+    impossible. When identity cannot be resolved — stdio with no JWT, or claims
+    without an id — the access token's hash stands in, so one unidentified caller
+    stays one distinct_id instead of collapsing everyone into a single user. The
+    token itself never leaves this function.
+    """
+    try:
+        from quilt_mcp.context.runtime_context import get_runtime_auth
+        from quilt_mcp.context.user_extraction import extract_user_id
+
+        auth = get_runtime_auth()
+        user_id = extract_user_id(auth)
+        if user_id:
+            return user_id
+        token = getattr(auth, "access_token", None)
+        if token:
+            return "anon-" + hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+    except Exception:  # noqa: BLE001 — telemetry must never surface
+        pass
+    return "anonymous"
+
+
+def _returned_failure(result: Any) -> str | None:
+    """Error type for a tool that reported failure by returning, not raising.
+
+    Most tools here catch their own exceptions and return this repo's standard
+    ``{"success": False, "error": ...}`` (``utils.common.format_error_response``).
+    Treating only a raised exception as failure books those as successes, which
+    would put the success rate near 100% no matter how badly a tool was doing.
+    Returns None when the result is not a self-reported failure.
+    """
+    payload = result
+    # fastmcp wraps a tool's return value; the dict is on structured_content.
+    structured = getattr(result, "structured_content", None)
+    if structured is not None:
+        payload = structured
+    if isinstance(payload, dict) and payload.get("success") is False:
+        return "ToolReportedFailure"
+    return None
 
 
 def _client_info(context: Any) -> tuple[str, str]:
@@ -50,28 +96,38 @@ class UsageTelemetryMiddleware(Middleware):
         # catching Exception would book every cancelled or client-disconnected call as
         # a success and make the slowest tools look the healthiest.
         error: BaseException | None = None
+        returned_error: str | None = None
         try:
-            return await call_next(context)
+            result = await call_next(context)
+            returned_error = _returned_failure(result)
+            return result
         except BaseException as exc:
             error = exc
             raise
         finally:
             elapsed = time.perf_counter() - started
             try:
+                error_type = type(error).__name__ if error else returned_error
                 mixpanel.track_tool_call(
                     tool_name=tool_name,
                     execution_time=elapsed,
-                    success=error is None,
-                    error_type=type(error).__name__ if error else None,
+                    success=error_type is None,
+                    error_type=error_type,
+                    distinct_id=_distinct_id(),
                     client_name=client_name,
                     client_version=client_version,
                 )
-                _record_to_collector(tool_name, elapsed, error)
+                _record_to_collector(tool_name, elapsed, error, returned_error)
             except Exception as exc:  # noqa: BLE001 — telemetry must never surface
                 logger.debug("Usage telemetry failed for %s: %s", tool_name, exc)
 
 
-def _record_to_collector(tool_name: str, elapsed: float, error: BaseException | None) -> None:
+def _record_to_collector(
+    tool_name: str,
+    elapsed: float,
+    error: BaseException | None,
+    returned_error: str | None = None,
+) -> None:
     """Mirror the call into the local TelemetryCollector session history."""
     from quilt_mcp.telemetry.collector import get_telemetry_collector
 
@@ -80,7 +136,7 @@ def _record_to_collector(tool_name: str, elapsed: float, error: BaseException | 
         tool_name=tool_name,
         args={},  # args are hashed by the collector; not needed for usage counts
         execution_time=elapsed,
-        success=error is None,
+        success=error is None and returned_error is None,
         # The collector's signature takes an Exception. A BaseException such as
         # CancelledError still counts as a failure via success=False; only its class
         # name is dropped here, and the Mixpanel event carries it.

@@ -36,6 +36,10 @@ _executor: ThreadPoolExecutor | None = None
 # which would make the atexit drain miss an event. Bounded so a stalled endpoint
 # cannot grow the list for the life of the process.
 _INFLIGHT_MAX = 256
+# How many un-finished sends may be outstanding before new events are dropped. Lower
+# than _INFLIGHT_MAX so the drop is decided by this limit rather than by the deque
+# silently evicting a future we still needed to wait on.
+_PENDING_MAX = 128
 _inflight: deque = deque(maxlen=_INFLIGHT_MAX)
 _inflight_lock = threading.Lock()
 
@@ -133,12 +137,21 @@ def track_tool_call(
         },
     }
     try:
-        future = _get_executor().submit(_post, event)
         with _inflight_lock:
             pending = [f for f in _inflight if not f.done()]
             _inflight.clear()
             _inflight.extend(pending)
-            _inflight.append(future)
+            # The deque's maxlen bounds what we hold references to, not what the
+            # executor has queued: dropping a reference neither cancels the future nor
+            # removes it from the pool's unbounded work queue. So an endpoint that
+            # stalls past the workers' 5s timeout would keep accepting events, growing
+            # the pool's queue for the life of the process and making the atexit drain
+            # wait on the whole backlog. Past the bound the event is dropped instead —
+            # usage counts are worth less than the process staying healthy.
+            if len(pending) >= _PENDING_MAX:
+                logger.debug("Mixpanel backlog at %d; dropping event", len(pending))
+                return
+            _inflight.append(_get_executor().submit(_post, event))
     except Exception as exc:  # noqa: BLE001
         logger.debug("Mixpanel queue failed: %s", exc)
 
